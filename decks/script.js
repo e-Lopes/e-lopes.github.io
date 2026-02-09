@@ -256,7 +256,7 @@ async function saveDeck(editId = null) {
     
     // Validar formato do código
     if (!isValidDeckCode(deckCode)) {
-        showError('Formato de código inválido. Use: SET-NÚMERO (ex: BT16-064, ST22-05, EX5-001)');
+        showError('Invalid code format. Use: SET-NUMBER (ex: BT16-064, ST22-05, EX5-001)Formato de código inválido. Use: SET-NÚMERO (ex: BT16-064, ST22-05, EX5-001)');
         return;
     }
     

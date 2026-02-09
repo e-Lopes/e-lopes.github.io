@@ -497,39 +497,63 @@
         }
 
         async function deleteDeck(deckId, deckName) {
-            if (!confirm(`Are you sure you want to delete the deck "${deckName}"?\n\nThis action cannot be undone.`)) {
+        try {
+            showLoading(true);
+            
+            // 1. Verificar se há torneios vinculados a este deck
+            const tournamentsRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournaments?deck_id=eq.${deckId}&select=id,title`,
+                { headers }
+            );
+            
+            const tournaments = await tournamentsRes.json();
+            
+            if (tournaments && tournaments.length > 0) {
+                // Montar mensagem com detalhes dos torneios
+                let tournamentList = '';
+                tournaments.forEach((tournament, index) => {
+                    tournamentList += `${index + 1}. ${tournament.title}\n`;
+                });
+                
+                const message = `Cannot delete deck "${deckName}" because it is linked to ${tournaments.length} tournament(s):\n\n${tournamentList}\n\nPlease unlink this deck from tournaments before deleting.`;
+                
+                showLoading(false);
+                alert(message);
                 return;
             }
             
-            try {
-                showLoading(true);
-                
-                // Primeiro excluir a imagem associada
-                await fetch(`${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}`, {
-                    method: 'DELETE',
-                    headers: headers
-                });
-                
-                // Depois excluir o deck
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, {
-                    method: 'DELETE',
-                    headers: headers
-                });
-                
-                if (res.ok) {
-                    alert('Successfully deleted deck!');
-                    loadDecks(); // Recarregar a lista
-                } else {
-                    throw new Error('Error deleting deck');
-                }
-                
-            } catch (error) {
-                console.error('Error deleting deck:', error);
-                alert('Error deleting deck. Check if there are no tournaments using this deck.');
-            } finally {
+            // 2. Se não houver torneios, pedir confirmação
+            if (!confirm(`Are you sure you want to delete the deck "${deckName}"?\n\nThis action cannot be undone.`)) {
                 showLoading(false);
+                return;
             }
+            
+            // 3. Primeiro excluir a imagem associada (se existir)
+            await fetch(`${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}`, {
+                method: 'DELETE',
+                headers: headers
+            });
+            
+            // 4. Depois excluir o deck
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, {
+                method: 'DELETE',
+                headers: headers
+            });
+            
+            if (res.ok) {
+                alert('Successfully deleted deck!');
+                loadDecks(); // Recarregar a lista
+            } else {
+                throw new Error('Error deleting deck');
+            }
+            
+        } catch (error) {
+            console.error('Error deleting deck:', error);
+            alert('Error deleting deck. Please try again.');
+        } finally {
+            showLoading(false);
         }
+    }
 
         function editDeck(deckId) {
             window.location.href = `cadastro.html?edit=${deckId}`;
