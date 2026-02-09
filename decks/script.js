@@ -359,9 +359,9 @@ async function createDeck(deckName, imageUrl) {
         }
         
         const newImage = (await imageRes.json())[0];
-        console.log('Imagem criada:', newImage);
+        console.log('Image created:', newImage);
         
-        showSuccess('Deck criado com sucesso!');
+        showSuccess('Deck created successfully!');
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 1500);
