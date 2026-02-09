@@ -100,8 +100,7 @@ h1 {
 }
 
 .content {
-    display: grid;
-    grid-template-columns: 300px 1fr;
+    display: flex;
     gap: 30px;
 }
 
@@ -110,6 +109,8 @@ h1 {
     padding: 20px;
     border-radius: 10px;
     height: fit-content;
+    min-width: 250px;
+    flex-shrink: 0;
 }
 
 .positions-list h2 {
@@ -144,15 +145,16 @@ h1 {
 }
 
 .decks-display {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 20px;
+    flex: 1;
     align-content: flex-start;
 }
 
 .deck-card {
     position: relative;
-    width: 280px;
+    width: 100%;
     border-radius: 15px;
     overflow: hidden;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -270,16 +272,11 @@ h1 {
 /* Responsive Design */
 @media (max-width: 1024px) {
     .content {
-        grid-template-columns: 1fr;
-    }
-
-    .positions-list {
-        order: 2;
+        flex-direction: column;
     }
 
     .decks-display {
-        order: 1;
-        justify-content: center;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
 }
 
@@ -296,13 +293,8 @@ h1 {
         font-size: 2em;
     }
 
-    .deck-card {
-        width: 100%;
-        max-width: 350px;
-    }
-
     .decks-display {
-        justify-content: center;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     }
 }
 
@@ -315,7 +307,7 @@ h1 {
         font-size: 1.5em;
     }
 
-    .deck-card {
-        width: 100%;
+    .decks-display {
+        grid-template-columns: 1fr;
     }
 }
