@@ -28,52 +28,82 @@ document.addEventListener('DOMContentLoaded', () => {
 function updateImagePreview() {
     try {
         const deckCodeInput = document.getElementById('deckCode');
-        const deckImagePreview = document.getElementById('deckImagePreview');
-        const urlDisplay = document.getElementById('imageUrlDisplay');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewImage = document.getElementById('previewImage');
+        const imageUrlDisplay = document.getElementById('imageUrlDisplay');
         const generatedUrlSpan = document.getElementById('generatedUrl');
         
         if (!deckCodeInput) {
-            console.warn('Input deckCode não encontrado');
+            console.warn('❌ Input deckCode não encontrado');
             return;
         }
         
         const code = deckCodeInput.value.trim().toUpperCase();
         
+        console.log('🔍 Código digitado:', code);
+        console.log('✅ Código válido?', isValidDeckCode(code));
+        
         if (code && isValidDeckCode(code)) {
             const imageUrl = IMAGE_BASE_URL + code + ".webp";
             
+            console.log('🖼️ URL gerada:', imageUrl);
+            
             // Atualizar preview da imagem
-            if (deckImagePreview) {
-                deckImagePreview.src = imageUrl;
-                deckImagePreview.style.display = 'block';
-                deckImagePreview.alt = `Card: ${code}`;
+            if (previewImage && imagePreview) {
+                previewImage.src = imageUrl;
+                previewImage.alt = `Card: ${code}`;
+                imagePreview.classList.add('active');
                 
-                deckImagePreview.onerror = () => {
-                    console.warn(`Imagem não encontrada: ${code}`);
-                    deckImagePreview.style.display = 'none';
+                previewImage.onerror = () => {
+                    console.warn(`⚠️ Imagem não encontrada: ${code}`);
+                    imagePreview.classList.remove('active');
+                };
+                
+                previewImage.onload = () => {
+                    console.log('✅ Imagem carregada com sucesso!');
                 };
             }
             
             // Atualizar display da URL
-            if (urlDisplay && generatedUrlSpan) {
+            if (imageUrlDisplay && generatedUrlSpan) {
                 generatedUrlSpan.textContent = imageUrl;
-                urlDisplay.style.display = 'block';
+                imageUrlDisplay.classList.add('active');
             }
             
-            console.log('🖼️ Preview atualizado para:', code);
+            console.log('✅ Preview atualizado para:', code);
         } else {
             // Esconder preview se código inválido ou vazio
-            if (deckImagePreview) {
-                deckImagePreview.style.display = 'none';
-                deckImagePreview.src = '';
+            if (imagePreview) {
+                imagePreview.classList.remove('active');
             }
-            if (urlDisplay) {
-                urlDisplay.style.display = 'none';
+            if (previewImage) {
+                previewImage.src = '';
+            }
+            if (imageUrlDisplay) {
+                imageUrlDisplay.classList.remove('active');
+            }
+            
+            if (code) {
+                console.log('⚠️ Código inválido:', code);
             }
         }
     } catch (error) {
-        console.error('Erro em updateImagePreview:', error);
+        console.error('❌ Erro em updateImagePreview:', error);
     }
+}
+
+// ========== VALIDAÇÃO DO CÓDIGO DO DECK ==========
+function isValidDeckCode(code) {
+    // Valida formatos comuns: BT16-064, EX5-001, ST17-01, P-001, BT24-030
+    const pattern = /^[A-Z]{1,3}\d{1,2}-\d{2,3}$/;
+    const isValid = pattern.test(code);
+    
+    if (!isValid && code) {
+        console.log('🔍 Regex não passou. Código:', code);
+        console.log('📋 Exemplos válidos: BT24-030, ST22-05, EX5-001');
+    }
+    
+    return isValid;
 }
 
 // ========== FUNÇÕES PARA LISTAGEM DE DECKS ==========
@@ -216,23 +246,34 @@ function setupCadastroForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('edit');
     
-    console.log('SetupCadastroForm chamado. Edit ID:', editId);
+    console.log('🚀 SetupCadastroForm chamado. Edit ID:', editId);
     
     if (editId) {
-        console.log('Edit mode detected, loading deck:', editId);
+        console.log('✏️ Edit mode detected, loading deck:', editId);
         loadDeckForEdit(editId);
     }
     
     // Atualizar preview ao digitar
     if (deckCodeInput) {
-        deckCodeInput.addEventListener('input', function() {
+        console.log('✅ Event listeners configurados no deckCode input');
+        
+        deckCodeInput.addEventListener('input', function(e) {
+            console.log('⌨️ Input event disparado. Valor:', e.target.value);
             this.value = this.value.toUpperCase();
             updateImagePreview();
         });
         
-        deckCodeInput.addEventListener('change', function() {
+        deckCodeInput.addEventListener('change', function(e) {
+            console.log('🔄 Change event disparado. Valor:', e.target.value);
             updateImagePreview();
         });
+        
+        deckCodeInput.addEventListener('keyup', function(e) {
+            console.log('⬆️ KeyUp event disparado. Valor:', e.target.value);
+            updateImagePreview();
+        });
+    } else {
+        console.error('❌ Input deckCode não encontrado!');
     }
     
     // Submissão do formulário
@@ -324,9 +365,7 @@ async function loadDeckForEdit(deckId) {
             
             // Chamar updateImagePreview após um pequeno delay
             setTimeout(() => {
-                if (typeof updateImagePreview === 'function') {
-                    updateImagePreview();
-                }
+                updateImagePreview();
             }, 100);
         }
         
@@ -391,12 +430,6 @@ async function saveDeck(editId = null) {
         showError('Error saving deck. Try Again.');
         showLoading(false);
     }
-}
-
-function isValidDeckCode(code) {
-    // Valida formatos comuns: BT16-064, EX5-001, ST17-01, P-001
-    const pattern = /^[A-Z]{1,3}\d{1,2}-\d{2,3}$/;
-    return pattern.test(code);
 }
 
 async function createDeck(deckName, imageUrl) {
