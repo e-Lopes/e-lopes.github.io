@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tournament Reports - Digimon TCG</title>
+    <title>Tournament Report - Digimon TCG</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,31 +16,59 @@
         <div class="filters">
             <div class="filter-group">
                 <label for="storeFilter">1) Store Name</label>
-                <select id="storeFilter">
-                    <option value="">All Stores</option>
+                <select id="storeFilter" required>
+                    <option value="">Select a store...</option>
                 </select>
             </div>
 
             <div class="filter-group">
                 <label for="dateFilter">2) Tournament Date</label>
-                <input type="text" id="dateFilter" placeholder="Digite para pesquisar...">
+                <select id="dateFilter" disabled>
+                    <option value="">Select a date...</option>
+                </select>
             </div>
 
             <div class="total-players">
                 <label>TOTAL PLAYERS</label>
-                <div class="total-number" id="totalPlayers">0</div>
+                <div class="total-number" id="totalPlayers">-</div>
             </div>
         </div>
 
-        <div class="content">
-            <div class="positions-list">
-                <h2>Positions</h2>
-                <div id="positionsList"></div>
+        <div class="podium-container">
+            <div class="podium-card second-place" id="secondPlace">
+                <div class="rank-badge silver">2</div>
+                <div class="card-image-wrapper">
+                    <img src="" alt="2nd Place" class="deck-card-image">
+                </div>
+                <div class="deck-card-footer silver-bg">
+                    <span class="deck-name">-</span>
+                </div>
             </div>
 
-            <div class="decks-display">
-                <div id="decksContainer"></div>
+            <div class="podium-card first-place" id="firstPlace">
+                <div class="rank-badge gold">1</div>
+                <div class="card-image-wrapper">
+                    <img src="" alt="1st Place" class="deck-card-image">
+                </div>
+                <div class="deck-card-footer gold-bg">
+                    <span class="deck-name">-</span>
+                </div>
             </div>
+
+            <div class="podium-card third-place" id="thirdPlace">
+                <div class="rank-badge bronze">3</div>
+                <div class="card-image-wrapper">
+                    <img src="" alt="3rd Place" class="deck-card-image">
+                </div>
+                <div class="deck-card-footer bronze-bg">
+                    <span class="deck-name">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="positions-section">
+            <h2>Full Results</h2>
+            <div class="positions-grid" id="positionsList"></div>
         </div>
 
         <div class="loading" id="loading">
