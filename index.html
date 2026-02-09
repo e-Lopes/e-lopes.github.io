@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Reports - Digimon TCG</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Tournament Report</h1>
+            <p class="subtitle">Digimon TCG Tournament Results</p>
+        </header>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="storeFilter">1) Store Name</label>
+                <select id="storeFilter">
+                    <option value="">All Stores</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="dateFilter">2) Tournament Date</label>
+                <input type="text" id="dateFilter" placeholder="Digite para pesquisar...">
+            </div>
+
+            <div class="total-players">
+                <label>TOTAL PLAYERS</label>
+                <div class="total-number" id="totalPlayers">0</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="positions-list">
+                <h2>Positions</h2>
+                <div id="positionsList"></div>
+            </div>
+
+            <div class="decks-display">
+                <div id="decksContainer"></div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading tournament data...</p>
+        </div>
+
+        <div class="error-message" id="errorMessage" style="display: none;">
+            <p>Erro ao carregar dados. Verifique a conexão com o Google Sheets.</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
