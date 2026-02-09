@@ -106,6 +106,10 @@ h1 {
 }
 
 /* PÓDIO */
+.podium-card {
+    display: none;
+}
+
 .podium-container {
     display: flex;
     justify-content: center;
@@ -423,4 +427,5 @@ h1 {
     .podium-card {
         max-width: 100%;
     }
+}
 }
