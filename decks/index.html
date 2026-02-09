@@ -500,29 +500,28 @@
             try {
                 showLoading(true);
                 
-                // 1. Verificar se há torneios vinculados a este deck
-                const tournamentsRes = await fetch(
-                    `${SUPABASE_URL}/rest/v1/tournaments?deck_id=eq.${deckId}&select=id,title`,
+                // 1. Verificar se há resultados de torneio vinculados a este deck
+                const tournamentResultsRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/tournament_results?deck_id=eq.${deckId}`,
                     { headers }
                 );
                 
-                const tournaments = await tournamentsRes.json();
+                if (!tournamentResultsRes.ok) {
+                    throw new Error(`HTTP ${tournamentResultsRes.status}: ${await tournamentResultsRes.text()}`);
+                }
                 
-                if (tournaments && tournaments.length > 0) {
-                    // Montar mensagem com detalhes dos torneios
-                    let tournamentList = '';
-                    tournaments.forEach((tournament, index) => {
-                        tournamentList += `${index + 1}. ${tournament.title}\n`;
-                    });
-                    
-                    const message = `Cannot delete deck "${deckName}" because it is linked to ${tournaments.length} tournament(s):\n\n${tournamentList}\n\nPlease unlink this deck from tournaments before deleting.`;
-                    
+                const tournamentResults = await tournamentResultsRes.json();
+                
+                if (tournamentResults && tournamentResults.length > 0) {
                     showLoading(false);
+                    
+                    const message = `Cannot delete deck "${deckName}" because it has ${tournamentResults.length} tournament result(s) recorded.\n\nPlease delete the tournament results first or contact support.`;
+                    
                     alert(message);
                     return;
                 }
                 
-                // 2. Se não houver torneios, pedir confirmação
+                // 2. Se não houver resultados, pedir confirmação
                 if (!confirm(`Are you sure you want to delete the deck "${deckName}"?\n\nThis action cannot be undone.`)) {
                     showLoading(false);
                     return;
@@ -556,6 +555,7 @@
         }
 
         function editDeck(deckId) {
+            console.log('Editing deck:', deckId);
             window.location.href = `cadastro.html?edit=${deckId}`;
         }
 

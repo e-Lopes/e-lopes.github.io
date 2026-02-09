@@ -8,7 +8,7 @@ const headers = {
 };
 
 // URL base para as imagens
-const IMAGE_BASE_URL = "https://deckbuilder.egmanevents.com//card_images/digimon/";
+const IMAGE_BASE_URL = "https://deckbuilder.egmanevents.com/card_images/digimon/";
 
 // Detecta em qual página estamos
 const isListPage = window.location.pathname.includes('decks/index.html') || 
@@ -23,6 +23,58 @@ document.addEventListener('DOMContentLoaded', () => {
         setupCadastroForm();
     }
 });
+
+// ========== FUNÇÃO PARA ATUALIZAR PREVIEW DA IMAGEM ==========
+function updateImagePreview() {
+    try {
+        const deckCodeInput = document.getElementById('deckCode');
+        const deckImagePreview = document.getElementById('deckImagePreview');
+        const urlDisplay = document.getElementById('imageUrlDisplay');
+        const generatedUrlSpan = document.getElementById('generatedUrl');
+        
+        if (!deckCodeInput) {
+            console.warn('Input deckCode não encontrado');
+            return;
+        }
+        
+        const code = deckCodeInput.value.trim().toUpperCase();
+        
+        if (code && isValidDeckCode(code)) {
+            const imageUrl = IMAGE_BASE_URL + code + ".webp";
+            
+            // Atualizar preview da imagem
+            if (deckImagePreview) {
+                deckImagePreview.src = imageUrl;
+                deckImagePreview.style.display = 'block';
+                deckImagePreview.alt = `Card: ${code}`;
+                
+                deckImagePreview.onerror = () => {
+                    console.warn(`Imagem não encontrada: ${code}`);
+                    deckImagePreview.style.display = 'none';
+                };
+            }
+            
+            // Atualizar display da URL
+            if (urlDisplay && generatedUrlSpan) {
+                generatedUrlSpan.textContent = imageUrl;
+                urlDisplay.style.display = 'block';
+            }
+            
+            console.log('🖼️ Preview atualizado para:', code);
+        } else {
+            // Esconder preview se código inválido ou vazio
+            if (deckImagePreview) {
+                deckImagePreview.style.display = 'none';
+                deckImagePreview.src = '';
+            }
+            if (urlDisplay) {
+                urlDisplay.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Erro em updateImagePreview:', error);
+    }
+}
 
 // ========== FUNÇÕES PARA LISTAGEM DE DECKS ==========
 async function loadDecks() {
@@ -96,48 +148,47 @@ async function deleteDeck(deckId, deckName) {
     try {
         showLoading(true);
         
-        // 1. Verificar se há torneios vinculados a este deck
-        const tournamentsRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/tournaments?deck_id=eq.${deckId}&select=id,title`,
+        // 1. Verificar se há resultados de torneio vinculados a este deck
+        const tournamentResultsRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/tournament_results?deck_id=eq.${deckId}`,
             { headers }
         );
         
-        const tournaments = await tournamentsRes.json();
+        if (!tournamentResultsRes.ok) {
+            throw new Error(`HTTP ${tournamentResultsRes.status}: ${await tournamentResultsRes.text()}`);
+        }
         
-        if (tournaments && tournaments.length > 0) {
-            // Montar mensagem com detalhes dos torneios
-            let tournamentList = '';
-            tournaments.forEach((tournament, index) => {
-                tournamentList += `${index + 1}. ${tournament.title}\n`;
-            });
-            
-            const message = `Cannot delete deck "${deckName}" because it is linked to ${tournaments.length} tournament(s):\n\n${tournamentList}\n\nPlease unlink this deck from tournaments before deleting.`;
-            
+        const tournamentResults = await tournamentResultsRes.json();
+        
+        if (tournamentResults && tournamentResults.length > 0) {
             showLoading(false);
+            
+            const message = `Cannot delete deck "${deckName}" because it has ${tournamentResults.length} tournament result(s) recorded.\n\nPlease delete the tournament results first or contact support.`;
+            
             alert(message);
             return;
         }
         
-        // 2. Se não houver torneios, pedir confirmação
+        // 2. Se não houver resultados, pedir confirmação
         if (!confirm(`Are you sure you want to delete the deck "${deckName}"?\n\nThis action cannot be undone.`)) {
             showLoading(false);
             return;
         }
-
-        // Primeiro excluir a imagem associada
+        
+        // 3. Primeiro excluir a imagem associada (se existir)
         await fetch(`${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}`, {
             method: 'DELETE',
             headers: headers
         });
         
-        // Depois excluir o deck
+        // 4. Depois excluir o deck
         const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, {
             method: 'DELETE',
             headers: headers
         });
         
         if (res.ok) {
-            alert('Deck excluído com sucesso!');
+            alert('Successfully deleted deck!');
             loadDecks(); // Recarregar a lista
         } else {
             throw new Error('Error deleting deck');
@@ -145,13 +196,14 @@ async function deleteDeck(deckId, deckName) {
         
     } catch (error) {
         console.error('Error deleting deck:', error);
-        alert('Error deleting deck. Check that there are no tournaments using this deck.');
+        alert('Error deleting deck. Please try again.');
     } finally {
         showLoading(false);
     }
 }
 
 function editDeck(deckId) {
+    console.log('Editing deck:', deckId);
     window.location.href = `cadastro.html?edit=${deckId}`;
 }
 
@@ -159,105 +211,141 @@ function editDeck(deckId) {
 function setupCadastroForm() {
     const form = document.getElementById('deckForm');
     const deckCodeInput = document.getElementById('deckCode');
-    const previewContainer = document.getElementById('imagePreview');
-    const previewImage = document.getElementById('previewImage');
-    const urlDisplay = document.getElementById('imageUrlDisplay');
-    const generatedUrlSpan = document.getElementById('generatedUrl');
-    
-    // Gerar URL da imagem em tempo real
-    function updateImagePreview() {
-        const code = deckCodeInput.value.trim().toUpperCase();
-        
-        if (code && isValidDeckCode(code)) {
-            const imageUrl = IMAGE_BASE_URL + code + ".webp";
-            
-            // Atualizar pré-visualização
-            previewImage.src = imageUrl;
-            previewContainer.classList.add('active');
-            
-            // Atualizar display da URL
-            generatedUrlSpan.textContent = imageUrl;
-            urlDisplay.classList.add('active');
-            
-            // Tratar erro na pré-visualização
-            previewImage.onerror = () => {
-                previewContainer.classList.remove('active');
-                urlDisplay.classList.remove('active');
-            };
-        } else {
-            previewContainer.classList.remove('active');
-            urlDisplay.classList.remove('active');
-        }
-    }
-    
-    // Validar formato do código
-    function isValidDeckCode(code) {
-        // Formato: LETRAS-NÚMEROS (ex: BT16-064, ST22-05, EX5-001)
-        const pattern = /^[A-Z]{2,3}\d{1,2}-\d{2,3}$/;
-        return pattern.test(code);
-    }
-    
-    // Atualizar preview ao digitar
-    deckCodeInput.addEventListener('input', () => {
-        // Converter para maiúsculas
-        deckCodeInput.value = deckCodeInput.value.toUpperCase();
-        updateImagePreview();
-    });
     
     // Verificar se é edição
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('edit');
     
+    console.log('SetupCadastroForm chamado. Edit ID:', editId);
+    
     if (editId) {
+        console.log('Edit mode detected, loading deck:', editId);
         loadDeckForEdit(editId);
     }
     
+    // Atualizar preview ao digitar
+    if (deckCodeInput) {
+        deckCodeInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+            updateImagePreview();
+        });
+        
+        deckCodeInput.addEventListener('change', function() {
+            updateImagePreview();
+        });
+    }
+    
     // Submissão do formulário
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await saveDeck(editId);
-    });
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveDeck(editId);
+        });
+    }
 }
 
 async function loadDeckForEdit(deckId) {
     try {
+        console.log('loadDeckForEdit chamado com ID:', deckId);
+        
+        if (!deckId) {
+            console.error('No deck ID provided');
+            alert('No deck ID specified. Going back...');
+            window.history.back();
+            return;
+        }
+        
         showLoading(true);
         
         // Buscar deck
-        const deckRes = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, { headers });
-        if (!deckRes.ok) throw new Error('Error loading deck');
+        const deckRes = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, { 
+            headers,
+            mode: 'cors'
+        });
         
-        const deck = (await deckRes.json())[0];
-        if (!deck) throw new Error('Deck not found');
+        console.log('Deck response status:', deckRes.status);
+        
+        if (!deckRes.ok) {
+            const errorText = await deckRes.text();
+            throw new Error(`Error loading deck: ${deckRes.status} - ${errorText}`);
+        }
+        
+        const deckData = await deckRes.json();
+        console.log('Deck data:', deckData);
+        
+        if (!deckData || deckData.length === 0) {
+            throw new Error('Deck not found');
+        }
+        
+        const deck = deckData[0];
+        console.log('Deck encontrado:', deck.name);
         
         // Buscar imagem
-        const imageRes = await fetch(`${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}`, { headers });
-        let imageUrl = '';
         let deckCode = '';
         
-        if (imageRes.ok) {
-            const images = await imageRes.json();
-            if (images.length > 0) {
-                imageUrl = images[0].image_url;
-                // Extrair código da URL
-                const match = imageUrl.match(/\/([A-Z0-9-]+)\.webp$/);
-                if (match) {
-                    deckCode = match[1];
+        try {
+            const imageRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}&select=image_url`,
+                { headers }
+            );
+            
+            console.log('Image response status:', imageRes.status);
+            
+            if (imageRes.ok) {
+                const images = await imageRes.json();
+                console.log('Images encontradas:', images);
+                
+                if (images && images.length > 0 && images[0].image_url) {
+                    const imageUrl = images[0].image_url;
+                    console.log('Image URL:', imageUrl);
+                    
+                    // Extrair código da URL
+                    const match = imageUrl.match(/\/([A-Z0-9-]+)\.webp$/);
+                    if (match) {
+                        deckCode = match[1];
+                        console.log('Deck code extraído:', deckCode);
+                    }
                 }
             }
+        } catch (imageError) {
+            console.warn('Erro ao buscar imagem:', imageError);
         }
         
         // Preencher formulário
-        document.getElementById('deckName').value = deck.name;
-        if (deckCode) {
-            document.getElementById('deckCode').value = deckCode;
-            updateImagePreview(); // Ativar preview
+        const deckNameInput = document.getElementById('deckName');
+        const deckCodeInput = document.getElementById('deckCode');
+        
+        if (deckNameInput) {
+            deckNameInput.value = deck.name;
         }
         
-        // Atualizar título
-        document.querySelector('.page-title').textContent = '✏️ Edit Deck';
-        document.getElementById('submitBtn').textContent = 'Update Deck';
+        if (deckCodeInput && deckCode) {
+            deckCodeInput.value = deckCode;
+            
+            // Chamar updateImagePreview após um pequeno delay
+            setTimeout(() => {
+                if (typeof updateImagePreview === 'function') {
+                    updateImagePreview();
+                }
+            }, 100);
+        }
         
+        // Atualizar título e botão
+        const pageTitle = document.querySelector('.page-title');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (pageTitle) {
+            pageTitle.textContent = '✏️ Edit Deck';
+        }
+        
+        if (submitBtn) {
+            submitBtn.textContent = 'Update Deck';
+        }
+        
+        // Armazenar deckId para uso no update
+        window.currentDeckId = deckId;
+        
+        console.log('Deck carregado para edição');
         showLoading(false);
         
     } catch (error) {
@@ -274,13 +362,13 @@ async function saveDeck(editId = null) {
     const deckCode = document.getElementById('deckCode').value.trim().toUpperCase();
     
     if (!deckName || !deckCode) {
-        showError('Por favor, preencha todos os campos obrigatórios.');
+        showError('Please fill in all required fields.');
         return;
     }
     
     // Validar formato do código
     if (!isValidDeckCode(deckCode)) {
-        showError('Invalid code format. Use: SET-NUMBER (ex: BT16-064, ST22-05, EX5-001)Formato de código inválido. Use: SET-NÚMERO (ex: BT16-064, ST22-05, EX5-001)');
+        showError('Invalid code format. Use: SET-NUMBER (ex: BT16-064, ST22-05, EX5-001)');
         return;
     }
     
@@ -336,19 +424,14 @@ async function createDeck(deckName, imageUrl) {
         
         const newDeck = (await deckRes.json())[0];
         console.log('Deck created with ID:', newDeck.id);
-        console.log('Deck complete:', newDeck);
         
         // 2. Criar a imagem associada
         console.log('2. Creating image at deck_images table...');
-        console.log('Deck ID for imagem:', newDeck.id);
-        console.log('Image URL:', imageUrl);
         
         const imagePayload = {
             deck_id: newDeck.id,
             image_url: imageUrl
         };
-        
-        console.log('Payload da imagem:', JSON.stringify([imagePayload]));
         
         const imageRes = await fetch(`${SUPABASE_URL}/rest/v1/deck_images`, {
             method: 'POST',
@@ -366,24 +449,13 @@ async function createDeck(deckName, imageUrl) {
             console.error('Detailed image error:', errorText);
             
             // Deletar o deck criado (rollback)
-            console.log('Rollback: deleting deck created...');
             await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${newDeck.id}`, {
                 method: 'DELETE',
                 headers: headers
             });
             
-            // Analisar o erro
-            if (imageRes.status === 400) {
-                throw new Error('Error 400: Data invalid for deck_images. Please check table  structure.');
-            } else if (imageRes.status === 401 || imageRes.status === 403) {
-                throw new Error('Permission denied for deck_images. Check RLS.');
-            } else {
-                throw new Error(`Error saving image: ${imageRes.status} ${imageRes.statusText}`);
-            }
+            throw new Error(`Error saving image: ${imageRes.status}`);
         }
-        
-        const newImage = (await imageRes.json())[0];
-        console.log('Image created:', newImage);
         
         showSuccess('Deck created successfully!');
         setTimeout(() => {
@@ -428,7 +500,7 @@ async function updateDeck(deckId, deckName, imageUrl) {
         });
     }
     
-    showSuccess('Deck atualizado com sucesso!');
+    showSuccess('Deck updated successfully!');
     setTimeout(() => {
         window.location.href = 'index.html';
     }, 1500);
@@ -462,10 +534,4 @@ function showSuccess(message) {
         successElement.style.display = 'block';
         showLoading(false);
     }
-}
-
-function extractCodeFromUrl(url) {
-    if (!url) return null;
-    const match = url.match(/\/([A-Z0-9-]+)\.webp$/);
-    return match ? match[1] : null;
 }
