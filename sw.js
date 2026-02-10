@@ -1,43 +1,52 @@
-// 1. Mudei o nome para digistats e a versão para v2
-const CACHE_NAME = 'digistats-v2';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './script.js',
-  './manifest.json'
+const CACHE_NAME = 'digistats-v3';
+
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/script.js',
+  '/manifest.json'
 ];
 
-// Instala o Service Worker
-self.addEventListener('install', (event) => {
-  // O skipWaiting faz o novo SW assumir o controle imediatamente
+self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
 });
 
-// 2. LOGICA NOVA: Deleta o cache antigo (v1) para não dar conflito
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('Limpando cache antigo...');
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      )
+    )
   );
+  self.clients.claim();
 });
 
-// Responde com o cache
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
+  const req = event.request;
+
+  // 🧠 HTML = Network First
+  if (req.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // 🎨 Assets = Cache First
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    caches.match(req).then(res => res || fetch(req))
   );
 });
