@@ -8,7 +8,7 @@
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#667eea">
-    
+
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -103,5 +103,12 @@
     </div>
 
     <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log("Service Worker Registrado com Sucesso!"))
+            .catch((err) => console.log("Erro ao registrar SW:", err));
+        }
+    </script>
 </body>
 </html>
