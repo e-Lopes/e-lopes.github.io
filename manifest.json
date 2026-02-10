@@ -1,7 +1,7 @@
 {
-  "name": "Digimon TCG Tournament Report",
-  "short_name": "Digimon TCG",
-  "description": "Gerenciador de relatórios e resultados para torneios de Digimon TCG.",
+  "name": "DigiStats Tournament Report",
+  "short_name": "DigiStats",
+  "description": "Estatísticas, pódios e relatórios detalhados de torneios de Digimon TCG.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#667eea",
@@ -29,7 +29,7 @@
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dashboard de Torneios"
+      "label": "Dashboard DigiStats"
     }
   ]
 }
