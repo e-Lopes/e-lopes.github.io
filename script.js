@@ -93,16 +93,11 @@ async function loadDatesForStore(storeId) {
             const option = document.createElement('option');
             option.value = dateStr;
             
-            // Formatar a data para exibição (ex: "05/02/2026")
-            const date = new Date(dateStr);
-            const formattedDate = date.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
+            // ✅ Formatar data usando UTC para evitar problemas de timezone
+            const [year, month, day] = dateStr.split('-');
+            const formattedDate = `${day}/${month}/${year}`;
             
             option.textContent = formattedDate;
-            option.value = dateStr; // Mantém o valor original para a consulta
             select.appendChild(option);
         });
         showLoading(false);
@@ -210,9 +205,6 @@ async function displayTournament() {
         // Atualizar total de jogadores
         const totalPlayers = combinedResults[0].total_players;
         document.getElementById('totalPlayers').textContent = totalPlayers;
-        
-        // Formatar e exibir data
-        formatAndDisplayDate(currentDate);
 
         // Exibir pódio
         displayPodium(combinedResults.slice(0, 3));
@@ -228,23 +220,6 @@ async function displayTournament() {
     }
 }
 
-function formatAndDisplayDate(dateString) {
-    const date = new Date(dateString);
-    
-    const formattedDate = date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric'
-    });
-    
-    const finalDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
-    
-    const dateSelect = document.getElementById('dateFilter');
-    const selectedOption = dateSelect.options[dateSelect.selectedIndex];
-    if (selectedOption) {
-        selectedOption.textContent = finalDate;
-    }
-}
 
 function displayPodium(topThree) {
     const positions = [

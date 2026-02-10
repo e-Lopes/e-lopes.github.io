@@ -243,6 +243,80 @@
             border-color: #667eea;
         }
 
+        /* ✅ AUTOCOMPLETE STYLES */
+        .autocomplete-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .deck-input {
+            width: 100%;
+            height: 50px;
+            padding: 12px 15px;
+            font-size: 1em;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            transition: all 0.2s;
+        }
+
+        .deck-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .deck-input::placeholder {
+            color: #999;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover {
+            background: #f0f4ff;
+        }
+
+        .autocomplete-item strong {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .autocomplete-item.no-match {
+            color: #999;
+            cursor: default;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .autocomplete-item.no-match:hover {
+            background: white;
+        }
+
         /* Empty State */
         .placements-empty {
             text-align: center;
@@ -381,6 +455,17 @@
                 padding: 10px;
             }
 
+            .deck-input {
+                font-size: 0.95em;
+                height: 48px;
+                padding: 10px 12px;
+            }
+
+            .autocomplete-dropdown {
+                max-height: 200px;
+                font-size: 0.9em;
+            }
+
             .btn-save {
                 padding: 14px 20px;
                 font-size: 1em;
@@ -423,11 +508,28 @@
                 height: 45px;
                 font-size: 0.9em;
             }
+
+            .deck-input {
+                height: 45px;
+                font-size: 0.9em;
+            }
+
+            .autocomplete-dropdown {
+                font-size: 0.85em;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- ✅ Navigation at top -->
+        <div style="margin-bottom: 20px;">
+            <a href="../index.html" class="nav-button">
+                <span>←</span>
+                <span>Back to Dashboard</span>
+            </a>
+        </div>
+
         <header>
             <h1>🏆 Submit Tournament Report</h1>
             <p class="subtitle">Enter the results for the latest event</p>
@@ -485,13 +587,6 @@
         <div class="loading" id="loading">
             <div class="spinner"></div>
             <p>Saving tournament results...</p>
-        </div>
-
-        <div>
-            <a href="../index.html" class="nav-button">
-                <span>←</span>
-                <span>Back to Dashboard</span>
-            </a>
         </div>
     </div>
 

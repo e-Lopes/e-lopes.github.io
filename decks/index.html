@@ -6,10 +6,27 @@
     <title>Edit Decks - Digimon TCG</title>
     <link rel="stylesheet" href="../styles.css">
     <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
         .decks-container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+        }
+
+        /* Navigation at top */
+        .top-nav {
+            margin-bottom: 20px;
         }
         
         .page-header {
@@ -47,7 +64,7 @@
         
         .decks-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 25px;
             margin-top: 20px;
         }
@@ -67,9 +84,9 @@
         }
         
         .deck-image-container {
-            height: 200px;
+            height: 220px;
             overflow: hidden;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea20, #764ba220);
             position: relative;
         }
         
@@ -85,37 +102,29 @@
         }
         
         .deck-info {
-            padding: 20px;
+            padding: 18px;
         }
         
         .deck-name {
-            font-size: 1.3em;
+            font-size: 1.25em;
             font-weight: 600;
             color: #333;
             margin-bottom: 10px;
             word-break: break-word;
+            line-height: 1.3;
         }
         
         .deck-code {
-            font-size: 0.9em;
-            color: #666;
-            background: #f8f9fa;
-            padding: 6px 10px;
-            border-radius: 4px;
-            display: inline-block;
-            margin-bottom: 10px;
-            font-family: monospace;
-        }
-        
-        .deck-url {
             font-size: 0.85em;
-            color: #888;
-            word-break: break-all;
-            margin-bottom: 15px;
-            max-height: 40px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1.4;
+            color: #667eea;
+            background: #f0f4ff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-bottom: 12px;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
         
         .deck-actions {
@@ -127,10 +136,11 @@
         .btn-secondary {
             background: #f8f9fa;
             color: #333;
-            padding: 8px 16px;
+            padding: 10px 16px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 0.9em;
+            font-weight: 600;
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
@@ -172,45 +182,22 @@
             padding: 40px;
             grid-column: 1 / -1;
         }
-        
-        .back-link {
-            display: inline-block;
-            margin-top: 30px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-            padding: 10px 0;
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        
-        .stats-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .stat-item {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #667eea;
-            display: block;
-        }
-        
-        .stat-label {
-            font-size: 0.9em;
-            color: #666;
-        }
         
         .search-box {
             margin-bottom: 20px;
@@ -233,8 +220,35 @@
         .search-input::placeholder {
             color: #999;
         }
+
+        .nav-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 12px 20px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
         
         @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 20px;
+                border-radius: 15px;
+            }
+
             .decks-grid {
                 grid-template-columns: 1fr;
             }
@@ -250,12 +264,6 @@
                 text-align: center;
             }
             
-            .stats-bar {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
-            
             .deck-actions {
                 flex-direction: column;
             }
@@ -267,15 +275,15 @@
         
         @media (max-width: 480px) {
             .decks-container {
-                padding: 10px;
-            }
-            
-            .deck-card {
-                margin-bottom: 15px;
+                padding: 0;
             }
             
             .page-title {
                 font-size: 1.5em;
+            }
+
+            .deck-image-container {
+                height: 200px;
             }
         }
     </style>
@@ -283,24 +291,17 @@
 <body>
     <div class="container">
         <div class="decks-container">
-            <div class="page-header">
-                <h1 class="page-title">Edit Decks</h1>
-                <a href="cadastro.html" class="btn-primary">+ New Deck</a>
+            <!-- ✅ Navigation at top -->
+            <div class="top-nav">
+                <a href="../index.html" class="nav-button">
+                    <span>←</span>
+                    <span>Back to Dashboard</span>
+                </a>
             </div>
-            
-            <div class="stats-bar" id="statsBar" style="display: none;">
-                <div class="stat-item">
-                    <span class="stat-number" id="totalDecks">0</span>
-                    <span class="stat-label">Decks</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number" id="decksWithImages">0</span>
-                    <span class="stat-label">With Images</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number" id="decksWithoutImages">0</span>
-                    <span class="stat-label">Without Images</span>
-                </div>
+
+            <div class="page-header">
+                <h1 class="page-title">🃏 Manage Decks</h1>
+                <a href="cadastro.html" class="btn-primary">+ New Deck</a>
             </div>
             
             <div class="search-box">
@@ -315,29 +316,23 @@
             <div id="decksList" class="decks-grid">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Carregando decks...</p>
+                    <p>Loading decks...</p>
                 </div>
             </div>
             
             <div id="emptyState" class="empty-state" style="display: none;">
                 <div class="empty-state-icon">🃏</div>
-                <h3>Nenhum deck cadastrado</h3>
-                <p>Comece cadastrando seu primeiro deck!</p>
-                <a href="cadastro.html" class="btn-primary" style="margin-top: 20px;">Cadastrar Primeiro Deck</a>
+                <h3>No decks registered</h3>
+                <p>Start by adding your first deck!</p>
+                <a href="cadastro.html" class="btn-primary" style="margin-top: 20px;">Add First Deck</a>
             </div>
             
             <div id="noResults" class="empty-state" style="display: none;">
                 <div class="empty-state-icon">🔍</div>
-                <h3>Nenhum deck encontrado</h3>
-                <p>Tente buscar com outros termos.</p>
-                <button onclick="clearSearch()" class="btn-secondary" style="margin-top: 20px;">Limpar busca</button>
+                <h3>No decks found</h3>
+                <p>Try searching with different terms.</p>
+                <button onclick="clearSearch()" class="btn-secondary" style="margin-top: 20px;">Clear search</button>
             </div>
-            
-        <a href="../index.html" class="nav-button" style="display: inline-flex; align-items: center; gap: 8px; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); text-decoration: none; font-weight: 600; padding: 12px 20px; border-radius: 8px; transition: transform 0.2s, box-shadow 0.2s;">
-        <span>←</span>
-        <span>Main Dashboard</span>
-        </a>
-            
         </div>
     </div>
 
@@ -381,7 +376,6 @@
                 document.getElementById('decksList').style.display = 'none';
                 document.getElementById('emptyState').style.display = 'none';
                 document.getElementById('noResults').style.display = 'block';
-                document.getElementById('statsBar').style.display = 'none';
             } else {
                 document.getElementById('noResults').style.display = 'none';
                 displayDecks(filtered, imagesMap, true);
@@ -397,13 +391,11 @@
             try {
                 showLoading(true);
                 
-                // Buscar decks com suas imagens
                 const decksRes = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=*&order=name.asc`, { headers });
                 if (!decksRes.ok) throw new Error('Error loading decks');
                 
                 allDecks = await decksRes.json();
                 
-                // Buscar imagens separadamente
                 const imagesRes = await fetch(`${SUPABASE_URL}/rest/v1/deck_images?select=deck_id,image_url`, { headers });
                 
                 if (imagesRes.ok) {
@@ -414,7 +406,6 @@
                 }
                 
                 displayDecks(allDecks, imagesMap);
-                updateStats(allDecks, imagesMap);
                 showLoading(false);
                 
             } catch (error) {
@@ -428,19 +419,16 @@
             const container = document.getElementById('decksList');
             const emptyState = document.getElementById('emptyState');
             const noResults = document.getElementById('noResults');
-            const statsBar = document.getElementById('statsBar');
             
             if (!decks || decks.length === 0) {
                 if (isFiltered) {
                     container.style.display = 'none';
                     emptyState.style.display = 'none';
                     noResults.style.display = 'block';
-                    statsBar.style.display = 'none';
                 } else {
                     container.style.display = 'none';
                     emptyState.style.display = 'block';
                     noResults.style.display = 'none';
-                    statsBar.style.display = 'none';
                 }
                 return;
             }
@@ -449,7 +437,6 @@
             container.style.display = 'grid';
             emptyState.style.display = 'none';
             noResults.style.display = 'none';
-            statsBar.style.display = 'flex';
             
             decks.forEach(deck => {
                 const imageUrl = imagesMap[deck.id];
@@ -459,19 +446,18 @@
                 deckCard.className = 'deck-card';
                 deckCard.innerHTML = `
                     <div class="deck-image-container">
-                        <img src="${imageUrl || 'https://via.placeholder.com/300x200/667eea/ffffff?text=' + encodeURIComponent(deck.name.substring(0, 15))}" 
+                        <img src="${imageUrl || 'https://via.placeholder.com/300x220/667eea/ffffff?text=' + encodeURIComponent(deck.name.substring(0, 12))}" 
                              alt="${deck.name}" 
                              class="deck-image" 
-                             onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/667eea/ffffff?text=${encodeURIComponent(deck.name.substring(0, 15))}'">
-                        ${!imageUrl ? '<div style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.7); color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Sem imagem</div>' : ''}
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/300x220/667eea/ffffff?text=${encodeURIComponent(deck.name.substring(0, 12))}'">
+                        ${!imageUrl ? '<div style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.8); color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.75em; font-weight: 600;">No Image</div>' : ''}
                     </div>
                     <div class="deck-info">
                         <h3 class="deck-name">${deck.name}</h3>
                         ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
-                        ${imageUrl ? `<div class="deck-url" title="${imageUrl}">${imageUrl}</div>` : '<div class="deck-url">URL da imagem não configurada</div>'}
                         <div class="deck-actions">
-                            <button class="btn-secondary" onclick="editDeck('${deck.id}')">Edit</button>
-                            <button class="btn-secondary btn-danger" onclick="deleteDeck('${deck.id}', '${deck.name}')">Delete</button>
+                            <button class="btn-secondary" onclick="editDeck('${deck.id}')">✏️ Edit</button>
+                            <button class="btn-secondary btn-danger" onclick="deleteDeck('${deck.id}', '${deck.name.replace(/'/g, "\\'")}')">🗑️ Delete</button>
                         </div>
                     </div>
                 `;
@@ -480,15 +466,6 @@
             });
         }
 
-        function updateStats(decks, imagesMap) {
-            const totalDecks = decks.length;
-            const decksWithImages = decks.filter(deck => imagesMap[deck.id]).length;
-            const decksWithoutImages = totalDecks - decksWithImages;
-            
-            document.getElementById('totalDecks').textContent = totalDecks;
-            document.getElementById('decksWithImages').textContent = decksWithImages;
-            document.getElementById('decksWithoutImages').textContent = decksWithoutImages;
-        }
 
         function extractCodeFromUrl(url) {
             if (!url) return null;
@@ -500,62 +477,54 @@
             try {
                 showLoading(true);
                 
-                // 1. Verificar se há resultados de torneio vinculados a este deck
                 const tournamentResultsRes = await fetch(
                     `${SUPABASE_URL}/rest/v1/tournament_results?deck_id=eq.${deckId}`,
                     { headers }
                 );
                 
                 if (!tournamentResultsRes.ok) {
-                    throw new Error(`HTTP ${tournamentResultsRes.status}: ${await tournamentResultsRes.text()}`);
+                    throw new Error(`HTTP ${tournamentResultsRes.status}`);
                 }
                 
                 const tournamentResults = await tournamentResultsRes.json();
                 
                 if (tournamentResults && tournamentResults.length > 0) {
                     showLoading(false);
-                    
-                    const message = `Cannot delete deck "${deckName}" because it has ${tournamentResults.length} tournament result(s) recorded.\n\nPlease delete the tournament results first or contact support.`;
-                    
-                    alert(message);
+                    alert(`Cannot delete deck "${deckName}" because it has ${tournamentResults.length} tournament result(s) recorded.\n\nPlease delete the tournament results first.`);
                     return;
                 }
                 
-                // 2. Se não houver resultados, pedir confirmação
                 if (!confirm(`Are you sure you want to delete the deck "${deckName}"?\n\nThis action cannot be undone.`)) {
                     showLoading(false);
                     return;
                 }
                 
-                // 3. Primeiro excluir a imagem associada (se existir)
                 await fetch(`${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}`, {
                     method: 'DELETE',
                     headers: headers
                 });
                 
-                // 4. Depois excluir o deck
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, {
                     method: 'DELETE',
                     headers: headers
                 });
                 
                 if (res.ok) {
-                    alert('Successfully deleted deck!');
-                    loadDecks(); // Recarregar a lista
+                    alert('✅ Successfully deleted deck!');
+                    loadDecks();
                 } else {
                     throw new Error('Error deleting deck');
                 }
                 
             } catch (error) {
                 console.error('Error deleting deck:', error);
-                alert('Error deleting deck. Please try again.');
+                alert('❌ Error deleting deck. Please try again.');
             } finally {
                 showLoading(false);
             }
         }
 
         function editDeck(deckId) {
-            console.log('Editing deck:', deckId);
             window.location.href = `cadastro.html?edit=${deckId}`;
         }
 

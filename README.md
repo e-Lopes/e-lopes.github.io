@@ -2,6 +2,25 @@
 
 A responsive web dashboard for displaying Digimon TCG tournament results, powered by Supabase (https://supabase.com/).
 
+## Database
+
+The project uses Supabase (PostgreSQL).
+
+Main tables:
+- decks
+- deck_images
+- stores
+- tournament_results
+
+Analytics views:
+- v_deck_representation
+- v_meta_by_month
+
+The database schema is documented in /database/schema.sql
+
+// TODO supabase.from('v_deck_representation').select('*')
+
+
 ## 🌟 Features:
 ✅ Real-time Database - Powered by Supabase PostgreSQL
 
