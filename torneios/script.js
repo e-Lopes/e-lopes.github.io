@@ -1,406 +1,282 @@
+/**
+ * SISTEMA DE RELATÓRIO DE TORNEIOS - VERSÃO FINAL (FIX LAYOUT & DATA LOSS)
+ */
+
 const SUPABASE_URL = "https://vllqakohumoinpdwnsqa.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsbHFha29odW1vaW5wZHduc3FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MjIwMTAsImV4cCI6MjA4NjE5ODAxMH0.uXSjwwM_RqeNWJwRQM8We9WEsWsz3C2JfdhlZXNoTKM";
 
 const headers = {
     "apikey": SUPABASE_ANON_KEY,
     "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-    "Content-Type": "application/json",
-    "Prefer": "return=minimal"
+    "Content-Type": "application/json"
 };
 
-let allDecks = []; // ✅ Array completo de decks
+let allDecks = [];
+let allPlayers = [];
 let isEditMode = false;
-let currentTournamentData = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await Promise.all([loadStores(), loadDecks()]);
+    showLoading(true);
+    await Promise.all([loadStores(), loadDecks(), loadPlayers()]);
     setupDynamicRows();
     setTodayDate();
     setupTournamentCheck();
+    showLoading(false);
 });
 
-function setTodayDate() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('tournamentDate').value = today;
-}
+// --- CARREGAMENTO DE DADOS ---
 
 async function loadStores() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stores?select=*`, { headers });
-        
-        if (!res.ok) throw new Error('Error loading stores');
-        
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stores?select=*&order=name.asc`, { headers });
         const stores = await res.json();
         const select = document.getElementById("storeSelect");
-        
-        select.innerHTML = '<option value="">Select store...</option>';
-        stores.sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
-            select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-        });
-    } catch (err) {
-        console.error("Error loading stores:", err);
-        alert("Error loading stores. Please refresh the page.");
-    }
+        if (select) {
+            select.innerHTML = '<option value="">Selecione a loja...</option>';
+            stores.forEach(s => { select.innerHTML += `<option value="${s.id}">${s.name}</option>`; });
+        }
+    } catch (err) { console.error(err); }
 }
 
 async function loadDecks() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=*`, { headers });
-        
-        if (!res.ok) throw new Error('Error loading decks');
-        
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=*&order=name.asc`, { headers });
         allDecks = await res.json();
-        
-        if (!allDecks || allDecks.length === 0) {
-            alert("No decks registered! Please add decks before submitting tournament results.");
-            return;
-        }
-        
-        // Ordenar alfabeticamente
-        allDecks.sort((a, b) => a.name.localeCompare(b.name));
-    } catch (err) {
-        console.error("Error loading decks:", err);
-        alert("Error loading decks. Please refresh the page.");
-    }
+    } catch (err) { console.error(err); }
 }
 
-// ✅ SISTEMA DE DETECÇÃO E EDIÇÃO DE TORNEIO EXISTENTE
+async function loadPlayers() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/players?select=*&order=name.asc`, { headers });
+        allPlayers = await res.json();
+    } catch (err) { console.error(err); }
+}
+
+// --- LÓGICA DE EDIÇÃO ---
+
 function setupTournamentCheck() {
     const storeSelect = document.getElementById('storeSelect');
     const dateInput = document.getElementById('tournamentDate');
     
-    storeSelect.addEventListener('change', checkExistingTournament);
-    dateInput.addEventListener('change', checkExistingTournament);
+    const check = async () => {
+        const storeId = storeSelect.value;
+        const date = dateInput.value;
+        if (!storeId || !date) return;
+
+        try {
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${storeId}&tournament_date=eq.${date}&order=placement.asc`,
+                { headers }
+            );
+            const results = await res.json();
+            
+            if (results && results.length > 0) {
+                loadExistingTournament(results);
+            } else {
+                clearEditMode();
+            }
+        } catch (err) { console.error(err); }
+    };
+
+    storeSelect?.addEventListener('change', check);
+    dateInput?.addEventListener('change', check);
 }
 
-async function checkExistingTournament() {
-    const storeId = document.getElementById('storeSelect').value;
-    const date = document.getElementById('tournamentDate').value;
-    
-    if (!storeId || !date) return;
-    
-    try {
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${storeId}&tournament_date=eq.${date}&order=placement.asc`,
-            { headers }
-        );
-        
-        if (!res.ok) return;
-        
-        const results = await res.json();
-        
-        if (results && results.length > 0) {
-            await loadExistingTournament(results);
-        } else {
-            clearEditMode();
-        }
-    } catch (error) {
-        console.error('Error checking tournament:', error);
-    }
-}
-
-async function loadExistingTournament(results) {
+function loadExistingTournament(results) {
     isEditMode = true;
-    currentTournamentData = results;
-    
     const totalPlayers = results[0].total_players;
     const storeName = document.getElementById('storeSelect').selectedOptions[0].text;
-    const [year, month, day] = results[0].tournament_date.split('-');
-    const dateStr = `${day}/${month}/${year}`;
-    
-    showEditBanner(storeName, dateStr);
-    
-    document.getElementById('totalPlayers').value = totalPlayers;
-    document.getElementById('totalPlayers').dispatchEvent(new Event('input'));
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // ✅ Preencher inputs de autocomplete com nomes dos decks
-    const inputs = document.querySelectorAll('.deck-input');
+    showEditBanner(storeName, results[0].tournament_date);
+
+    // 1. Limpa o container totalmente para evitar o bug visual da imagem
+    const container = document.getElementById('placementsContainer');
+    container.innerHTML = ''; 
+
+    // 2. Sincroniza o estado dos inputs
+    const totalInput = document.getElementById('totalPlayers');
+    totalInput.value = totalPlayers;
+    document.getElementById('placementsCount').textContent = totalPlayers;
+
+    // 3. Cria as linhas do zero para garantir ordem correta
+    syncRows(totalPlayers);
+
+    // 4. Preenche os dados nos inputs criados
+    const deckInputs = document.querySelectorAll('.deck-input');
+    const playerInputs = document.querySelectorAll('.player-input');
+
     results.forEach((result, index) => {
-        if (inputs[index]) {
+        if (deckInputs[index]) {
             const deck = allDecks.find(d => d.id === result.deck_id);
-            if (deck) {
-                inputs[index].value = deck.name;
-                inputs[index].dataset.deckId = deck.id;
+            if (deck) { 
+                deckInputs[index].value = deck.name; 
+                deckInputs[index].dataset.deckId = deck.id; 
+            }
+        }
+        if (playerInputs[index]) {
+            const player = allPlayers.find(p => p.id === result.player_id);
+            if (player) { 
+                playerInputs[index].value = player.name; 
+                playerInputs[index].dataset.playerId = player.id; 
             }
         }
     });
-    
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.textContent = '💾 Update Tournament Results';
-    submitBtn.style.background = 'linear-gradient(135deg, #f39c12, #e67e22)';
+    updateSubmitButton();
 }
 
-function showEditBanner(storeName, dateStr) {
-    const oldBanner = document.getElementById('editBanner');
-    if (oldBanner) oldBanner.remove();
-    
-    const banner = document.createElement('div');
-    banner.id = 'editBanner';
-    banner.style.cssText = `
-        background: linear-gradient(135deg, #f39c12, #e67e22);
-        color: white;
-        padding: 15px 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        text-align: center;
-        font-weight: 600;
-        box-shadow: 0 4px 10px rgba(243, 156, 18, 0.3);
-    `;
-    banner.innerHTML = `
-        ✏️ <strong>EDIT MODE</strong> - Editing tournament: ${storeName} on ${dateStr}
-        <div style="font-size: 0.9em; margin-top: 5px; opacity: 0.9;">
-            Changes will replace existing results
-        </div>
-    `;
-    
-    const form = document.getElementById('reportForm');
-    form.insertBefore(banner, form.firstChild);
-}
-
-function clearEditMode() {
-    isEditMode = false;
-    currentTournamentData = null;
-    
-    const banner = document.getElementById('editBanner');
-    if (banner) banner.remove();
-    
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.textContent = '💾 Save Tournament Results';
-    submitBtn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-}
+// --- SINCRONIZAÇÃO DE LINHAS ---
 
 function setupDynamicRows() {
-    const totalPlayersInput = document.getElementById('totalPlayers');
+    const totalInput = document.getElementById('totalPlayers');
+    totalInput.addEventListener('input', (e) => {
+        const qty = parseInt(e.target.value) || 0;
+        document.getElementById('placementsCount').textContent = qty;
+        syncRows(qty);
+    });
+}
+
+function syncRows(qty) {
     const container = document.getElementById('placementsContainer');
-    const countBadge = document.getElementById('placementsCount');
+    const limit = Math.min(qty, 16);
 
-    totalPlayersInput.addEventListener('input', (e) => {
-        const quantity = parseInt(e.target.value) || 0;
-        
-        countBadge.textContent = quantity;
-        
-        if (quantity === 0) {
-            container.innerHTML = `
-                <div class="placements-empty">
-                    <div class="placements-empty-icon">🎯</div>
-                    <p>Enter the total number of players above to add placements</p>
-                </div>
-            `;
-            return;
-        }
-        
+    // Se houver qualquer coisa que NÃO seja uma linha de colocação (como o texto inicial), limpa.
+    if (container.children.length > 0 && !container.firstElementChild.classList.contains('placement-row')) {
         container.innerHTML = '';
+    }
 
-        const limit = Math.min(quantity, 16);
+    const currentRows = container.querySelectorAll('.placement-row');
+    const currentCount = currentRows.length;
 
-        if (quantity > 16) {
-            const notice = document.createElement('div');
-            notice.style.cssText = 'background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 15px; color: #856404; text-align: center;';
-            notice.innerHTML = `⚠️ Showing only top 16. Total players: ${quantity}`;
-            container.appendChild(notice);
-        }
-
-        for (let i = 1; i <= limit; i++) {
+    if (limit > currentCount) {
+        // Adiciona apenas as novas linhas ao final
+        for (let i = currentCount + 1; i <= limit; i++) {
             const row = document.createElement('div');
             row.className = 'placement-row';
             row.innerHTML = `
                 <span class="rank-number">${i}</span>
                 <div class="autocomplete-wrapper">
-                    <input 
-                        type="text" 
-                        class="deck-input" 
-                        data-rank="${i}" 
-                        placeholder="Type deck name for ${getOrdinal(i)} place..."
-                        autocomplete="off"
-                        required
-                    >
+                    <input type="text" class="deck-input" data-rank="${i}" placeholder="Deck..." autocomplete="off" required>
+                    <input type="text" class="player-input" data-rank="${i}" placeholder="Jogador..." autocomplete="off" ${i <= 4 ? "required" : ""}>
                     <div class="autocomplete-dropdown"></div>
                 </div>
             `;
             container.appendChild(row);
         }
-        
-        // ✅ Configurar autocomplete para cada input criado
-        setupAutocomplete();
-    });
+        setupAutocomplete(); 
+    } 
+    else if (limit < currentCount) {
+        // Remove apenas as do final, mantendo os dados das primeiras
+        for (let i = currentCount; i > limit; i--) {
+            container.lastElementChild.remove();
+        }
+    }
 }
 
-// ✅ AUTOCOMPLETE SYSTEM
-function setupAutocomplete() {
-    const inputs = document.querySelectorAll('.deck-input');
-    
-    inputs.forEach(input => {
-        const dropdown = input.nextElementSibling;
-        
-        // Input event - mostrar sugestões
-        input.addEventListener('input', (e) => {
-            const value = e.target.value.toLowerCase().trim();
-            
-            if (value.length === 0) {
-                dropdown.innerHTML = '';
-                dropdown.style.display = 'none';
-                delete input.dataset.deckId;
-                return;
-            }
-            
-            // Filtrar decks que contém o texto digitado
-            const matches = allDecks.filter(deck => 
-                deck.name.toLowerCase().includes(value)
-            );
-            
-            if (matches.length === 0) {
-                dropdown.innerHTML = '<div class="autocomplete-item no-match">No decks found</div>';
-                dropdown.style.display = 'block';
-                delete input.dataset.deckId;
-                return;
-            }
-            
-            // Limitar a 8 sugestões
-            const limitedMatches = matches.slice(0, 8);
-            
-            dropdown.innerHTML = limitedMatches.map(deck => `
-                <div class="autocomplete-item" data-deck-id="${deck.id}" data-deck-name="${deck.name}">
-                    ${highlightMatch(deck.name, value)}
-                </div>
-            `).join('');
-            
-            dropdown.style.display = 'block';
-            
-            // Click nos itens
-            dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const deckId = item.dataset.deckId;
-                    const deckName = item.dataset.deckName;
-                    
-                    if (deckId && deckName) {
-                        input.value = deckName;
-                        input.dataset.deckId = deckId;
-                        dropdown.innerHTML = '';
-                        dropdown.style.display = 'none';
-                    }
-                });
-            });
-        });
-        
-        // Fechar dropdown ao clicar fora
-        input.addEventListener('blur', () => {
-            setTimeout(() => {
-                dropdown.innerHTML = '';
-                dropdown.style.display = 'none';
-            }, 200);
-        });
-        
-        // Focus - mostrar sugestões se tiver texto
-        input.addEventListener('focus', (e) => {
-            if (e.target.value.trim().length > 0) {
-                e.target.dispatchEvent(new Event('input'));
-            }
-        });
-    });
-}
-
-function highlightMatch(text, query) {
-    const regex = new RegExp(`(${query})`, 'gi');
-    return text.replace(regex, '<strong>$1</strong>');
-}
-
-function getOrdinal(n) {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
+// --- SUBMISSÃO ---
 
 document.getElementById('reportForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
     const store_id = document.getElementById('storeSelect').value;
     const date = document.getElementById('tournamentDate').value;
     const total_players = parseInt(document.getElementById('totalPlayers').value);
-
-    if (!store_id) {
-        alert("Please select a store!");
-        return;
-    }
-
-    if (!date) {
-        alert("Please select a date!");
-        return;
-    }
-
-    if (!total_players || total_players < 1) {
-        alert("Please enter the total number of players!");
-        return;
-    }
-
-    const inputs = document.querySelectorAll('.deck-input');
     
-    // ✅ Validar que todos os inputs têm um deck selecionado
-    const hasEmptyInputs = Array.from(inputs).some(input => !input.dataset.deckId);
-    if (hasEmptyInputs) {
-        alert("Please select a valid deck for all placements from the suggestions!");
-        return;
-    }
+    const deckInputs = document.querySelectorAll('.deck-input');
+    const playerInputs = document.querySelectorAll('.player-input');
+    const payload = [];
 
-    const payload = Array.from(inputs).map(input => ({
-        store_id: store_id,
-        tournament_date: date,
-        total_players: total_players,
-        placement: parseInt(input.dataset.rank),
-        deck_id: input.dataset.deckId
-    }));
+    for (let i = 0; i < deckInputs.length; i++) {
+        const deckId = deckInputs[i].dataset.deckId;
+        const playerId = playerInputs[i].dataset.playerId || null;
+        if (!deckId) { alert(`❌ Defina o Deck para a ${i+1}ª colocação.`); return; }
+        payload.push({
+            store_id, tournament_date: date, total_players,
+            placement: i + 1, deck_id: deckId, player_id: playerId
+        });
+    }
 
     try {
         showLoading(true);
-        
+        // Se for edição, limpa o banco antes de salvar o novo estado (estratégia Clean & Save)
         if (isEditMode) {
-            await fetch(
-                `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${store_id}&tournament_date=eq.${date}`,
-                {
-                    method: 'DELETE',
-                    headers: headers
-                }
-            );
+            await fetch(`${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${store_id}&tournament_date=eq.${date}`, 
+            { method: 'DELETE', headers });
         }
-        
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tournament_results`, {
             method: 'POST',
-            headers: headers,
+            headers: { ...headers, "Prefer": "return=minimal" },
             body: JSON.stringify(payload)
         });
+        if (!res.ok) throw new Error("Erro ao salvar.");
+        alert("✅ Resultados salvos!");
+        window.location.href = "../index.html";
+    } catch (err) { alert(err.message); } finally { showLoading(false); }
+});
 
-        if (res.ok) {
-            showLoading(false);
-            alert(isEditMode ? "✅ Tournament updated successfully!" : "✅ Tournament results saved successfully!");
-            window.location.href = "../index.html";
-        } else {
-            const error = await res.json();
-            throw error;
-        }
-    } catch (err) {
-        console.error("Error saving:", err);
-        showLoading(false);
-        alert("❌ Error saving data. Please try again.\n\nDetails: " + (err.message || JSON.stringify(err)));
+// --- AUTOCOMPLETE ---
+
+function setupAutocomplete() {
+    const wrappers = document.querySelectorAll('.autocomplete-wrapper');
+    wrappers.forEach(wrapper => {
+        const deckInput = wrapper.querySelector('.deck-input');
+        const playerInput = wrapper.querySelector('.player-input');
+        const dropdown = wrapper.querySelector('.autocomplete-dropdown');
+
+        const attach = (input, source, type) => {
+            input.addEventListener('input', () => {
+                const val = input.value.toLowerCase().trim();
+                if (!val) { dropdown.style.display = 'none'; delete input.dataset[`${type}Id`]; return; }
+                const matches = source.filter(s => s.name.toLowerCase().includes(val)).slice(0, 5);
+                if (matches.length > 0) {
+                    dropdown.innerHTML = matches.map(m => `<div class="autocomplete-item" data-id="${m.id}" data-name="${m.name}" data-target-type="${type}">${m.name}</div>`).join('');
+                    dropdown.style.display = 'block';
+                } else {
+                    dropdown.innerHTML = '<div class="autocomplete-item no-match">Não encontrado</div>';
+                    dropdown.style.display = 'block';
+                }
+            });
+            input.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
+        };
+        attach(deckInput, allDecks, 'deck');
+        attach(playerInput, allPlayers, 'player');
+    });
+}
+
+document.addEventListener('click', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (item && !item.classList.contains('no-match')) {
+        const wrapper = item.closest('.autocomplete-wrapper');
+        const type = item.dataset.targetType;
+        const input = wrapper.querySelector(`.${type}-input`);
+        input.value = item.dataset.name;
+        input.dataset[`${type}Id`] = item.dataset.id;
+        item.closest('.autocomplete-dropdown').style.display = 'none';
     }
 });
 
+// --- UI HELPERS ---
+
+function setTodayDate() { document.getElementById('tournamentDate').value = new Date().toISOString().split('T')[0]; }
+
+function showEditBanner(store, date) {
+    document.getElementById('editBanner')?.remove();
+    const banner = document.createElement('div');
+    banner.id = 'editBanner';
+    banner.style.cssText = `background: #f39c12; color: white; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;`;
+    banner.innerHTML = `✏️ MODO EDIÇÃO: ${store} (${date})`;
+    document.getElementById('reportForm').prepend(banner);
+}
+
+function clearEditMode() { 
+    isEditMode = false; 
+    document.getElementById('editBanner')?.remove(); 
+    updateSubmitButton(); 
+}
+
+function updateSubmitButton() {
+    const btn = document.getElementById('submitBtn');
+    if (btn) btn.textContent = isEditMode ? '💾 ATUALIZAR RESULTADOS' : '💾 SALVAR RESULTADOS';
+}
+
 function showLoading(show) {
-    const loading = document.getElementById('loading');
-    const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('reportForm');
-    
-    if (show) {
-        loading.style.display = 'block';
-        submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Saving...';
-        form.style.opacity = '0.6';
-        form.style.pointerEvents = 'none';
-    } else {
-        loading.style.display = 'none';
-        submitBtn.disabled = false;
-        submitBtn.textContent = isEditMode ? '💾 Update Tournament Results' : '💾 Save Tournament Results';
-        form.style.opacity = '1';
-        form.style.pointerEvents = 'auto';
-    }
+    const btn = document.getElementById('submitBtn');
+    if (btn) btn.disabled = show;
 }

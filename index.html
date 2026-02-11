@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Anti-Cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <title>DigiStats</title>
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#667eea">
 
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.2.2">
 </head>
 <body>
     <div class="container">
@@ -18,15 +24,19 @@
                 <img src="icons/logo.png" alt="DigiStats" class="header-logo">
             </div>
             <p class="subtitle">Digimon TCG Tournament Results v1.2.0</p>
-            <div style="margin-top: 15px;">
-                <a href="torneios/index.html" class="nav-button" style="display: inline-flex; align-items: center; gap: 8px; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); text-decoration: none; font-weight: 600; padding: 12px 20px; border-radius: 8px; transition: transform 0.2s, box-shadow 0.2s;">
-                <span>🏆 Submit Tournament Report</span>
+            
+            <!-- 🔥 NOVA ESTRUTURA DE BOTÕES -->
+            <div class="nav-buttons-wrapper">
+                <a href="torneios/index.html" class="nav-button">
+                    <span>🏆 Submit Tournament Report</span>
+                </a>
+                
+                <a href="decks/index.html" class="nav-button">
+                    <span>🃏 Manage Decks</span>
                 </a>
 
-                <span style="color: #ccc;">|</span>
-                
-                <a href="decks/index.html" class="nav-button" style="display: inline-flex; align-items: center; gap: 8px; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); text-decoration: none; font-weight: 600; padding: 12px 20px; border-radius: 8px; transition: transform 0.2s, box-shadow 0.2s;">
-                <span>🃏 Manage Decks</span>
+                <a href="players/index.html" class="nav-button">
+                    <span>👤 Manage Players</span>
                 </a>
             </div>
         </header>
@@ -153,8 +163,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <script src="canvas-generator.js"></script>
+    <script src="script.js?v=1.2.2"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')

@@ -1,4 +1,4 @@
-**🏆Digimon TCG Tournament Dashboard🏆**
+![Logo do Projeto](icons/logo.png)
 
 A responsive web dashboard for displaying Digimon TCG tournament results, powered by Supabase (https://supabase.com/).
 

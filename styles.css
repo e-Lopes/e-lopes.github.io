@@ -82,6 +82,59 @@ h1 {
 .subtitle {
     color: #666;
     font-size: 1.1em;
+    margin-bottom: 15px;
+}
+
+/* ============================================================
+   BOTÕES DE NAVEGAÇÃO
+============================================================ */
+.nav-buttons-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.nav-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.nav-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.nav-button:active {
+    transform: translateY(0);
+}
+
+/* Mobile: botões em coluna */
+@media (max-width: 768px) {
+    .nav-buttons-wrapper {
+        flex-direction: column;
+        width: 100%;
+        gap: 12px;
+    }
+    
+    .nav-button {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+        padding: 14px 20px;
+        font-size: 0.95em;
+    }
 }
 
 /* ============================================================
@@ -259,11 +312,9 @@ h1 {
     color: #000;
 }
 
-/* Adicionando o símbolo º automaticamente se desejar manter o padrão */
-.rank-badge span::after {
-    content: "º";
-    font-size: 0.5em;
-    vertical-align: super;
+/* REMOVIDO o ::after que adicionava º duplicado */
+.rank-badge span {
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
 }
 
 .deck-card-footer {
@@ -287,10 +338,6 @@ h1 {
 .rank-badge.silver { color: #C0C0C0; }
 .rank-badge.bronze { color: #CD7F32; }
 .rank-badge.green { color: #268d7c; }
-
-.rank-badge span {
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
-}
 
 /* ============================================================
    LISTA LATERAL
@@ -362,12 +409,9 @@ h1 {
 .position-item.top-3 { background: linear-gradient(135deg, #CD7F32, #D4A574); color: white; }
 .position-item.top-4 { background: #268d7c; color: white; }
 
-/* Número com º automático */
-.position-number::after {
-    content: "º";
-    font-size: 0.7em;
-    vertical-align: super;
-    margin-left: 2px;
+/* REMOVIDO ::after que adicionava º duplicado na lista */
+.position-number {
+    font-weight: bold;
 }
 
 /* ============================================================
@@ -407,6 +451,19 @@ h1 {
         padding: 20px;
         border-radius: 20px;
         flex-direction: column;
+        text-align: center;
+        align-items: center; /* Centralizar conteúdo no mobile */
+    }
+
+    /* Ajuste do badge no mobile */
+    .rank-badge {
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+
+    /* Centralizar footer do card no mobile */
+    .deck-card-footer {
+        align-items: center;
         text-align: center;
     }
 

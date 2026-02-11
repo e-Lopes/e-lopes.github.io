@@ -147,6 +147,12 @@ async function displayTournament() {
         displayPodium(results.slice(0, 4));
         displayPositions(results);
 
+        // Mostrar seção de resultados completos quando há dados
+        const positionsSection = document.querySelector('.positions-section');
+        if (positionsSection) {
+            positionsSection.style.display = 'block';
+        }
+
         showLoading(false);
 
     } catch (err) {
@@ -244,6 +250,12 @@ function clearDisplay() {
     });
     
     document.getElementById('positionsList').innerHTML = '';
+    
+    // Ocultar seção de resultados completos quando não há dados
+    const positionsSection = document.querySelector('.positions-section');
+    if (positionsSection) {
+        positionsSection.style.display = 'none';
+    }
     
     const generateSection = document.getElementById('generatePostSection');
     if (generateSection) {

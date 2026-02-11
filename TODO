@@ -1,118 +1,23 @@
-[Bug] Editar um deck para ter o mesmo nome de um outro que ja existe e clicar em salvar da erro/retorna para a pagina anterior
+[UI] parte de FULL RESULTS fica aparecendo na tela quando n tem 
+Store name selecionado e nem tournament date
+[Feature]Add cadastro de players
+[Feature]Add Editar players
+[Feature]Add campo de Player no cadastro do tournament result (top 4 é obrigatório)
 
 [Feature]Add cadastro de loja
 [Feature]Add Label de Loja e dia em cima do podium
 
-[Feature/Melhoria] Usar as views do db para top8 e outras coisas como no texto abaixo
---
-Hoje, no seu código, você provavelmente tem coisas assim espalhadas:
-supabase.from('tournament_results').select('*')
-supabase.from('decks').select('*')
+[Feature]Add front para as views de estatisticas do db:
+v_deck_representation
+v_deck_stats
+v_meta_by_month
+v_montly_ranking
+v_player_ranking
+v_store_champions
 
-Isso funciona, mas tem dois problemas:
 
-se errar o nome da tabela → bug silencioso
-se mudar o nome depois → quebra tudo
 
-O item abaixo é só criar um arquivo de constantes.
-Não muda nada no comportamento, só organiza:
+[Revisar JSs] pois foram criadas varias views no db
+v_podium_full
 
-// db.js
-export const TABLES = {
-  DECKS: 'decks',
-  STORES: 'stores',
-  RESULTS: 'tournament_results',
-  DECK_IMAGES: 'deck_images',
-
-  VIEWS: {
-    DECK_REPRESENTATION: 'v_deck_representation',
-    META_BY_MONTH: 'v_meta_by_month'
-  }
-}
-
-==
-Conteúdo do db.js
-export const TABLES = {
-  DECKS: 'decks',
-  STORES: 'stores',
-  RESULTS: 'tournament_results',
-  DECK_IMAGES: 'deck_images',
-
-  VIEWS: {
-    DECK_REPRESENTATION: 'v_deck_representation',
-    META_BY_MONTH: 'v_meta_by_month'
-  }
-}
-
-Como usar no seu código atual
-
-No seu script.js (ou qualquer outro):
-import { TABLES } from './db.js'
-
-// antes
-supabase.from('decks').select('*')
-
-// depois (mesmo efeito)
-supabase.from(TABLES.DECKS).select('*')
-Resultado: zero mudança visual, zero risco.
-Só mais organizado.
-
-Se quiser deixar pra depois, tranquilo — não é bloqueador.
-
-========
-Agora: o que são essas views e onde entram no front
-Importante:
-
-👉 View no Supabase = tabela virtual
-👉 Você usa igual uma tabela normal
-
-Essa linha:
-supabase.from('v_deck_representation').select('*')
-
-não cria nada.
-Ela só lê dados de uma view que já existe no banco.
-Onde usar isso no seu front?
-
-Depende do objetivo da página.
-
-Exemplo prático no SEU projeto
-
-Você tem:
-/torneios/index.html
-/torneios/script.js
-
-Essa página é perfeita pra:
-
-meta
-
-representatividade
-
-gráficos
-
-Exemplo REAL (bem simples)
-import { TABLES } from '../db.js'
-
-async function loadDeckMeta() {
-  const { data, error } = await supabase
-    .from(TABLES.VIEWS.DECK_REPRESENTATION)
-    .select('*')
-
-  if (error) {
-    console.error(error)
-    return
-  }
-
-  console.log(data) // <-- veja isso no console primeiro
-}
-
-loadDeckMeta()
-
-Passo importante:
-
-não faz gráfico ainda
-
-primeiro só vê os dados no console
-[
-  { deck: "Red Hybrid", appearances: 12 },
-  { deck: "Blue Flare", appearances: 9 }
-]
+[Verificar sw.js e manifest.json para melhorar eles]
