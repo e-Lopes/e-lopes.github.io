@@ -273,7 +273,7 @@ function clearEditMode() {
 
 function updateSubmitButton() {
     const btn = document.getElementById('submitBtn');
-    if (btn) btn.textContent = isEditMode ? '💾 ATUALIZAR RESULTADOS' : '💾 SALVAR RESULTADOS';
+    if (btn) btn.textContent = isEditMode ? '💾 Update Tournament Results' : '💾 Save Tournament Results';
 }
 
 function showLoading(show) {
