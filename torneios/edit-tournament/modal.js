@@ -38,6 +38,7 @@ async function loadEditFormData(id) {
         // Carrega os dados do formulário
         document.getElementById("editTournamentDate").value = data.tournament_date || "";
         document.getElementById("editTournamentName").value = data.tournament_name || "";
+        document.getElementById("editInstagramLink").value = data.instagram_link || "";
         document.getElementById("editInstagramPost").checked = data.instagram || false;
 
         // Carrega as lojas e seleciona a atual
@@ -95,6 +96,7 @@ async function editTournamentFormSubmit(e) {
             store_id: document.getElementById("editStoreSelect").value,
             tournament_date: document.getElementById("editTournamentDate").value,
             tournament_name: document.getElementById("editTournamentName").value.trim(),
+            instagram_link: document.getElementById("editInstagramLink").value.trim(),
             instagram: document.getElementById("editInstagramPost").checked
         };
         

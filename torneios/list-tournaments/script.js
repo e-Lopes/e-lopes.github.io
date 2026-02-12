@@ -69,11 +69,13 @@ function renderTable() {
 
     slice.forEach(t => {
         const tr = document.createElement("tr");
+        const instagramLink = t.instagram_link ? `<a href="${t.instagram_link}" target="_blank" style="color: #667eea; text-decoration: none;">🔗 Abrir</a>` : "—";
         tr.innerHTML = `
             <td>${t.tournament_date}</td>
             <td>${t.store?.name || "—"}</td>
             <td>${t.tournament_name || "—"}</td>
             <td>${t.instagram ? "Postado" : "Não postado"}</td>
+            <td>${instagramLink}</td>
             <td>
                 <button class="btn-edit" onclick="editTournament('${t.id}')">
                     ✏️ Editar
@@ -85,7 +87,7 @@ function renderTable() {
 
     if (slice.length === 0) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="5" style="text-align:center;">Nenhum torneio encontrado</td>`;
+        tr.innerHTML = `<td colspan="6" style="text-align:center;">Nenhum torneio encontrado</td>`;
         tbody.appendChild(tr);
     }
 }
@@ -163,6 +165,7 @@ async function createTournamentFormSubmit(e) {
             store_id: document.getElementById("createStoreSelect").value,
             tournament_date: document.getElementById("createTournamentDate").value,
             tournament_name: document.getElementById("createTournamentName").value.trim(),
+            instagram_link: document.getElementById("createInstagramLink").value.trim(),
             instagram: document.getElementById("createInstagramPost").checked
         };
 

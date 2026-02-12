@@ -51,6 +51,7 @@ th {
 ============================================================ */
 .form-group input[type="text"],
 .form-group input[type="date"],
+.form-group input[type="url"],
 .form-group select {
     display: block;
     width: 100%;
@@ -71,6 +72,7 @@ th {
 
 .form-group input[type="text"]:focus,
 .form-group input[type="date"]:focus,
+.form-group input[type="url"]:focus,
 .form-group select:focus {
     outline: none;
     border-color: #667eea;
