@@ -9,6 +9,9 @@ const headers = {
 let tournaments = [];
 let currentPage = 1;
 const perPage = 30;
+let createPlayers = [];
+let createDecks = [];
+let createResults = [];
 
 // ============================================================
 // FUNÇÃO DE FORMATAÇÃO DE DATA
@@ -46,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Submit do formulário de criação
     document.getElementById("createTournamentForm").addEventListener("submit", createTournamentFormSubmit);
+    document.getElementById("btnAddResultRow").addEventListener("click", addCreateResultRow);
     
     // Submit do formulário de edição
     document.getElementById("editTournamentForm").addEventListener("submit", editTournamentFormSubmit);
@@ -152,16 +156,29 @@ function renderPagination() {
 // ============================================================
 // MODAL DE CRIAÇÃO
 // ============================================================
-function openCreateTournamentModal() {
+async function openCreateTournamentModal() {
     // Limpa o formulário
     document.getElementById("createStoreSelect").value = "";
     document.getElementById("createTournamentDate").value = new Date().toISOString().split('T')[0];
     document.getElementById("createTournamentName").value = "";
-    document.getElementById("createTotalPlayers").value = "";
+    document.getElementById("createTotalPlayers").value = "0";
+    document.getElementById("createInstagramLink").value = "";
     document.getElementById("createInstagramPost").checked = false;
+    createResults = [];
     
-    // Carrega as lojas
-    loadStoresToCreate();
+    // Carrega dados base para o modal
+    try {
+        await Promise.all([
+            loadStoresToCreate(),
+            loadPlayersToCreate(),
+            loadDecksToCreate()
+        ]);
+        renderCreateResultsRows();
+    } catch (err) {
+        console.error("Erro ao abrir modal de criação:", err);
+        alert("Falha ao carregar dados de players/decks/lojas.");
+        return;
+    }
     
     // Abre o modal
     document.getElementById("createModal").classList.add("active");
@@ -169,6 +186,8 @@ function openCreateTournamentModal() {
 
 function closeCreateModal() {
     document.getElementById("createModal").classList.remove("active");
+    createResults = [];
+    renderCreateResultsRows();
 }
 
 async function loadStoresToCreate() {
@@ -188,6 +207,82 @@ async function loadStoresToCreate() {
     }
 }
 
+async function loadPlayersToCreate() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/players?select=id,name&order=name.asc`, { headers });
+    if (!res.ok) throw new Error("Erro ao carregar players");
+    createPlayers = await res.json();
+}
+
+async function loadDecksToCreate() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=id,name&order=name.asc`, { headers });
+    if (!res.ok) throw new Error("Erro ao carregar decks");
+    createDecks = await res.json();
+}
+
+function addCreateResultRow() {
+    if (createResults.length >= 36) {
+        alert("O limite máximo é 36 jogadores neste modal.");
+        return;
+    }
+
+    createResults.push({ player_id: "", deck_id: "" });
+    renderCreateResultsRows();
+}
+
+function removeCreateResultRow(index) {
+    createResults.splice(index, 1);
+    renderCreateResultsRows();
+}
+
+function updateCreateResultField(index, field, value) {
+    if (!createResults[index]) return;
+    createResults[index][field] = value;
+}
+
+function buildOptions(items, selectedValue, placeholder) {
+    const initial = `<option value="">${placeholder}</option>`;
+    const options = items.map(item => {
+        const selected = String(item.id) === String(selectedValue) ? "selected" : "";
+        return `<option value="${item.id}" ${selected}>${item.name}</option>`;
+    });
+    return initial + options.join("");
+}
+
+function renderCreateResultsRows() {
+    const container = document.getElementById("createResultsRows");
+    if (!container) return;
+
+    if (createResults.length === 0) {
+        container.innerHTML = "";
+        document.getElementById("createTotalPlayers").value = "0";
+        return;
+    }
+
+    container.innerHTML = createResults.map((row, index) => `
+        <div class="result-row">
+            <div class="form-group">
+                <label>Placement</label>
+                <input type="number" value="${index + 1}" readonly>
+            </div>
+            <div class="form-group">
+                <label>Player<span class="required">*</span></label>
+                <select onchange="updateCreateResultField(${index}, 'player_id', this.value)" required>
+                    ${buildOptions(createPlayers, row.player_id, "Selecione o player...")}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Deck<span class="required">*</span></label>
+                <select onchange="updateCreateResultField(${index}, 'deck_id', this.value)" required>
+                    ${buildOptions(createDecks, row.deck_id, "Selecione o deck...")}
+                </select>
+            </div>
+            <button type="button" class="btn-remove-result" onclick="removeCreateResultRow(${index})">Remove</button>
+        </div>
+    `).join("");
+
+    document.getElementById("createTotalPlayers").value = String(createResults.length);
+}
+
 async function createTournamentFormSubmit(e) {
     e.preventDefault();
     const submitBtn = document.querySelector("#createTournamentForm button[type='submit']");
@@ -196,16 +291,18 @@ async function createTournamentFormSubmit(e) {
     submitBtn.textContent = "⏳ Criando...";
 
     try {
+        const totalPlayers = createResults.length;
         const payload = {
             store_id: document.getElementById("createStoreSelect").value,
             tournament_date: document.getElementById("createTournamentDate").value,
             tournament_name: document.getElementById("createTournamentName").value.trim(),
-            total_players: parseInt(document.getElementById("createTotalPlayers").value, 10),
+            total_players: totalPlayers,
             instagram_link: document.getElementById("createInstagramLink").value.trim(),
             instagram: document.getElementById("createInstagramPost").checked
         };
 
-        if (!payload.store_id || !payload.tournament_date || !payload.tournament_name || !Number.isInteger(payload.total_players) || payload.total_players < 1) {
+        const hasInvalidResult = createResults.some(r => !r.player_id || !r.deck_id);
+        if (!payload.store_id || !payload.tournament_date || !payload.tournament_name || payload.total_players < 1 || hasInvalidResult) {
             alert("Por favor preencha todos os campos obrigatórios");
             return;
         }
@@ -214,7 +311,10 @@ async function createTournamentFormSubmit(e) {
         
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tournament`, {
             method: "POST",
-            headers,
+            headers: {
+                ...headers,
+                "Prefer": "return=representation"
+            },
             body: JSON.stringify(payload)
         });
 
@@ -222,6 +322,38 @@ async function createTournamentFormSubmit(e) {
             const errorText = await res.text();
             console.error("Erro ao criar:", res.status, errorText);
             throw new Error(`Erro ao cadastrar torneio (${res.status})`);
+        }
+
+        const createdTournament = (await res.json())[0];
+        if (!createdTournament?.id) {
+            throw new Error("Torneio criado sem retornar ID");
+        }
+
+        const resultsPayload = createResults.map((row, index) => ({
+            tournament_id: createdTournament.id,
+            store_id: payload.store_id,
+            tournament_date: payload.tournament_date,
+            total_players: payload.total_players,
+            placement: index + 1,
+            deck_id: row.deck_id,
+            player_id: row.player_id
+        }));
+
+        const resultsRes = await fetch(`${SUPABASE_URL}/rest/v1/tournament_results`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(resultsPayload)
+        });
+
+        if (!resultsRes.ok) {
+            const resultsError = await resultsRes.text();
+            console.error("Erro ao criar results:", resultsRes.status, resultsError);
+
+            await fetch(`${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`, {
+                method: "DELETE",
+                headers
+            });
+            throw new Error(`Erro ao cadastrar tournament_results (${resultsRes.status})`);
         }
 
         await loadTournaments();

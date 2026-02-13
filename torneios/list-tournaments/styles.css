@@ -143,6 +143,16 @@ th {
     overflow-y: auto;
 }
 
+/* Expand create modal on desktop for result rows */
+#createModal .modal-content {
+    max-width: 1100px;
+}
+
+/* Expand edit modal on desktop for result rows */
+#editModal .modal-content {
+    max-width: 1100px;
+}
+
 @keyframes slideIn {
     from {
         transform: translateY(-20px);
@@ -245,6 +255,54 @@ th {
 
 .btn-cancel:active {
     transform: translateY(0);
+}
+
+.field-hint {
+    display: block;
+    margin-top: 8px;
+    color: #6c757d;
+    font-size: 0.85em;
+}
+
+.result-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 10px;
+}
+
+.result-row .form-group {
+    margin-bottom: 0;
+}
+
+.btn-add-result {
+    width: 100%;
+    border: 2px dashed #ced4da;
+    background: #fff;
+    color: #495057;
+    border-radius: 8px;
+    height: 48px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-add-result:hover {
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.btn-remove-result {
+    height: 48px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 8px;
+    background: #dc3545;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
 }
 
 /* ============================================================
@@ -390,6 +448,14 @@ th {
         width: 100%;
         padding: 12px;
         font-size: 0.95em;
+    }
+
+    .result-row {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-remove-result {
+        width: 100%;
     }
 
     .checkbox-group {
