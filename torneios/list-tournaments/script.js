@@ -19,6 +19,7 @@ const TOURNAMENT_NAME_OPTIONS = [
 ];
 
 const SORT_STORAGE_KEY = "tournamentsSort";
+const PER_PAGE_STORAGE_KEY = "tournamentsPerPage";
 const DEFAULT_SORT = { field: "tournament_date", direction: "desc" };
 const SORTABLE_FIELDS = ["tournament_date", "total_players"];
 const SORT_DIRECTIONS = ["asc", "desc"];
@@ -27,7 +28,9 @@ let tournaments = [];
 let filteredTournaments = [];
 let currentSort = getSavedSort();
 let currentPage = 1;
-const perPage = 30;
+const PER_PAGE_OPTIONS = [5, 10, 15, 20, 25, 30, 50, 100];
+const DEFAULT_PER_PAGE = 25;
+let perPage = DEFAULT_PER_PAGE;
 let createPlayers = [];
 let createDecks = [];
 let createResults = [];
@@ -54,6 +57,20 @@ function getSavedSort() {
 function saveSortPreference() {
     localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(currentSort));
 }
+
+function getSavedPerPage() {
+    try {
+        const value = Number(localStorage.getItem(PER_PAGE_STORAGE_KEY));
+        return PER_PAGE_OPTIONS.includes(value) ? value : DEFAULT_PER_PAGE;
+    } catch (error) {
+        return DEFAULT_PER_PAGE;
+    }
+}
+
+function savePerPagePreference() {
+    localStorage.setItem(PER_PAGE_STORAGE_KEY, String(perPage));
+}
+
 function formatDate(dateString) {
     if (!dateString) return "-";
     const [year, month, day] = dateString.split('-');
@@ -64,6 +81,7 @@ function formatDate(dateString) {
 // INICIALIZAÃƒâ€¡ÃƒÆ’O - DOMContentLoaded
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
+    setupPerPageSelector();
     await loadTournaments();
     setupFilters();
     setupSorting();
@@ -179,6 +197,26 @@ function applyFilters() {
 
     renderTable();
     renderPagination();
+}
+
+function setupPerPageSelector() {
+    const perPageSelect = document.getElementById("perPageSelect");
+    if (!perPageSelect) return;
+
+    perPage = getSavedPerPage();
+    perPageSelect.innerHTML = PER_PAGE_OPTIONS
+        .map((value) => `<option value="${value}">${value}</option>`)
+        .join("");
+    perPageSelect.value = String(perPage);
+
+    perPageSelect.addEventListener("change", () => {
+        const nextValue = Number(perPageSelect.value);
+        perPage = PER_PAGE_OPTIONS.includes(nextValue) ? nextValue : DEFAULT_PER_PAGE;
+        savePerPagePreference();
+        currentPage = 1;
+        renderTable();
+        renderPagination();
+    });
 }
 
 function setupSorting() {
@@ -299,6 +337,24 @@ function renderTable() {
         tr.addEventListener("click", () => toggleTournamentDetails(t));
         
         tbody.appendChild(tr);
+
+        if (selectedTournamentId && String(selectedTournamentId) === String(t.id)) {
+            const detailsTr = document.createElement("tr");
+            detailsTr.className = "details-row";
+            detailsTr.setAttribute("data-details-for", String(t.id));
+
+            const detailsTd = document.createElement("td");
+            detailsTd.colSpan = 6;
+            detailsTd.className = "details-row-cell";
+            detailsTd.innerHTML = `
+                <div class="tournament-inline-details-content" data-details-content-for="${String(t.id)}">
+                    <div class="details-block">Loading details...</div>
+                </div>
+            `;
+
+            detailsTr.appendChild(detailsTd);
+            tbody.appendChild(detailsTr);
+        }
     });
 
     if (slice.length === 0) {
@@ -317,6 +373,7 @@ function renderPagination() {
     div.innerHTML = "";
 
     if (totalPages <= 1) return;
+    if (currentPage > totalPages) currentPage = totalPages;
 
     for (let i = 1; i <= totalPages; i++) {
         const btn = document.createElement("button");
@@ -416,12 +473,20 @@ async function toggleTournamentDetails(tournament) {
     await renderTournamentDetails(tournament);
 }
 
+function getDetailsContainer(tournamentId) {
+    const targetId = String(tournamentId);
+    const containers = document.querySelectorAll(".tournament-inline-details-content");
+    for (const el of containers) {
+        if (String(el.dataset.detailsContentFor) === targetId) return el;
+    }
+    return null;
+}
+
 function clearTournamentDetails() {
-    const section = document.getElementById("tournamentDetailsSection");
-    const content = document.getElementById("tournamentDetailsContent");
-    if (!section || !content) return;
-    content.innerHTML = "";
-    section.style.display = "none";
+    const containers = document.querySelectorAll(".tournament-inline-details-content");
+    containers.forEach((el) => {
+        el.innerHTML = "";
+    });
 }
 
 function buildPieSlicePolygon(startDeg, endDeg, steps = 24) {
@@ -591,11 +656,9 @@ function setupInteractivePieSlices(rootElement, tournamentId) {
 }
 
 async function renderTournamentDetails(tournament) {
-    const section = document.getElementById("tournamentDetailsSection");
-    const content = document.getElementById("tournamentDetailsContent");
-    if (!section || !content) return;
-
-    section.style.display = "block";
+    const tournamentId = String(tournament.id);
+    let content = getDetailsContainer(tournamentId);
+    if (!content) return;
     content.innerHTML = `<div class="details-block">Loading details...</div>`;
 
     try {
@@ -679,6 +742,10 @@ async function renderTournamentDetails(tournament) {
             `).join("")
             : `<div class="results-mini-item"><div class="results-mini-main">No results found.</div></div>`;
 
+        if (String(selectedTournamentId) !== tournamentId) return;
+        content = getDetailsContainer(tournamentId);
+        if (!content) return;
+
         content.innerHTML = `
             ${header}
             <div class="details-grid">
@@ -686,7 +753,7 @@ async function renderTournamentDetails(tournament) {
                     <h3>Podium</h3>
                     <div class="details-podium">${podiumHtml}</div>
                 </div>
-                <div class="details-block">
+                <div class="details-block details-full-results-block">
                     <h3>Full Results</h3>
                     <div class="results-mini">${resultsHtml}</div>
                 </div>
@@ -702,6 +769,9 @@ async function renderTournamentDetails(tournament) {
         setupInteractivePieSlices(content, tournament.id);
     } catch (err) {
         console.error(err);
+        if (String(selectedTournamentId) !== tournamentId) return;
+        content = getDetailsContainer(tournamentId);
+        if (!content) return;
         content.innerHTML = `<div class="details-block">Falha ao carregar detalhes do torneio.</div>`;
     }
 }
