@@ -18,9 +18,14 @@ const TOURNAMENT_NAME_OPTIONS = [
     "For Fun"
 ];
 
+const SORT_STORAGE_KEY = "tournamentsSort";
+const DEFAULT_SORT = { field: "tournament_date", direction: "desc" };
+const SORTABLE_FIELDS = ["tournament_date", "total_players"];
+const SORT_DIRECTIONS = ["asc", "desc"];
+
 let tournaments = [];
 let filteredTournaments = [];
-let currentSort = { field: "tournament_date", direction: "desc" };
+let currentSort = getSavedSort();
 let currentPage = 1;
 const perPage = 30;
 let createPlayers = [];
@@ -31,6 +36,24 @@ let selectedTournamentId = null;
 // ============================================================
 // FUNÃƒâ€¡ÃƒÆ’O DE FORMATAÃƒâ€¡ÃƒÆ’O DE DATA
 // ============================================================
+function getSavedSort() {
+    try {
+        const raw = localStorage.getItem(SORT_STORAGE_KEY);
+        if (!raw) return { ...DEFAULT_SORT };
+
+        const parsed = JSON.parse(raw);
+        const field = SORTABLE_FIELDS.includes(parsed?.field) ? parsed.field : DEFAULT_SORT.field;
+        const direction = SORT_DIRECTIONS.includes(parsed?.direction) ? parsed.direction : DEFAULT_SORT.direction;
+
+        return { field, direction };
+    } catch (error) {
+        return { ...DEFAULT_SORT };
+    }
+}
+
+function saveSortPreference() {
+    localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(currentSort));
+}
 function formatDate(dateString) {
     if (!dateString) return "-";
     const [year, month, day] = dateString.split('-');
@@ -177,6 +200,7 @@ function toggleSort(field) {
         currentSort.field = field;
         currentSort.direction = field === "tournament_date" ? "desc" : "asc";
     }
+    saveSortPreference();
     updateSortIndicators();
     applyFilters();
 }
@@ -874,6 +898,10 @@ async function createTournamentFormSubmit(e) {
         submitBtn.textContent = originalText;
     }
 }
+
+
+
+
 
 
 
