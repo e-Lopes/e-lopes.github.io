@@ -253,6 +253,171 @@ function clearTournamentDetails() {
     section.style.display = "none";
 }
 
+function buildPieSlicePolygon(startDeg, endDeg, steps = 24) {
+    const points = ["50% 50%"];
+    for (let i = 0; i <= steps; i++) {
+        const angle = startDeg + ((endDeg - startDeg) * i / steps);
+        const rad = angle * Math.PI / 180;
+        const x = 50 + (50 * Math.cos(rad));
+        const y = 50 + (50 * Math.sin(rad));
+        points.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`);
+    }
+    return `polygon(${points.join(",")})`;
+}
+
+function buildDeckPieData(results) {
+    const grouped = new Map();
+    (results || []).forEach((item) => {
+        const key = item.deck || "Unknown Deck";
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                deck: key,
+                image_url: item.image_url || "",
+                count: 0
+            });
+        }
+        grouped.get(key).count += 1;
+        if (!grouped.get(key).image_url && item.image_url) grouped.get(key).image_url = item.image_url;
+    });
+
+    const entries = Array.from(grouped.values()).sort((a, b) => b.count - a.count);
+    const total = entries.reduce((acc, item) => acc + item.count, 0) || 1;
+    const colors = ["#ffd700", "#c0c0c0", "#cd7f32", "#268d7c", "#667eea", "#764ba2", "#2a9d8f", "#e76f51", "#8ab17d", "#3d5a80"];
+
+    let currentAngle = -90;
+    return entries.map((entry, index) => {
+        const sliceAngle = (entry.count / total) * 360;
+        const start = currentAngle;
+        const end = currentAngle + sliceAngle;
+        currentAngle = end;
+        const midDeg = (start + end) / 2;
+        const midRad = midDeg * Math.PI / 180;
+
+        const fallback = `https://via.placeholder.com/300x300/667eea/ffffff?text=${encodeURIComponent((entry.deck || "Deck").substring(0, 10))}`;
+        const percent = (entry.count / total) * 100;
+        // Tuned for better perceived centering inside each slice.
+        const initialZoom = Math.max(155, Math.min(320, 155 + (percent * 3.2)));
+        const minZoom = Math.max(120, initialZoom - 55);
+        const maxZoom = Math.min(420, initialZoom + 130);
+
+        // Shift image opposite to slice direction so content appears centered in the wedge.
+        const initialX = Math.max(34, Math.min(66, 50 - (Math.cos(midRad) * 12)));
+        const initialY = Math.max(4, Math.min(24, 13 - (Math.sin(midRad) * 4)));
+        return {
+            deck: entry.deck,
+            percent,
+            color: colors[index % colors.length],
+            image_url: entry.image_url || fallback,
+            clipPath: buildPieSlicePolygon(start, end),
+            initialZoom,
+            minZoom,
+            maxZoom,
+            initialX,
+            initialY
+        };
+    });
+}
+
+function getPieStorageKey(tournamentId) {
+    return `pieState:${tournamentId}`;
+}
+
+function loadPieState(tournamentId) {
+    try {
+        const raw = localStorage.getItem(getPieStorageKey(tournamentId));
+        return raw ? JSON.parse(raw) : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function savePieState(tournamentId, rootElement) {
+    if (!tournamentId || !rootElement) return;
+    const slices = rootElement.querySelectorAll(".details-pie-slice");
+    const state = {};
+
+    slices.forEach((slice) => {
+        const deck = slice.dataset.deck || "";
+        if (!deck) return;
+        state[deck] = {
+            x: parseFloat(slice.dataset.x || "50"),
+            y: parseFloat(slice.dataset.y || "13"),
+            zoom: parseFloat(slice.dataset.zoom || "195")
+        };
+    });
+
+    try {
+        localStorage.setItem(getPieStorageKey(tournamentId), JSON.stringify(state));
+    } catch (_) {}
+}
+
+function setupInteractivePieSlices(rootElement, tournamentId) {
+    if (!rootElement) return;
+    const slices = rootElement.querySelectorAll(".details-pie-slice");
+    const savedState = loadPieState(tournamentId);
+    let topZ = 10;
+
+    slices.forEach((slice) => {
+        const deck = slice.dataset.deck || "";
+        const saved = deck ? savedState[deck] : null;
+
+        slice.dataset.x = String(saved?.x ?? slice.dataset.x ?? "50");
+        slice.dataset.y = String(saved?.y ?? slice.dataset.y ?? "13");
+        slice.dataset.zoom = String(saved?.zoom ?? slice.dataset.zoom ?? "195");
+        slice.style.backgroundPosition = `${slice.dataset.x}% ${slice.dataset.y}%`;
+        slice.style.backgroundSize = `${slice.dataset.zoom}%`;
+
+        slice.onpointerdown = (e) => {
+            slice.style.zIndex = String(++topZ);
+            slice.setPointerCapture(e.pointerId);
+
+            let lastX = e.clientX;
+            let lastY = e.clientY;
+
+            const onMove = (ev) => {
+                let posX = parseFloat(slice.dataset.x || "50");
+                let posY = parseFloat(slice.dataset.y || "50");
+                const dx = ev.clientX - lastX;
+                const dy = ev.clientY - lastY;
+                lastX = ev.clientX;
+                lastY = ev.clientY;
+
+                posX += dx * 0.2;
+                posY += dy * 0.2;
+
+                slice.dataset.x = String(posX);
+                slice.dataset.y = String(posY);
+                slice.style.backgroundPosition = `${posX}% ${posY}%`;
+            };
+
+            const onUp = (ev) => {
+                try { slice.releasePointerCapture(ev.pointerId); } catch (_) {}
+                slice.removeEventListener("pointermove", onMove);
+                slice.removeEventListener("pointerup", onUp);
+                slice.removeEventListener("pointercancel", onUp);
+                savePieState(tournamentId, rootElement);
+            };
+
+            slice.addEventListener("pointermove", onMove);
+            slice.addEventListener("pointerup", onUp);
+            slice.addEventListener("pointercancel", onUp);
+        };
+
+        slice.onwheel = (e) => {
+            e.preventDefault();
+            let currentZoom = parseFloat(slice.dataset.zoom || "220");
+            const minZoom = parseFloat(slice.dataset.minZoom || "120");
+            const maxZoom = parseFloat(slice.dataset.maxZoom || "420");
+            currentZoom += e.deltaY < 0 ? 8 : -8;
+            if (currentZoom < minZoom) currentZoom = minZoom;
+            if (currentZoom > maxZoom) currentZoom = maxZoom;
+            slice.dataset.zoom = String(currentZoom);
+            slice.style.backgroundSize = `${currentZoom}%`;
+            savePieState(tournamentId, rootElement);
+        };
+    });
+}
+
 async function renderTournamentDetails(tournament) {
     const section = document.getElementById("tournamentDetailsSection");
     const content = document.getElementById("tournamentDetailsContent");
@@ -309,6 +474,27 @@ async function renderTournamentDetails(tournament) {
             }).join("")
             : `<div class="results-mini-item"><div class="results-mini-main">No podium data found.</div></div>`;
 
+        const pieSlices = buildDeckPieData(results);
+        const pieHtml = pieSlices.length
+            ? pieSlices.map(slice => `
+                <div class="details-pie-slice"
+                     style="clip-path:${slice.clipPath}; background-image:url('${slice.image_url}');"
+                     data-deck="${String(slice.deck || "").replace(/"/g, "&quot;")}"
+                     data-x="${slice.initialX}" data-y="${slice.initialY}"
+                     data-zoom="${slice.initialZoom}" data-min-zoom="${slice.minZoom}" data-max-zoom="${slice.maxZoom}"
+                     title="${slice.deck} (${slice.percent.toFixed(1)}%)"></div>
+            `).join("")
+            : "";
+        const pieLegend = pieSlices.length
+            ? pieSlices.map(slice => `
+                <div class="details-pie-legend-item">
+                    <span class="details-pie-legend-color" style="background:${slice.color}"></span>
+                    <span class="details-pie-legend-name" title="${slice.deck}">${slice.deck}</span>
+                    <strong>${slice.percent.toFixed(1)}%</strong>
+                </div>
+            `).join("")
+            : `<div class="details-pie-legend-item">No deck data</div>`;
+
         const resultsHtml = (results || []).length
             ? results.map(item => `
                 <div class="results-mini-item">
@@ -332,8 +518,16 @@ async function renderTournamentDetails(tournament) {
                     <h3>Full Results</h3>
                     <div class="results-mini">${resultsHtml}</div>
                 </div>
+                <div class="details-block details-pie-block">
+                    <h3>Deck Distribution</h3>
+                    <div class="details-pie-panel">
+                        <div class="details-pie-container">${pieHtml}</div>
+                        <div class="details-pie-legend">${pieLegend}</div>
+                    </div>
+                </div>
             </div>
         `;
+        setupInteractivePieSlices(content, tournament.id);
     } catch (err) {
         console.error(err);
         content.innerHTML = `<div class="details-block">Falha ao carregar detalhes do torneio.</div>`;

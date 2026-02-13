@@ -55,7 +55,7 @@ th {
 
 .details-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) 340px;
     gap: 16px;
     align-items: stretch;
 }
@@ -70,6 +70,78 @@ th {
 
 .details-block h3 {
     margin-bottom: 10px;
+}
+
+.details-pie-panel {
+    background: #fff;
+    border: 1px solid #e8eaf4;
+    border-radius: 12px;
+    padding: 10px;
+    width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.details-pie-container {
+    position: relative;
+    width: min(100%, 300px);
+    aspect-ratio: 1 / 1;
+    height: auto;
+    margin: 0 auto;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #f0f2f8;
+    border: 6px solid #fff;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.15);
+}
+
+.details-pie-slice {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-repeat: no-repeat;
+    background-position: 50% 11%;
+    background-size: 190%;
+    cursor: grab;
+    touch-action: none;
+}
+
+.details-pie-slice:active {
+    cursor: grabbing;
+}
+
+.details-pie-legend {
+    margin-top: 10px;
+    display: grid;
+    gap: 6px;
+    max-height: 180px;
+    overflow: auto;
+}
+
+.details-pie-legend-item {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.82rem;
+}
+
+.details-pie-legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.details-pie-legend-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.details-pie-block {
+    min-width: 0;
+    overflow: hidden;
 }
 
 .details-podium {
@@ -599,6 +671,15 @@ th {
 
     .details-grid {
         grid-template-columns: 1fr;
+    }
+
+    .details-pie-panel {
+        padding: 10px 8px;
+    }
+
+    .details-pie-container {
+        width: 200px;
+        height: 200px;
     }
 
     .details-podium-card {
