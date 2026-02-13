@@ -6,6 +6,18 @@ const headers = {
     "Content-Type": "application/json"
 };
 
+const TOURNAMENT_NAME_OPTIONS = [
+    "Semanal",
+    "Mensal",
+    "Quinzenal",
+    "Pre-Release",
+    "Top 8",
+    "Win-A-Box",
+    "Evo Cup",
+    "Regulation Battle",
+    "For Fun"
+];
+
 let tournaments = [];
 let filteredTournaments = [];
 let currentSort = { field: "tournament_date", direction: "desc" };
@@ -112,15 +124,9 @@ function populateFilterOptions() {
         stores.map(([id, name]) => `<option value="${id}">${name}</option>`).join("");
     if (selectedStore && storesMap.has(String(selectedStore))) filterStore.value = String(selectedStore);
 
-    const nameSet = new Set();
-    tournaments.forEach((t) => {
-        if (t.tournament_name) nameSet.add(t.tournament_name);
-    });
-    const names = Array.from(nameSet).sort((a, b) => a.localeCompare(b));
-
     filterTournamentName.innerHTML = `<option value="">All names</option>` +
-        names.map((name) => `<option value="${name}">${name}</option>`).join("");
-    if (selectedName && nameSet.has(selectedName)) filterTournamentName.value = selectedName;
+        TOURNAMENT_NAME_OPTIONS.map((name) => `<option value="${name}">${name}</option>`).join("");
+    if (selectedName && TOURNAMENT_NAME_OPTIONS.includes(selectedName)) filterTournamentName.value = selectedName;
 }
 
 function getFilteredTournaments() {
@@ -759,7 +765,7 @@ async function createTournamentFormSubmit(e) {
         const payload = {
             store_id: document.getElementById("createStoreSelect").value,
             tournament_date: document.getElementById("createTournamentDate").value,
-            tournament_name: document.getElementById("createTournamentName").value.trim(),
+            tournament_name: document.getElementById("createTournamentName").value,
             total_players: totalPlayers,
             instagram_link: document.getElementById("createInstagramLink").value.trim(),
         };

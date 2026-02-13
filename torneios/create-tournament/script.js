@@ -45,7 +45,7 @@ document.getElementById("tournamentForm").addEventListener("submit", async (e) =
     e.preventDefault();
     const store_id = document.getElementById("storeSelect").value;
     const tournament_date = document.getElementById("tournamentDate").value;
-    const tournament_name = document.getElementById("tournamentName").value.trim();
+    const tournament_name = document.getElementById("tournamentName").value;
     const total_players = parseInt(document.getElementById("totalPlayers").value, 10);
     const instagram_link = document.getElementById("instagramLink").value.trim();
 

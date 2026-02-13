@@ -217,7 +217,7 @@ async function editTournamentFormSubmit(e) {
         const updated = {
             store_id: document.getElementById("editStoreSelect").value,
             tournament_date: document.getElementById("editTournamentDate").value,
-            tournament_name: document.getElementById("editTournamentName").value.trim(),
+            tournament_name: document.getElementById("editTournamentName").value,
             total_players: totalPlayers,
             instagram_link: document.getElementById("editInstagramLink").value.trim()
         };
