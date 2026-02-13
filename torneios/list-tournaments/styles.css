@@ -378,9 +378,9 @@ th {
    BOTÃO DE EDITAR
 ============================================================ */
 .btn-edit {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
+    background: #f8f9fa;
+    color: #333;
+    border: 1px solid #ddd;
     padding: 8px 12px;
     border-radius: 6px;
     font-weight: 600;
@@ -388,9 +388,23 @@ th {
     transition: all 0.2s;
 }
 
+.btn-edit.btn-icon-only {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-edit.btn-icon-only svg {
+    width: 18px;
+    height: 18px;
+}
+
 .btn-edit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    background: #e9ecef;
+    border-color: #667eea;
 }
 
 /* ============================================================
@@ -753,8 +767,13 @@ th {
     }
 
     /* Botão de edição mobile */
-    .btn-edit {
+    .btn-edit:not(.btn-icon-only) {
         width: 100%;
+        margin-top: 10px;
+    }
+
+    .btn-edit.btn-icon-only {
+        width: 40px;
         margin-top: 10px;
     }
 

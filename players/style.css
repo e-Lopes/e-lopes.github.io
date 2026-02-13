@@ -1,4 +1,4 @@
-/* Reset e Base - Seguindo o padrão do Torneio */
+﻿/* Reset e Base - Seguindo o padrÃ£o do Torneio */
 * {
     margin: 0;
     padding: 0;
@@ -16,7 +16,7 @@ body {
 
 .container {
     width: 100%;
-    max-width: 850px;
+    max-width: 1400px;
     background: white;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -24,7 +24,7 @@ body {
     align-self: flex-start;
 }
 
-/* --- BOTÃO BACK (Corrigido para não vazar) --- */
+/* --- BOTÃƒO BACK (Corrigido para nÃ£o vazar) --- */
 .nav-button {
     display: inline-flex;
     align-items: center;
@@ -66,15 +66,21 @@ body {
 }
 
 .stats-counter {
+    height: 44px;
+    padding: 0 12px;
+    border: 2px solid #667eea;
+    border-radius: 8px;
     background: #f0f4ff;
-    color: #667eea;
-    padding: 6px 16px;
-    border-radius: 50px;
+    color: #2f3a7a;
     font-weight: 700;
-    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    gap: 6px;
 }
 
-/* --- FORMULÁRIO (Altura maior e centralizado) --- */
+/* --- FORMULÃRIO (Altura maior e centralizado) --- */
 .quick-add-section {
     background: #f8f9fa;
     padding: 25px;
@@ -118,8 +124,8 @@ input[type="text"]:focus {
     padding: 0 30px;
     font-weight: 700;
     cursor: pointer;
-    white-space: nowrap;
-    line-height: 1; /* Garante centralização da fonte */
+    white-space: nowrap;`r`n    gap: 6px;
+    line-height: 1; /* Garante centralizaÃ§Ã£o da fonte */
 }
 
 .btn-cancel {
@@ -142,8 +148,8 @@ input[type="text"]:focus {
 }
 .btn-pagination:disabled {
     cursor: not-allowed;
-    opacity: 0.4;             /* Deixa o botão bem opaco/transparente */
-    filter: grayscale(0.5);   /* Opcional: tira um pouco da vibração da cor */
+    opacity: 0.4;             /* Deixa o botÃ£o bem opaco/transparente */
+    filter: grayscale(0.5);   /* Opcional: tira um pouco da vibraÃ§Ã£o da cor */
     box-shadow: none;         /* Remove sombras se houver */
 }
 
@@ -152,10 +158,41 @@ input[type="text"]:focus {
     width: 100%;
     height: 52px;
     padding: 0 18px;
+    padding-right: 92px;
     border: 2px solid #eee;
     border-radius: 10px;
     margin-bottom: 20px;
     font-size: 1rem;
+}
+
+.search-container {
+    position: relative;
+}
+
+.page-size-select {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 40px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    color: #333;
+    font-size: 1em;
+    font-family: inherit;
+    padding: 0 28px 0 10px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.page-size-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
 /* --- LISTA --- */
@@ -182,7 +219,7 @@ input[type="text"]:focus {
 
 .btn-action {
     background: #f8f9fa;
-    border: 1px solid #eee;
+    border: 1px solid #ddd;
     padding: 8px 15px;
     border-radius: 8px;
     cursor: pointer;
@@ -190,17 +227,47 @@ input[type="text"]:focus {
     display: flex;
     align-items: center;
     gap: 5px;
-    white-space: nowrap;
+    white-space: nowrap;`r`n    gap: 6px;
+}
+
+.btn-action:hover {
+    background: #e9ecef;
+    border-color: #667eea;
+}
+
+.btn-action.btn-icon-only {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-action.btn-icon-only svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-danger {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+}
+
+.btn-danger:hover {
+    background: #ffcdd2;
+    border-color: #ffcdd2;
 }
 
 .player-actions {
     display: flex;
     flex-direction: row; /* Garante que fiquem na horizontal */
-    gap: 8px;           /* Espaço entre um botão e outro */
-    flex-shrink: 0;      /* Impede que os botões "esmaguem" se o nome for longo */
+    gap: 8px;           /* EspaÃ§o entre um botÃ£o e outro */
+    flex-shrink: 0;      /* Impede que os botÃµes "esmaguem" se o nome for longo */
 }
 
-/* --- PAGINAÇÃO --- */
+/* --- PAGINAÃ‡ÃƒO --- */
 .pagination-container {
     display: flex;
     justify-content: center;
@@ -214,13 +281,13 @@ input[type="text"]:focus {
 /* Ajuste Mobile corrigido */
 @media (max-width: 600px) {
     .container {
-        padding: 20px 15px; /* Evita que o conteúdo encoste nas bordas */
+        padding: 20px 15px; /* Evita que o conteÃºdo encoste nas bordas */
     }
 
     .form-row {
-        flex-direction: column; /* Empilha input e botão */
+        flex-direction: column; /* Empilha input e botÃ£o */
         align-items: stretch;   /* Faz ambos ocuparem a largura total */
-        gap: 10px;              /* Espaçamento entre eles */
+        gap: 10px;              /* EspaÃ§amento entre eles */
     }
 
     input[type="text"], .btn-primary, .btn-cancel {
@@ -229,11 +296,21 @@ input[type="text"]:focus {
     }
 
     .nav-button {
-        width: 100%;            /* Botão Back também ocupa tudo */
+        width: 100%;            /* BotÃ£o Back tambÃ©m ocupa tudo */
     }
 
     .player-item {
         padding: 12px 10px;
+    }
+
+    .search-input {
+        padding-right: 86px;
+    }
+
+    .page-size-select {
+        right: 6px;
+        height: 36px;
+        font-size: 0.92em;
     }
     
     .btn-action {
@@ -241,3 +318,9 @@ input[type="text"]:focus {
         font-size: 0.85rem;
     }
 }
+
+
+
+
+
+
