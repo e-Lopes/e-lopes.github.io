@@ -12,6 +12,7 @@ const perPage = 30;
 let createPlayers = [];
 let createDecks = [];
 let createResults = [];
+let selectedTournamentId = null;
 
 // ============================================================
 // FUNÇÃO DE FORMATAÇÃO DE DATA
@@ -61,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ============================================================
 async function loadTournaments() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/tournament?select=id,tournament_date,store:stores(name),tournament_name,total_players,instagram,instagram_link&order=tournament_date.desc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/tournament?select=id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram,instagram_link&order=tournament_date.desc`, { headers });
         if (!res.ok) throw new Error("Erro ao carregar torneios.");
         tournaments = await res.json();
     } catch (err) {
@@ -83,6 +84,10 @@ function renderTable() {
 
     slice.forEach(t => {
         const tr = document.createElement("tr");
+        tr.classList.add("clickable-row");
+        if (selectedTournamentId && String(selectedTournamentId) === String(t.id)) {
+            tr.classList.add("is-active");
+        }
         const instagramLink = t.instagram_link ? `<a href="${t.instagram_link}" target="_blank" style="color: #667eea; text-decoration: none;">🔗 Abrir</a>` : "—";
         
         const td1 = document.createElement("td");
@@ -111,7 +116,7 @@ function renderTable() {
         
         const td7 = document.createElement("td");
         td7.setAttribute("data-label", "Ações:");
-        td7.innerHTML = `<button class="btn-edit" onclick="editTournament('${t.id}')">✏️ Edit</button>`;
+        td7.innerHTML = `<button class="btn-edit" onclick="event.stopPropagation(); editTournament('${t.id}')">✏️ Edit</button>`;
         
         tr.appendChild(td1);
         tr.appendChild(td2);
@@ -120,6 +125,7 @@ function renderTable() {
         tr.appendChild(td5);
         tr.appendChild(td6);
         tr.appendChild(td7);
+        tr.addEventListener("click", () => toggleTournamentDetails(t));
         
         tbody.appendChild(tr);
     });
@@ -223,6 +229,114 @@ async function loadStoresToCreate() {
     } catch (err) {
         console.error("Erro ao carregar lojas:", err);
         alert("Falha ao carregar lojas: " + err.message);
+    }
+}
+
+async function toggleTournamentDetails(tournament) {
+    if (selectedTournamentId && String(selectedTournamentId) === String(tournament.id)) {
+        selectedTournamentId = null;
+        clearTournamentDetails();
+        renderTable();
+        return;
+    }
+
+    selectedTournamentId = tournament.id;
+    renderTable();
+    await renderTournamentDetails(tournament);
+}
+
+function clearTournamentDetails() {
+    const section = document.getElementById("tournamentDetailsSection");
+    const content = document.getElementById("tournamentDetailsContent");
+    if (!section || !content) return;
+    content.innerHTML = "";
+    section.style.display = "none";
+}
+
+async function renderTournamentDetails(tournament) {
+    const section = document.getElementById("tournamentDetailsSection");
+    const content = document.getElementById("tournamentDetailsContent");
+    if (!section || !content) return;
+
+    section.style.display = "block";
+    content.innerHTML = `<div class="details-block">Loading details...</div>`;
+
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/v_podium_full?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${tournament.tournament_date}&order=placement.asc`,
+            { headers }
+        );
+
+        if (!res.ok) {
+            throw new Error(`Erro ao carregar detalhes (${res.status})`);
+        }
+
+        const results = await res.json();
+        const topFour = (results || []).filter(r => Number(r.placement) <= 4);
+        const totalPlayers = Number.isFinite(Number(tournament.total_players))
+            ? Number(tournament.total_players)
+            : (results[0]?.total_players || 0);
+        const header = `
+            <div class="tournament-details-header">
+                <strong>${tournament.tournament_name || "Tournament"}</strong> - ${formatDate(tournament.tournament_date)} - ${tournament.store?.name || "Store"}
+                <div>Total Players: ${totalPlayers}</div>
+            </div>
+        `;
+
+        const placementClass = (placement) => {
+            if (placement === 1) return "first-place";
+            if (placement === 2) return "second-place";
+            if (placement === 3) return "third-place";
+            if (placement === 4) return "fourth-place";
+            return "";
+        };
+
+        const podiumHtml = topFour.length
+            ? topFour.map(item => {
+                const imageUrl = item.image_url || `https://via.placeholder.com/200x200/667eea/ffffff?text=${encodeURIComponent((item.deck || "Deck").substring(0, 10))}`;
+                return `
+                <div class="details-podium-card ${placementClass(Number(item.placement))}">
+                    <div class="details-rank-badge">${item.placement}º</div>
+                    <div class="details-deck-card-footer">
+                        <div class="details-player-name">${item.player || "-"}</div>
+                        <div class="details-deck-name">${item.deck || "-"}</div>
+                    </div>
+                    <div class="details-card-image-wrapper">
+                        <img src="${imageUrl}" alt="${item.deck || "Deck"}" class="details-deck-card-image">
+                    </div>
+                </div>
+            `;
+            }).join("")
+            : `<div class="results-mini-item"><div class="results-mini-main">No podium data found.</div></div>`;
+
+        const resultsHtml = (results || []).length
+            ? results.map(item => `
+                <div class="results-mini-item">
+                    <div class="results-mini-rank">${item.placement}º</div>
+                    <div class="results-mini-main">
+                        <strong>${item.deck || "-"}</strong>
+                        <span>${item.player || "-"}</span>
+                    </div>
+                </div>
+            `).join("")
+            : `<div class="results-mini-item"><div class="results-mini-main">No results found.</div></div>`;
+
+        content.innerHTML = `
+            ${header}
+            <div class="details-grid">
+                <div class="details-block">
+                    <h3>Podium</h3>
+                    <div class="details-podium">${podiumHtml}</div>
+                </div>
+                <div class="details-block">
+                    <h3>Full Results</h3>
+                    <div class="results-mini">${resultsHtml}</div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error(err);
+        content.innerHTML = `<div class="details-block">Falha ao carregar detalhes do torneio.</div>`;
     }
 }
 
@@ -367,12 +481,41 @@ async function createTournamentFormSubmit(e) {
         if (!resultsRes.ok) {
             const resultsError = await resultsRes.text();
             console.error("Erro ao criar results:", resultsRes.status, resultsError);
+            if (resultsRes.status === 409) {
+                const existingRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(payload.store_id)}&tournament_date=eq.${payload.tournament_date}&select=id,placement,tournament_id&order=placement.asc`,
+                    { headers }
+                );
 
-            await fetch(`${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`, {
-                method: "DELETE",
-                headers
-            });
-            throw new Error(`Erro ao cadastrar tournament_results (${resultsRes.status})`);
+                if (!existingRes.ok) {
+                    await fetch(`${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`, {
+                        method: "DELETE",
+                        headers
+                    });
+                    throw new Error(`Erro ao correlacionar tournament_results existentes (${existingRes.status})`);
+                }
+
+                const existingRows = await existingRes.json();
+                for (const row of existingRows) {
+                    if (!row?.id || row.tournament_id) continue;
+
+                    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/tournament_results?id=eq.${encodeURIComponent(row.id)}`, {
+                        method: "PATCH",
+                        headers,
+                        body: JSON.stringify({ tournament_id: createdTournament.id })
+                    });
+
+                    if (!patchRes.ok) {
+                        throw new Error(`Falha ao correlacionar tournament_result ${row.id} (${patchRes.status})`);
+                    }
+                }
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`, {
+                    method: "DELETE",
+                    headers
+                });
+                throw new Error(`Erro ao cadastrar tournament_results (${resultsRes.status})`);
+            }
         }
 
         await loadTournaments();
