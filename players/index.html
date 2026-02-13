@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -10,14 +10,12 @@
 <body>
     <div class="container">
         <div class="top-nav">
-            <a href="../index.html" class="nav-button">← Back to Dashboard</a>
+            <a href="../index.html" class="nav-button">&larr; Back to Dashboard</a>
         </div>
 
         <div class="page-header">
-            <h1 class="page-title">🙂 Manage Players</h1>
-            <div class="stats-counter">
-                <span id="totalPlayersCount">0</span> Players
-            </div>
+            <h1 class="page-title">Manage Players</h1>
+            <div class="stats-counter">Total: <span id="totalPlayersCount">0</span></div>
         </div>
 
         <div class="quick-add-section">
@@ -31,11 +29,19 @@
                 </div>
             </form>
         </div>
-        
+
         <div class="search-container">
-            <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search players by name...">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search players by name...">
+            <select id="pageSizeSelect" class="page-size-select" title="Items per page" aria-label="Items per page">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
         </div>
-        
+
         <div id="playersList" class="players-list">
             <div class="loading">
                 <div class="spinner"></div>
@@ -43,11 +49,11 @@
         </div>
 
         <div class="pagination-container" id="paginationControls">
-            <button id="prevPage" class="btn-pagination">« Previous</button>
+            <button id="prevPage" class="btn-pagination">&laquo; Previous</button>
             <span id="pageInfo">Page 1 of 1</span>
-            <button id="nextPage" class="btn-pagination">Next »</button>
+            <button id="nextPage" class="btn-pagination">Next &raquo;</button>
         </div>
-        
+
         <div id="emptyState" class="empty-state" style="display: none;">
             <p>No players found.</p>
         </div>
@@ -58,3 +64,6 @@
     <script src="script.js"></script>
 </body>
 </html>
+
+
+

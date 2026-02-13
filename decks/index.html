@@ -40,9 +40,9 @@
                     >
                     <select id="pageSizeSelect" class="page-size-select" title="Items per page" aria-label="Items per page">
                         <option value="5">5</option>
-                        <option value="10">10</option>
+                        <option value="10" selected>10</option>
                         <option value="15">15</option>
-                        <option value="30" selected>30</option>
+                        <option value="30">30</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                     </select>
@@ -94,7 +94,9 @@
         let currentView = "list";
         const VIEW_MODES = ["list", "compact", "grid"];
         let currentPage = 1;
-        let pageSize = 30;
+        const PAGE_SIZE_STORAGE_KEY = "decksPageSize";
+        const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
+        let pageSize = getInitialPageSize();
         let currentSearchTerm = "";
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -118,6 +120,10 @@
             setupPaginationControls();
         });
 
+        function getInitialPageSize() {
+            const saved = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+            return PAGE_SIZE_OPTIONS.includes(saved) ? saved : 10;
+        }
         function setupViewToggle() {
             const btn = document.getElementById('viewToggleBtn');
             const savedView = localStorage.getItem('decksViewMode');
@@ -206,7 +212,8 @@
             pageSizeSelect.value = String(pageSize);
             pageSizeSelect.addEventListener('change', () => {
                 const selected = parseInt(pageSizeSelect.value, 10);
-                pageSize = Number.isInteger(selected) && selected > 0 ? selected : 30;
+                pageSize = Number.isInteger(selected) && PAGE_SIZE_OPTIONS.includes(selected) ? selected : 10;
+                localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
                 currentPage = 1;
                 renderDecksList();
             });
@@ -465,3 +472,6 @@
     </script>
 </body>
 </html>
+
+
+
