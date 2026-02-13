@@ -1,21 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- Anti-Cache -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    
-    <title>DigiStats</title>
-
-    <!-- PWA -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#667eea">
-
-    <link rel="stylesheet" href="styles.css?v=1.2.2">
+    <title>DigiStats - Tournaments</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="torneios/list-tournaments/styles.css">
+    <link rel="stylesheet" href="torneios/edit-tournament/styles.css">
 </head>
 <body>
     <div class="container">
@@ -23,157 +15,185 @@
             <div class="logo-wrapper">
                 <img src="icons/logo.png" alt="DigiStats" class="header-logo">
             </div>
-            <p class="subtitle">Digimon TCG Tournament Results v1.2.0</p>
-            
-            <!-- 🔥 NOVA ESTRUTURA DE BOTÕES -->
+            <p class="subtitle">Digimon TCG Tournament Management</p>
+
             <div class="nav-buttons-wrapper">
-                <a href="torneios/list-tournaments/index.html" class="nav-button">
-                    <span>📅 Visualizar Torneios</span>
-                </a>
-
-                <a href="torneios/index.html" class="nav-button">
-                    <span>🏆 Submit Tournament Report</span>
-                </a>
-                
+                <button id="btnCreateTournament" class="nav-button" type="button">
+                    <span>Create Tournament</span>
+                </button>
                 <a href="decks/index.html" class="nav-button">
-                    <span>🃏 Manage Decks</span>
+                    <span>Manage Decks</span>
                 </a>
-
                 <a href="players/index.html" class="nav-button">
-                    <span>🙂 Manage Players</span>
+                    <span>Manage Players</span>
                 </a>
             </div>
         </header>
 
-        <div class="filters">
-            <div class="filter-group">
-                <label for="storeFilter">1) Store Name</label>
-                <select id="storeFilter" required>
-                    <option value="">Select store...</option>
+        <h1>Tournaments List</h1>
+
+        <div class="filters-row">
+            <div class="form-group filter-group">
+                <label for="filterStore">Store</label>
+                <select id="filterStore">
+                    <option value="">All stores</option>
                 </select>
             </div>
-
-            <div class="filter-group">
-                <label for="dateFilter">2) Tournament Date</label>
-                <select id="dateFilter" disabled>
-                    <option value="">Select a date...</option>
+            <div class="form-group filter-group">
+                <label for="filterTournamentName">Tournament Name</label>
+                <select id="filterTournamentName">
+                    <option value="">All names</option>
                 </select>
             </div>
-
-            <div class="total-players">
-                <label>TOTAL PLAYERS</label>
-                <div class="total-number" id="totalPlayers">-</div>
+            <div class="form-group filter-group">
+                <label for="filterInstagram">Instagram Link</label>
+                <select id="filterInstagram">
+                    <option value="">All</option>
+                    <option value="with_link">With link</option>
+                    <option value="without_link">Without link</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <span class="filter-label-spacer" aria-hidden="true">Instagram Link</span>
+                <button type="button" id="btnClearFilters" class="btn-clear-filters" title="Clear Filters" aria-label="Clear Filters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M3 4h18"/>
+                        <path d="M6 4v2l5 6v6l2-1v-5l5-6V4"/>
+                        <path d="M9 9l6 6"/>
+                        <path d="M15 9l-6 6"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
-        <!-- ✅ BOTÃO PARA GERAR POST -->
-        <div id="generatePostSection" style="display: none; text-align: center; margin-bottom: 30px;">
-            <button id="generatePostBtn" class="generate-post-btn">
-                📸 Generate Instagram Post
-            </button>
-        </div>
+        <table id="tournamentsTable">
+            <thead>
+                <tr>
+                    <th>
+                        <button type="button" class="sort-button" data-sort-field="tournament_date">
+                            Tournament Date <span class="sort-indicator" data-sort-indicator="tournament_date">▼</span>
+                        </button>
+                    </th>
+                    <th>Store</th>
+                    <th>Tournament Name</th>
+                    <th>
+                        <button type="button" class="sort-button" data-sort-field="total_players">
+                            Total Players <span class="sort-indicator" data-sort-indicator="total_players">⇅</span>
+                        </button>
+                    </th>
+                    <th>Link</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
-        <div class="main-content">
-            <div class="podium-wrapper">
-                <div class="podium-container">
-                    <!-- ✅ 1º LUGAR -->
-                    <div class="podium-card first-place" id="firstPlace" style="display: none;">
-                        <div class="rank-badge gold">
-                            <span>1º</span>
-                        </div>
-                        <div class="deck-card-footer">
-                            <div class="player-name"></div>
-                            <div class="deck-name">-</div>
-                        </div>          
-                        <div class="card-image-wrapper">
-                            <img src="" alt="1st Place" class="deck-card-image">
-                        </div>              
-                    </div>
-                    
-                    <!-- ✅ 2º LUGAR -->
-                    <div class="podium-card second-place" id="secondPlace" style="display: none;">
-                        <div class="rank-badge silver">
-                            <span>2º</span>
-                        </div>
-                        <div class="deck-card-footer">
-                            <div class="player-name"></div>
-                            <div class="deck-name">-</div>
-                        </div>
-                        <div class="card-image-wrapper">
-                            <img src="" alt="2nd Place" class="deck-card-image">
-                        </div>                        
-                    </div>
-
-                    <!-- ✅ 3º LUGAR -->
-                    <div class="podium-card third-place" id="thirdPlace" style="display: none;">
-                        <div class="rank-badge bronze">
-                            <span>3º</span>
-                        </div>
-                        <div class="deck-card-footer">
-                            <div class="player-name"></div>
-                            <div class="deck-name">-</div>
-                        </div>
-                        <div class="card-image-wrapper">
-                            <img src="" alt="3rd Place" class="deck-card-image">
-                        </div>                        
-                    </div>
-
-                    <!-- ✅ 4º LUGAR -->
-                    <div class="podium-card fourth-place" id="fourthPlace" style="display: none;">
-                        <div class="rank-badge green">
-                            <span>4º</span>
-                        </div>
-                        <div class="deck-card-footer">
-                            <div class="player-name"></div>
-                            <div class="deck-name">-</div>
-                        </div>
-                        <div class="card-image-wrapper">
-                            <img src="" alt="4th Place" class="deck-card-image">
-                        </div>                        
-                    </div>
-                </div>
-            </div>
-
-            <div class="positions-section">
-                <h2>FULL RESULTS</h2>
-                <div class="positions-grid" id="positionsList"></div>
-            </div>
-        </div>
-
-        <div class="loading" id="loading" style="display: none;">
-            <div class="spinner"></div>
-            <p>Loading tournament data...</p>
-        </div>
-
-        <div class="error-message" id="errorMessage" style="display: none;">
-            <p>Error connecting to the database. Check your API key.</p>
+        <div class="pagination" id="pagination"></div>
+        <div id="tournamentDetailsSection" class="tournament-details-section" style="display: none;">
+            <h2>Tournament Details</h2>
+            <div id="tournamentDetailsContent"></div>
         </div>
     </div>
 
-    <!-- ✅ MODAL DE PREVIEW DO POST -->
-    <div id="postPreviewModal" class="modal" style="display: none;">
+    <div id="createModal" class="modal-overlay">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>📸 Instagram Post Preview</h2>
-                <button class="modal-close" onclick="closePostPreview()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <canvas id="postCanvas" width="1080" height="1080"></canvas>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-download" onclick="downloadPost()">⬇️ Download Image</button>
-                <button class="btn-cancel" onclick="closePostPreview()">Cancel</button>
-            </div>
+            <h2>New Tournament</h2>
+            <form id="createTournamentForm">
+                <div class="form-group">
+                    <label>Store<span class="required">*</span></label>
+                    <select id="createStoreSelect" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Date<span class="required">*</span></label>
+                    <input type="date" id="createTournamentDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Name<span class="required">*</span></label>
+                    <select id="createTournamentName" required>
+                        <option value="">Select tournament name...</option>
+                        <option value="Semanal">Semanal</option>
+                        <option value="Mensal">Mensal</option>
+                        <option value="Quinzenal">Quinzenal</option>
+                        <option value="Pre-Release">Pre-Release</option>
+                        <option value="Top 8">Top 8</option>
+                        <option value="Win-A-Box">Win-A-Box</option>
+                        <option value="Evo Cup">Evo Cup</option>
+                        <option value="Regulation Battle">Regulation Battle</option>
+                        <option value="For Fun">For Fun</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Total Players<span class="required">*</span></label>
+                    <input type="number" id="createTotalPlayers" min="1" max="36" placeholder="Ex: 8" required>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Results<span class="required">*</span></label>
+                    <div id="createResultsRows"></div>
+                    <button type="button" id="btnAddResultRow" class="btn-add-result">+ Add Player Result</button>
+                    <small class="field-hint">Placement is automatic as you add players (up to 36).</small>
+                </div>
+                <div class="form-group">
+                    <label>Instagram Link</label>
+                    <input type="url" id="createInstagramLink" placeholder="https://instagram.com/...">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-save">Create</button>
+                    <button type="button" class="btn-cancel" onclick="closeCreateModal()">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <script src="script.js?v=1.2.2"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-            .then(() => console.log("Service Worker Registrado com Sucesso!"))
-            .catch((err) => console.log("Erro ao registrar SW:", err));
-        }
-    </script>
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Edit Tournament</h2>
+            <form id="editTournamentForm">
+                <div class="form-group">
+                    <label>Store<span class="required">*</span></label>
+                    <select id="editStoreSelect" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Date<span class="required">*</span></label>
+                    <input type="date" id="editTournamentDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Name<span class="required">*</span></label>
+                    <select id="editTournamentName" required>
+                        <option value="">Select tournament name...</option>
+                        <option value="Semanal">Semanal</option>
+                        <option value="Mensal">Mensal</option>
+                        <option value="Quinzenal">Quinzenal</option>
+                        <option value="Pre-Release">Pre-Release</option>
+                        <option value="Top 8">Top 8</option>
+                        <option value="Win-A-Box">Win-A-Box</option>
+                        <option value="Evo Cup">Evo Cup</option>
+                        <option value="Regulation Battle">Regulation Battle</option>
+                        <option value="For Fun">For Fun</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Total Players<span class="required">*</span></label>
+                    <input type="number" id="editTotalPlayers" min="1" max="36" required>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Results<span class="required">*</span></label>
+                    <div id="editResultsRows"></div>
+                    <button type="button" id="btnAddEditResultRow" class="btn-add-result">+ Add Player Result</button>
+                    <small class="field-hint">Placement is automatic as you add players (up to 36).</small>
+                </div>
+                <div class="form-group">
+                    <label>Instagram Link</label>
+                    <input type="url" id="editInstagramLink" placeholder="https://instagram.com/...">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-save">Save</button>
+                    <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="torneios/list-tournaments/script.js"></script>
+    <script src="torneios/edit-tournament/modal.js"></script>
 </body>
 </html>

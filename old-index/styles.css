@@ -1,0 +1,642 @@
+/* ============================================================
+   RESET + FONTES
+============================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Zing Rust Base', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Zing+Rust+Base:wght@700&display=swap');
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Container do logo */
+.logo-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+/* Controle da imagem */
+.header-logo {
+    display: block;
+    height: auto; /* Mantém a proporção sempre */
+    
+    /* No Desktop: tamanho fixo controlado */
+    width: 180px; 
+    
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.1));
+}
+
+/* Ajuste específico para Celular */
+@media (max-width: 768px) {
+    .header-logo {
+        /* No celular, ela ocupará no máximo 35% da largura da tela */
+        /* Isso garante que nunca fique "gigante" idependente do arquivo original */
+        width: 35vw; 
+        max-width: 120px; /* Trava extra para telas grandes de celular */
+    }
+    
+    .logo-wrapper {
+        margin-bottom: 0; /* Cola um pouco mais no subtítulo para ganhar espaço */
+    }
+}
+
+/* ============================================================
+   CONTAINER
+============================================================ */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    animation: fadeIn 0.6s ease;
+}
+
+/* ============================================================
+   HEADER
+============================================================ */
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 3px solid #667eea;
+}
+
+h1 {
+    font-size: 2.5em;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 1.1em;
+    margin-bottom: 15px;
+}
+
+/* ============================================================
+   BOTÕES DE NAVEGAÇÃO
+============================================================ */
+.nav-buttons-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.nav-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.nav-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.nav-button:active {
+    transform: translateY(0);
+}
+
+/* Mobile: botões em coluna */
+@media (max-width: 768px) {
+    .nav-buttons-wrapper {
+        flex-direction: column;
+        width: 100%;
+        gap: 12px;
+    }
+    
+    .nav-button {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+        padding: 14px 20px;
+        font-size: 0.95em;
+    }
+}
+
+/* ============================================================
+   FILTROS
+============================================================ */
+.filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 20px;
+    margin-bottom: 40px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 0.9em;
+}
+
+.filter-group select {
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: 0.3s;
+    background: white;
+}
+
+.filter-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* Total Players */
+.total-players {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    border: 2px solid #667eea;
+}
+
+.total-number {
+    font-size: 2em;
+    font-weight: bold;
+    color: #333;
+}
+
+/* ============================================================
+   MAIN CONTENT
+============================================================ */
+.main-content {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    justify-content: center; /* Centraliza os blocos horizontalmente */
+    width: 100%;             /* Garante que use toda a largura disponível */
+}
+
+/* ============================================================
+   PÓDIO (ESTRUTURA LATERAL COM BOLA)
+============================================================ */
+.podium-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 45px;
+    max-width: 800px;
+}
+
+.podium-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 20px 120px 120px 20px;
+    padding: 25px 230px 25px 30px;
+    min-height: 160px;
+    background: white;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+    transition: 0.3s;
+}
+
+/* ============================================================
+   CORES DAS POSIÇÕES
+============================================================ */
+.first-place {
+    border-left: 12px solid #FFD700;
+    background: linear-gradient(90deg, #fff 70%, #fff9e6);
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.35);
+    animation: championGlow 2.5s infinite alternate;
+}
+
+.second-place {
+    border-left: 12px solid #C0C0C0;
+    background: linear-gradient(90deg, #fff 70%, #f3f3f3);
+}
+
+.third-place {
+    border-left: 12px solid #CD7F32;
+    background: linear-gradient(90deg, #fff 70%, #fff4ed);
+}
+
+.fourth-place {
+    border-left: 12px solid #268d7c;
+    background: linear-gradient(90deg, #fff 70%, #e8f5f3);
+}
+
+/* ============================================================
+   BOLA GIGANTE
+============================================================ */
+.card-image-wrapper {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 8px solid white;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+    overflow: hidden;
+}
+
+.deck-card-image {
+    width: 100%;
+    object-fit: cover;
+    transform: scale(1.9);
+    transform-origin: center 11%;
+}
+
+/* Nome do Jogador (Menor e sutil) */
+.player-name {
+    font-size: 0.9em;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+/* Nome do Deck (Destaque com Zing Rust Base) */
+.deck-name {
+    font-family: 'Zing Rust Base', sans-serif; /* Aplicando a fonte solicitada */
+    font-size: 1.8em;
+    color: #333;
+    line-height: 1;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+}
+
+/* ============================================================
+   BADGE OCTÓGONO
+============================================================ */
+.rank-badge {
+    font-family: 'Zing Rust Base', sans-serif; /* Fonte consistente em todo o app */
+    width: 65px;
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2em;
+    font-weight: bold;
+    position: relative;
+    margin-right: 20px;
+    color: #000;
+}
+
+/* REMOVIDO o ::after que adicionava º duplicado */
+.rank-badge span {
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+}
+
+.deck-card-footer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    z-index: 2; /* Garante que o texto fique acima de possíveis brilhos */
+}
+
+.rank-badge::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+    z-index: -1;
+}
+
+.rank-badge.gold { color: #FFD700; }
+.rank-badge.silver { color: #C0C0C0; }
+.rank-badge.bronze { color: #CD7F32; }
+.rank-badge.green { color: #268d7c; }
+
+/* ============================================================
+   LISTA LATERAL
+============================================================ */
+.positions-section h2 {
+    font-family: 'Zing Rust Base';
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+    position: relative;
+}
+
+.positions-section h2::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    margin: 10px auto 0;
+    border-radius: 2px;
+}
+
+.positions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+
+.position-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: white;
+    transition: 0.25s ease;
+    border: 1px solid #eee;
+}
+
+.position-rank {
+    font-weight: bold;
+    font-size: 1.1rem;
+    min-width: 40px;
+    text-align: center;
+    padding: 6px 0;
+    border-radius: 8px;
+    background: #667eea;
+    color: white;
+}
+
+.position-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.position-deck {
+    font-family: 'Zing Rust Base';
+    text-transform: uppercase;
+    font-weight: 800;
+    font-size: 1rem; /* levemente menor */
+    color: #111;
+    letter-spacing: 0.8px; /* mais espaçamento melhora leitura */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.position-player {
+    font-size: 0.85rem;
+    color: #111;
+    margin-top: 2px;
+}
+
+/* Hover */
+.position-item:hover {
+    transform: translateX(6px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+}
+
+/* Top 4 diferenciados */
+.position-item.top-1 {
+    border-left: 6px solid #FFD700;
+    background: linear-gradient(90deg, #fff9e6, white);
+}
+
+.position-item.top-2 {
+    border-left: 6px solid #C0C0C0;
+}
+
+.position-item.top-3 {
+    border-left: 6px solid #CD7F32;
+}
+
+.position-item.top-4 {
+    border-left: 6px solid #268d7c;
+}
+
+.position-info {
+    display: flex;
+    flex-direction: column; /* Coloca o nome do deck em cima e o player embaixo */
+    flex-grow: 1;
+    min-width: 0; /* Permite que o texto use reticências se for longo */
+}
+
+.deck-name-text {
+    font-weight: 700;
+    color: #333;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-name-text {
+    font-size: 0.85rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.position-rank {
+    font-weight: bold;
+    font-size: 0.95rem;
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+}
+
+Agora sim ficou bem melhor 👏🔥
+Mas dá pra deixar nível produto profissional mesmo com dois ajustes finos:
+
+O azul do rank está brigando com as cores do fundo (principalmente no 1º e 3º).
+
+O deck poderia ter ainda mais destaque visual.
+
+Vou te passar o upgrade final.
+
+🎯 1️⃣ Deixar o rank combinando com cada posição
+
+Em vez do círculo azul fixo, vamos usar a cor da colocação.
+
+Substitua .position-rank por:
+.position-rank {
+    font-weight: bold;
+    font-size: 0.95rem;
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+}
+
+.position-item.top-1 .position-rank {
+    background: #e6b800;
+}
+
+.position-item.top-2 .position-rank {
+    background: #9e9e9e;
+}
+
+.position-item.top-3 .position-rank {
+    background: #b87333;
+}
+
+.position-item.top-4 .position-rank {
+    background: #1f6f63;
+}
+
+/* Demais posições */
+.position-item:not([class*="top-"]) .position-rank {
+    background: #667eea;
+}
+
+/* Hover normal */
+.position-item:hover {
+    transform: translateX(6px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+/* TOP 4 SEMPRE ATIVO */
+.position-item.top-1,
+.position-item.top-2,
+.position-item.top-3,
+.position-item.top-4 {
+    transform: translateX(6px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+}
+
+/* Aplica o efeito de hover especificamente quando o mouse está em cima do Top 4 */
+.position-item.top-1:hover,
+.position-item.top-2:hover,
+.position-item.top-3:hover,
+.position-item.top-4:hover {
+    transform: translateX(12px); /* Move um pouco mais que o normal (6px) para destacar */
+    filter: brightness(1.1);    /* Dá um leve brilho ao passar o mouse */
+    cursor: pointer;
+}
+
+/* Ajuste no hover dos itens normais (5º+) para manter a consistência */
+.position-item:not([class*="top-"]):hover {
+    transform: translateX(10px);
+    background-color: #f0f0f0;
+}
+
+/* Gradientes Top */
+.position-item.top-1 { background: linear-gradient(135deg, #FFD700, #FFC107); }
+.position-item.top-2 { background: linear-gradient(135deg, #C0C0C0, #E0E0E0); }
+.position-item.top-3 { background: linear-gradient(135deg, #CD7F32, #D4A574); color: white; }
+.position-item.top-4 { background: #268d7c; color: white; }
+
+/* REMOVIDO ::after que adicionava º duplicado na lista */
+.position-number {
+    font-weight: bold;
+}
+
+/* ============================================================
+   ANIMAÇÕES
+============================================================ */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes championGlow {
+    from { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+    to { box-shadow: 0 0 35px rgba(255, 215, 0, 0.8); }
+}
+
+/* ============================================================
+   RESPONSIVO
+============================================================ */
+@media (max-width: 1200px) {
+    .main-content {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .positions-section {
+        width: 100%;
+        max-width: 800px;
+    }
+}
+
+@media (max-width: 768px) {
+    .filters {
+        grid-template-columns: 1fr;
+    }
+
+    .podium-card {
+        padding: 20px;
+        border-radius: 20px;
+        flex-direction: column;
+        text-align: center;
+        align-items: center; /* Centralizar conteúdo no mobile */
+    }
+
+    /* Ajuste do badge no mobile */
+    .rank-badge {
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+
+    /* Centralizar footer do card no mobile */
+    .deck-card-footer {
+        align-items: center;
+        text-align: center;
+    }
+
+    .card-image-wrapper {
+        position: relative;
+        transform: none;
+        margin-top: 20px;
+    }
+
+    .positions-section {
+        width: 100%;
+        padding: 20px;
+    }
+
+    .position-item {
+        padding: 14px;
+    }
+
+    .position-deck {
+        font-size: 0.95rem;
+    }
+
+    .position-player {
+        font-size: 0.8rem;
+    }
+}

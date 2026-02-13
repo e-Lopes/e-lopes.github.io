@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastrar Torneio - Digimon TCG</title>
+    <title>Create Tournament - Digimon TCG</title>
+    <link rel="icon" type="image/png" href="../../favicon.png">
     <link rel="stylesheet" href="../../styles.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,50 +13,64 @@
         <div class="form-container">
             <div class="top-nav">
                 <a href="../list-tournaments/" class="btn btn-secondary">
-                    ← Voltar à Lista
+                    ← Back to List
                 </a>
             </div>
 
             <div class="page-header">
-                <h1 class="page-title">📅 Cadastrar Torneio</h1>
-                <p class="page-subtitle">Preencha os detalhes do torneio</p>
+                <h1 class="page-title">📅 Create Tournament</h1>
+                <p class="page-subtitle">Fill in the tournament details</p>
             </div>
 
             <div class="form-card">
                 <form id="tournamentForm">
                     <div class="form-group">
-                        <label for="storeSelect" class="form-label">Loja*</label>
+                        <label for="storeSelect" class="form-label">Store*</label>
                         <select id="storeSelect" required>
-                            <option value="">Selecione a loja...</option>
+                            <option value="">Select a store...</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label for="tournamentDate" class="form-label">Data do Torneio*</label>
+                        <label for="tournamentDate" class="form-label">Tournament Date*</label>
                         <input type="date" id="tournamentDate" class="form-input" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="tournamentName" class="form-label">Nome do Torneio*</label>
-                        <input type="text" id="tournamentName" class="form-input" placeholder="Ex: Torneio de Março" required>
+                        <label for="tournamentName" class="form-label">Tournament Name*</label>
+                        <select id="tournamentName" class="form-input" required>
+                            <option value="">Select tournament name...</option>
+                            <option value="Semanal">Semanal</option>
+                            <option value="Mensal">Mensal</option>
+                            <option value="Quinzenal">Quinzenal</option>
+                            <option value="Pre-Release">Pre-Release</option>
+                            <option value="Top 8">Top 8</option>
+                            <option value="Win-A-Box">Win-A-Box</option>
+                            <option value="Evo Cup">Evo Cup</option>
+                            <option value="Regulation Battle">Regulation Battle</option>
+                            <option value="For Fun">For Fun</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="totalPlayers" class="form-label">Total Players*</label>
+                        <input type="number" id="totalPlayers" class="form-input" min="1" max="99" placeholder="Ex: 8" required>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">
-                            <input type="checkbox" id="instagramPost">
-                            Publicado no Instagram?
-                        </label>
+                        <label for="instagramLink" class="form-label">Instagram Link</label>
+                        <input type="url" id="instagramLink" class="form-input" placeholder="https://instagram.com/...">
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Cadastrar Torneio</button>
-                        <a href="../list-tournaments/" class="btn btn-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">💾 Create Tournament</button>
+                        <a href="../list-tournaments/" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p>Salvando torneio...</p>
+                    <p>Saving tournament...</p>
                 </div>
             </div>
         </div>

@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Anti-Cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <title>DigiStats</title>
+    <link rel="icon" type="image/png" href="../favicon.png">
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+
+    <link rel="stylesheet" href="styles.css?v=1.2.2">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-wrapper">
+                <img src="../icons/logo.png" alt="DigiStats" class="header-logo">
+            </div>
+            <p class="subtitle">Digimon TCG Tournament Results v1.2.0</p>
+            
+            <!-- ðŸ”¥ NOVA ESTRUTURA DE BOTÃ•ES -->
+            <div class="nav-buttons-wrapper">
+                <a href="../torneios/list-tournaments/index.html" class="nav-button">
+                    <span>ðŸ“… Manage Tournament</span>
+                </a>
+
+                <a href="../torneios/index.html" class="nav-button">
+                    <span>ðŸ† Submit Tournament Report</span>
+                </a>
+                
+                <a href="../decks/index.html" class="nav-button">
+                    <span>ðŸƒ Manage Decks</span>
+                </a>
+
+                <a href="../players/index.html" class="nav-button">
+                    <span>ðŸ™‚ Manage Players</span>
+                </a>
+            </div>
+        </header>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="storeFilter">1) Store Name</label>
+                <select id="storeFilter" required>
+                    <option value="">Select store...</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="dateFilter">2) Tournament Date</label>
+                <select id="dateFilter" disabled>
+                    <option value="">Select a date...</option>
+                </select>
+            </div>
+
+            <div class="total-players">
+                <label>TOTAL PLAYERS</label>
+                <div class="total-number" id="totalPlayers">-</div>
+            </div>
+        </div>
+
+        <!-- âœ… BOTÃƒO PARA GERAR POST -->
+        <div id="generatePostSection" style="display: none; text-align: center; margin-bottom: 30px;">
+            <button id="generatePostBtn" class="generate-post-btn">
+                ðŸ“¸ Generate Instagram Post
+            </button>
+        </div>
+
+        <div class="main-content">
+            <div class="podium-wrapper">
+                <div class="podium-container">
+                    <!-- âœ… 1Âº LUGAR -->
+                    <div class="podium-card first-place" id="firstPlace" style="display: none;">
+                        <div class="rank-badge gold">
+                            <span>1Âº</span>
+                        </div>
+                        <div class="deck-card-footer">
+                            <div class="player-name"></div>
+                            <div class="deck-name">-</div>
+                        </div>          
+                        <div class="card-image-wrapper">
+                            <img src="" alt="1st Place" class="deck-card-image">
+                        </div>              
+                    </div>
+                    
+                    <!-- âœ… 2Âº LUGAR -->
+                    <div class="podium-card second-place" id="secondPlace" style="display: none;">
+                        <div class="rank-badge silver">
+                            <span>2Âº</span>
+                        </div>
+                        <div class="deck-card-footer">
+                            <div class="player-name"></div>
+                            <div class="deck-name">-</div>
+                        </div>
+                        <div class="card-image-wrapper">
+                            <img src="" alt="2nd Place" class="deck-card-image">
+                        </div>                        
+                    </div>
+
+                    <!-- âœ… 3Âº LUGAR -->
+                    <div class="podium-card third-place" id="thirdPlace" style="display: none;">
+                        <div class="rank-badge bronze">
+                            <span>3Âº</span>
+                        </div>
+                        <div class="deck-card-footer">
+                            <div class="player-name"></div>
+                            <div class="deck-name">-</div>
+                        </div>
+                        <div class="card-image-wrapper">
+                            <img src="" alt="3rd Place" class="deck-card-image">
+                        </div>                        
+                    </div>
+
+                    <!-- âœ… 4Âº LUGAR -->
+                    <div class="podium-card fourth-place" id="fourthPlace" style="display: none;">
+                        <div class="rank-badge green">
+                            <span>4Âº</span>
+                        </div>
+                        <div class="deck-card-footer">
+                            <div class="player-name"></div>
+                            <div class="deck-name">-</div>
+                        </div>
+                        <div class="card-image-wrapper">
+                            <img src="" alt="4th Place" class="deck-card-image">
+                        </div>                        
+                    </div>
+                </div>
+            </div>
+
+            <div class="positions-section">
+                <h2>FULL RESULTS</h2>
+                <div class="positions-grid" id="positionsList"></div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading tournament data...</p>
+        </div>
+
+        <div class="error-message" id="errorMessage" style="display: none;">
+            <p>Error connecting to the database. Check your API key.</p>
+        </div>
+    </div>
+
+    <!-- âœ… MODAL DE PREVIEW DO POST -->
+    <div id="postPreviewModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>ðŸ“¸ Instagram Post Preview</h2>
+                <button class="modal-close" onclick="closePostPreview()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <canvas id="postCanvas" width="1080" height="1080"></canvas>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-download" onclick="downloadPost()">â¬‡ï¸ Download Image</button>
+                <button class="btn-cancel" onclick="closePostPreview()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=1.2.2"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('../sw.js')
+            .then(() => console.log("Service Worker Registrado com Sucesso!"))
+            .catch((err) => console.log("Erro ao registrar SW:", err));
+        }
+    </script>
+</body>
+</html>
+

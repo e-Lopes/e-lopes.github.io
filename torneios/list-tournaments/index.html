@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Torneios - Digimon TCG</title>
+    <title>Tournament List - Digimon TCG</title>
+    <link rel="icon" type="image/png" href="../../favicon.png">
     <link rel="stylesheet" href="../../styles.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="../edit-tournament/styles.css">
@@ -13,86 +14,177 @@
         <div style="margin-bottom: 20px;">
             <button id="btnCreateTournament" class="nav-button">
                 <span>➕</span>
-                <span>Cadastrar Torneio</span>
+                <span>Create Tournament</span>
             </button>
         </div>
 
-        <h1>📅 Lista de Torneios</h1>
-        <p class="subtitle">Visualize todos os torneios cadastrados com paginação</p>
+        <h1>📅 Tournaments List</h1>
+
+        <div class="filters-row">
+            <div class="form-group filter-group">
+                <label for="filterStore">Store</label>
+                <select id="filterStore">
+                    <option value="">All stores</option>
+                </select>
+            </div>
+            <div class="form-group filter-group">
+                <label for="filterTournamentName">Tournament Name</label>
+                <select id="filterTournamentName">
+                    <option value="">All names</option>
+                </select>
+            </div>
+            <div class="form-group filter-group">
+                <label for="filterInstagram">Instagram Link</label>
+                <select id="filterInstagram">
+                    <option value="">All</option>
+                    <option value="with_link">With link</option>
+                    <option value="without_link">Without link</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <span class="filter-label-spacer" aria-hidden="true">Instagram Link</span>
+                <button type="button" id="btnClearFilters" class="btn-clear-filters" title="Clear Filters" aria-label="Clear Filters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M3 4h18"/>
+                        <path d="M6 4v2l5 6v6l2-1v-5l5-6V4"/>
+                        <path d="M9 9l6 6"/>
+                        <path d="M15 9l-6 6"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
 
         <table id="tournamentsTable">
             <thead>
                 <tr>
-                    <th>Data do Torneio</th>
-                    <th>Loja</th>
-                    <th>Nome do Torneio</th>
-                    <th><svg style="width: 18px; height: 18px; vertical-align: middle; margin-right: 5px; display: inline-block;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37Z"/><circle cx="17.5" cy="6.5" r="1.5"/></svg> Instagram</th>
-                    <th>Ações</th>
+                    <th>
+                        <button type="button" class="sort-button" data-sort-field="tournament_date">
+                            Tournament Date <span class="sort-indicator" data-sort-indicator="tournament_date">▼</span>
+                        </button>
+                    </th>
+                    <th>Store</th>
+                    <th>Tournament Name</th>
+                    <th>
+                        <button type="button" class="sort-button" data-sort-field="total_players">
+                            Total Players <span class="sort-indicator" data-sort-indicator="total_players">⇅</span>
+                        </button>
+                    </th>
+                    <th>
+                        <svg style="width: 18px; height: 18px; vertical-align: middle; margin-right: 5px; display: inline-block;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37Z"/>
+                            <circle cx="17.5" cy="6.5" r="1.5"/>
+                        </svg>
+                        Link
+                    </th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
 
         <div class="pagination" id="pagination"></div>
+        <div id="tournamentDetailsSection" class="tournament-details-section" style="display: none;">
+            <h2>Tournament Details</h2>
+            <div id="tournamentDetailsContent"></div>
+        </div>
     </div>
 
-    <!-- Modal de Criação -->
+    <!-- Create Modal -->
     <div id="createModal" class="modal-overlay">
         <div class="modal-content">
-            <h2>➕ Novo Torneio</h2>
+            <h2>➕ New Tournament</h2>
             <form id="createTournamentForm">
                 <div class="form-group">
-                    <label>Loja<span class="required">*</span></label>
+                    <label>Store<span class="required">*</span></label>
                     <select id="createStoreSelect" required></select>
                 </div>
                 <div class="form-group">
-                    <label>Data do Torneio<span class="required">*</span></label>
+                    <label>Tournament Date<span class="required">*</span></label>
                     <input type="date" id="createTournamentDate" required>
                 </div>
                 <div class="form-group">
-                    <label>Nome do Torneio<span class="required">*</span></label>
-                    <input type="text" id="createTournamentName" placeholder="Ex: Torneio de Março" required>
+                    <label>Tournament Name<span class="required">*</span></label>
+                    <select id="createTournamentName" required>
+                        <option value="">Select tournament name...</option>
+                        <option value="Semanal">Semanal</option>
+                        <option value="Mensal">Mensal</option>
+                        <option value="Quinzenal">Quinzenal</option>
+                        <option value="Pre-Release">Pre-Release</option>
+                        <option value="Top 8">Top 8</option>
+                        <option value="Win-A-Box">Win-A-Box</option>
+                        <option value="Evo Cup">Evo Cup</option>
+                        <option value="Regulation Battle">Regulation Battle</option>
+                        <option value="For Fun">For Fun</option>
+                    </select>
                 </div>
-                <div class="form-group checkbox-group">
-                    <label>
-                        <input type="checkbox" id="createInstagramPost">
-                        Publicado no Instagram?
-                    </label>
+                <div class="form-group">
+                    <label>Total Players<span class="required">*</span></label>
+                    <input type="number" id="createTotalPlayers" min="1" max="36" placeholder="Ex: 8" required>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Results<span class="required">*</span></label>
+                    <div id="createResultsRows"></div>
+                    <button type="button" id="btnAddResultRow" class="btn-add-result">+ Add Player Result</button>
+                    <small class="field-hint">Placement is automatic as you add players (up to 36).</small>
+                </div>
+                <div class="form-group">
+                    <label>Instagram Link</label>
+                    <input type="url" id="createInstagramLink" placeholder="https://instagram.com/...">
                 </div>
                 <div class="modal-actions">
-                    <button type="submit" class="btn-save">💾 Cadastrar</button>
-                    <button type="button" class="btn-cancel" onclick="closeCreateModal()">Cancelar</button>
+                    <button type="submit" class="btn-save">💾 Create</button>
+                    <button type="button" class="btn-cancel" onclick="closeCreateModal()">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal de Edição -->
+    <!-- Edit Modal -->
     <div id="editModal" class="modal-overlay">
         <div class="modal-content">
-            <h2>✏️ Editar Torneio</h2>
+            <h2>✏️ Edit Tournament</h2>
             <form id="editTournamentForm">
                 <div class="form-group">
-                    <label>Loja<span class="required">*</span></label>
+                    <label>Store<span class="required">*</span></label>
                     <select id="editStoreSelect" required></select>
                 </div>
                 <div class="form-group">
-                    <label>Data do Torneio<span class="required">*</span></label>
+                    <label>Tournament Date<span class="required">*</span></label>
                     <input type="date" id="editTournamentDate" required>
                 </div>
                 <div class="form-group">
-                    <label>Nome do Torneio<span class="required">*</span></label>
-                    <input type="text" id="editTournamentName" required>
+                    <label>Tournament Name<span class="required">*</span></label>
+                    <select id="editTournamentName" required>
+                        <option value="">Select tournament name...</option>
+                        <option value="Semanal">Semanal</option>
+                        <option value="Mensal">Mensal</option>
+                        <option value="Quinzenal">Quinzenal</option>
+                        <option value="Pre-Release">Pre-Release</option>
+                        <option value="Top 8">Top 8</option>
+                        <option value="Win-A-Box">Win-A-Box</option>
+                        <option value="Evo Cup">Evo Cup</option>
+                        <option value="Regulation Battle">Regulation Battle</option>
+                        <option value="For Fun">For Fun</option>
+                    </select>
                 </div>
-                <div class="form-group checkbox-group">
-                    <label>
-                        <input type="checkbox" id="editInstagramPost">
-                        Publicado no Instagram?
-                    </label>
+                <div class="form-group">
+                    <label>Total Players<span class="required">*</span></label>
+                    <input type="number" id="editTotalPlayers" min="1" max="36" required>
+                </div>
+                <div class="form-group">
+                    <label>Tournament Results<span class="required">*</span></label>
+                    <div id="editResultsRows"></div>
+                    <button type="button" id="btnAddEditResultRow" class="btn-add-result">+ Add Player Result</button>
+                    <small class="field-hint">Placement is automatic as you add players (up to 36).</small>
+                </div>
+                <div class="form-group">
+                    <label>Instagram Link</label>
+                    <input type="url" id="editInstagramLink" placeholder="https://instagram.com/...">
                 </div>
                 <div class="modal-actions">
-                    <button type="submit" class="btn-save">💾 Salvar</button>
-                    <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancelar</button>
+                    <button type="submit" class="btn-save">💾 Save</button>
+                    <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
                 </div>
             </form>
         </div>

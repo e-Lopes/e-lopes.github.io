@@ -81,6 +81,15 @@ body {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
+.form-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.form-input[type="number"]::-webkit-outer-spin-button,
+.form-input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
 /* ============================================================
    BOTÕES
 ============================================================ */
@@ -148,4 +157,124 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+/* ============================================================
+   MEDIA QUERIES
+============================================================ */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    .form-container {
+        padding: 15px;
+    }
+
+    .top-nav {
+        margin-bottom: 15px;
+    }
+
+    .page-header {
+        margin-bottom: 20px;
+    }
+
+    .page-title {
+        font-size: 1.5em;
+        margin-bottom: 8px;
+    }
+
+    .page-subtitle {
+        font-size: 0.9em;
+    }
+
+    .form-card {
+        padding: 20px;
+        border-radius: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+    .form-label {
+        font-size: 0.95em;
+        margin-bottom: 6px;
+    }
+
+    .form-input, select {
+        height: 44px;
+        font-size: 16px;
+        padding: 10px 12px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 0.95em;
+        flex: none;
+    }
+
+    .loading {
+        padding: 15px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 8px;
+    }
+
+    .form-container {
+        padding: 10px;
+    }
+
+    .page-header {
+        margin-bottom: 15px;
+    }
+
+    .page-title {
+        font-size: 1.3em;
+    }
+
+    .page-subtitle {
+        font-size: 0.85em;
+    }
+
+    .form-card {
+        padding: 15px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-input, select {
+        height: 40px;
+        font-size: 16px;
+    }
+
+    .btn {
+        padding: 10px 12px;
+        font-size: 0.9em;
+    }
+
+    .btn-primary {
+        padding: 12px 16px;
+    }
+
+    .top-nav {
+        margin-bottom: 10px;
+    }
 }
