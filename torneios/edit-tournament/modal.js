@@ -275,7 +275,12 @@ async function editTournamentFormSubmit(e) {
 
         if (typeof loadTournaments === "function") {
             await loadTournaments();
-            renderTable();
+            if (typeof applyFilters === "function") {
+                applyFilters();
+            } else {
+                renderTable();
+                renderPagination();
+            }
         }
     } catch (err) {
         console.error("Erro completo:", err);

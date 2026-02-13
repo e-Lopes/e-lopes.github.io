@@ -39,6 +39,73 @@ th {
     background: #eef1ff;
 }
 
+.filters-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 14px;
+}
+
+.filter-group {
+    margin-bottom: 0;
+}
+
+.filters-row > .form-group,
+.filters-row > .filter-actions {
+    margin-bottom: 0;
+}
+
+.filter-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.filter-label-spacer {
+    display: block;
+    height: 22px;
+    margin-bottom: 8px;
+    visibility: hidden;
+    user-select: none;
+}
+
+.filter-actions .btn-cancel {
+    margin: 0;
+    width: 100%;
+    height: 48px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-clear-filters {
+    width: 48px;
+    height: 48px;
+    border: 2px solid #ced4da;
+    border-radius: 10px;
+    background: #fff;
+    color: #495057;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-clear-filters:hover {
+    border-color: #667eea;
+    color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.btn-clear-filters svg {
+    width: 20px;
+    height: 20px;
+}
+
 .tournament-details-section {
     margin-top: 20px;
     padding: 20px;
@@ -645,12 +712,21 @@ th {
         min-width: 80px;
     }
 
-    #tournamentsTable td:nth-child(7) { 
+    #tournamentsTable td:nth-child(6) { 
         margin-top: 10px;
     }
     
-    #tournamentsTable td:nth-child(7):before { 
+    #tournamentsTable td:nth-child(6):before { 
         content: ""; 
+    }
+
+    .filters-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .filter-label-spacer {
+        display: none;
     }
 
     /* Botão de edição mobile */

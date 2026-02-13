@@ -7,6 +7,7 @@ const headers = {
 };
 
 let tournaments = [];
+let filteredTournaments = [];
 let currentPage = 1;
 const perPage = 30;
 let createPlayers = [];
@@ -28,8 +29,8 @@ function formatDate(dateString) {
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
     await loadTournaments();
-    renderTable();
-    renderPagination();
+    setupFilters();
+    applyFilters();
     
     // Event listeners para modal de criaÃƒÂ§ÃƒÂ£o
     document.getElementById("btnCreateTournament").addEventListener("click", openCreateTournamentModal);
@@ -65,10 +66,88 @@ async function loadTournaments() {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tournament?select=id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram_link&order=tournament_date.desc`, { headers });
         if (!res.ok) throw new Error("Erro ao carregar torneios.");
         tournaments = await res.json();
+        populateFilterOptions();
     } catch (err) {
         console.error(err);
         alert("Falha ao carregar dados.");
     }
+}
+
+function setupFilters() {
+    const filterStore = document.getElementById("filterStore");
+    const filterTournamentName = document.getElementById("filterTournamentName");
+    const filterInstagram = document.getElementById("filterInstagram");
+    const btnClearFilters = document.getElementById("btnClearFilters");
+
+    if (filterStore) filterStore.addEventListener("change", applyFilters);
+    if (filterTournamentName) filterTournamentName.addEventListener("change", applyFilters);
+    if (filterInstagram) filterInstagram.addEventListener("change", applyFilters);
+    if (btnClearFilters) {
+        btnClearFilters.addEventListener("click", () => {
+            if (filterStore) filterStore.value = "";
+            if (filterTournamentName) filterTournamentName.value = "";
+            if (filterInstagram) filterInstagram.value = "";
+            applyFilters();
+        });
+    }
+}
+
+function populateFilterOptions() {
+    const filterStore = document.getElementById("filterStore");
+    const filterTournamentName = document.getElementById("filterTournamentName");
+    if (!filterStore || !filterTournamentName) return;
+
+    const selectedStore = filterStore.value;
+    const selectedName = filterTournamentName.value;
+
+    const storesMap = new Map();
+    tournaments.forEach((t) => {
+        if (t.store_id && t.store?.name) storesMap.set(String(t.store_id), t.store.name);
+    });
+    const stores = Array.from(storesMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+
+    filterStore.innerHTML = `<option value="">All stores</option>` +
+        stores.map(([id, name]) => `<option value="${id}">${name}</option>`).join("");
+    if (selectedStore && storesMap.has(String(selectedStore))) filterStore.value = String(selectedStore);
+
+    const nameSet = new Set();
+    tournaments.forEach((t) => {
+        if (t.tournament_name) nameSet.add(t.tournament_name);
+    });
+    const names = Array.from(nameSet).sort((a, b) => a.localeCompare(b));
+
+    filterTournamentName.innerHTML = `<option value="">All names</option>` +
+        names.map((name) => `<option value="${name}">${name}</option>`).join("");
+    if (selectedName && nameSet.has(selectedName)) filterTournamentName.value = selectedName;
+}
+
+function getFilteredTournaments() {
+    const filterStore = document.getElementById("filterStore")?.value || "";
+    const filterTournamentName = document.getElementById("filterTournamentName")?.value || "";
+    const filterInstagram = document.getElementById("filterInstagram")?.value || "";
+
+    return tournaments.filter((t) => {
+        const byStore = !filterStore || String(t.store_id) === String(filterStore);
+        const byName = !filterTournamentName || (t.tournament_name || "") === filterTournamentName;
+        const hasInstagramLink = Boolean((t.instagram_link || "").trim());
+        const byInstagram = !filterInstagram ||
+            (filterInstagram === "with_link" && hasInstagramLink) ||
+            (filterInstagram === "without_link" && !hasInstagramLink);
+        return byStore && byName && byInstagram;
+    });
+}
+
+function applyFilters() {
+    filteredTournaments = getFilteredTournaments();
+    currentPage = 1;
+
+    if (selectedTournamentId && !filteredTournaments.some((t) => String(t.id) === String(selectedTournamentId))) {
+        selectedTournamentId = null;
+        clearTournamentDetails();
+    }
+
+    renderTable();
+    renderPagination();
 }
 
 // ============================================================
@@ -80,7 +159,7 @@ function renderTable() {
 
     const start = (currentPage - 1) * perPage;
     const end = start + perPage;
-    const slice = tournaments.slice(start, end);
+    const slice = filteredTournaments.slice(start, end);
 
     slice.forEach(t => {
         const tr = document.createElement("tr");
@@ -136,7 +215,7 @@ function renderTable() {
 // PAGINAÃƒâ€¡ÃƒÆ’O
 // ============================================================
 function renderPagination() {
-    const totalPages = Math.ceil(tournaments.length / perPage);
+    const totalPages = Math.ceil(filteredTournaments.length / perPage);
     const div = document.getElementById("pagination");
     div.innerHTML = "";
 
@@ -708,8 +787,7 @@ async function createTournamentFormSubmit(e) {
         }
 
         await loadTournaments();
-        renderTable();
-        renderPagination();
+        applyFilters();
         closeCreateModal();
         
         // Limpa o formulÃƒÂ¡rio

@@ -32,6 +32,40 @@
 
         <h1>Tournaments List</h1>
 
+        <div class="filters-row">
+            <div class="form-group filter-group">
+                <label for="filterStore">Store</label>
+                <select id="filterStore">
+                    <option value="">All stores</option>
+                </select>
+            </div>
+            <div class="form-group filter-group">
+                <label for="filterTournamentName">Tournament Name</label>
+                <select id="filterTournamentName">
+                    <option value="">All names</option>
+                </select>
+            </div>
+            <div class="form-group filter-group">
+                <label for="filterInstagram">Instagram Link</label>
+                <select id="filterInstagram">
+                    <option value="">All</option>
+                    <option value="with_link">With link</option>
+                    <option value="without_link">Without link</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <span class="filter-label-spacer" aria-hidden="true">Instagram Link</span>
+                <button type="button" id="btnClearFilters" class="btn-clear-filters" title="Clear Filters" aria-label="Clear Filters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M3 4h18"/>
+                        <path d="M6 4v2l5 6v6l2-1v-5l5-6V4"/>
+                        <path d="M9 9l6 6"/>
+                        <path d="M15 9l-6 6"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
         <table id="tournamentsTable">
             <thead>
                 <tr>
