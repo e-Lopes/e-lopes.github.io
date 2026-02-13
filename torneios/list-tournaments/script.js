@@ -8,6 +8,7 @@ const headers = {
 
 let tournaments = [];
 let filteredTournaments = [];
+let currentSort = { field: "tournament_date", direction: "desc" };
 let currentPage = 1;
 const perPage = 30;
 let createPlayers = [];
@@ -30,6 +31,7 @@ function formatDate(dateString) {
 document.addEventListener('DOMContentLoaded', async () => {
     await loadTournaments();
     setupFilters();
+    setupSorting();
     applyFilters();
     
     // Event listeners para modal de criaÃƒÂ§ÃƒÂ£o
@@ -138,7 +140,7 @@ function getFilteredTournaments() {
 }
 
 function applyFilters() {
-    filteredTournaments = getFilteredTournaments();
+    filteredTournaments = sortTournaments(getFilteredTournaments());
     currentPage = 1;
 
     if (selectedTournamentId && !filteredTournaments.some((t) => String(t.id) === String(selectedTournamentId))) {
@@ -148,6 +150,66 @@ function applyFilters() {
 
     renderTable();
     renderPagination();
+}
+
+function setupSorting() {
+    const sortButtons = document.querySelectorAll(".sort-button[data-sort-field]");
+    sortButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const field = btn.dataset.sortField;
+            if (!field) return;
+            toggleSort(field);
+        });
+    });
+    updateSortIndicators();
+}
+
+function toggleSort(field) {
+    if (currentSort.field === field) {
+        currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+    } else {
+        currentSort.field = field;
+        currentSort.direction = field === "tournament_date" ? "desc" : "asc";
+    }
+    updateSortIndicators();
+    applyFilters();
+}
+
+function sortTournaments(list) {
+    const sorted = [...list];
+    const direction = currentSort.direction === "asc" ? 1 : -1;
+
+    sorted.sort((a, b) => {
+        if (currentSort.field === "tournament_date") {
+            const aTime = Date.parse(a.tournament_date || "") || 0;
+            const bTime = Date.parse(b.tournament_date || "") || 0;
+            return (aTime - bTime) * direction;
+        }
+
+        if (currentSort.field === "total_players") {
+            const aPlayers = Number(a.total_players) || 0;
+            const bPlayers = Number(b.total_players) || 0;
+            return (aPlayers - bPlayers) * direction;
+        }
+
+        return 0;
+    });
+
+    return sorted;
+}
+
+function updateSortIndicators() {
+    const indicators = document.querySelectorAll("[data-sort-indicator]");
+    indicators.forEach((el) => {
+        const field = el.dataset.sortIndicator;
+        if (field === currentSort.field) {
+            el.textContent = currentSort.direction === "asc" ? "▲" : "▼";
+            el.classList.add("is-active");
+        } else {
+            el.textContent = "⇅";
+            el.classList.remove("is-active");
+        }
+    });
 }
 
 // ============================================================

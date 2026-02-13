@@ -17,6 +17,29 @@ th {
     background: #f4f4f4;
 }
 
+.sort-button {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+}
+
+.sort-indicator {
+    color: #8b93b5;
+    font-size: 0.95em;
+    line-height: 1;
+}
+
+.sort-indicator.is-active {
+    color: #3f4da1;
+}
+
 .pagination {
     margin-top: 20px;
     text-align: center;

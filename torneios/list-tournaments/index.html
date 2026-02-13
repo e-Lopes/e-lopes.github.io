@@ -57,10 +57,18 @@
         <table id="tournamentsTable">
             <thead>
                 <tr>
-                    <th>Tournament Date</th>
+                    <th>
+                        <button type="button" class="sort-button" data-sort-field="tournament_date">
+                            Tournament Date <span class="sort-indicator" data-sort-indicator="tournament_date">▼</span>
+                        </button>
+                    </th>
                     <th>Store</th>
                     <th>Tournament Name</th>
-                    <th>Total Players</th>
+                    <th>
+                        <button type="button" class="sort-button" data-sort-field="total_players">
+                            Total Players <span class="sort-indicator" data-sort-indicator="total_players">⇅</span>
+                        </button>
+                    </th>
                     <th>
                         <svg style="width: 18px; height: 18px; vertical-align: middle; margin-right: 5px; display: inline-block;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
