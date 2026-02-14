@@ -1,4 +1,4 @@
-const CACHE_NAME = 'digistats-v3';
+const CACHE_NAME = 'digistats-v5';
 
 const STATIC_ASSETS = [
   '/',
@@ -30,9 +30,15 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const req = event.request;
+  const url = new URL(req.url);
 
-  // 🧠 HTML = Network First
-  if (req.headers.get('accept')?.includes('text/html')) {
+  // 🧠 HTML, CSS e JS = Network First
+  // Adicionamos verificação de CSS e JS para garantir que o estilo novo carregue logo
+  if (
+    req.headers.get('accept')?.includes('text/html') || 
+    url.pathname.endsWith('.css') || 
+    url.pathname.endsWith('.js')
+  ) {
     event.respondWith(
       fetch(req)
         .then(res => {
@@ -40,12 +46,12 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
           return res;
         })
-        .catch(() => caches.match(req))
+        .catch(() => caches.match(req)) // Se falhar a rede, usa o cache
     );
     return;
   }
 
-  // 🎨 Assets = Cache First
+  // 🎨 Outros Assets (Imagens, Ícones) = Cache First
   event.respondWith(
     caches.match(req).then(res => res || fetch(req))
   );
