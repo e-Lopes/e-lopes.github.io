@@ -11,7 +11,7 @@ const headers = window.createSupabaseHeaders
 let currentStore = '';
 let currentDate = '';
 let tournamentDataForCanvas = null;
-let selectedBackgroundPath = '../icons/backgrounds/BT24.png';
+let selectedBackgroundPath = '../icons/backgrounds/EX11.png';
 
 const TOP_LEFT_LOGO_CANDIDATES = ['../icons/digimon-card-game.png', '../icons/logo.png'];
 const TROPHY_ICON_CANDIDATES = [
