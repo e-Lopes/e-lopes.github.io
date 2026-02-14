@@ -1,4 +1,4 @@
-﻿const CACHE_VERSION = 'v7';
+﻿const CACHE_VERSION = 'v8';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (isScriptOrStyle) {
-        event.respondWith(staleWhileRevalidate(request));
+        event.respondWith(networkFirst(request));
         return;
     }
 
@@ -117,18 +117,4 @@ async function cacheFirst(request) {
     return response;
 }
 
-async function staleWhileRevalidate(request) {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request);
 
-    const networkFetch = fetch(request)
-        .then((response) => {
-            if (response && response.ok) {
-                cache.put(request, response.clone());
-            }
-            return response;
-        })
-        .catch(() => null);
-
-    return cached || networkFetch || new Response('', { status: 504 });
-}
