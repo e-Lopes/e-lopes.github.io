@@ -1,7 +1,9 @@
 ﻿(function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
-    const candidates = ['./sw.js', '../sw.js', '../../sw.js'];
+    const candidates = window.location.pathname.includes('/teste/')
+        ? ['../sw.js', '../../sw.js', './sw.js']
+        : ['./sw.js', '../sw.js', '../../sw.js'];
     let hasReloaded = false;
 
     function normalizeScope(swUrl) {

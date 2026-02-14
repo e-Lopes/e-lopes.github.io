@@ -1,4 +1,4 @@
-# old-index (Legacy)
+# teste (Legacy)
 
 This page is considered legacy.
 

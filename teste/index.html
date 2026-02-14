@@ -15,6 +15,10 @@
         <!-- PWA -->
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#667eea" />
+        <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,700;1,800&display=swap"
+        />
 
         <link rel="stylesheet" href="../styles.css?v=1.2.2" />
         <link rel="stylesheet" href="../styles/components/utilities.css" />
@@ -22,34 +26,16 @@
     </head>
     <body>
         <div class="container">
+            <div class="top-nav">
+                <a href="../index.html" class="nav-button">
+                    <span>&larr; Back to Dashboard</span>
+                </a>
+            </div>
             <header>
                 <div class="logo-wrapper">
-                    <img
-                        src="../icons/logo.png"
-                        alt="DigiStats"
-                        class="header-logo"
-                    />
+                    <img src="../icons/logo.png" alt="DigiStats" class="header-logo" />
                 </div>
                 <p class="subtitle">Digimon TCG Tournament Results v1.2.0</p>
-
-                <!-- Navigation buttons -->
-                <div class="nav-buttons-wrapper">
-                    <a href="../torneios/list-tournaments/index.html" class="nav-button">
-                        <span>Manage Tournament</span>
-                    </a>
-
-                    <a href="../torneios/index.html" class="nav-button">
-                        <span>Submit Tournament Report</span>
-                    </a>
-
-                    <a href="../decks/index.html" class="nav-button">
-                        <span>Manage Decks</span>
-                    </a>
-
-                    <a href="../players/index.html" class="nav-button">
-                        <span>Manage Players</span>
-                    </a>
-                </div>
             </header>
 
             <div class="filters">
@@ -74,17 +60,10 @@
             </div>
 
             <!-- Generate post button -->
-            <div id="generatePostSection" class="u-hidden u-text-center u-mb-30">
-                <button id="generatePostBtn" class="generate-post-btn">
-                    Generate Post Image (MVP)
+            <div id="generatePostSection" class="u-text-center u-mb-30 post-generate-panel">
+                <button id="generatePostBtn" class="generate-post-btn nav-button" disabled>
+                    Generate Post Image
                 </button>
-                <div class="u-mt-20">
-                    <label for="postBackgroundSelect">Collection Background</label>
-                    <select id="postBackgroundSelect">
-                        <option value="">None</option>
-                        <option value="../icons/backgrounds/EX11.png" selected>EX11</option>
-                    </select>
-                </div>
             </div>
 
             <div class="main-content">
@@ -172,9 +151,49 @@
                     <button id="btnPostModalCloseTop" class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <canvas id="postCanvas" width="1080" height="1350"></canvas>
+                    <div id="postCanvasWrap" class="post-canvas-wrap">
+                        <canvas id="postCanvas" width="1080" height="1350"></canvas>
+                        <div id="postEditorOverlay" class="post-editor-overlay u-hidden"></div>
+                    </div>
                 </div>
                 <div class="modal-footer">
+                    <label id="templateBackgroundPicker" class="template-object-picker">
+                        Background
+                        <select id="templateBackgroundSelect">
+                            <option value="">None</option>
+                            <option value="../icons/backgrounds/EX11.png">EX11</option>
+                        </select>
+                    </label>
+                    <label id="templateBackgroundUploadWrap" class="template-upload-label">
+                        Upload BG
+                        <input id="templateBackgroundUpload" type="file" accept="image/*" />
+                    </label>
+                    <label id="templatePresetPicker" class="template-object-picker">
+                        Preset
+                        <select id="templatePresetSelect">
+                            <option value="">Select preset...</option>
+                        </select>
+                    </label>
+                    <button id="btnSavePreset" class="btn-secondary">Save Preset</button>
+                    <button id="btnLoadPreset" class="btn-secondary">Load Preset</button>
+                    <button id="btnDeletePreset" class="btn-cancel">Delete Preset</button>
+                    <label id="templateObjectPicker" class="template-object-picker">
+                        Object
+                        <select id="templateObjectSelect">
+                            <option value="logo">Logo</option>
+                            <option value="title">Title/Date</option>
+                            <option value="rows">Podium Border</option>
+                            <option value="trophy">Trophy Icon</option>
+                            <option value="podiumNumber">Podium Number</option>
+                            <option value="avatar">Deck Circle</option>
+                            <option value="rowText">Player/Deck</option>
+                            <option value="store">Store Logo</option>
+                            <option value="handle">@digimoncwb</option>
+                        </select>
+                    </label>
+                    <span class="template-help-label">Move: WASD | Size: &lt; / &gt; | Gap: Q / E (Shift = passo maior)</span>
+                    <button id="btnPostTemplateEdit" class="btn-secondary">Edit Template</button>
+                    <button id="btnPostTemplateReset" class="btn-cancel">Reset Layout</button>
                     <button id="btnPostDownload" class="btn-download">Download Image</button>
                     <button id="btnPostModalCloseBottom" class="btn-cancel">Cancel</button>
                 </div>

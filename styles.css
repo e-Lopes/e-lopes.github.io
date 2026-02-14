@@ -1,6 +1,8 @@
-﻿/* ============================================================
+@import url('https://fonts.googleapis.com/css2?family=Zing+Rust+Base:wght@700&display=swap');
+
+/* ============================================================
    DIGISTATS - STYLESHEET COMPLETO E UNIFICADO
-   Todos os estilos do projeto consolidados em um Ãºnico arquivo
+   Todos os estilos do projeto consolidados em um único arquivo
 ============================================================ */
 
 /* ============================================================
@@ -12,8 +14,6 @@
     box-sizing: border-box;
     font-family: 'Zing Rust Base', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Zing+Rust+Base:wght@700&display=swap');
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -209,7 +209,7 @@ h1 {
     gap: 40px;
     align-items: flex-start;
     justify-content: center; /* Centraliza os blocos horizontalmente */
-    width: 100%; /* Garante que use toda a largura disponÃ­vel */
+    width: 100%; /* Garante que use toda a largura disponível */
 }
 
 /* ============================================================
@@ -319,7 +319,7 @@ h1 {
     color: #000;
 }
 
-/* REMOVIDO o ::after que adicionava Âº duplicado */
+/* REMOVIDO o ::after que adicionava º duplicado */
 .rank-badge span {
     text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.4);
 }
@@ -329,7 +329,7 @@ h1 {
     flex-direction: column;
     justify-content: center;
     flex: 1;
-    z-index: 2; /* Garante que o texto fique acima de possÃ­veis brilhos */
+    z-index: 2; /* Garante que o texto fique acima de possíveis brilhos */
 }
 
 .rank-badge::before {
@@ -417,7 +417,7 @@ h1 {
     font-weight: 800;
     font-size: 1rem; /* levemente menor */
     color: #111;
-    letter-spacing: 0.8px; /* mais espaÃ§amento melhora leitura */
+    letter-spacing: 0.8px; /* mais espaçamento melhora leitura */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -489,18 +489,18 @@ h1 {
     color: white;
 }
 
-/*Agora sim ficou bem melhor ðŸ‘ðŸ”¥
-Mas dÃ¡ pra deixar nÃ­vel produto profissional mesmo com dois ajustes finos:
+/*Agora sim ficou bem melhor 👏🔥
+Mas dá pra deixar nível produto profissional mesmo com dois ajustes finos:
 
-O azul do rank estÃ¡ brigando com as cores do fundo (principalmente no 1Âº e 3Âº).
+O azul do rank está brigando com as cores do fundo (principalmente no 1º e 3º).
 
 O deck poderia ter ainda mais destaque visual.
 
 Vou te passar o upgrade final.
 
-ðŸŽ¯ 1ï¸âƒ£ Deixar o rank combinando com cada posiÃ§Ã£o
+🎯 1️⃣ Deixar o rank combinando com cada posição
 
-Em vez do cÃ­rculo azul fixo, vamos usar a cor da colocaÃ§Ã£o.
+Em vez do círculo azul fixo, vamos usar a cor da colocação.
 
 Substitua .position-rank por:*/
 .position-rank {
@@ -531,7 +531,7 @@ Substitua .position-rank por:*/
     background: #1f6f63;
 }
 
-/* Demais posiÃ§Ãµes */
+/* Demais posições */
 .position-item:not([class*='top-']) .position-rank {
     background: #667eea;
 }
@@ -551,17 +551,17 @@ Substitua .position-rank por:*/
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
 }
 
-/* Aplica o efeito de hover especificamente quando o mouse estÃ¡ em cima do Top 4 */
+/* Aplica o efeito de hover especificamente quando o mouse está em cima do Top 4 */
 .position-item.top-1:hover,
 .position-item.top-2:hover,
 .position-item.top-3:hover,
 .position-item.top-4:hover {
     transform: translateX(12px); /* Move um pouco mais que o normal (6px) para destacar */
-    filter: brightness(1.1); /* DÃ¡ um leve brilho ao passar o mouse */
+    filter: brightness(1.1); /* Dá um leve brilho ao passar o mouse */
     cursor: pointer;
 }
 
-/* Ajuste no hover dos itens normais (5Âº+) para manter a consistÃªncia */
+/* Ajuste no hover dos itens normais (5º+) para manter a consistência */
 .position-item:not([class*='top-']):hover {
     transform: translateX(10px);
     background-color: #f0f0f0;
@@ -583,13 +583,13 @@ Substitua .position-rank por:*/
     color: white;
 }
 
-/* REMOVIDO ::after que adicionava Âº duplicado na lista */
+/* REMOVIDO ::after que adicionava º duplicado na lista */
 .position-number {
     font-weight: bold;
 }
 
 /* ============================================================
-   ANIMAÃ‡Ã•ES
+   ANIMAÇÕES
 ============================================================ */
 @keyframes fadeIn {
     from {
@@ -772,7 +772,7 @@ h1 {
     appearance: none;
 }
 
-/* Ãcone do calendario */
+/* Ícone do calendario */
 .form-group input[type='date']::-webkit-calendar-picker-indicator {
     cursor: pointer;
     padding: 5px;
@@ -913,7 +913,7 @@ h1 {
     border-color: #667eea;
 }
 
-/* âœ… AUTOCOMPLETE STYLES */
+/* ✅ AUTOCOMPLETE STYLES */
 .autocomplete-wrapper {
     position: relative;
     flex: 1;
@@ -1235,10 +1235,10 @@ h1 {
         box-shadow 0.2s;
     -webkit-appearance: none; /* Remove estilo iOS */
     -moz-appearance: none; /* Remove estilo Firefox */
-    appearance: none; /* Estilo padrÃ£o moderno */
+    appearance: none; /* Estilo padrão moderno */
 }
 
-/* Ajuste especifico para o campo de Data (Ãcone e EspaÃ§amento) */
+/* Ajuste especifico para o campo de Data (Ícone e Espaçamento) */
 .form-group input[type='date'] {
     position: relative;
     min-height: 48px;
@@ -1272,7 +1272,7 @@ h1 {
     background-color: #fff;
 }
 
-/* Estilo para quando o campo estÃ¡ desabilitado */
+/* Estilo para quando o campo está desabilitado */
 .form-group select:disabled,
 .form-group input:disabled {
     background-color: #e9ecef;
@@ -2103,7 +2103,7 @@ th {
 }
 
 /* ============================================================
-   MODAIS - OVERLAY E CONTEÃšDO
+   MODAIS - OVERLAY E CONTEÚDO
 ============================================================ */
 .modal-overlay {
     position: fixed;
@@ -2328,7 +2328,7 @@ th {
         margin-bottom: 15px;
     }
 
-    /* BotÃ£o de navegaÃ§Ã£o mobile */
+    /* Botão de navegação mobile */
     .nav-button {
         padding: 10px 12px;
         font-size: 0.9em;
@@ -2519,7 +2519,7 @@ th {
         justify-content: flex-start;
     }
 
-    /* BotÃ£o de ediÃ§Ã£o mobile */
+    /* Botão de edição mobile */
     .btn-edit:not(.btn-icon-only) {
         width: 100%;
         margin-top: 10px;
@@ -4150,7 +4150,7 @@ h1 {
     gap: 40px;
     align-items: flex-start;
     justify-content: center; /* Centraliza os blocos horizontalmente */
-    width: 100%; /* Garante que use toda a largura disponÃ­vel */
+    width: 100%; /* Garante que use toda a largura disponível */
 }
 
 /* ============================================================
@@ -4260,7 +4260,7 @@ h1 {
     color: #000;
 }
 
-/* REMOVIDO o ::after que adicionava Âº duplicado */
+/* REMOVIDO o ::after que adicionava º duplicado */
 .rank-badge span {
     text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.4);
 }
@@ -4270,7 +4270,7 @@ h1 {
     flex-direction: column;
     justify-content: center;
     flex: 1;
-    z-index: 2; /* Garante que o texto fique acima de possÃ­veis brilhos */
+    z-index: 2; /* Garante que o texto fique acima de possíveis brilhos */
 }
 
 .rank-badge::before {
@@ -4358,7 +4358,7 @@ h1 {
     font-weight: 800;
     font-size: 1rem; /* levemente menor */
     color: #111;
-    letter-spacing: 0.8px; /* mais espaÃ§amento melhora leitura */
+    letter-spacing: 0.8px; /* mais espaçamento melhora leitura */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4458,7 +4458,7 @@ h1 {
     background: #1f6f63;
 }
 
-/* Demais posiÃ§Ãµes */
+/* Demais posições */
 .position-item:not([class*='top-']) .position-rank {
     background: #667eea;
 }
@@ -4478,17 +4478,17 @@ h1 {
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
 }
 
-/* Aplica o efeito de hover especificamente quando o mouse estÃ¡ em cima do Top 4 */
+/* Aplica o efeito de hover especificamente quando o mouse está em cima do Top 4 */
 .position-item.top-1:hover,
 .position-item.top-2:hover,
 .position-item.top-3:hover,
 .position-item.top-4:hover {
     transform: translateX(12px); /* Move um pouco mais que o normal (6px) para destacar */
-    filter: brightness(1.1); /* DÃ¡ um leve brilho ao passar o mouse */
+    filter: brightness(1.1); /* Dá um leve brilho ao passar o mouse */
     cursor: pointer;
 }
 
-/* Ajuste no hover dos itens normais (5Âº+) para manter a consistÃªncia */
+/* Ajuste no hover dos itens normais (5º+) para manter a consistência */
 .position-item:not([class*='top-']):hover {
     transform: translateX(10px);
     background-color: #f0f0f0;
@@ -4510,13 +4510,13 @@ h1 {
     color: white;
 }
 
-/* REMOVIDO ::after que adicionava Âº duplicado na lista */
+/* REMOVIDO ::after que adicionava º duplicado na lista */
 .position-number {
     font-weight: bold;
 }
 
 /* ============================================================
-   ANIMAÃ‡Ã•ES
+   ANIMAÇÕES
 ============================================================ */
 @keyframes fadeIn {
     from {
@@ -4849,7 +4849,7 @@ body {
     border-radius: 10px !important;
     background-color: #fff !important;
     margin: 0 !important;
-    transform: none !important; /* Remove centralizaÃ§Ãµes manuais */
+    transform: none !important; /* Remove centralizações manuais */
 }
 
 .header-actions {
@@ -5179,7 +5179,7 @@ body {
 }
 
 /* Reuse create-deck modal styles by importing its stylesheet */
-/* Import removido - estilos jÃ¡ incluÃ­dos abaixo */
+/* Import removido - estilos já incluídos abaixo */
 
 .modal-overlay {
     position: fixed;
@@ -5363,5 +5363,455 @@ body {
     color: #999 !important;
 }
 
-/* Select DENTRO do input - posiÃ§Ã£o absoluta relativa ao container */
+/* Select DENTRO do input - posição absoluta relativa ao container */
 /* Keep per-page select aligned in the filters row; no absolute positioning here. */
+
+/* ============================================================
+   POST TEMPLATE EDITOR (teste/)
+============================================================ */
+.post-canvas-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+#postCanvas {
+    width: min(100%, 520px);
+    height: auto;
+    display: block;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.post-editor-overlay {
+    position: absolute;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+.post-editor-handle {
+    position: absolute;
+    border: 2px dashed #4f46e5;
+    background: rgba(79, 70, 229, 0.12);
+    color: #1f1f1f;
+    border-radius: 8px;
+    cursor: move;
+    padding: 0;
+    overflow: visible;
+    touch-action: none;
+}
+
+.post-editor-handle span {
+    position: absolute;
+    top: -24px;
+    left: 0;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.post-editor-guide {
+    position: absolute;
+    z-index: 19;
+    pointer-events: none;
+    background: rgba(34, 197, 94, 0.8);
+}
+
+.post-editor-guide.x {
+    width: 1px;
+    top: 0;
+    bottom: 0;
+}
+
+.post-editor-guide.y {
+    height: 1px;
+    left: 0;
+    right: 0;
+}
+
+.btn-secondary {
+    background: #eef2ff;
+    color: #334155;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    height: 42px;
+    padding: 0 14px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.btn-secondary.is-active {
+    background: #4f46e5;
+    color: #fff;
+    border-color: #4338ca;
+}
+
+.post-typography-panel {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.post-typography-panel label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #334155;
+    font-weight: 600;
+}
+
+.post-typography-panel input {
+    height: 34px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 14px;
+}
+
+.template-help-label {
+    font-size: 12px;
+    color: #475569;
+    font-weight: 600;
+    margin-right: 6px;
+}
+
+.template-object-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #334155;
+    font-weight: 700;
+}
+
+.template-object-picker select {
+    height: 34px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0 8px;
+}
+
+/* Dedicated template editor page */
+body.template-editor-page {
+    padding: 0;
+    margin: 0;
+    background: #0f172a;
+}
+
+body.template-editor-page .container {
+    display: none;
+}
+
+body.template-editor-page #postPreviewModal {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    inset: auto !important;
+    padding: 0 !important;
+}
+
+body.template-editor-page #postPreviewModal.u-hidden {
+    display: block !important;
+}
+
+body.template-editor-page #postPreviewModal .modal-content {
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100vh !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+}
+
+body.template-editor-page #postPreviewModal .modal-body {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px;
+}
+
+body.template-preview-page {
+    padding: 0;
+    margin: 0;
+    background: #0f172a;
+}
+
+body.template-preview-page .container {
+    display: none;
+}
+
+body.template-preview-page #postPreviewModal {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    inset: auto !important;
+    padding: 0 !important;
+}
+
+body.template-preview-page #postPreviewModal.u-hidden {
+    display: block !important;
+}
+
+body.template-preview-page #postPreviewModal .modal-content {
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100vh !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+}
+
+body.template-preview-page #postPreviewModal .modal-body {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px;
+}
+
+/* Dedicated preview/editor polish */
+body.template-editor-page #postPreviewModal .modal-content,
+body.template-preview-page #postPreviewModal .modal-content {
+    background:
+        radial-gradient(1200px 500px at 10% -10%, rgba(96, 125, 255, 0.18), transparent 60%),
+        radial-gradient(900px 400px at 95% 0%, rgba(99, 102, 241, 0.16), transparent 55%),
+        #0b1220 !important;
+    color: #e5e7eb;
+}
+
+body.template-editor-page #postPreviewModal .modal-header,
+body.template-preview-page #postPreviewModal .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid rgba(129, 140, 248, 0.35);
+    background: rgba(15, 23, 42, 0.82);
+    backdrop-filter: blur(8px);
+}
+
+body.template-editor-page #postPreviewModal .modal-header h2,
+body.template-preview-page #postPreviewModal .modal-header h2 {
+    margin: 0;
+    font-size: 32px;
+    letter-spacing: 0.2px;
+    color: #f8fafc;
+}
+
+body.template-editor-page #postPreviewModal .modal-close,
+body.template-preview-page #postPreviewModal .modal-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    background: rgba(30, 41, 59, 0.95);
+    color: #e2e8f0;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+body.template-editor-page #postPreviewModal .modal-body,
+body.template-preview-page #postPreviewModal .modal-body {
+    padding: 18px;
+}
+
+body.template-editor-page #postCanvasWrap,
+body.template-preview-page #postCanvasWrap {
+    border-radius: 16px;
+    padding: 10px;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+}
+
+body.template-editor-page #postCanvas,
+body.template-preview-page #postCanvas {
+    width: min(92vw, 640px);
+    border-radius: 12px;
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+}
+
+body.template-editor-page #postPreviewModal .modal-footer,
+body.template-preview-page #postPreviewModal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(129, 140, 248, 0.32);
+    background: rgba(15, 23, 42, 0.86);
+    backdrop-filter: blur(8px);
+}
+
+body.template-editor-page .template-help-label,
+body.template-preview-page .template-help-label {
+    color: #cbd5e1;
+    background: rgba(51, 65, 85, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+    padding: 7px 11px;
+}
+
+body.template-editor-page .template-object-picker,
+body.template-preview-page .template-object-picker,
+body.template-editor-page .template-upload-label,
+body.template-preview-page .template-upload-label {
+    color: #dbeafe;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    border-radius: 10px;
+    padding: 6px 10px;
+}
+
+body.template-editor-page .template-object-picker select,
+body.template-preview-page .template-object-picker select,
+body.template-editor-page #templateBackgroundSelect,
+body.template-preview-page #templateBackgroundSelect {
+    height: 38px;
+    border: 1px solid rgba(129, 140, 248, 0.4);
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+body.template-editor-page #templateBackgroundUpload,
+body.template-preview-page #templateBackgroundUpload {
+    color: #cbd5e1;
+    background: #0f172a;
+    border: 1px dashed rgba(129, 140, 248, 0.5);
+}
+
+body.template-editor-page .btn-secondary,
+body.template-preview-page .btn-secondary,
+body.template-editor-page .btn-download,
+body.template-preview-page .btn-download,
+body.template-editor-page .btn-cancel,
+body.template-preview-page .btn-cancel {
+    height: 40px;
+    border-radius: 10px;
+    font-weight: 700;
+    border: 1px solid rgba(129, 140, 248, 0.35);
+}
+
+body.template-editor-page .btn-secondary,
+body.template-preview-page .btn-secondary {
+    background: rgba(99, 102, 241, 0.16);
+    color: #e2e8f0;
+}
+
+body.template-editor-page .btn-download,
+body.template-preview-page .btn-download {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: #fff;
+}
+
+body.template-editor-page .btn-cancel,
+body.template-preview-page .btn-cancel {
+    background: rgba(15, 23, 42, 0.92);
+    color: #e2e8f0;
+}
+
+
+.post-generate-panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+}
+
+.post-bg-controls {
+    display: grid;
+    gap: 10px;
+    max-width: 780px;
+    margin: 0 auto;
+}
+
+.post-bg-controls label {
+    font-weight: 700;
+    color: #374151;
+}
+
+#postBackgroundSelect,
+#templateBackgroundSelect {
+    height: 44px;
+    border: 1px solid #c7d2fe;
+    border-radius: 10px;
+    padding: 0 12px;
+    background: #fff;
+}
+
+#postBackgroundUpload,
+#templateBackgroundUpload {
+    border: 1px dashed #a5b4fc;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #fff;
+}
+
+.template-upload-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #334155;
+    font-weight: 700;
+}
+
+.post-generate-panel .generate-post-btn {
+    border: none;
+    min-height: 46px;
+}
+
+.post-generate-panel .generate-post-btn:disabled {
+    opacity: 0.62;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Mobile compact spacing for dashboard navigation buttons */
+@media (max-width: 768px) {
+    .nav-buttons-wrapper {
+        margin-top: 10px !important;
+        gap: 8px !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        justify-items: center !important;
+    }
+
+    .nav-buttons-wrapper .nav-button {
+        width: 100% !important;
+        max-width: 320px !important;
+        padding: 12px 16px !important;
+        min-height: 44px !important;
+        margin: 0 !important;
+    }
+
+    header .subtitle {
+        margin-bottom: 10px !important;
+    }
+}
