@@ -30,7 +30,7 @@ Centralizar operações de:
 - `config/`: configuração e utilitários compartilhados
 - `database/`: documentação e snapshots SQL
 - `tests/`: testes automatizados
-- `old-index/` e `legacy/`: legado e compatibilidade
+- `teste/` e `legacy/`: area de testes legada e compatibilidade
 
 ## Setup Local
 

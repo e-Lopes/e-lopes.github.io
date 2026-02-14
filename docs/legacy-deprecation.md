@@ -2,7 +2,7 @@
 
 ## Scope
 
-- `old-index/` is maintained only for compatibility.
+- `teste/` is maintained only for compatibility.
 
 ## Policy
 
@@ -13,4 +13,4 @@
 
 - All active users/routes moved to current pages.
 - Replace legacy links with redirects.
-- Remove `old-index/` in a planned major cleanup.
+- Remove `teste/` in a planned major cleanup.

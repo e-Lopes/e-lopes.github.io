@@ -4,7 +4,7 @@ This folder documents legacy parts of the project.
 
 Current legacy surface:
 
-- `old-index/` (kept for compatibility and reference)
+- `teste/` (kept for compatibility and reference)
 
 Guideline:
 

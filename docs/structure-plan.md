@@ -53,5 +53,5 @@ styles/
 ## Critical Cleanup Candidates
 
 - `styles.css`: split and remove duplicated blocks
-- `old-index/`: move to a clearly named legacy area
+- `teste/`: keep as explicitly legacy/testing area
 - duplicated Supabase constants: now centralized, continue removing leftovers

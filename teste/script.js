@@ -1,0 +1,2034 @@
+﻿const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
+const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
+const headers = window.createSupabaseHeaders
+    ? window.createSupabaseHeaders()
+    : {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+      };
+
+let currentStore = '';
+let currentDate = '';
+let tournamentDataForCanvas = null;
+let selectedBackgroundPath = '../icons/backgrounds/EX11.png';
+
+const TOP_LEFT_LOGO_CANDIDATES = ['../icons/digimon-card-game.png', '../icons/logo.png'];
+const TROPHY_ICON_CANDIDATES = [
+    '../icons/Postagem.svg',
+    '../icons/th-icon.png',
+    '../icons/th-icon.svg',
+    '../icons/th-icon.webp'
+];
+const TROPHY_SVG_BASE_COLOR = '#50c89f';
+const PLACEMENT_STYLES = {
+    1: { border: '#c99a2e', medal: '#f1c451' },
+    2: { border: '#9497a1', medal: '#c2c4ca' },
+    3: { border: '#a85d2f', medal: '#d88b44' },
+    4: { border: '#4dbf9f', medal: '#59d1af' }
+};
+let cachedTrophySvgTemplate = null;
+const trophyTintedIconCache = new Map();
+const POST_LAYOUT_STORAGE_KEY = 'digistats.post-layout.v1';
+const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
+const TEMPLATE_EDITOR_UPDATED_KEY = 'digistats.template-editor.updated.v1';
+const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
+const POST_PRESETS_STORAGE_KEY = 'digistats.post-layout-presets.v1';
+const CUSTOM_BACKGROUNDS_STORAGE_KEY = 'digistats.custom-backgrounds.v1';
+const DEFAULT_BACKGROUND_OPTIONS = [
+    { label: 'None', value: '' },
+    { label: 'EX11', value: '../icons/backgrounds/EX11.png' }
+];
+const DEFAULT_POST_LAYOUT = {
+    logo: { x: 80, y: 74, w: 540, h: 198 },
+    title: { x: 634, y: 82, w: 338, h: 182, titleOffsetY: 82, dateOffsetY: 136, dateMaxWidth: 302 },
+    rows: { x: 92, startY: 280, w: 896, rowHeight: 178, rowGap: 24 },
+    rowBorder: { x: 92, startY: 280, w: 896, rowHeight: 178, rowGap: 24 },
+    rowElements: {
+        trophy: { x: 74, y: 91, w: 156, h: 156, gap: 24 },
+        podiumNumber: { offsetX: 0, offsetY: -8, size: 52 },
+        avatar: {
+            xFromRight: 88,
+            yOffset: 0,
+            outerRadius: 86,
+            imageRadius: 78,
+            whiteRingWidth: 0,
+            borderRingWidth: 4,
+            gap: 24
+        },
+        text: { leftPadding: 190, rightPadding: 96, playerY: 62, deckY: 116, gap: 24 }
+    },
+    store: { x: 96, y: 1162, w: 330, h: 122 },
+    handle: { x: 988, y: 1234 },
+    typography: { titleSize: 72, dateSize: 72, playerSize: 54, deckSize: 62, handleSize: 46 }
+};
+let postLayout = loadPostLayout();
+let isPostTemplateEditorActive = false;
+let postEditorDragState = null;
+let postEditorGuides = [];
+const EDITOR_SNAP_DISTANCE = 12;
+let activeTemplateHandleKey = 'logo';
+
+document.addEventListener('DOMContentLoaded', async () => {
+    clearDisplay();
+    await loadStores();
+    setupEventListeners();
+    setupModalActionButtons();
+    setupTypographyControls();
+    setupPodiumGapControl();
+    setupTemplateObjectControls();
+    setupTemplateKeyboardControls();
+    setupTemplateSyncListeners();
+    setupPresetControls();
+    bootTemplateEditorPageIfNeeded();
+    bootPostPreviewPageIfNeeded();
+});
+
+function setupEventListeners() {
+    const storeFilter = document.getElementById('storeFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const backgroundSelects = ['postBackgroundSelect', 'templateBackgroundSelect']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+    const backgroundUploads = ['postBackgroundUpload', 'templateBackgroundUpload']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+
+    initializeBackgroundSelector();
+
+    storeFilter.addEventListener('change', async (e) => {
+        currentStore = e.target.value;
+        if (currentStore) {
+            await loadDatesForStore(currentStore);
+            dateFilter.disabled = false;
+        } else {
+            dateFilter.disabled = true;
+            dateFilter.innerHTML = '<option value="">Select a date...</option>';
+            clearDisplay();
+        }
+    });
+
+    dateFilter.addEventListener('change', async (e) => {
+        currentDate = e.target.value;
+        if (currentDate) {
+            await displayTournament();
+        } else {
+            clearDisplay();
+        }
+    });
+
+    backgroundSelects.forEach((select) => {
+        select.addEventListener('change', (event) => {
+            selectedBackgroundPath = event.target.value || '';
+            syncBackgroundSelectors();
+            if (tournamentDataForCanvas) drawPostCanvas();
+        });
+    });
+
+    backgroundUploads.forEach((input) => {
+        input.addEventListener('change', onCustomBackgroundUpload);
+    });
+}
+
+function getCustomBackgrounds() {
+    try {
+        const raw = localStorage.getItem(CUSTOM_BACKGROUNDS_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function saveCustomBackgrounds(list) {
+    try {
+        localStorage.setItem(CUSTOM_BACKGROUNDS_STORAGE_KEY, JSON.stringify(list));
+    } catch (_) {
+        // Ignore storage failures.
+    }
+}
+
+function initializeBackgroundSelector(selectedValue) {
+    const custom = getCustomBackgrounds();
+    const options = [...DEFAULT_BACKGROUND_OPTIONS, ...custom];
+    const selects = ['postBackgroundSelect', 'templateBackgroundSelect']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+
+    selects.forEach((select) => {
+        select.innerHTML = '';
+        options.forEach((opt) => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            select.appendChild(option);
+        });
+    });
+
+    const nextValue =
+        selectedValue !== undefined
+            ? selectedValue
+            : options.some((o) => o.value === selectedBackgroundPath)
+              ? selectedBackgroundPath
+              : DEFAULT_BACKGROUND_OPTIONS[1].value;
+    selectedBackgroundPath = nextValue;
+    syncBackgroundSelectors();
+}
+
+function syncBackgroundSelectors() {
+    ['postBackgroundSelect', 'templateBackgroundSelect'].forEach((id) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        if ([...select.options].some((opt) => opt.value === selectedBackgroundPath)) {
+            select.value = selectedBackgroundPath;
+        }
+    });
+}
+
+function onCustomBackgroundUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const value = String(reader.result || '');
+        if (!value) return;
+        const defaultLabel = file.name.replace(/\.[^.]+$/, '');
+        const label = window.prompt('Background name:', defaultLabel) || defaultLabel || 'Custom';
+        const custom = getCustomBackgrounds();
+        custom.push({ label: label.trim() || 'Custom', value });
+        saveCustomBackgrounds(custom.slice(-8));
+        initializeBackgroundSelector(value);
+        if (tournamentDataForCanvas) drawPostCanvas();
+    };
+    reader.readAsDataURL(file);
+
+    event.target.value = '';
+}
+
+async function loadStores() {
+    try {
+        showLoading(true);
+        const res = window.supabaseApi
+            ? await window.supabaseApi.get('/rest/v1/stores?select=*')
+            : await fetch(`${SUPABASE_URL}/rest/v1/stores?select=*`, {
+                  headers,
+                  method: 'GET'
+              });
+
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const stores = await res.json();
+        const select = document.getElementById('storeFilter');
+
+        select.innerHTML = '<option value="">Select store...</option>';
+        stores
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach((s) => {
+                const option = document.createElement('option');
+                option.value = s.id;
+                option.textContent = s.name;
+                select.appendChild(option);
+            });
+        showLoading(false);
+    } catch (err) {
+        console.error('Error loading stores:', err);
+        showError();
+        showLoading(false);
+    }
+}
+
+async function loadDatesForStore(storeId) {
+    try {
+        showLoading(true);
+        const res = window.supabaseApi
+            ? await window.supabaseApi.get(
+                  `/rest/v1/tournament_results?store_id=eq.${storeId}&select=tournament_date,total_players&order=tournament_date.desc`
+              )
+            : await fetch(
+                  `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${storeId}&select=tournament_date,total_players&order=tournament_date.desc`,
+                  { headers }
+              );
+
+        if (!res.ok) throw new Error('Error loading dates');
+
+        const data = await res.json();
+        const dates = [...new Set(data.map((item) => item.tournament_date))];
+
+        const select = document.getElementById('dateFilter');
+        select.innerHTML = '<option value="">Select a date...</option>';
+
+        dates.forEach((dateStr) => {
+            const option = document.createElement('option');
+            option.value = dateStr;
+
+            const [year, month, day] = dateStr.split('-');
+            const formattedDate = `${day}/${month}/${year}`;
+
+            option.textContent = formattedDate;
+            select.appendChild(option);
+        });
+        showLoading(false);
+    } catch (err) {
+        console.error('Error loading dates:', err);
+        showError();
+        showLoading(false);
+    }
+}
+
+async function displayTournament() {
+    try {
+        showLoading(true);
+
+        const resultsPromise = window.supabaseApi
+            ? window.supabaseApi.get(
+                  `/rest/v1/v_podium_full?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&order=placement.asc`
+              )
+            : fetch(
+                  `${SUPABASE_URL}/rest/v1/v_podium_full?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&order=placement.asc`,
+                  { headers }
+              );
+
+        const tournamentPromise = window.supabaseApi
+            ? window.supabaseApi.get(
+                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name&order=created_at.desc&limit=1`
+              )
+            : fetch(
+                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name&order=created_at.desc&limit=1`,
+                  { headers }
+              );
+
+        const [resultsRes, tournamentRes] = await Promise.all([resultsPromise, tournamentPromise]);
+
+        if (!resultsRes.ok) throw new Error('Error loading results');
+        if (!tournamentRes.ok) throw new Error('Error loading tournament metadata');
+
+        const results = await resultsRes.json();
+        const tournamentRows = await tournamentRes.json();
+        const tournamentName = tournamentRows?.[0]?.tournament_name || 'SEMANAL';
+
+        if (!results || results.length === 0) {
+            clearDisplay();
+            showLoading(false);
+            return;
+        }
+
+        const totalPlayers = results[0].total_players;
+        document.getElementById('totalPlayers').textContent = totalPlayers;
+
+        const storeSelect = document.getElementById('storeFilter');
+        const storeName = storeSelect.options[storeSelect.selectedIndex].text;
+
+        const [year, month, day] = currentDate.split('-');
+        const dateStr = `${day}/${month}/${year}`;
+
+        if (typeof setTournamentDataForCanvas === 'function') {
+            setTournamentDataForCanvas({
+                topFour: results.slice(0, 4),
+                storeName: storeName,
+                tournamentName: tournamentName,
+                dateStr: dateStr,
+                totalPlayers: totalPlayers,
+                allResults: results
+            });
+        }
+
+        displayPodium(results.slice(0, 4));
+        displayPositions(results);
+
+        // Mostrar seÃ§Ã£o de resultados completos quando hÃ¡ dados
+        const positionsSection = document.querySelector('.positions-section');
+        if (positionsSection) {
+            positionsSection.style.display = 'block';
+        }
+
+        showLoading(false);
+    } catch (err) {
+        console.error('Error displaying tournament:', err);
+        showError();
+        showLoading(false);
+    }
+}
+
+function displayPodium(topFour) {
+    const positions = [
+        { id: 'firstPlace', placement: 1 },
+        { id: 'secondPlace', placement: 2 },
+        { id: 'thirdPlace', placement: 3 },
+        { id: 'fourthPlace', placement: 4 }
+    ];
+
+    positions.forEach((pos) => {
+        const card = document.getElementById(pos.id);
+        const entry = topFour.find((e) => e.placement === pos.placement);
+
+        if (entry) {
+            const img = card.querySelector('.deck-card-image');
+            const deckNameEl = card.querySelector('.deck-name');
+            const playerNameEl = card.querySelector('.player-name');
+
+            let imageUrl = entry.image_url;
+
+            if (!imageUrl) {
+                imageUrl = `https://via.placeholder.com/200x200/667eea/ffffff?text=${encodeURIComponent(entry.deck.substring(0, 10))}`;
+            }
+
+            img.src = imageUrl;
+            img.alt = entry.deck;
+
+            img.onerror = () => {
+                img.src = `https://via.placeholder.com/200x200/667eea/ffffff?text=${encodeURIComponent(entry.deck.substring(0, 10))}`;
+            };
+
+            deckNameEl.textContent = entry.deck;
+
+            if (entry.player) {
+                playerNameEl.textContent = entry.player;
+                playerNameEl.style.display = 'block';
+            } else {
+                playerNameEl.style.display = 'none';
+            }
+
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function displayPositions(results) {
+    const container = document.getElementById('positionsList');
+    container.innerHTML = '';
+
+    results.forEach((entry) => {
+        const div = document.createElement('div');
+        div.className = 'position-item';
+
+        if (entry.placement <= 4) {
+            div.classList.add(`top-${entry.placement}`);
+        }
+
+        div.innerHTML = `
+            <div class="position-rank">${entry.placement}º</div>
+            <div class="position-content">
+                <div class="position-deck">${entry.deck}</div>
+                ${entry.player ? `<div class="position-player">${entry.player}</div>` : ''}
+            </div>
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+function clearDisplay() {
+    document.getElementById('totalPlayers').textContent = '-';
+
+    ['firstPlace', 'secondPlace', 'thirdPlace', 'fourthPlace'].forEach((id) => {
+        const card = document.getElementById(id);
+        if (card) {
+            const img = card.querySelector('.deck-card-image');
+            const deckName = card.querySelector('.deck-name');
+            const playerName = card.querySelector('.player-name');
+
+            img.src = '';
+            img.alt = '';
+            deckName.textContent = '-';
+            if (playerName) playerName.textContent = '';
+            card.style.display = 'none';
+        }
+    });
+
+    document.getElementById('positionsList').innerHTML = '';
+
+    // Ocultar secao de resultados completos quando nÃ£o hÃ¡ dados
+    const positionsSection = document.querySelector('.positions-section');
+    if (positionsSection) {
+        positionsSection.style.display = 'none';
+    }
+
+    const generateSection = document.getElementById('generatePostSection');
+    if (generateSection) {
+        generateSection.style.display = 'block';
+    }
+    const generatePostBtn = document.getElementById('generatePostBtn');
+    if (generatePostBtn) {
+        generatePostBtn.disabled = true;
+    }
+}
+
+function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'block' : 'none';
+    document.querySelector('.container').style.opacity = show ? '0.5' : '1';
+}
+
+function showError() {
+    document.getElementById('errorMessage').style.display = 'block';
+}
+
+function setupModalActionButtons() {
+    const generatePostBtn = document.getElementById('generatePostBtn');
+    const btnPostModalCloseTop = document.getElementById('btnPostModalCloseTop');
+    const btnPostDownload = document.getElementById('btnPostDownload');
+    const btnPostModalCloseBottom = document.getElementById('btnPostModalCloseBottom');
+    const btnPostTemplateEdit = document.getElementById('btnPostTemplateEdit');
+    const btnPostTemplateReset = document.getElementById('btnPostTemplateReset');
+    const btnSavePreset = document.getElementById('btnSavePreset');
+    const btnLoadPreset = document.getElementById('btnLoadPreset');
+    const btnDeletePreset = document.getElementById('btnDeletePreset');
+
+    if (generatePostBtn) {
+        generatePostBtn.addEventListener('click', onGeneratePostAction);
+    }
+    if (btnPostModalCloseTop) {
+        btnPostModalCloseTop.addEventListener('click', closePostPreview);
+    }
+    if (btnPostDownload) {
+        btnPostDownload.addEventListener('click', downloadPost);
+    }
+    if (btnPostModalCloseBottom) {
+        btnPostModalCloseBottom.addEventListener('click', closePostPreview);
+    }
+    if (btnPostTemplateEdit) {
+        btnPostTemplateEdit.addEventListener('click', onPostTemplateEditAction);
+    }
+    if (btnPostTemplateReset) {
+        btnPostTemplateReset.addEventListener('click', resetPostTemplateLayout);
+    }
+    if (btnSavePreset) {
+        btnSavePreset.addEventListener('click', saveLayoutPreset);
+    }
+    if (btnLoadPreset) {
+        btnLoadPreset.addEventListener('click', loadSelectedLayoutPreset);
+    }
+    if (btnDeletePreset) {
+        btnDeletePreset.addEventListener('click', deleteSelectedLayoutPreset);
+    }
+    window.addEventListener('resize', () => {
+        if (isPostTemplateEditorActive) {
+            renderTemplateEditorOverlay();
+        }
+    });
+}
+
+function setupPresetControls() {
+    const select = document.getElementById('templatePresetSelect');
+    if (!select) return;
+    select.addEventListener('dblclick', loadSelectedLayoutPreset);
+    refreshPresetOptions();
+}
+
+function getLayoutPresetsMap() {
+    try {
+        const raw = localStorage.getItem(POST_PRESETS_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return {};
+        return parsed;
+    } catch (_) {
+        return {};
+    }
+}
+
+function saveLayoutPresetsMap(map) {
+    try {
+        localStorage.setItem(POST_PRESETS_STORAGE_KEY, JSON.stringify(map));
+    } catch (_) {
+        // Ignore storage failures.
+    }
+}
+
+function refreshPresetOptions(selectedName = '') {
+    const select = document.getElementById('templatePresetSelect');
+    if (!select) return;
+
+    const presets = getLayoutPresetsMap();
+    const names = Object.keys(presets).sort((a, b) => a.localeCompare(b));
+    select.innerHTML = '<option value="">Select preset...</option>';
+    names.forEach((name) => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+    });
+    if (selectedName && names.includes(selectedName)) {
+        select.value = selectedName;
+    }
+}
+
+function saveLayoutPreset() {
+    const name = window.prompt('Preset name (checkpoint):');
+    if (!name) return;
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
+    const presets = getLayoutPresetsMap();
+    presets[cleanName] = {
+        layout: JSON.parse(JSON.stringify(postLayout)),
+        updatedAt: new Date().toISOString()
+    };
+    saveLayoutPresetsMap(presets);
+    refreshPresetOptions(cleanName);
+}
+
+function loadSelectedLayoutPreset() {
+    const select = document.getElementById('templatePresetSelect');
+    if (!select || !select.value) return;
+    const presets = getLayoutPresetsMap();
+    const preset = presets[select.value];
+    if (!preset?.layout) return;
+
+    postLayout = mergePostLayout(getDefaultPostLayout(), preset.layout);
+    savePostLayout();
+    syncTypographyControls();
+    syncPodiumGapControl();
+    syncTemplateObjectSelect();
+    drawPostCanvas();
+}
+
+function deleteSelectedLayoutPreset() {
+    const select = document.getElementById('templatePresetSelect');
+    if (!select || !select.value) return;
+    const name = select.value;
+    const confirmed = window.confirm(`Delete preset "${name}"?`);
+    if (!confirmed) return;
+
+    const presets = getLayoutPresetsMap();
+    delete presets[name];
+    saveLayoutPresetsMap(presets);
+    refreshPresetOptions('');
+}
+
+function onGeneratePostAction() {
+    if (isTemplateEditorPage() || isPostPreviewPage()) {
+        openPostPreview();
+        return;
+    }
+    openPostPreviewTab();
+}
+
+function setupTypographyControls() {
+    const controls = [
+        { id: 'fontSizeTournamentTitle', key: 'titleSize' },
+        { id: 'fontSizeTournamentDate', key: 'dateSize' },
+        { id: 'fontSizePlayerName', key: 'playerSize' },
+        { id: 'fontSizeDeckName', key: 'deckSize' },
+        { id: 'fontSizeHandle', key: 'handleSize' }
+    ];
+
+    controls.forEach((control) => {
+        const input = document.getElementById(control.id);
+        if (!input) return;
+        input.addEventListener('input', () => {
+            const value = Number(input.value);
+            if (!Number.isFinite(value) || value <= 0) return;
+            postLayout.typography[control.key] = value;
+            savePostLayout();
+            drawPostCanvas();
+        });
+    });
+
+    syncTypographyControls();
+}
+
+function setupPodiumGapControl() {
+    const input = document.getElementById('podiumGapInput');
+    if (!input) return;
+    input.addEventListener('input', () => {
+        const value = Number(input.value);
+        if (!Number.isFinite(value) || value < 0) return;
+        setActiveObjectGap(value);
+        savePostLayout();
+        drawPostCanvas();
+    });
+    syncPodiumGapControl();
+}
+
+function syncPodiumGapControl() {
+    const input = document.getElementById('podiumGapInput');
+    if (!input) return;
+    const value = getActiveObjectGap();
+    if (value === null) {
+        input.value = '';
+        input.disabled = true;
+        return;
+    }
+    input.disabled = false;
+    input.value = String(value);
+}
+
+function setupTemplateObjectControls() {
+    const select = document.getElementById('templateObjectSelect');
+    if (!select) return;
+    let previousValue = activeTemplateHandleKey;
+    select.addEventListener('change', () => {
+        const nextValue = select.value;
+        if (nextValue === previousValue) return;
+        const confirmed = window.confirm(
+            `Switch selected object from "${previousValue}" to "${nextValue}"?`
+        );
+        if (!confirmed) {
+            select.value = previousValue;
+            return;
+        }
+        activeTemplateHandleKey = nextValue;
+        previousValue = nextValue;
+        syncPodiumGapControl();
+        renderTemplateEditorOverlay();
+    });
+    select.value = activeTemplateHandleKey;
+}
+
+function syncTemplateObjectSelect() {
+    const select = document.getElementById('templateObjectSelect');
+    if (!select) return;
+    select.value = activeTemplateHandleKey;
+    syncPodiumGapControl();
+}
+
+function setupTemplateKeyboardControls() {
+    window.addEventListener('keydown', (event) => {
+        if (!isPostTemplateEditorActive) return;
+        if (!document.getElementById('postPreviewModal') || document.getElementById('postPreviewModal').classList.contains('u-hidden')) return;
+        if (event.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) return;
+
+        const moveStep = event.shiftKey ? 10 : 2;
+        const resizeStep = event.shiftKey ? 10 : 4;
+        const gapStep = event.shiftKey ? 8 : 2;
+        let handled = true;
+
+        const key = String(event.key || '').toLowerCase();
+        if (key === 'a') nudgeTemplateHandle(activeTemplateHandleKey, -moveStep, 0);
+        else if (key === 'd') nudgeTemplateHandle(activeTemplateHandleKey, moveStep, 0);
+        else if (key === 'w') nudgeTemplateHandle(activeTemplateHandleKey, 0, -moveStep);
+        else if (key === 's') nudgeTemplateHandle(activeTemplateHandleKey, 0, moveStep);
+        else if (key === 'q') adjustPodiumGap(-gapStep);
+        else if (key === 'e') adjustPodiumGap(gapStep);
+        else if (event.key === '>' || event.key === '.') resizeTemplateHandle(activeTemplateHandleKey, resizeStep);
+        else if (event.key === '<' || event.key === ',') resizeTemplateHandle(activeTemplateHandleKey, -resizeStep);
+        else handled = false;
+
+        if (handled) {
+            event.preventDefault();
+            savePostLayout();
+            drawPostCanvas();
+        }
+    });
+}
+
+function onPostTemplateEditAction() {
+    if (isTemplateEditorPage()) {
+        togglePostTemplateEditor();
+        return;
+    }
+    openTemplateEditorTab();
+}
+
+function isTemplateEditorPage() {
+    return new URLSearchParams(window.location.search).get('templateEditor') === '1';
+}
+
+function isPostPreviewPage() {
+    return new URLSearchParams(window.location.search).get('postPreview') === '1';
+}
+
+function openTemplateEditorTab() {
+    if (!tournamentDataForCanvas) {
+        alert('Load a tournament first.');
+        return;
+    }
+    try {
+        localStorage.setItem(
+            TEMPLATE_EDITOR_STATE_KEY,
+            JSON.stringify({
+                tournamentDataForCanvas,
+                selectedBackgroundPath
+            })
+        );
+    } catch (_) {
+        // Ignore storage write failures.
+    }
+    window.open('./index.html?templateEditor=1', '_blank');
+}
+
+function openPostPreviewTab() {
+    if (!tournamentDataForCanvas) {
+        alert('Load a tournament first.');
+        return;
+    }
+    try {
+        localStorage.setItem(
+            POST_PREVIEW_STATE_KEY,
+            JSON.stringify({
+                tournamentDataForCanvas,
+                selectedBackgroundPath
+            })
+        );
+    } catch (_) {
+        // Ignore storage write failures.
+    }
+    window.open('./index.html?postPreview=1', '_blank');
+}
+
+function notifyTemplateEditorUpdated() {
+    try {
+        localStorage.setItem(TEMPLATE_EDITOR_UPDATED_KEY, String(Date.now()));
+    } catch (_) {
+        // Ignore storage failures.
+    }
+
+    try {
+        if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({ type: 'template-editor-updated' }, window.location.origin);
+        }
+    } catch (_) {
+        // Ignore opener failures.
+    }
+}
+
+function setupTemplateSyncListeners() {
+    const refreshPreviewFromStorage = () => {
+        postLayout = loadPostLayout();
+        syncTypographyControls();
+        syncPodiumGapControl();
+        syncTemplateObjectSelect();
+
+        const modal = document.getElementById('postPreviewModal');
+        const isPreviewOpen = modal && !modal.classList.contains('u-hidden');
+        if (isPreviewOpen && tournamentDataForCanvas) {
+            drawPostCanvas();
+        }
+    };
+
+    window.addEventListener('storage', (event) => {
+        if (event.key === POST_LAYOUT_STORAGE_KEY || event.key === TEMPLATE_EDITOR_UPDATED_KEY) {
+            refreshPreviewFromStorage();
+        }
+    });
+
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === 'template-editor-updated') {
+            refreshPreviewFromStorage();
+        }
+    });
+
+    window.addEventListener('focus', () => {
+        refreshPreviewFromStorage();
+    });
+}
+
+function bootTemplateEditorPageIfNeeded() {
+    if (!isTemplateEditorPage()) return;
+    enableDedicatedTemplateEditorLayout();
+    try {
+        const raw = localStorage.getItem(TEMPLATE_EDITOR_STATE_KEY);
+        if (!raw) {
+            alert('No template session found. Load a tournament first.');
+            window.location.href = './index.html';
+            return;
+        }
+        const state = JSON.parse(raw);
+        if (state?.selectedBackgroundPath) {
+            selectedBackgroundPath = state.selectedBackgroundPath;
+            initializeBackgroundSelector(selectedBackgroundPath);
+        }
+        if (state?.tournamentDataForCanvas) {
+            setTournamentDataForCanvas(state.tournamentDataForCanvas);
+            openPostPreview().then(() => {
+                setPostTemplateEditorActive(true);
+                syncTemplateObjectSelect();
+                renderTemplateEditorOverlay();
+                const closeBottom = document.getElementById('btnPostModalCloseBottom');
+                if (closeBottom) closeBottom.textContent = 'Close Editor';
+            });
+        } else {
+            alert('No tournament loaded for template editor.');
+            window.location.href = './index.html';
+        }
+    } catch (_) {
+        alert('Invalid template session.');
+        window.location.href = './index.html';
+    }
+}
+
+function bootPostPreviewPageIfNeeded() {
+    if (isTemplateEditorPage() || !isPostPreviewPage()) return;
+    enableDedicatedPostPreviewLayout();
+    try {
+        const raw = localStorage.getItem(POST_PREVIEW_STATE_KEY);
+        if (!raw) {
+            alert('No preview session found. Load a tournament first.');
+            window.location.href = './index.html';
+            return;
+        }
+        const state = JSON.parse(raw);
+        if (state?.selectedBackgroundPath) {
+            selectedBackgroundPath = state.selectedBackgroundPath;
+            initializeBackgroundSelector(selectedBackgroundPath);
+        }
+        if (state?.tournamentDataForCanvas) {
+            setTournamentDataForCanvas(state.tournamentDataForCanvas);
+            openPostPreview().then(() => {
+                setPostTemplateEditorActive(false);
+                const closeBottom = document.getElementById('btnPostModalCloseBottom');
+                if (closeBottom) closeBottom.textContent = 'Close Preview';
+            });
+        } else {
+            alert('No tournament loaded for preview.');
+            window.location.href = './index.html';
+        }
+    } catch (_) {
+        alert('Invalid preview session.');
+        window.location.href = './index.html';
+    }
+}
+
+function enableDedicatedTemplateEditorLayout() {
+    document.body.classList.add('template-editor-page');
+    const title = document.querySelector('#postPreviewModal .modal-header h2');
+    if (title) {
+        title.textContent = 'Template Editor';
+    }
+}
+
+function enableDedicatedPostPreviewLayout() {
+    document.body.classList.add('template-preview-page');
+    const title = document.querySelector('#postPreviewModal .modal-header h2');
+    if (title) {
+        title.textContent = 'Post Preview (MVP)';
+    }
+}
+
+function syncTypographyControls() {
+    const map = {
+        fontSizeTournamentTitle: postLayout.typography.titleSize,
+        fontSizeTournamentDate: postLayout.typography.dateSize,
+        fontSizePlayerName: postLayout.typography.playerSize,
+        fontSizeDeckName: postLayout.typography.deckSize,
+        fontSizeHandle: postLayout.typography.handleSize
+    };
+
+    Object.entries(map).forEach(([id, value]) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.value = String(value);
+    });
+}
+
+function getActiveObjectGap() {
+    switch (activeTemplateHandleKey) {
+        case 'rows':
+            return postLayout.rowBorder.rowGap;
+        case 'trophy':
+        case 'podiumNumber':
+            return postLayout.rowElements.trophy.gap;
+        case 'avatar':
+            return postLayout.rowElements.avatar.gap;
+        case 'rowText':
+            return postLayout.rowElements.text.gap;
+        default:
+            return null;
+    }
+}
+
+function setActiveObjectGap(value) {
+    const gap = Math.max(0, Math.round(value));
+    switch (activeTemplateHandleKey) {
+        case 'rows':
+            postLayout.rowBorder.rowGap = gap;
+            break;
+        case 'trophy':
+        case 'podiumNumber':
+            postLayout.rowElements.trophy.gap = gap;
+            break;
+        case 'avatar':
+            postLayout.rowElements.avatar.gap = gap;
+            break;
+        case 'rowText':
+            postLayout.rowElements.text.gap = gap;
+            break;
+        default:
+            return;
+    }
+    syncPodiumGapControl();
+}
+
+function adjustPodiumGap(delta) {
+    const current = getActiveObjectGap();
+    if (current === null) return;
+    setActiveObjectGap(current + delta);
+}
+
+function setTournamentDataForCanvas(data) {
+    tournamentDataForCanvas = data || null;
+    const generatePostBtn = document.getElementById('generatePostBtn');
+    if (generatePostBtn) {
+        generatePostBtn.disabled = !tournamentDataForCanvas;
+    }
+}
+
+function closePostPreview() {
+    if (isTemplateEditorPage() || isPostPreviewPage()) {
+        notifyTemplateEditorUpdated();
+        window.close();
+        window.location.href = './index.html';
+        return;
+    }
+    const modal = document.getElementById('postPreviewModal');
+    if (!modal) return;
+    setPostTemplateEditorActive(false);
+    modal.classList.add('u-hidden');
+}
+
+async function openPostPreview() {
+    if (!tournamentDataForCanvas) {
+        alert('Load a tournament first.');
+        return;
+    }
+
+    await drawPostCanvas();
+    const modal = document.getElementById('postPreviewModal');
+    if (modal) {
+        modal.classList.remove('u-hidden');
+    }
+    syncTypographyControls();
+    syncPodiumGapControl();
+    updateTemplateEditorButtons();
+    if (isPostTemplateEditorActive) {
+        renderTemplateEditorOverlay();
+    }
+}
+
+function downloadPost() {
+    const canvas = document.getElementById('postCanvas');
+    if (!canvas || !tournamentDataForCanvas) return;
+
+    const safeStore = String(tournamentDataForCanvas.storeName || 'store')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    const safeDate = String(tournamentDataForCanvas.dateStr || 'date').replace(/[\/\s]+/g, '-');
+
+    const link = document.createElement('a');
+    link.download = `digistats-${safeStore}-${safeDate}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+async function drawPostCanvas() {
+    const canvas = document.getElementById('postCanvas');
+    if (!canvas || !tournamentDataForCanvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const layout = postLayout;
+    ctx.clearRect(0, 0, width, height);
+
+    if (selectedBackgroundPath) {
+        const customBg = await loadImage(selectedBackgroundPath);
+        if (customBg) {
+            drawImageCover(ctx, customBg, 0, 0, width, height);
+        } else {
+            const bg = ctx.createLinearGradient(0, 0, width, height);
+            bg.addColorStop(0, '#2f3a7a');
+            bg.addColorStop(1, '#6f47c7');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, width, height);
+        }
+    } else {
+        const bg = ctx.createLinearGradient(0, 0, width, height);
+        bg.addColorStop(0, '#2f3a7a');
+        bg.addColorStop(1, '#6f47c7');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+    }
+
+    drawRoundedRect(ctx, 56, 72, width - 112, height - 120, 36, 'rgba(255,255,255,0.88)');
+
+    const logo = await loadFirstAvailableImage(TOP_LEFT_LOGO_CANDIDATES);
+    if (logo) {
+        drawImageCover(ctx, logo, layout.logo.x, layout.logo.y, layout.logo.w, layout.logo.h);
+    }
+
+    const titleBoxX = layout.title.x;
+    const titleBoxY = layout.title.y;
+    const titleBoxW = layout.title.w;
+    const titleBoxH = layout.title.h;
+    const titleCenterX = titleBoxX + titleBoxW / 2;
+    // No container padding for title/date: text is placed directly from layout bounds.
+    const tournamentTitle = String(
+        tournamentDataForCanvas.tournamentName || 'SEMANAL'
+    ).toUpperCase();
+    ctx.fillStyle = '#184fae';
+    ctx.font = `italic 900 ${postLayout.typography.titleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    const titleY = titleBoxY + layout.title.titleOffsetY;
+    ctx.strokeText(tournamentTitle.slice(0, 14), titleCenterX, titleY);
+    ctx.fillText(tournamentTitle.slice(0, 14), titleCenterX, titleY);
+
+    ctx.fillStyle = '#ff3959';
+    const dateLabel = tournamentDataForCanvas.dateStr || '--/--/--';
+    let dateFontSize = postLayout.typography.dateSize;
+    ctx.font = `italic 900 ${dateFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    while (ctx.measureText(dateLabel).width > layout.title.dateMaxWidth && dateFontSize > 58) {
+        dateFontSize -= 2;
+        ctx.font = `italic 900 ${dateFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    }
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    const dateY = titleBoxY + layout.title.dateOffsetY;
+    ctx.strokeText(dateLabel, titleCenterX, dateY);
+    ctx.fillText(dateLabel, titleCenterX, dateY);
+
+    const rows = (tournamentDataForCanvas.topFour || []).slice(0, 4);
+    const trophyAsset = await loadFirstAvailableAsset(TROPHY_ICON_CANDIDATES);
+    const startY = layout.rows.startY;
+    const rowHeight = layout.rows.rowHeight;
+    const rowGap = layout.rows.rowGap;
+    const borderStartY = layout.rowBorder.startY;
+    const borderRowHeight = layout.rowBorder.rowHeight;
+    const borderRowGap = layout.rowBorder.rowGap;
+    const trophyGap = layout.rowElements.trophy.gap ?? rowGap;
+    const avatarGap = layout.rowElements.avatar.gap ?? rowGap;
+    const textGap = layout.rowElements.text.gap ?? rowGap;
+    for (let i = 0; i < 4; i += 1) {
+        const y = startY + i * (rowHeight + rowGap);
+        const borderY = borderStartY + i * (borderRowHeight + borderRowGap);
+        const trophyY = startY + i * (rowHeight + trophyGap);
+        const avatarY = startY + i * (rowHeight + avatarGap);
+        const textY = startY + i * (rowHeight + textGap);
+        await drawPlacementRow(
+            ctx,
+            i + 1,
+            y,
+            borderY,
+            trophyY,
+            avatarY,
+            textY,
+            rowHeight,
+            borderRowHeight,
+            rows[i] || null,
+            trophyAsset,
+            layout.rows,
+            layout.rowBorder
+        );
+    }
+
+    const storeBoxX = layout.store.x;
+    const storeBoxY = layout.store.y;
+    const storeBoxW = layout.store.w;
+    const storeBoxH = layout.store.h;
+    drawStoreBadge(ctx, storeBoxX, storeBoxY, storeBoxW, storeBoxH, '#0a2f6d');
+    const storeIconPath = resolveStoreIconPath(tournamentDataForCanvas.storeName || '');
+    const storeIcon = await loadImage(storeIconPath);
+    if (storeIcon) {
+        drawImageContain(
+            ctx,
+            storeIcon,
+            storeBoxX + 12,
+            storeBoxY + 6,
+            storeBoxW - 24,
+            storeBoxH - 12
+        );
+    }
+
+    ctx.fillStyle = '#184fae';
+    ctx.font = `bold ${postLayout.typography.handleSize}px Segoe UI`;
+    ctx.textAlign = 'right';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText('@digimoncwb', layout.handle.x, layout.handle.y);
+    ctx.fillText('@digimoncwb', layout.handle.x, layout.handle.y);
+
+    if (isPostTemplateEditorActive) {
+        renderTemplateEditorOverlay();
+    }
+}
+
+async function drawPlacementRow(
+    ctx,
+    placement,
+    y,
+    borderY,
+    trophyY,
+    avatarYBase,
+    textYBase,
+    rowHeight,
+    borderRowHeight,
+    entry,
+    trophyAsset,
+    rowLayout,
+    rowBorderLayout
+) {
+    const style = PLACEMENT_STYLES[placement] || PLACEMENT_STYLES[4];
+    const rowElements = postLayout.rowElements;
+
+    const borderRowX = rowBorderLayout.x;
+    const borderRowW = rowBorderLayout.w;
+    drawRoundedRect(
+        ctx,
+        borderRowX,
+        borderY,
+        borderRowW,
+        borderRowHeight,
+        26,
+        '#f3f3f6',
+        style.border,
+        6
+    );
+
+    const rowX = rowLayout.x;
+    const rowW = rowLayout.w;
+
+    await drawTrophyBadge(
+        ctx,
+        rowX + rowElements.trophy.x,
+        trophyY + rowElements.trophy.y,
+        placement,
+        style.border,
+        trophyAsset,
+        rowElements
+    );
+
+    ctx.fillStyle = '#1e4f95';
+    ctx.textAlign = 'center';
+    ctx.font = `italic 700 ${postLayout.typography.playerSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    const playerText = (entry?.player || 'PLAYER').toUpperCase().slice(0, 18);
+    const avatarX = rowX + rowW - rowElements.avatar.xFromRight;
+    const textAreaLeft = rowX + rowElements.text.leftPadding;
+    const textAreaRight = avatarX - rowElements.text.rightPadding;
+    const textCenterX = textAreaLeft + (textAreaRight - textAreaLeft) / 2;
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeText(playerText, textCenterX, textYBase + rowElements.text.playerY);
+    ctx.fillText(playerText, textCenterX, textYBase + rowElements.text.playerY);
+
+    const deckText = (entry?.deck || 'DECK').toUpperCase().slice(0, 14);
+    const deckCenterX = textCenterX;
+    ctx.font = `700 ${postLayout.typography.deckSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = '#1e4f95';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeText(deckText, deckCenterX, textYBase + rowElements.text.deckY);
+    ctx.fillText(deckText, deckCenterX, textYBase + rowElements.text.deckY);
+
+    const avatarY = avatarYBase + rowHeight / 2 + rowElements.avatar.yOffset;
+    const avatarOuterRadius = rowElements.avatar.outerRadius;
+    const avatarImageRadius = Math.max(
+        rowElements.avatar.imageRadius,
+        avatarOuterRadius - rowElements.avatar.borderRingWidth / 2
+    );
+    ctx.beginPath();
+    ctx.arc(avatarX, avatarY, avatarOuterRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    const image = entry?.image_url ? await loadImage(entry.image_url) : null;
+    if (image) {
+        drawImageCoverInCircle(ctx, image, avatarX, avatarY, avatarImageRadius);
+    }
+
+    ctx.lineWidth = rowElements.avatar.borderRingWidth;
+    ctx.strokeStyle = style.border;
+    ctx.beginPath();
+    ctx.arc(avatarX, avatarY, avatarOuterRadius - 2, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAsset, rowElements) {
+    const trophyW = rowElements.trophy.w;
+    const trophyH = rowElements.trophy.h;
+    const numberOffsetX = rowElements.podiumNumber.offsetX;
+    const numberOffsetY = rowElements.podiumNumber.offsetY;
+    const numberSize = rowElements.podiumNumber.size;
+
+    if (trophyAsset?.type === 'svg') {
+        const tintedTrophyIcon = await loadTintedSvgIcon(trophyAsset.src, color);
+        if (tintedTrophyIcon) {
+            drawImageContain(
+                ctx,
+                tintedTrophyIcon,
+                centerX - trophyW / 2,
+                centerY - trophyH / 2,
+                trophyW,
+                trophyH
+            );
+        }
+    } else if (trophyAsset?.image) {
+        drawImageContain(ctx, trophyAsset.image, centerX - trophyW / 2, centerY - trophyH / 2, trophyW, trophyH);
+    }
+
+    if (trophyAsset) {
+        ctx.fillStyle = color;
+        ctx.font = `700 ${numberSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#111111';
+        ctx.strokeText(`${placement}º`, centerX + numberOffsetX, centerY + numberOffsetY);
+        ctx.fillText(`${placement}º`, centerX + numberOffsetX, centerY + numberOffsetY);
+        return;
+    }
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.fillStyle = color;
+
+    // cup
+    ctx.beginPath();
+    ctx.moveTo(-42, -58);
+    ctx.lineTo(42, -58);
+    ctx.lineTo(30, -16);
+    ctx.lineTo(-30, -16);
+    ctx.closePath();
+    ctx.fill();
+
+    // handles
+    ctx.beginPath();
+    ctx.moveTo(-42, -52);
+    ctx.quadraticCurveTo(-66, -44, -60, -22);
+    ctx.lineTo(-48, -22);
+    ctx.quadraticCurveTo(-52, -36, -34, -42);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(42, -52);
+    ctx.quadraticCurveTo(66, -44, 60, -22);
+    ctx.lineTo(48, -22);
+    ctx.quadraticCurveTo(52, -36, 34, -42);
+    ctx.closePath();
+    ctx.fill();
+
+    // stem + base
+    ctx.fillRect(-11, -16, 22, 20);
+    ctx.beginPath();
+    ctx.moveTo(-34, 8);
+    ctx.lineTo(34, 8);
+    ctx.lineTo(24, 36);
+    ctx.lineTo(-24, 36);
+    ctx.closePath();
+    ctx.fill();
+
+    // number
+    ctx.fillStyle = '#101010';
+    ctx.font = '700 54px "Zing Rust Base", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${placement}º`, 0, -33);
+    ctx.restore();
+}
+
+function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke, strokeWidth) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    if (stroke) {
+        ctx.lineWidth = strokeWidth || 2;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+    }
+}
+
+function loadImage(src) {
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = src;
+    });
+}
+
+function normalizeStoreName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function resolveStoreIconPath(storeName) {
+    const normalized = normalizeStoreName(storeName);
+    if (normalized.includes('gladiator')) return '../icons/stores/Gladiators.png';
+    if (normalized.includes('meruru')) return '../icons/stores/Meruru.svg';
+    if (normalized.includes('taverna')) return '../icons/stores/Taverna.png';
+    if (normalized.includes('tcgbr') || normalized.includes('tcg br'))
+        return '../icons/stores/TCGBR.png';
+    return '../icons/stores/images.png';
+}
+
+async function loadFirstAvailableImage(candidates) {
+    for (const candidate of candidates) {
+        const image = await loadImage(candidate);
+        if (image) return image;
+    }
+    return null;
+}
+
+async function loadFirstAvailableAsset(candidates) {
+    for (const candidate of candidates) {
+        if (candidate.toLowerCase().endsWith('.svg')) {
+            try {
+                const response = await fetch(candidate, { cache: 'no-store' });
+                if (response.ok) {
+                    return { type: 'svg', src: candidate };
+                }
+            } catch (_) {
+                // Keep trying next candidates.
+            }
+        }
+
+        const image = await loadImage(candidate);
+        if (image) {
+            return { type: 'image', image };
+        }
+    }
+
+    return null;
+}
+
+async function loadTintedSvgIcon(svgPath, color) {
+    const cacheKey = `${svgPath}|${color.toLowerCase()}`;
+    if (trophyTintedIconCache.has(cacheKey)) {
+        return trophyTintedIconCache.get(cacheKey);
+    }
+
+    try {
+        if (!cachedTrophySvgTemplate) {
+            const response = await fetch(svgPath, { cache: 'no-store' });
+            if (!response.ok) return null;
+            cachedTrophySvgTemplate = await response.text();
+        }
+
+        const withoutOuterWhite = cachedTrophySvgTemplate.replace(
+            /<path\s+fill="#(?:fff|ffffff)"\s+d="M 0\.199219 0 L 809\.800781 0 L 809\.800781 1012 L 0\.199219 1012 Z M 0\.199219 0 "\s+fill-opacity="1"\s+fill-rule="nonzero"\/>/gi,
+            ''
+        );
+
+        const tintedSvg = withoutOuterWhite.replace(new RegExp(TROPHY_SVG_BASE_COLOR, 'gi'), color);
+        const svgBlob = new Blob([tintedSvg], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+        const tintedIcon = await loadImage(blobUrl);
+        URL.revokeObjectURL(blobUrl);
+
+        if (tintedIcon) {
+            trophyTintedIconCache.set(cacheKey, tintedIcon);
+        }
+        return tintedIcon;
+    } catch (_) {
+        return null;
+    }
+}
+
+function drawImageCover(ctx, image, x, y, width, height) {
+    const scale = Math.max(width / image.width, height / image.height);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const dx = x + (width - drawWidth) / 2;
+    const dy = y + (height - drawHeight) / 2;
+    ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+}
+
+function drawImageContain(ctx, image, x, y, width, height) {
+    const scale = Math.min(width / image.width, height / image.height);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const dx = x + (width - drawWidth) / 2;
+    const dy = y + (height - drawHeight) / 2;
+    ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+}
+
+function drawImageCoverInCircle(ctx, image, centerX, centerY, radius) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.clip();
+
+    const size = radius * 2;
+    // Match .card-image-wrapper feel: cover + extra zoom, anchored near top.
+    const coverScale = Math.max(size / image.width, size / image.height);
+    const isWebp = /\.webp(?:$|\?)/i.test(String(image.currentSrc || image.src || ''));
+    const scale = coverScale * (isWebp ? 1.95 : 1.95);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const dx = centerX - drawWidth / 2;
+    const dy = centerY - drawHeight * (isWebp ? 0.25 : 0.11);
+    ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+    ctx.restore();
+}
+
+function drawStoreBadge(ctx, x, y, w, h, color) {
+    const r = 18;
+    const notch = 14;
+    ctx.beginPath();
+    ctx.moveTo(x + r + notch, y);
+    ctx.lineTo(x + w - r - notch, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r - notch, y + h);
+    ctx.lineTo(x + r + notch, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r + notch, y);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+}
+
+function getDefaultPostLayout() {
+    return JSON.parse(JSON.stringify(DEFAULT_POST_LAYOUT));
+}
+
+function loadPostLayout() {
+    const fallback = getDefaultPostLayout();
+    try {
+        const raw = localStorage.getItem(POST_LAYOUT_STORAGE_KEY);
+        if (!raw) return fallback;
+        const saved = JSON.parse(raw);
+        return mergePostLayout(fallback, saved);
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function savePostLayout() {
+    try {
+        localStorage.setItem(POST_LAYOUT_STORAGE_KEY, JSON.stringify(postLayout));
+    } catch (_) {
+        // Ignore storage errors in private modes.
+    }
+}
+
+function mergePostLayout(base, override) {
+    const out = Array.isArray(base) ? [...base] : { ...base };
+    Object.keys(override || {}).forEach((key) => {
+        const baseValue = out[key];
+        const overrideValue = override[key];
+        if (
+            baseValue &&
+            overrideValue &&
+            typeof baseValue === 'object' &&
+            typeof overrideValue === 'object' &&
+            !Array.isArray(baseValue) &&
+            !Array.isArray(overrideValue)
+        ) {
+            out[key] = mergePostLayout(baseValue, overrideValue);
+        } else {
+            out[key] = overrideValue;
+        }
+    });
+    return out;
+}
+
+function resetPostTemplateLayout() {
+    postLayout = getDefaultPostLayout();
+    savePostLayout();
+    syncTypographyControls();
+    syncPodiumGapControl();
+    drawPostCanvas();
+    if (isPostTemplateEditorActive) {
+        renderTemplateEditorOverlay();
+    }
+}
+
+function togglePostTemplateEditor() {
+    if (!tournamentDataForCanvas) return;
+    setPostTemplateEditorActive(!isPostTemplateEditorActive);
+    if (isPostTemplateEditorActive) {
+        renderTemplateEditorOverlay();
+    }
+}
+
+function setPostTemplateEditorActive(active) {
+    isPostTemplateEditorActive = Boolean(active);
+    const overlay = document.getElementById('postEditorOverlay');
+    if (overlay) {
+        overlay.classList.toggle('u-hidden', !isPostTemplateEditorActive);
+        if (!isPostTemplateEditorActive) {
+            postEditorGuides = [];
+            overlay.innerHTML = '';
+        }
+    }
+    updateTemplateEditorButtons();
+}
+
+function updateTemplateEditorButtons() {
+    const btn = document.getElementById('btnPostTemplateEdit');
+    if (!btn) return;
+    btn.textContent = isPostTemplateEditorActive ? 'Finish Editing' : 'Edit Template';
+    btn.classList.toggle('is-active', isPostTemplateEditorActive);
+}
+
+function renderTemplateEditorOverlay() {
+    const overlay = document.getElementById('postEditorOverlay');
+    const wrap = document.getElementById('postCanvasWrap');
+    const canvas = document.getElementById('postCanvas');
+    if (!overlay || !wrap || !canvas || !isPostTemplateEditorActive) return;
+
+    const wrapRect = wrap.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+
+    overlay.style.left = `${canvasRect.left - wrapRect.left}px`;
+    overlay.style.top = `${canvasRect.top - wrapRect.top}px`;
+    overlay.style.width = `${canvasRect.width}px`;
+    overlay.style.height = `${canvasRect.height}px`;
+    overlay.innerHTML = '';
+
+    const handles = getTemplateEditorHandles();
+    postEditorGuides.forEach((guide) => {
+        const line = document.createElement('div');
+        line.className = `post-editor-guide ${guide.axis}`;
+        if (guide.axis === 'x') {
+            line.style.left = `${guide.value * scaleX}px`;
+        } else {
+            line.style.top = `${guide.value * scaleY}px`;
+        }
+        overlay.appendChild(line);
+    });
+
+    handles.forEach((handle) => {
+        const div = document.createElement('button');
+        div.type = 'button';
+        div.className = 'post-editor-handle';
+        div.dataset.key = handle.key;
+        div.style.left = `${handle.x * scaleX}px`;
+        div.style.top = `${handle.y * scaleY}px`;
+        div.style.width = `${handle.w * scaleX}px`;
+        div.style.height = `${handle.h * scaleY}px`;
+        div.innerHTML = `<span>${handle.label}</span>`;
+        div.addEventListener('pointerdown', (event) => startTemplateHandleDrag(event, handle.key));
+        overlay.appendChild(div);
+    });
+}
+
+function getTemplateEditorHandles() {
+    const rowsHeight = postLayout.rows.rowHeight * 4 + postLayout.rows.rowGap * 3;
+    const rowX = postLayout.rows.x;
+    const rowY = postLayout.rows.startY;
+    const rowW = postLayout.rows.w;
+    const rowH = postLayout.rows.rowHeight;
+    const rowElements = postLayout.rowElements;
+    const avatarX = rowX + rowW - rowElements.avatar.xFromRight;
+    const avatarY = rowY + rowH / 2 + rowElements.avatar.yOffset;
+    const textAreaLeft = rowX + rowElements.text.leftPadding;
+    const textAreaRight = avatarX - rowElements.text.rightPadding;
+    const textWidth = Math.max(80, textAreaRight - textAreaLeft);
+    return [
+        {
+            key: 'logo',
+            label: 'Logo',
+            x: postLayout.logo.x,
+            y: postLayout.logo.y,
+            w: postLayout.logo.w,
+            h: postLayout.logo.h
+        },
+        {
+            key: 'title',
+            label: 'Title/Date',
+            x: postLayout.title.x,
+            y: postLayout.title.y,
+            w: postLayout.title.w,
+            h: postLayout.title.h
+        },
+        {
+            key: 'rows',
+            label: 'Podium Border',
+            x: postLayout.rowBorder.x,
+            y: postLayout.rowBorder.startY,
+            w: postLayout.rowBorder.w,
+            h: postLayout.rowBorder.rowHeight
+        },
+        {
+            key: 'trophy',
+            label: 'Trophy Icon',
+            x: rowX + rowElements.trophy.x - rowElements.trophy.w / 2,
+            y: rowY + rowElements.trophy.y - rowElements.trophy.h / 2,
+            w: rowElements.trophy.w,
+            h: rowElements.trophy.h
+        },
+        {
+            key: 'podiumNumber',
+            label: 'Podium Number',
+            x: rowX + rowElements.trophy.x + rowElements.podiumNumber.offsetX - 48,
+            y: rowY + rowElements.trophy.y + rowElements.podiumNumber.offsetY - 34,
+            w: 96,
+            h: 68
+        },
+        {
+            key: 'avatar',
+            label: 'Deck Circle',
+            x: avatarX - rowElements.avatar.outerRadius,
+            y: avatarY - rowElements.avatar.outerRadius,
+            w: rowElements.avatar.outerRadius * 2,
+            h: rowElements.avatar.outerRadius * 2
+        },
+        {
+            key: 'rowText',
+            label: 'Player/Deck',
+            x: textAreaLeft,
+            y: rowY + rowElements.text.playerY - 36,
+            w: textWidth,
+            h: Math.max(72, rowElements.text.deckY - rowElements.text.playerY + 54)
+        },
+        {
+            key: 'store',
+            label: 'Store Logo',
+            x: postLayout.store.x,
+            y: postLayout.store.y,
+            w: postLayout.store.w,
+            h: postLayout.store.h
+        },
+        {
+            key: 'handle',
+            label: '@digimoncwb',
+            x: postLayout.handle.x - 280,
+            y: postLayout.handle.y - 52,
+            w: 280,
+            h: 62
+        }
+    ];
+}
+
+function startTemplateHandleDrag(event, key) {
+    if (!isPostTemplateEditorActive) return;
+    event.preventDefault();
+    activeTemplateHandleKey = key;
+    syncTemplateObjectSelect();
+
+    const canvas = document.getElementById('postCanvas');
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    const origin = getHandleOrigin(key);
+
+    postEditorDragState = {
+        key,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        originX: origin.x,
+        originY: origin.y,
+        scaleX,
+        scaleY
+    };
+
+    window.addEventListener('pointermove', onTemplateHandleDrag);
+    window.addEventListener('pointerup', stopTemplateHandleDrag);
+}
+
+function onTemplateHandleDrag(event) {
+    if (!postEditorDragState) return;
+
+    const dx = (event.clientX - postEditorDragState.startClientX) / postEditorDragState.scaleX;
+    const dy = (event.clientY - postEditorDragState.startClientY) / postEditorDragState.scaleY;
+
+    const nextX = Math.round(postEditorDragState.originX + dx);
+    const nextY = Math.round(postEditorDragState.originY + dy);
+    const snapped = applyTemplateSnap(postEditorDragState.key, nextX, nextY);
+    postEditorGuides = snapped.guides;
+    updateHandleOrigin(postEditorDragState.key, snapped.x, snapped.y);
+    drawPostCanvas();
+}
+
+function stopTemplateHandleDrag() {
+    if (!postEditorDragState) return;
+    postEditorDragState = null;
+    postEditorGuides = [];
+    savePostLayout();
+    renderTemplateEditorOverlay();
+    window.removeEventListener('pointermove', onTemplateHandleDrag);
+    window.removeEventListener('pointerup', stopTemplateHandleDrag);
+}
+
+function getHandleOrigin(key) {
+    const rowX = postLayout.rows.x;
+    const rowY = postLayout.rows.startY;
+    const rowW = postLayout.rows.w;
+    const rowH = postLayout.rows.rowHeight;
+    const rowElements = postLayout.rowElements;
+    const avatarX = rowX + rowW - rowElements.avatar.xFromRight;
+    const avatarY = rowY + rowH / 2 + rowElements.avatar.yOffset;
+    const textAreaLeft = rowX + rowElements.text.leftPadding;
+    switch (key) {
+        case 'logo':
+            return { x: postLayout.logo.x, y: postLayout.logo.y };
+        case 'title':
+            return { x: postLayout.title.x, y: postLayout.title.y };
+        case 'rows':
+            return { x: postLayout.rowBorder.x, y: postLayout.rowBorder.startY };
+        case 'trophy':
+            return {
+                x: rowX + rowElements.trophy.x - rowElements.trophy.w / 2,
+                y: rowY + rowElements.trophy.y - rowElements.trophy.h / 2
+            };
+        case 'podiumNumber':
+            return {
+                x: rowX + rowElements.trophy.x + rowElements.podiumNumber.offsetX - 48,
+                y: rowY + rowElements.trophy.y + rowElements.podiumNumber.offsetY - 34
+            };
+        case 'avatar':
+            return {
+                x: avatarX - rowElements.avatar.outerRadius,
+                y: avatarY - rowElements.avatar.outerRadius
+            };
+        case 'rowText':
+            return {
+                x: textAreaLeft,
+                y: rowY + rowElements.text.playerY - 36
+            };
+        case 'store':
+            return { x: postLayout.store.x, y: postLayout.store.y };
+        case 'handle':
+            return { x: postLayout.handle.x - 280, y: postLayout.handle.y - 52 };
+        default:
+            return { x: 0, y: 0 };
+    }
+}
+
+function updateHandleOrigin(key, x, y) {
+    const rowX = postLayout.rows.x;
+    const rowY = postLayout.rows.startY;
+    const rowW = postLayout.rows.w;
+    const rowH = postLayout.rows.rowHeight;
+    const rowElements = postLayout.rowElements;
+    switch (key) {
+        case 'logo':
+            postLayout.logo.x = x;
+            postLayout.logo.y = y;
+            break;
+        case 'title':
+            postLayout.title.x = x;
+            postLayout.title.y = y;
+            break;
+        case 'rows':
+            postLayout.rowBorder.x = x;
+            postLayout.rowBorder.startY = y;
+            break;
+        case 'trophy':
+            postLayout.rowElements.trophy.x = Math.round(x + postLayout.rowElements.trophy.w / 2 - rowX);
+            postLayout.rowElements.trophy.y = Math.round(y + postLayout.rowElements.trophy.h / 2 - rowY);
+            break;
+        case 'podiumNumber':
+            postLayout.rowElements.podiumNumber.offsetX = Math.round(x + 48 - (rowX + rowElements.trophy.x));
+            postLayout.rowElements.podiumNumber.offsetY = Math.round(y + 34 - (rowY + rowElements.trophy.y));
+            break;
+        case 'avatar': {
+            const centerX = x + rowElements.avatar.outerRadius;
+            const centerY = y + rowElements.avatar.outerRadius;
+            postLayout.rowElements.avatar.xFromRight = Math.round(rowX + rowW - centerX);
+            postLayout.rowElements.avatar.yOffset = Math.round(centerY - (rowY + rowH / 2));
+            break;
+        }
+        case 'rowText': {
+            const delta = rowElements.text.deckY - rowElements.text.playerY;
+            postLayout.rowElements.text.leftPadding = Math.round(x - rowX);
+            postLayout.rowElements.text.playerY = Math.round(y + 36 - rowY);
+            postLayout.rowElements.text.deckY = postLayout.rowElements.text.playerY + delta;
+            break;
+        }
+        case 'store':
+            postLayout.store.x = x;
+            postLayout.store.y = y;
+            break;
+        case 'handle':
+            postLayout.handle.x = x + 280;
+            postLayout.handle.y = y + 52;
+            break;
+        default:
+            break;
+    }
+}
+
+function getTemplateHandleRect(key) {
+    const rowX = postLayout.rows.x;
+    const rowY = postLayout.rows.startY;
+    const rowW = postLayout.rows.w;
+    const rowH = postLayout.rows.rowHeight;
+    const rowElements = postLayout.rowElements;
+    const avatarX = rowX + rowW - rowElements.avatar.xFromRight;
+    const avatarY = rowY + rowH / 2 + rowElements.avatar.yOffset;
+    const textAreaLeft = rowX + rowElements.text.leftPadding;
+    const textAreaRight = avatarX - rowElements.text.rightPadding;
+    switch (key) {
+        case 'logo':
+            return { x: postLayout.logo.x, y: postLayout.logo.y, w: postLayout.logo.w, h: postLayout.logo.h };
+        case 'title':
+            return { x: postLayout.title.x, y: postLayout.title.y, w: postLayout.title.w, h: postLayout.title.h };
+        case 'rows':
+            return {
+                x: postLayout.rowBorder.x,
+                y: postLayout.rowBorder.startY,
+                w: postLayout.rowBorder.w,
+                h: postLayout.rowBorder.rowHeight
+            };
+        case 'trophy':
+            return {
+                x: rowX + rowElements.trophy.x - rowElements.trophy.w / 2,
+                y: rowY + rowElements.trophy.y - rowElements.trophy.h / 2,
+                w: rowElements.trophy.w,
+                h: rowElements.trophy.h
+            };
+        case 'podiumNumber':
+            return {
+                x: rowX + rowElements.trophy.x + rowElements.podiumNumber.offsetX - 48,
+                y: rowY + rowElements.trophy.y + rowElements.podiumNumber.offsetY - 34,
+                w: 96,
+                h: 68
+            };
+        case 'avatar':
+            return {
+                x: avatarX - rowElements.avatar.outerRadius,
+                y: avatarY - rowElements.avatar.outerRadius,
+                w: rowElements.avatar.outerRadius * 2,
+                h: rowElements.avatar.outerRadius * 2
+            };
+        case 'rowText':
+            return {
+                x: textAreaLeft,
+                y: rowY + rowElements.text.playerY - 36,
+                w: Math.max(80, textAreaRight - textAreaLeft),
+                h: Math.max(72, rowElements.text.deckY - rowElements.text.playerY + 54)
+            };
+        case 'store':
+            return { x: postLayout.store.x, y: postLayout.store.y, w: postLayout.store.w, h: postLayout.store.h };
+        case 'handle':
+            return { x: postLayout.handle.x - 280, y: postLayout.handle.y - 52, w: 280, h: 62 };
+        default:
+            return { x: 0, y: 0, w: 0, h: 0 };
+    }
+}
+
+function applyTemplateSnap(key, x, y) {
+    const canvasW = 1080;
+    const canvasH = 1350;
+    const rect = getTemplateHandleRect(key);
+    const guides = [];
+    let snappedX = x;
+    let snappedY = y;
+
+    const xTargets = [0, canvasW - rect.w, Math.round((canvasW - rect.w) / 2)];
+    const yTargets = [0, canvasH - rect.h, Math.round((canvasH - rect.h) / 2)];
+
+    const otherHandles = getTemplateEditorHandles().filter((h) => h.key !== key);
+    otherHandles.forEach((h) => {
+        xTargets.push(Math.round(h.x));
+        xTargets.push(Math.round(h.x + h.w / 2 - rect.w / 2));
+        yTargets.push(Math.round(h.y));
+        yTargets.push(Math.round(h.y + h.h / 2 - rect.h / 2));
+    });
+
+    const closestX = findClosestSnap(x, xTargets, EDITOR_SNAP_DISTANCE);
+    if (closestX !== null) {
+        snappedX = closestX;
+        guides.push({ axis: 'x', value: closestX + rect.w / 2 });
+    }
+
+    const closestY = findClosestSnap(y, yTargets, EDITOR_SNAP_DISTANCE);
+    if (closestY !== null) {
+        snappedY = closestY;
+        guides.push({ axis: 'y', value: closestY + rect.h / 2 });
+    }
+
+    return { x: snappedX, y: snappedY, guides };
+}
+
+function nudgeTemplateHandle(key, dx, dy) {
+    const origin = getHandleOrigin(key);
+    updateHandleOrigin(key, origin.x + dx, origin.y + dy);
+    postEditorGuides = [];
+    renderTemplateEditorOverlay();
+}
+
+function resizeTemplateHandle(key, delta) {
+    switch (key) {
+        case 'logo':
+            postLayout.logo.w = Math.max(120, postLayout.logo.w + delta);
+            postLayout.logo.h = Math.max(60, postLayout.logo.h + delta);
+            break;
+        case 'title':
+            postLayout.title.w = Math.max(180, postLayout.title.w + delta);
+            postLayout.title.h = Math.max(90, postLayout.title.h + delta);
+            break;
+        case 'rows':
+            postLayout.rowBorder.w = Math.max(500, postLayout.rowBorder.w + delta);
+            postLayout.rowBorder.rowHeight = Math.max(
+                120,
+                postLayout.rowBorder.rowHeight + Math.round(delta / 2)
+            );
+            break;
+        case 'trophy':
+            postLayout.rowElements.trophy.w = Math.max(70, postLayout.rowElements.trophy.w + delta);
+            postLayout.rowElements.trophy.h = Math.max(70, postLayout.rowElements.trophy.h + delta);
+            break;
+        case 'podiumNumber':
+            postLayout.rowElements.podiumNumber.size = Math.max(
+                24,
+                postLayout.rowElements.podiumNumber.size + Math.round(delta / 2)
+            );
+            break;
+        case 'avatar':
+            postLayout.rowElements.avatar.outerRadius = Math.max(
+                40,
+                postLayout.rowElements.avatar.outerRadius + Math.round(delta / 2)
+            );
+            postLayout.rowElements.avatar.imageRadius = Math.max(
+                34,
+                postLayout.rowElements.avatar.imageRadius + Math.round(delta / 2)
+            );
+            break;
+        case 'rowText':
+            postLayout.rowElements.text.rightPadding = Math.max(
+                40,
+                postLayout.rowElements.text.rightPadding - Math.round(delta / 2)
+            );
+            break;
+        case 'store':
+            postLayout.store.w = Math.max(120, postLayout.store.w + delta);
+            postLayout.store.h = Math.max(60, postLayout.store.h + Math.round(delta / 2));
+            break;
+        case 'handle':
+            postLayout.typography.handleSize = Math.max(20, postLayout.typography.handleSize + Math.round(delta / 2));
+            break;
+        default:
+            break;
+    }
+    postEditorGuides = [];
+    renderTemplateEditorOverlay();
+}
+
+function findClosestSnap(value, targets, threshold) {
+    let closest = null;
+    let minDistance = Number.POSITIVE_INFINITY;
+    targets.forEach((target) => {
+        const distance = Math.abs(value - target);
+        if (distance <= threshold && distance < minDistance) {
+            minDistance = distance;
+            closest = target;
+        }
+    });
+    return closest;
+}
