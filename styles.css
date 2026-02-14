@@ -2738,7 +2738,8 @@ th {
     }
 
     #tournamentsTable tr {
-        padding: 10px;
+        padding: 10px 56px 10px 82px;
+        min-height: 84px;
     }
 
     #tournamentsTable td {
