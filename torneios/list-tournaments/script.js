@@ -558,7 +558,7 @@ function setupPerPageSelector() {
         savePerPagePreference();
         currentPage = 1;
         renderTable();
-        // PAGINATION
+        renderPagination();
     });
 }
 
