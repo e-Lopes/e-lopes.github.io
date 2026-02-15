@@ -11,7 +11,7 @@ const headers = window.createSupabaseHeaders
 let currentStore = '';
 let currentDate = '';
 let tournamentDataForCanvas = null;
-let selectedBackgroundPath = '../icons/backgrounds/EX11.png';
+let selectedBackgroundPath = '';
 
 const TOP_LEFT_LOGO_CANDIDATES = ['../icons/digimon-card-game.png', '../icons/logo.png'];
 const TROPHY_ICON_CANDIDATES = [
@@ -32,10 +32,20 @@ const TEMPLATE_EDITOR_UPDATED_KEY = 'digistats.template-editor.updated.v1';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const POST_PRESETS_STORAGE_KEY = 'digistats.post-layout-presets.v1';
 const CUSTOM_BACKGROUNDS_STORAGE_KEY = 'digistats.custom-backgrounds.v1';
+const FORMAT_BG_BUCKET = 'post-backgrounds';
+let formatBackgroundMapPromise = null;
+
+function buildPublicBucketObjectUrl(bucketName, objectPath) {
+    const cleanPath = String(objectPath || '').trim().replace(/^\/+/, '');
+    if (!cleanPath) return '';
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucketName}/${cleanPath}`;
+}
+
 const DEFAULT_BACKGROUND_OPTIONS = [
     { label: 'None', value: '' },
-    { label: 'BT24', value: '../icons/backgrounds/BT24.png' },
-    { label: 'EX11', value: '../icons/backgrounds/EX11.png' }
+    { label: 'BT23', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT23.png') },
+    { label: 'BT24', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT24.png') },
+    { label: 'EX11', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'EX11.png') }
 ];
 const INSTAGRAM_DEFAULT_LAYOUT = {
     logo: { x: 80, y: 74, w: 540, h: 198 },
@@ -166,6 +176,12 @@ function saveCustomBackgrounds(list) {
 function initializeBackgroundSelector(selectedValue) {
     const custom = getCustomBackgrounds();
     const options = [...DEFAULT_BACKGROUND_OPTIONS, ...custom];
+    if (
+        selectedValue &&
+        !options.some((opt) => String(opt.value || '') === String(selectedValue))
+    ) {
+        options.push({ label: 'Format Background', value: selectedValue });
+    }
     const selects = ['postBackgroundSelect', 'templateBackgroundSelect']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
@@ -219,6 +235,97 @@ function onCustomBackgroundUpload(event) {
     reader.readAsDataURL(file);
 
     event.target.value = '';
+}
+
+function normalizeFormatCode(value) {
+    const raw = String(value || '')
+        .trim()
+        .toUpperCase();
+    if (!raw) return '';
+
+    const explicitCode = raw.match(/[A-Z]{1,4}\d{1,3}/);
+    if (explicitCode?.[0]) return explicitCode[0];
+
+    return raw
+        .split(/[\/|,-]/)[0]
+        .trim()
+        .replace(/[^A-Z0-9]/g, '');
+}
+
+function normalizeFormatMapKey(value) {
+    return normalizeFormatCode(value).replace(/[^A-Z0-9]/g, '');
+}
+
+function getFormatFallbackBackgroundUrl(formatCode) {
+    if (!formatCode) return '';
+    return buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, `${formatCode}.png`);
+}
+
+function resolveFormatBackgroundUrl(formatCode, formatBackgroundMap) {
+    const normalizedCode = normalizeFormatCode(formatCode);
+    if (!normalizedCode) return '';
+
+    const normalizedMapKey = normalizeFormatMapKey(normalizedCode);
+    const map = formatBackgroundMap || {};
+    const mapped =
+        map[normalizedCode] ||
+        map[normalizedMapKey] ||
+        map[normalizeFormatCode(normalizedCode.replace(/\s+/g, ''))] ||
+        null;
+    if (mapped) return mapped;
+
+    return getFormatFallbackBackgroundUrl(normalizedCode);
+}
+
+async function loadFormatBackgroundMap() {
+    if (formatBackgroundMapPromise) return formatBackgroundMapPromise;
+
+    formatBackgroundMapPromise = (async () => {
+        try {
+            const query = '/rest/v1/formats?select=code,background_path,background_url,is_active';
+            const res = window.supabaseApi
+                ? await window.supabaseApi.get(query)
+                : await fetch(`${SUPABASE_URL}${query}`, { headers });
+
+            if (!res.ok) return {};
+
+            const rows = await res.json();
+            if (!Array.isArray(rows)) return {};
+
+            return rows.reduce((acc, row) => {
+                if (!row?.code || row?.is_active === false) return acc;
+                const backgroundUrl = String(row.background_url || '').trim();
+                const backgroundPath = String(row.background_path || '').trim();
+                const resolvedUrl =
+                    backgroundUrl || buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, backgroundPath);
+                if (!resolvedUrl) return acc;
+
+                const code = normalizeFormatCode(row.code);
+                acc[code] = resolvedUrl;
+                acc[normalizeFormatMapKey(code)] = resolvedUrl;
+                return acc;
+            }, {});
+        } catch (_) {
+            return {};
+        }
+    })();
+
+    return formatBackgroundMapPromise;
+}
+
+async function syncBackgroundWithTournamentFormat(data) {
+    const formatCode = normalizeFormatCode(data?.format);
+    if (!formatCode) return;
+
+    const map = await loadFormatBackgroundMap();
+    const backgroundUrl = resolveFormatBackgroundUrl(formatCode, map);
+    if (!backgroundUrl) return;
+
+    selectedBackgroundPath = backgroundUrl;
+    initializeBackgroundSelector(backgroundUrl);
+    if (tournamentDataForCanvas) {
+        await drawPostCanvas();
+    }
 }
 
 async function loadStores() {
@@ -308,10 +415,10 @@ async function displayTournament() {
 
         const tournamentPromise = window.supabaseApi
             ? window.supabaseApi.get(
-                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name&order=created_at.desc&limit=1`
+                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format&order=created_at.desc&limit=1`
               )
             : fetch(
-                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name&order=created_at.desc&limit=1`,
+                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format&order=created_at.desc&limit=1`,
                   { headers }
               );
 
@@ -323,6 +430,7 @@ async function displayTournament() {
         const results = await resultsRes.json();
         const tournamentRows = await tournamentRes.json();
         const tournamentName = tournamentRows?.[0]?.tournament_name || 'SEMANAL';
+        const tournamentFormat = tournamentRows?.[0]?.format || '';
 
         if (!results || results.length === 0) {
             clearDisplay();
@@ -344,6 +452,7 @@ async function displayTournament() {
                 topFour: results.slice(0, 4),
                 storeName: storeName,
                 tournamentName: tournamentName,
+                format: tournamentFormat,
                 dateStr: dateStr,
                 totalPlayers: totalPlayers,
                 allResults: results
@@ -1009,6 +1118,9 @@ function setTournamentDataForCanvas(data) {
     const generatePostBtn = document.getElementById('generatePostBtn');
     if (generatePostBtn) {
         generatePostBtn.disabled = !tournamentDataForCanvas;
+    }
+    if (tournamentDataForCanvas) {
+        void syncBackgroundWithTournamentFormat(tournamentDataForCanvas);
     }
 }
 

@@ -377,6 +377,7 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
         })),
         storeName: tournament.store?.name || 'Store',
         tournamentName: tournament.tournament_name || 'Tournament',
+        format: tournament.format || '',
         dateStr: formatDate(tournament.tournament_date),
         totalPlayers: Number(totalPlayers) || 0,
         allResults: (results || []).map((item) => ({
