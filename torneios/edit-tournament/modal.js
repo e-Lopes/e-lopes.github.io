@@ -44,6 +44,8 @@ async function loadEditFormData(id) {
 
         document.getElementById('editTournamentDate').value = data.tournament_date || '';
         document.getElementById('editTournamentName').value = data.tournament_name || '';
+        const editFormatInput = document.getElementById('editTournamentFormat');
+        if (editFormatInput) editFormatInput.value = data.format || '';
         document.getElementById('editTotalPlayers').value = '0';
         document.getElementById('editInstagramLink').value = data.instagram_link || '';
 
@@ -155,7 +157,7 @@ function renderEditResultsRows() {
             (row, index) => `
         <div class="result-row">
             <div class="form-group">
-                <label>Placement</label>
+                <label>Place</label>
                 <input type="number" value="${index + 1}" disabled>
             </div>
             <div class="form-group">
@@ -170,7 +172,15 @@ function renderEditResultsRows() {
                     ${buildEditOptions(editDecks, row.deck_id, 'Selecione o deck...')}
                 </select>
             </div>
-            <button type="button" class="btn-remove-result" data-edit-remove-index="${index}">Remove</button>
+            <button type="button" class="btn-remove-result" data-edit-remove-index="${index}" aria-label="Remove result" title="Remove result">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M7 6l1 14h8l1-14"></path>
+                    <path d="M10 10v7"></path>
+                    <path d="M14 10v7"></path>
+                </svg>
+            </button>
         </div>
     `
         )
@@ -266,13 +276,18 @@ async function editTournamentFormSubmit(e) {
 
     try {
         const totalPlayers = editResults.length;
-        const updated = {
+        const updatedBase = {
             store_id: document.getElementById('editStoreSelect').value,
             tournament_date: document.getElementById('editTournamentDate').value,
             tournament_name: document.getElementById('editTournamentName').value,
             total_players: totalPlayers,
             instagram_link: document.getElementById('editInstagramLink').value.trim()
         };
+        const formatValue = document.getElementById('editTournamentFormat')?.value?.trim() || '';
+        const updated =
+            typeof assignTournamentFormat === 'function'
+                ? assignTournamentFormat(updatedBase, formatValue)
+                : updatedBase;
 
         const hasInvalidResult = editResults.some((r) => !r.player_id || !r.deck_id);
         const validInstagram = window.validation

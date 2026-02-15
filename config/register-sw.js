@@ -1,4 +1,7 @@
-﻿(function registerServiceWorker() {
+(function registerServiceWorker() {
+    const isHttpContext =
+        window.location.protocol === 'http:' || window.location.protocol === 'https:';
+    if (!isHttpContext) return;
     if (!('serviceWorker' in navigator)) return;
 
     const candidates = window.location.pathname.includes('/teste/')
@@ -113,3 +116,4 @@
         }
     });
 })();
+

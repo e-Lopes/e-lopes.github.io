@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Zing+Rust+Base:wght@700&display=swap');
-
 /* ============================================================
    DIGISTATS - STYLESHEET COMPLETO E UNIFICADO
    Todos os estilos do projeto consolidados em um único arquivo
@@ -12,7 +10,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Zing Rust Base', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
@@ -116,6 +114,34 @@ h1 {
         transform 0.2s,
         box-shadow 0.2s;
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.nav-icon {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.nav-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.nav-icon-digivice {
+    width: 18.5px;
+    height: 18.5px;
+    object-fit: contain;
+    display: block;
+    filter: brightness(0) invert(1);
+}
+
+button.nav-button {
+    border: none;
+    cursor: pointer;
+    font: inherit;
 }
 
 .nav-button:hover {
@@ -294,7 +320,7 @@ h1 {
 
 /* Nome do Deck (Destaque com Zing Rust Base) */
 .deck-name {
-    font-family: 'Zing Rust Base', sans-serif; /* Aplicando a fonte solicitada */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Aplicando a fonte solicitada */
     font-size: 1.8em;
     color: #333;
     line-height: 1;
@@ -306,7 +332,7 @@ h1 {
    BADGE OCTOGONO
 ============================================================ */
 .rank-badge {
-    font-family: 'Zing Rust Base', sans-serif; /* Fonte consistente em todo o app */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Fonte consistente em todo o app */
     width: 65px;
     height: 65px;
     display: flex;
@@ -358,7 +384,7 @@ h1 {
    LISTA LATERAL
 ============================================================ */
 .positions-section h2 {
-    font-family: 'Zing Rust Base';
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     text-align: center;
     margin-bottom: 25px;
     font-size: 1.4rem;
@@ -412,7 +438,7 @@ h1 {
 }
 
 .position-deck {
-    font-family: 'Zing Rust Base';
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     text-transform: uppercase;
     font-weight: 800;
     font-size: 1rem; /* levemente menor */
@@ -1453,7 +1479,7 @@ th {
 
 .filters-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) auto auto;
+    grid-template-columns: auto repeat(4, minmax(0, 1fr)) auto auto;
     gap: 12px;
     align-items: start;
     margin-bottom: 14px;
@@ -1578,6 +1604,47 @@ th {
     height: 20px;
 }
 
+.btn-create-filter {
+    height: 52px;
+    width: 104px;
+    min-width: 104px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition:
+        transform 0.2s,
+        box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    gap: 8px;
+}
+
+.btn-create-filter:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.filters-row > .btn-create-filter {
+    align-self: end;
+    justify-self: start;
+}
+
+.btn-create-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    stroke-width: 2.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .tournament-details-section {
     margin-top: 20px;
     padding: 20px;
@@ -1590,6 +1657,26 @@ th {
     margin-bottom: 15px;
     font-weight: 700;
     color: #2f3a7a;
+}
+
+.details-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.details-generate-post-btn {
+    width: auto;
+    flex-shrink: 0;
+}
+
+.details-header-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
 .details-grid {
@@ -1815,7 +1902,7 @@ th {
 }
 
 .details-deck-name {
-    font-family: 'Zing Rust Base', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 1.1em;
     color: #333;
     line-height: 1;
@@ -2269,12 +2356,18 @@ th {
     display: grid;
     grid-template-columns: 90px 1fr 1fr auto;
     gap: 10px;
-    align-items: end;
+    align-items: start;
     margin-bottom: 10px;
 }
 
 .result-row .form-group {
     margin-bottom: 0;
+}
+
+.result-row .form-group select,
+.result-row .form-group input[type='number'] {
+    height: 48px;
+    min-height: 48px;
 }
 
 .btn-add-result {
@@ -2297,13 +2390,31 @@ th {
 
 .btn-remove-result {
     height: 48px;
-    padding: 0 12px;
+    width: 48px;
+    padding: 0;
     border: none;
     border-radius: 8px;
     background: #dc3545;
     color: #fff;
     cursor: pointer;
     font-weight: 600;
+    align-self: end;
+    margin-top: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove-result svg {
+    width: 18px;
+    height: 18px;
+}
+
+@media (min-width: 769px) {
+    .btn-remove-result {
+        align-self: start;
+        margin-top: 28px;
+    }
 }
 
 /* ============================================================
@@ -2335,7 +2446,7 @@ th {
     }
 
     .nav-button span:last-child {
-        display: none;
+        display: inline;
     }
 
     .nav-button span:first-child {
@@ -2507,16 +2618,62 @@ th {
     }
 
     .filters-row {
-        grid-template-columns: 1fr;
-        gap: 10px;
+        grid-template-columns: 52px minmax(0, 1fr) 52px;
+        gap: 10px 8px;
+        grid-template-areas:
+            'create . .'
+            'store store store'
+            'name name name'
+            'instagram instagram instagram'
+            'month month month'
+            'clear . .'
+            'perpage . toggle';
+    }
+
+    .filters-row > :nth-child(2) {
+        grid-area: store;
+    }
+
+    .filters-row > :nth-child(3) {
+        grid-area: name;
+    }
+
+    .filters-row > :nth-child(4) {
+        grid-area: instagram;
+    }
+
+    .filters-row > :nth-child(5) {
+        grid-area: month;
+    }
+
+    .filters-row > :nth-child(1) {
+        grid-area: create;
+        width: auto;
+        min-width: 120px;
+        height: 52px;
+        justify-self: start;
+    }
+
+    .filters-row > :nth-child(6) {
+        grid-area: perpage;
+        justify-self: start;
+        align-self: stretch;
+    }
+
+    .filters-row > :nth-child(7) {
+        display: contents;
+    }
+
+    #btnToggleView {
+        grid-area: toggle;
+    }
+
+    #btnClearFilters {
+        grid-area: clear;
     }
 
     .filter-label-spacer {
         display: none;
-    }
-
-    .filter-actions {
-        justify-content: flex-start;
     }
 
     /* Botão de edição mobile */
@@ -2705,11 +2862,37 @@ th {
     }
 
     .result-row {
-        grid-template-columns: 1fr;
+        grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) 44px;
+        align-items: start;
+        gap: 6px;
     }
 
     .btn-remove-result {
-        width: 100%;
+        width: 44px;
+        align-self: start;
+        height: 44px;
+        min-height: 44px;
+        margin-top: 26px;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .result-row .form-group {
+        min-width: 0;
+    }
+
+    .result-row .form-group select,
+    .result-row .form-group input[type='number'] {
+        height: 44px;
+        min-height: 44px;
+    }
+
+    .result-row .form-group:first-child input {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        padding: 0;
+        text-align: center;
     }
 
     .checkbox-group {
@@ -3952,7 +4135,7 @@ input[type='text']:focus {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Zing Rust Base', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* Duplicata de @import removida */
@@ -4024,6 +4207,36 @@ h1 {
     font-size: 2.5em;
     color: #333;
     margin-bottom: 10px;
+}
+
+.nav-button.is-active {
+    background: linear-gradient(135deg, #3f56c7 0%, #55328a 100%);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.28);
+    filter: saturate(1.08);
+}
+
+button.nav-button.is-active,
+button.nav-button:disabled {
+    cursor: default;
+    pointer-events: none;
+}
+
+.nav-button.is-active:hover,
+.nav-button.is-active:active,
+button.nav-button:disabled:hover,
+button.nav-button:disabled:active {
+    transform: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.28);
+}
+
+.embedded-decks-view .page-title {
+    display: none;
+}
+
+.embedded-decks-view .page-header {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 18px;
 }
 
 .subtitle {
@@ -4236,7 +4449,7 @@ h1 {
 
 /* Nome do Deck (Destaque com Zing Rust Base) */
 .deck-name {
-    font-family: 'Zing Rust Base', sans-serif; /* Aplicando a fonte solicitada */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Aplicando a fonte solicitada */
     font-size: 1.8em;
     color: #333;
     line-height: 1;
@@ -4248,7 +4461,7 @@ h1 {
    BADGE OCTOGONO
 ============================================================ */
 .rank-badge {
-    font-family: 'Zing Rust Base', sans-serif; /* Fonte consistente em todo o app */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Fonte consistente em todo o app */
     width: 65px;
     height: 65px;
     display: flex;
@@ -4300,7 +4513,7 @@ h1 {
    LISTA LATERAL
 ============================================================ */
 .positions-section h2 {
-    font-family: 'Zing Rust Base';
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     text-align: center;
     margin-bottom: 25px;
     font-size: 1.4rem;
@@ -4354,7 +4567,7 @@ h1 {
 }
 
 .position-deck {
-    font-family: 'Zing Rust Base';
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     text-transform: uppercase;
     font-weight: 800;
     font-size: 1rem; /* levemente menor */
@@ -4617,8 +4830,9 @@ body {
 }
 
 .decks-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
 }
 
 /* Navigation at top */
@@ -4701,6 +4915,8 @@ body {
 
 .deck-info {
     min-width: 0;
+    width: 100%;
+    overflow: hidden;
 }
 
 .deck-name {
@@ -4844,7 +5060,9 @@ body {
 
 .search-box .page-size-select {
     position: static !important; /* Remove o absolute que faz ele flutuar */
-    width: 75px !important;
+    width: 64px !important;
+    min-width: 64px !important;
+    max-width: 64px !important;
     height: 48px !important;
     border: 2px solid #e0e0e0 !important;
     border-radius: 10px !important;
@@ -4861,7 +5079,8 @@ body {
 
 .decks-total {
     height: 44px;
-    padding: 0 12px;
+    min-width: 120px;
+    padding: 0 16px;
     border: 2px solid #667eea;
     border-radius: 8px;
     background: #f0f4ff;
@@ -4871,6 +5090,35 @@ body {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+}
+
+.header-actions > .btn-primary {
+    height: 44px;
+    width: 104px;
+    min-width: 104px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.players-header {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 16px;
+}
+
+.players-header .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.players-name-input {
+    margin-bottom: 0;
+    width: 280px;
+    max-width: 100%;
+    flex: 1 1 260px;
 }
 
 .search-row {
@@ -4903,7 +5151,9 @@ body {
     /* REMOVA o position: absolute !important */
     position: static !important;
     transform: none !important;
-    width: 80px !important;
+    width: 64px !important;
+    min-width: 64px !important;
+    max-width: 64px !important;
     height: 48px !important;
     border: 2px solid #e0e0e0 !important;
     border-radius: 10px !important;
@@ -5028,8 +5278,38 @@ body {
     }
 
     .btn-primary {
-        width: 100%;
+        width: auto;
+        min-width: 104px;
         text-align: center;
+    }
+
+    .players-header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .players-header .header-actions {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .players-header .stats-counter {
+        width: auto;
+        min-width: 88px;
+        padding: 0 10px;
+    }
+
+    .players-header #submitBtn {
+        min-width: 88px;
+        padding: 0 12px;
+    }
+
+    .players-header .players-name-input {
+        width: auto;
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     .search-row {
@@ -5037,8 +5317,7 @@ body {
     }
 
     .btn-view-toggle {
-        width: 100%;
-        height: 44px;
+        display: none !important;
     }
 
     .search-input {
@@ -5046,26 +5325,95 @@ body {
     }
 
     .page-size-select {
+        width: 64px !important;
+        min-width: 64px !important;
+        max-width: 64px !important;
         height: 36px;
         right: 6px;
         font-size: 0.92em;
     }
 
     .deck-row {
-        grid-template-columns: 1fr;
-        text-align: center;
+        grid-template-columns: 84px minmax(0, 1fr) auto;
+        text-align: left;
+        align-items: center;
         width: 100%;
         min-width: 0;
+        gap: 10px;
+        padding: 10px 12px;
     }
 
     .deck-thumb-wrapper {
-        margin: 0 auto;
+        width: 72px;
+        height: 72px;
+        margin: 0;
+        border-width: 3px;
+    }
+
+    .deck-info {
+        min-width: 0;
+    }
+
+    .deck-name {
+        font-size: 1em;
+        margin-bottom: 6px;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    .deck-code {
+        margin-bottom: 0;
+        font-size: 0.78em;
+        max-width: 100%;
+        overflow-wrap: anywhere;
     }
 
     .deck-actions {
-        width: 100%;
-        justify-content: center;
+        width: auto;
+        justify-content: flex-start;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .deck-actions .btn-secondary {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+
+    #decksList.view-list .deck-row {
+        grid-template-columns: 74px minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 8px 10px;
+    }
+
+    #decksList.view-list .deck-thumb-wrapper {
+        width: 62px;
+        height: 62px;
+        border-width: 2px;
+    }
+
+    #decksList.view-list .deck-name {
+        font-size: 0.94em;
+        margin-bottom: 4px;
+    }
+
+    #decksList.view-list .deck-code {
+        font-size: 0.72em;
+        padding: 4px 7px;
+    }
+
+    #decksList.view-list .deck-actions {
         flex-direction: row;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #decksList.view-list .deck-actions .btn-secondary {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
     }
 
     #decksList.view-grid {
@@ -5088,12 +5436,10 @@ body {
         font-size: 1.5em;
     }
 
-    .deck-actions {
-        flex-direction: row;
-    }
-
     .deck-actions .btn-secondary {
-        width: 40px;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
     }
 }
 
@@ -5104,20 +5450,44 @@ body {
 }
 
 #decksList.view-grid .deck-row {
-    grid-template-columns: 1fr;
-    text-align: center;
-    gap: 10px;
-    padding: 16px;
+    grid-template-columns: 140px minmax(0, 1fr);
+    grid-template-areas:
+        'thumb info'
+        'thumb actions';
+    text-align: left;
+    gap: 10px 14px;
+    padding: 14px;
+    align-items: center;
 }
 
 #decksList.view-grid .deck-thumb-wrapper {
+    grid-area: thumb;
     width: 140px;
     height: 140px;
-    margin: 0 auto;
+    margin: 0;
+}
+
+#decksList.view-grid .deck-info {
+    grid-area: info;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+#decksList.view-grid .deck-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: normal;
+    word-break: keep-all;
 }
 
 #decksList.view-grid .deck-actions {
-    justify-content: center;
+    grid-area: actions;
+    justify-content: flex-start;
 }
 
 /* Compact list view (table-like) */
@@ -5173,9 +5543,85 @@ body {
     }
 
     #decksList.view-grid .deck-row {
+        grid-template-columns: 96px minmax(0, 1fr) !important;
+        grid-template-areas:
+            'thumb info'
+            'thumb actions';
+        text-align: left !important;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
         width: 100%;
         max-width: 100%;
         min-width: 0;
+    }
+
+    #decksList.view-grid .deck-thumb-wrapper {
+        width: 96px;
+        height: 96px;
+        margin: 0;
+        border-width: 3px;
+        border-radius: 50%;
+    }
+
+    #decksList.view-grid .deck-info {
+        min-width: 0;
+    }
+
+    #decksList.view-grid .deck-thumb-image {
+        height: 100%;
+        border-radius: 50%;
+        transform: none;
+        transform-origin: center center;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    #decksList.view-grid .deck-name {
+        font-size: 1em;
+        margin-bottom: 6px;
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+        overflow-wrap: normal;
+        word-break: keep-all;
+        display: block;
+        max-width: 100%;
+    }
+
+    #decksList.view-grid .deck-code {
+        margin-bottom: 0;
+        font-size: 0.78em;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    #decksList.view-grid .deck-actions {
+        width: auto;
+        justify-content: flex-start;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #decksList.view-grid .deck-actions .btn-secondary {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+
+    #decksList.view-compact .deck-actions {
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #decksList.view-compact .deck-actions .btn-secondary {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
     }
 }
 
@@ -5715,6 +6161,12 @@ body.template-preview-page .btn-cancel {
     border-radius: 10px;
     font-weight: 700;
     border: 1px solid rgba(129, 140, 248, 0.35);
+    white-space: nowrap;
+}
+
+body.template-editor-page #btnPostTemplateEdit,
+body.template-preview-page #btnPostTemplateEdit {
+    min-width: 122px;
 }
 
 body.template-editor-page .btn-secondary,
@@ -5725,6 +6177,7 @@ body.template-preview-page .btn-secondary {
 
 body.template-editor-page .btn-download,
 body.template-preview-page .btn-download {
+    min-width: 122px;
     background: linear-gradient(135deg, #2563eb, #4f46e5);
     color: #fff;
 }
@@ -5800,19 +6253,30 @@ body.template-preview-page .btn-cancel {
         margin-top: 10px !important;
         gap: 8px !important;
         display: grid !important;
-        grid-template-columns: 1fr !important;
-        justify-items: center !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        justify-items: stretch !important;
     }
 
     .nav-buttons-wrapper .nav-button {
         width: 100% !important;
-        max-width: 320px !important;
-        padding: 12px 16px !important;
+        max-width: none !important;
+        padding: 12px 10px !important;
         min-height: 44px !important;
         margin: 0 !important;
+        justify-content: center !important;
+        font-size: 0.88em !important;
+    }
+
+    .nav-buttons-wrapper > :nth-child(4) {
+        grid-column: 1 / -1 !important;
+        max-width: 320px !important;
+        justify-self: center !important;
     }
 
     header .subtitle {
         margin-bottom: 10px !important;
     }
 }
+
+

@@ -22,6 +22,8 @@ const TOURNAMENT_NAME_OPTIONS = [
 const SORT_STORAGE_KEY = 'tournamentsSort';
 const PER_PAGE_STORAGE_KEY = 'tournamentsPerPage';
 const VIEW_STORAGE_KEY = 'tournamentsViewMode';
+const DASHBOARD_VIEW_STORAGE_KEY = 'dashboardActiveView';
+const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
 const SORTABLE_FIELDS = ['tournament_date', 'total_players'];
 const SORT_DIRECTIONS = ['asc', 'desc'];
@@ -53,6 +55,12 @@ let createResults = [];
 let selectedTournamentId = null;
 let currentViewMode = getSavedViewMode();
 let calendarMonthKey = '';
+let currentDashboardView = 'tournaments';
+let decksViewMounted = false;
+let decksScriptsPromise = null;
+let playersViewMounted = false;
+let playersScriptsPromise = null;
+let tournamentFormatSupported = true;
 
 // ============================================================
 // FORMAT DATE FUNCTION
@@ -100,6 +108,15 @@ function saveViewMode() {
     localStorage.setItem(VIEW_STORAGE_KEY, currentViewMode);
 }
 
+function getSavedDashboardView() {
+    const saved = localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
+    return saved === 'decks' || saved === 'players' ? saved : 'tournaments';
+}
+
+function saveDashboardViewPreference() {
+    localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, currentDashboardView);
+}
+
 function formatDate(dateString) {
     if (!dateString) return '-';
     const [year, month, day] = dateString.split('-');
@@ -118,6 +135,16 @@ function formatOrdinal(value) {
     if (mod10 === 2) return `${int}nd`;
     if (mod10 === 3) return `${int}rd`;
     return `${int}th`;
+}
+
+function readTournamentFormatValue(inputId) {
+    const input = document.getElementById(inputId);
+    return input ? input.value.trim() : '';
+}
+
+function assignTournamentFormat(payload, formatValue) {
+    if (!tournamentFormatSupported) return payload;
+    return { ...payload, format: formatValue || null };
 }
 
 function getAssetPrefix() {
@@ -148,6 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupPerPageSelector();
     setupViewToggle();
     bindStaticActions();
+    setupDashboardViewSwitching();
     await loadTournaments();
     setupFilters();
     setupSorting();
@@ -204,10 +232,22 @@ function bindStaticActions() {
 // ============================================================
 async function loadTournaments() {
     try {
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/tournament?select=id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram_link&order=tournament_date.desc`,
+        const baseSelect =
+            'id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram_link';
+        const selectWithFormat = `${baseSelect},format`;
+        let res = await fetch(
+            `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormat)}&order=tournament_date.desc`,
             { headers }
         );
+        if (!res.ok) {
+            tournamentFormatSupported = false;
+            res = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(baseSelect)}&order=tournament_date.desc`,
+                { headers }
+            );
+        } else {
+            tournamentFormatSupported = true;
+        }
         if (!res.ok) throw new Error('Erro ao carregar torneios.');
         tournaments = await res.json();
         populateFilterOptions();
@@ -327,6 +367,40 @@ function formatMonthYearLabel(monthKey) {
     return `${monthName} ${year}`;
 }
 
+function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) {
+    const tournamentDataForCanvas = {
+        topFour: (results || []).slice(0, 4).map((item) => ({
+            placement: Number(item.placement),
+            deck: item.deck || '-',
+            player: item.player || '-',
+            image_url: item.image_url || ''
+        })),
+        storeName: tournament.store?.name || 'Store',
+        tournamentName: tournament.tournament_name || 'Tournament',
+        dateStr: formatDate(tournament.tournament_date),
+        totalPlayers: Number(totalPlayers) || 0,
+        allResults: (results || []).map((item) => ({
+            placement: Number(item.placement),
+            deck: item.deck || '-',
+            player: item.player || '-',
+            image_url: item.image_url || ''
+        }))
+    };
+
+    try {
+        const previewState = { tournamentDataForCanvas };
+        localStorage.setItem(POST_PREVIEW_STATE_KEY, JSON.stringify(previewState));
+        const previewData = encodeURIComponent(JSON.stringify(previewState));
+        window.open(
+            `${getAssetPrefix()}teste/index.html?postPreview=1&previewData=${previewData}`,
+            '_blank'
+        );
+    } catch (error) {
+        console.error(error);
+        alert('Falha ao abrir o gerador de post.');
+    }
+}
+
 function applyFilters() {
     filteredTournaments = sortTournaments(getFilteredTournaments());
     currentPage = 1;
@@ -337,6 +411,10 @@ function applyFilters() {
     ) {
         selectedTournamentId = null;
         clearTournamentDetails();
+    }
+
+    if (currentDashboardView !== 'tournaments') {
+        return;
     }
 
     renderCurrentView();
@@ -436,6 +514,8 @@ function moveCalendarYear(step) {
 }
 
 function renderCurrentView() {
+    if (currentDashboardView !== 'tournaments') return;
+
     const listContainer = document.getElementById('listViewContainer');
     const calendarContainer = document.getElementById('calendarViewContainer');
     const calendarDetails = document.getElementById('calendarTournamentDetails');
@@ -492,6 +572,271 @@ function updateToggleViewButton() {
     `;
     button.title = 'Switch to calendar';
     button.setAttribute('aria-label', 'Switch to calendar');
+}
+
+function setupDashboardViewSwitching() {
+    const btnShowTournamentsNav = document.getElementById('btnShowTournamentsNav');
+    const btnManageDecksNav = document.getElementById('btnManageDecksNav');
+    const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
+
+    if (!btnShowTournamentsNav && !btnManageDecksNav && !btnManagePlayersNav) return;
+
+    if (btnShowTournamentsNav) {
+        btnShowTournamentsNav.addEventListener('click', () => {
+            switchDashboardView('tournaments');
+        });
+    }
+
+    if (btnManageDecksNav) {
+        btnManageDecksNav.addEventListener('click', () => {
+            switchDashboardView('decks');
+        });
+    }
+
+    if (btnManagePlayersNav) {
+        btnManagePlayersNav.addEventListener('click', () => {
+            switchDashboardView('players');
+        });
+    }
+
+    updateDashboardViewUi();
+    const savedDashboardView = getSavedDashboardView();
+    if (savedDashboardView !== currentDashboardView) {
+        switchDashboardView(savedDashboardView);
+    }
+}
+
+async function switchDashboardView(view) {
+    if (view !== 'tournaments' && view !== 'decks' && view !== 'players') return;
+    if (currentDashboardView === view) return;
+
+    currentDashboardView = view;
+    saveDashboardViewPreference();
+    updateDashboardViewUi();
+
+    if (view === 'decks') {
+        try {
+            await ensureDecksViewReady();
+            if (typeof window.initDecksPage === 'function') {
+                window.initDecksPage();
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Unable to load decks view right now.');
+            currentDashboardView = 'tournaments';
+            saveDashboardViewPreference();
+            updateDashboardViewUi();
+        }
+        return;
+    }
+
+    if (view === 'players') {
+        try {
+            await ensurePlayersViewReady();
+            if (typeof window.initPlayersPage === 'function') {
+                window.initPlayersPage();
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Unable to load players view right now.');
+            currentDashboardView = 'tournaments';
+            saveDashboardViewPreference();
+            updateDashboardViewUi();
+        }
+    }
+}
+
+function updateDashboardViewUi() {
+    const isDecks = currentDashboardView === 'decks';
+    const isPlayers = currentDashboardView === 'players';
+    const isTournaments = !isDecks && !isPlayers;
+    const filtersRow = document.querySelector('.filters-row');
+    const decksContainer = document.getElementById('decksDynamicContainer');
+    const playersContainer = document.getElementById('playersDynamicContainer');
+    const btnShowTournamentsNav = document.getElementById('btnShowTournamentsNav');
+    const btnManageDecksNav = document.getElementById('btnManageDecksNav');
+    const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
+
+    if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers);
+    if (decksContainer) decksContainer.classList.toggle('is-hidden', !isDecks);
+    if (playersContainer) playersContainer.classList.toggle('is-hidden', !isPlayers);
+
+    if (btnShowTournamentsNav) {
+        btnShowTournamentsNav.classList.toggle('is-active', isTournaments);
+        btnShowTournamentsNav.disabled = isTournaments;
+        btnShowTournamentsNav.setAttribute('aria-pressed', String(isTournaments));
+    }
+    if (btnManageDecksNav) {
+        btnManageDecksNav.classList.toggle('is-active', isDecks);
+        btnManageDecksNav.disabled = isDecks;
+        btnManageDecksNav.setAttribute('aria-pressed', String(isDecks));
+    }
+    if (btnManagePlayersNav) {
+        btnManagePlayersNav.classList.toggle('is-active', isPlayers);
+        btnManagePlayersNav.disabled = isPlayers;
+        btnManagePlayersNav.setAttribute('aria-pressed', String(isPlayers));
+    }
+
+    if (!isDecks && !isPlayers) {
+        renderCurrentView();
+        return;
+    }
+
+    const listContainer = document.getElementById('listViewContainer');
+    const calendarContainer = document.getElementById('calendarViewContainer');
+    const calendarDetails = document.getElementById('calendarTournamentDetails');
+    if (listContainer) listContainer.classList.add('is-hidden');
+    if (calendarContainer) calendarContainer.classList.add('is-hidden');
+    if (calendarDetails) calendarDetails.classList.add('is-hidden');
+}
+
+async function ensureDecksViewReady() {
+    unmountPlayersContainer();
+    await mountDecksContainer();
+    await loadDecksAssets();
+}
+
+async function mountDecksContainer() {
+    if (decksViewMounted) return;
+
+    const host = document.getElementById('decksDynamicContainer');
+    if (!host) return;
+
+    let embedded = null;
+    const localTemplate = document.getElementById('decksContainerTemplate');
+    if (localTemplate?.content?.firstElementChild) {
+        embedded = localTemplate.content.firstElementChild.cloneNode(true);
+    } else {
+        const prefix = getAssetPrefix();
+        const response = await fetch(`${prefix}decks/index.html`, { method: 'GET' });
+        if (!response.ok) {
+            throw new Error(`Failed to load decks markup (${response.status})`);
+        }
+
+        const pageHtml = await response.text();
+        const parsed = new DOMParser().parseFromString(pageHtml, 'text/html');
+        const decksContainer = parsed.querySelector('.decks-container');
+        if (!decksContainer) {
+            throw new Error('Decks container not found in decks/index.html');
+        }
+        embedded = decksContainer.cloneNode(true);
+        const topNav = embedded.querySelector('.top-nav');
+        if (topNav) topNav.remove();
+    }
+
+    host.innerHTML = '';
+    if (embedded) {
+        embedded.classList.add('embedded-decks-view');
+        host.appendChild(embedded);
+    }
+
+    if (!host.querySelector('#createDeckModalHost')) {
+        const createHost = document.createElement('div');
+        createHost.id = 'createDeckModalHost';
+        host.appendChild(createHost);
+    }
+    if (!host.querySelector('#editDeckModalHost')) {
+        const editHost = document.createElement('div');
+        editHost.id = 'editDeckModalHost';
+        host.appendChild(editHost);
+    }
+
+    decksViewMounted = true;
+}
+
+async function loadDecksAssets() {
+    if (decksScriptsPromise) return decksScriptsPromise;
+
+    const prefix = getAssetPrefix();
+    const scriptPaths = [
+        `${prefix}decks/create-deck/modal.js`,
+        `${prefix}decks/edit-deck/modal.js`,
+        `${prefix}decks/page.js`
+    ];
+
+    decksScriptsPromise = scriptPaths.reduce(
+        (chain, src) => chain.then(() => loadScriptOnce(src)),
+        Promise.resolve()
+    );
+
+    return decksScriptsPromise;
+}
+
+function loadScriptOnce(src) {
+    const absoluteSrc = new URL(src, window.location.href).href;
+    const existing = Array.from(document.querySelectorAll('script')).find((script) => {
+        return script.src === absoluteSrc;
+    });
+
+    if (existing) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.body.appendChild(script);
+    });
+}
+
+async function ensurePlayersViewReady() {
+    unmountDecksContainer();
+    await mountPlayersContainer();
+    await loadPlayersAssets();
+}
+
+async function mountPlayersContainer() {
+    if (playersViewMounted) return;
+
+    const host = document.getElementById('playersDynamicContainer');
+    if (!host) return;
+
+    const template = document.getElementById('playersContainerTemplate');
+    if (!template?.content?.firstElementChild) {
+        throw new Error('Players template not found in index.html');
+    }
+
+    const embedded = template.content.firstElementChild.cloneNode(true);
+    host.innerHTML = '';
+    host.appendChild(embedded);
+
+    if (!document.getElementById('toast-container')) {
+        const toast = document.createElement('div');
+        toast.id = 'toast-container';
+        host.appendChild(toast);
+    }
+
+    playersViewMounted = true;
+}
+
+function unmountDecksContainer() {
+    const host = document.getElementById('decksDynamicContainer');
+    if (host && host.innerHTML) {
+        host.innerHTML = '';
+    }
+    decksViewMounted = false;
+    if (typeof window.resetDecksPage === 'function') {
+        window.resetDecksPage();
+    }
+}
+
+function unmountPlayersContainer() {
+    const host = document.getElementById('playersDynamicContainer');
+    if (host && host.innerHTML) {
+        host.innerHTML = '';
+    }
+    playersViewMounted = false;
+    if (typeof window.resetPlayersPage === 'function') {
+        window.resetPlayersPage();
+    }
+}
+
+async function loadPlayersAssets() {
+    if (playersScriptsPromise) return playersScriptsPromise;
+
+    const prefix = getAssetPrefix();
+    playersScriptsPromise = loadScriptOnce(`${prefix}players/script.js`);
+    return playersScriptsPromise;
 }
 
 function renderCalendarView() {
@@ -834,6 +1179,8 @@ async function openCreateTournamentModal(defaultDate = '') {
         : new Date().toISOString().split('T')[0];
     document.getElementById('createTournamentDate').value = safeDate;
     document.getElementById('createTournamentName').value = '';
+    const createTournamentFormatInput = document.getElementById('createTournamentFormat');
+    if (createTournamentFormatInput) createTournamentFormatInput.value = '';
     document.getElementById('createTotalPlayers').value = '';
     document.getElementById('createInstagramLink').value = '';
 
@@ -1128,8 +1475,22 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             : results[0]?.total_players || 0;
         const header = `
             <div class="tournament-details-header">
-                <strong>${tournament.tournament_name || 'Tournament'}</strong> - ${formatDate(tournament.tournament_date)} - ${tournament.store?.name || 'Store'}
-                <div>Total Players: ${totalPlayers}</div>
+                <div class="details-header-top">
+                    <div class="details-header-meta">
+                        <strong>${tournament.tournament_name || 'Tournament'}</strong>
+                        <div>${formatDate(tournament.tournament_date)} - ${tournament.store?.name || 'Store'}</div>
+                        <div>Total Players: ${totalPlayers}</div>
+                        <div>Format: ${tournament.format || '-'}</div>
+                    </div>
+                    <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
+                        <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                            <circle cx="9" cy="10" r="1.7"></circle>
+                            <path d="M4 17l5-4 3.2 2.6 3.8-3.6 4 5"></path>
+                        </svg>
+                        <span>Generate Post</span>
+                    </button>
+                </div>
             </div>
         `;
 
@@ -1266,6 +1627,12 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             content,
             tournament.id || `${tournament.store_id}-${tournament.tournament_date}`
         );
+        const btnGeneratePost = content.querySelector('[data-action="generate-post-details"]');
+        if (btnGeneratePost) {
+            btnGeneratePost.addEventListener('click', () => {
+                openPostGeneratorWithTournamentData(tournament, results, totalPlayers);
+            });
+        }
     } catch (err) {
         console.error(err);
         if (!targetContainer) {
@@ -1337,7 +1704,7 @@ function renderCreateResultsRows() {
             (row, index) => `
         <div class="result-row">
             <div class="form-group">
-                <label>Placement</label>
+                <label>Place</label>
                 <input type="number" value="${index + 1}" disabled>
             </div>
             <div class="form-group">
@@ -1352,7 +1719,15 @@ function renderCreateResultsRows() {
                     ${buildOptions(createDecks, row.deck_id, 'Selecione o deck...')}
                 </select>
             </div>
-            <button type="button" class="btn-remove-result" data-create-remove-index="${index}">Remove</button>
+            <button type="button" class="btn-remove-result" data-create-remove-index="${index}" aria-label="Remove result" title="Remove result">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M7 6l1 14h8l1-14"></path>
+                    <path d="M10 10v7"></path>
+                    <path d="M14 10v7"></path>
+                </svg>
+            </button>
         </div>
     `
         )
@@ -1377,13 +1752,17 @@ async function createTournamentFormSubmit(e) {
 
     try {
         const totalPlayers = createResults.length;
-        const payload = {
+        const payloadBase = {
             store_id: document.getElementById('createStoreSelect').value,
             tournament_date: document.getElementById('createTournamentDate').value,
             tournament_name: document.getElementById('createTournamentName').value,
             total_players: totalPlayers,
             instagram_link: document.getElementById('createInstagramLink').value.trim()
         };
+        const payload = assignTournamentFormat(
+            payloadBase,
+            readTournamentFormatValue('createTournamentFormat')
+        );
 
         const validTotalPlayers = window.validation
             ? window.validation.isPositiveInteger(payload.total_players, 1, 36)

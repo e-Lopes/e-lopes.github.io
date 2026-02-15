@@ -16,27 +16,23 @@
                 <a href="../index.html" class="nav-button">&larr; Back to Dashboard</a>
             </div>
 
-            <div class="page-header">
-                <h1 class="page-title">Manage Players</h1>
-                <div class="stats-counter">Total: <span id="totalPlayersCount">0</span></div>
-            </div>
-
-            <div class="quick-add-section">
-                <form id="playerForm" class="add-player-form">
-                    <div class="form-row">
-                        <input
-                            type="text"
-                            id="playerName"
-                            placeholder="Enter player name..."
-                            required
-                            autocomplete="off"
-                        />
-                        <button type="submit" id="submitBtn" class="btn-primary">
-                            <span class="btn-text">+ Add Player</span>
-                        </button>
-                        <button type="button" id="cancelBtn" class="btn-cancel">Cancel</button>
-                    </div>
-                </form>
+            <div class="page-header players-header">
+                <div class="header-actions">
+                    <div class="stats-counter">Total: <span id="totalPlayersCount">0</span></div>
+                    <button type="button" id="submitBtn" class="btn-primary players-add-btn">
+                        <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <path d="M12 5v14M5 12h14"></path>
+                        </svg>
+                        <span>Add</span>
+                    </button>
+                    <input
+                        type="text"
+                        id="playerName"
+                        class="players-name-input"
+                        placeholder="Enter player name..."
+                        autocomplete="off"
+                    />
+                </div>
             </div>
 
             <div class="search-container">
@@ -67,11 +63,7 @@
                 </div>
             </div>
 
-            <div class="pagination-container" id="paginationControls">
-                <button id="prevPage" class="btn-pagination">&laquo; Previous</button>
-                <span id="pageInfo">Page 1 of 1</span>
-                <button id="nextPage" class="btn-pagination">Next &raquo;</button>
-            </div>
+            <div class="pagination" id="playersPagination"></div>
 
             <div id="emptyState" class="empty-state u-hidden">
                 <p>No players found.</p>

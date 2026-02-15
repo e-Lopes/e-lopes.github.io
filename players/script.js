@@ -1,3 +1,4 @@
+{
 const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
 const headers = window.createSupabaseHeaders
@@ -15,11 +16,27 @@ let currentPage = 1;
 const PAGE_SIZE_STORAGE_KEY = 'playersPageSize';
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
 let itemsPerPage = getInitialPageSize();
+let playersPageInitialized = false;
 
-document.addEventListener('DOMContentLoaded', () => {
+function initPlayersPage() {
+    if (playersPageInitialized) return;
+    if (!document.getElementById('playersList')) return;
+
+    playersPageInitialized = true;
     loadPlayers();
     setupEventListeners();
-});
+}
+
+window.initPlayersPage = initPlayersPage;
+window.resetPlayersPage = function resetPlayersPage() {
+    playersPageInitialized = false;
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPlayersPage);
+} else {
+    initPlayersPage();
+}
 
 function getInitialPageSize() {
     const saved = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
@@ -48,28 +65,27 @@ function setupEventListeners() {
             }
         });
     }
-    document.getElementById('playerForm').addEventListener('submit', handleSubmit);
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        setSubmitButtonLabel('Add');
+        submitBtn.addEventListener('click', handleSubmit);
+    }
+
+    const playerNameInput = document.getElementById('playerName');
+    if (playerNameInput) {
+        playerNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+            }
+        });
+    }
+
     document.getElementById('searchInput').addEventListener('input', (e) => {
         const term = e.target.value.toLowerCase().trim();
         filteredPlayers = allPlayers.filter((p) => p.name.toLowerCase().includes(term));
         currentPage = 1;
         renderPaginatedList();
-    });
-
-    document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
-
-    document.getElementById('prevPage').addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderPaginatedList();
-        }
-    });
-
-    document.getElementById('nextPage').addEventListener('click', () => {
-        if (currentPage < Math.ceil(filteredPlayers.length / itemsPerPage)) {
-            currentPage++;
-            renderPaginatedList();
-        }
     });
 
     const playersList = document.getElementById('playersList');
@@ -87,6 +103,18 @@ function setupEventListeners() {
             }
         });
     }
+
+}
+
+function setSubmitButtonLabel(label) {
+    const submitBtn = document.getElementById('submitBtn');
+    if (!submitBtn) return;
+    submitBtn.innerHTML = `
+        <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M12 5v14M5 12h14"></path>
+        </svg>
+        <span>${label}</span>
+    `;
 }
 
 async function loadPlayers() {
@@ -123,17 +151,17 @@ function renderPaginatedList() {
     const list = document.getElementById('playersList');
     const start = (currentPage - 1) * itemsPerPage;
     const paginatedItems = filteredPlayers.slice(start, start + itemsPerPage);
+    const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage) || 1;
 
     list.innerHTML = '';
 
     if (filteredPlayers.length === 0) {
         document.getElementById('emptyState').style.display = 'block';
-        document.getElementById('paginationControls').style.display = 'none';
+        renderPagination(0);
         return;
     }
 
     document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('paginationControls').style.display = 'flex';
 
     paginatedItems.forEach((p) => {
         const item = document.createElement('div');
@@ -161,16 +189,68 @@ function renderPaginatedList() {
         list.appendChild(item);
     });
 
-    const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage) || 1;
-    document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
-    document.getElementById('prevPage').disabled = currentPage === 1;
-    document.getElementById('nextPage').disabled = currentPage >= totalPages;
+    renderPagination(totalPages);
 }
 
-async function handleSubmit(e) {
-    e.preventDefault();
+function renderPagination(totalPages) {
+    const pagination = document.getElementById('playersPagination');
+    if (!pagination) return;
+    pagination.innerHTML = '';
+
+    if (totalPages <= 1) return;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const prevButton = document.createElement('button');
+    prevButton.type = 'button';
+    prevButton.className = 'btn-pagination btn-pagination-prev';
+    prevButton.textContent = '\u25C0';
+    prevButton.setAttribute('aria-label', 'Previous page');
+    prevButton.disabled = currentPage <= 1;
+    prevButton.addEventListener('click', () => {
+        if (currentPage <= 1) return;
+        currentPage -= 1;
+        renderPaginatedList();
+    });
+    pagination.appendChild(prevButton);
+
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+
+    for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-pagination-number';
+        btn.textContent = String(i);
+        if (i === currentPage) {
+            btn.disabled = true;
+            btn.classList.add('active');
+        }
+        btn.addEventListener('click', () => {
+            currentPage = i;
+            renderPaginatedList();
+        });
+        pagination.appendChild(btn);
+    }
+
+    const nextButton = document.createElement('button');
+    nextButton.type = 'button';
+    nextButton.className = 'btn-pagination btn-pagination-next';
+    nextButton.textContent = '\u25B6';
+    nextButton.setAttribute('aria-label', 'Next page');
+    nextButton.disabled = currentPage >= totalPages;
+    nextButton.addEventListener('click', () => {
+        if (currentPage >= totalPages) return;
+        currentPage += 1;
+        renderPaginatedList();
+    });
+    pagination.appendChild(nextButton);
+}
+
+async function handleSubmit() {
     const nameInput = document.getElementById('playerName');
-    const name = nameInput.value.trim();
+    const name = String(nameInput?.value || '').trim();
+    if (!name) return;
 
     const isValidName = window.validation
         ? window.validation.isNonEmptyText(name, 2)
@@ -180,10 +260,11 @@ async function handleSubmit(e) {
         return;
     }
 
-    const url = editingPlayerId
+    const isEditing = Boolean(editingPlayerId);
+    const url = isEditing
         ? `${SUPABASE_URL}/rest/v1/players?id=eq.${editingPlayerId}`
         : `${SUPABASE_URL}/rest/v1/players`;
-    const method = editingPlayerId ? 'PATCH' : 'POST';
+    const method = isEditing ? 'PATCH' : 'POST';
 
     const res = window.supabaseApi
         ? await window.supabaseApi.request(url.replace(SUPABASE_URL, ''), {
@@ -192,26 +273,36 @@ async function handleSubmit(e) {
               body: JSON.stringify({ name })
           })
         : await fetch(url, { method, headers, body: JSON.stringify({ name }) });
+
     if (res.ok) {
-        showToast(editingPlayerId ? 'Player updated!' : 'Player added!');
+        showToast(isEditing ? 'Player updated!' : 'Player added!');
         cancelEdit();
         loadPlayers();
+        return;
     }
+
+    showToast(isEditing ? 'Error updating player' : 'Error adding player', 'error');
 }
 
 function editPlayer(id, name) {
     editingPlayerId = id;
-    document.getElementById('playerName').value = name;
-    document.getElementById('submitBtn').textContent = 'Update Player';
-    document.getElementById('cancelBtn').style.display = 'inline-flex';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const nameInput = document.getElementById('playerName');
+    if (nameInput) {
+        nameInput.value = String(name || '');
+        nameInput.focus();
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) setSubmitButtonLabel('Edit');
 }
 
 function cancelEdit() {
     editingPlayerId = null;
-    document.getElementById('playerForm').reset();
-    document.getElementById('submitBtn').textContent = '+ Add Player';
-    document.getElementById('cancelBtn').style.display = 'none';
+    const nameInput = document.getElementById('playerName');
+    if (nameInput) nameInput.value = '';
+
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) setSubmitButtonLabel('Add');
 }
 
 async function deletePlayer(id, name) {
@@ -231,4 +322,5 @@ function escapeHtmlAttribute(value) {
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+}
 }

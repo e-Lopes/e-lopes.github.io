@@ -12,6 +12,7 @@
         <link rel="stylesheet" href="styles.css" />
         <link rel="stylesheet" href="styles/components/utilities.css" />
         <link rel="stylesheet" href="styles/components/states.css" />
+        <link rel="stylesheet" href="styles/pages/players.css" />
     </head>
     <body>
         <div class="container">
@@ -22,24 +23,55 @@
                 <p class="subtitle">Digimon TCG Tournament Management</p>
 
                 <div class="nav-buttons-wrapper">
-                    <button id="btnCreateTournament" class="nav-button" type="button">
-                        <span>Create Tournament</span>
+                    <button type="button" id="btnShowTournamentsNav" class="nav-button is-active">
+                        <span class="nav-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="17" rx="2"></rect>
+                                <path d="M8 2v4M16 2v4M3 10h18"></path>
+                            </svg>
+                        </span>
+                        <span>Tournaments</span>
                     </button>
-                    <a href="decks/index.html" class="nav-button">
-                        <span>Manage Decks</span>
-                    </a>
-                    <a href="players/index.html" class="nav-button">
-                        <span>Manage Players</span>
-                    </a>
-                    <a href="teste/index.html" class="nav-button">
-                        <span>Post Generator</span>
-                    </a>
+                    <button type="button" id="btnManageDecksNav" class="nav-button">
+                        <span class="nav-icon" aria-hidden="true">
+                            <img src="icons/digivice.svg" alt="" class="nav-icon-digivice" />
+                        </span>
+                        <span>Decks</span>
+                    </button>
+                    <button type="button" id="btnManagePlayersNav" class="nav-button">
+                        <span class="nav-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="9" cy="8" r="3"></circle>
+                                <path d="M4 18c0-2.8 2.2-5 5-5s5 2.2 5 5"></path>
+                                <circle cx="17" cy="10" r="2"></circle>
+                                <path d="M15.2 18c.3-1.9 1.8-3.4 3.8-3.8"></path>
+                            </svg>
+                        </span>
+                        <span>Players</span>
+                    </button>
                 </div>
             </header>
 
-            <h1>Tournaments List</h1>
-
             <div class="filters-row">
+                <button
+                    type="button"
+                    id="btnCreateTournament"
+                    class="btn-create-filter"
+                    title="Create Tournament"
+                    aria-label="Create Tournament"
+                >
+                    <svg
+                        class="btn-create-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Add
+                </button>
                 <div class="form-group filter-group">
                     <label for="filterStore">Store</label>
                     <select id="filterStore" class="filter-select">
@@ -229,6 +261,151 @@
 
             <div id="calendarViewContainer" class="calendar-view-container is-hidden"></div>
             <div id="calendarTournamentDetails" class="calendar-tournament-details is-hidden"></div>
+            <div id="decksDynamicContainer" class="is-hidden"></div>
+            <div id="playersDynamicContainer" class="is-hidden"></div>
+
+            <template id="decksContainerTemplate">
+                <div class="decks-container">
+                    <div class="page-header">
+                        <h1 class="page-title">Manage Decks</h1>
+                        <div class="header-actions">
+                            <div class="decks-total" id="decksTotalCount">Total: 0</div>
+                            <button id="btnOpenCreateDeckModal" class="btn-primary" type="button">
+                                <svg
+                                    class="btn-create-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                                Add
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="search-row">
+                        <div class="search-box">
+                            <input
+                                type="text"
+                                id="searchInput"
+                                class="search-input"
+                                placeholder="Search decks by name..."
+                            />
+                            <select
+                                id="pageSizeSelect"
+                                class="page-size-select"
+                                title="Items per page"
+                                aria-label="Items per page"
+                            >
+                                <option value="4">4</option>
+                                <option value="8" selected>8</option>
+                                <option value="12">12</option>
+                                <option value="24">24</option>
+                                <option value="40">40</option>
+                                <option value="80">80</option>
+                            </select>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="viewToggleBtn"
+                            class="btn-view-toggle"
+                            title="Change view"
+                            aria-label="Change view"
+                        ></button>
+                    </div>
+
+                    <div id="decksList" class="decks-grid">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading decks...</p>
+                        </div>
+                    </div>
+
+                    <div id="emptyState" class="empty-state u-hidden">
+                        <div class="empty-state-icon">&#127183;</div>
+                        <h3>No decks registered</h3>
+                        <p>Start by adding your first deck!</p>
+                        <button type="button" id="btnEmptyStateAddDeck" class="btn-primary u-mt-20">
+                            Add First Deck
+                        </button>
+                    </div>
+
+                    <div id="noResults" class="empty-state u-hidden">
+                        <div class="empty-state-icon">&#128269;</div>
+                        <h3>No decks found</h3>
+                        <p>Try searching with different terms.</p>
+                        <button
+                            type="button"
+                            id="btnNoResultsClearSearch"
+                            class="btn-secondary u-mt-20"
+                        >
+                            Clear search
+                        </button>
+                    </div>
+                    <div class="pagination" id="decksPagination"></div>
+                </div>
+            </template>
+
+            <template id="playersContainerTemplate">
+                <div class="players-container-embedded">
+                    <div class="page-header players-header">
+                        <div class="header-actions">
+                            <div class="stats-counter">Total: <span id="totalPlayersCount">0</span></div>
+                            <button type="button" id="submitBtn" class="btn-primary players-add-btn">
+                                <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                    <path d="M12 5v14M5 12h14"></path>
+                                </svg>
+                                <span>Add</span>
+                            </button>
+                            <input
+                                type="text"
+                                id="playerName"
+                                class="players-name-input"
+                                placeholder="Enter player name..."
+                                autocomplete="off"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="search-container">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="search-input"
+                            placeholder="Search players by name..."
+                        />
+                        <select
+                            id="pageSizeSelect"
+                            class="page-size-select"
+                            title="Items per page"
+                            aria-label="Items per page"
+                        >
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="15">15</option>
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    <div id="playersList" class="players-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+
+                    <div class="pagination" id="playersPagination"></div>
+
+                    <div id="emptyState" class="empty-state u-hidden">
+                        <p>No players found.</p>
+                    </div>
+                </div>
+            </template>
         </div>
 
         <div id="createModal" class="modal-overlay">
@@ -257,6 +434,10 @@
                             <option value="Regulation Battle">Regulation Battle</option>
                             <option value="For Fun">For Fun</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Format</label>
+                        <input type="text" id="createTournamentFormat" placeholder="Ex: BT20 / EVO Cup" />
                     </div>
                     <div class="form-group">
                         <label>Total Players<span class="required">*</span></label>
@@ -323,6 +504,10 @@
                             <option value="Regulation Battle">Regulation Battle</option>
                             <option value="For Fun">For Fun</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Format</label>
+                        <input type="text" id="editTournamentFormat" placeholder="Ex: BT20 / EVO Cup" />
                     </div>
                     <div class="form-group">
                         <label>Total Players<span class="required">*</span></label>

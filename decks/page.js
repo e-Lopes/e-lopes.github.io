@@ -1,3 +1,4 @@
+{
 const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
 const headers = window.createSupabaseHeaders
@@ -12,13 +13,32 @@ let allDecks = [];
 let imagesMap = {};
 let currentView = 'list';
 const VIEW_MODES = ['list', 'compact', 'grid'];
+const MOBILE_VIEW_BREAKPOINT = 768;
 let currentPage = 1;
 const PAGE_SIZE_STORAGE_KEY = 'decksPageSize';
-const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
+const PAGE_SIZE_OPTIONS = [4, 8, 12, 24, 40, 80];
 let pageSize = getInitialPageSize();
 let currentSearchTerm = '';
+let decksPageInitialized = false;
 
-document.addEventListener('DOMContentLoaded', () => {
+function getDeckNameForDisplay(name) {
+    const text = String(name || '');
+    if (currentView === 'grid' && window.innerWidth > MOBILE_VIEW_BREAKPOINT) {
+        const maxChars = 28;
+        if (text.length > maxChars) {
+            return `${text.slice(0, maxChars - 1).trimEnd()}…`;
+        }
+    }
+    return text;
+}
+
+function initDecksPage() {
+    if (decksPageInitialized) return;
+
+    const decksList = document.getElementById('decksList');
+    if (!decksList) return;
+
+    decksPageInitialized = true;
     setupViewToggle();
     setupStaticActions();
     setupDeckActions();
@@ -39,7 +59,18 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDecks();
     setupSearch();
     setupPaginationControls();
-});
+}
+
+window.initDecksPage = initDecksPage;
+window.resetDecksPage = function resetDecksPage() {
+    decksPageInitialized = false;
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDecksPage);
+} else {
+    initDecksPage();
+}
 
 function setupStaticActions() {
     const btnEmptyStateAddDeck = document.getElementById('btnEmptyStateAddDeck');
@@ -79,31 +110,57 @@ function setupDeckActions() {
 
 function getInitialPageSize() {
     const saved = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
-    return PAGE_SIZE_OPTIONS.includes(saved) ? saved : 10;
+    return PAGE_SIZE_OPTIONS.includes(saved) ? saved : 8;
 }
+
+function isMobileDeckViewport() {
+    return window.matchMedia(`(max-width: ${MOBILE_VIEW_BREAKPOINT}px)`).matches;
+}
+
+function getAvailableViewModes() {
+    return isMobileDeckViewport() ? ['list'] : ['list', 'compact', 'grid'];
+}
+
+function ensureValidViewMode() {
+    const available = getAvailableViewModes();
+    if (!available.includes(currentView)) {
+        currentView = available[0];
+        localStorage.setItem('decksViewMode', currentView);
+    }
+}
+
 function setupViewToggle() {
     const btn = document.getElementById('viewToggleBtn');
     const savedView = localStorage.getItem('decksViewMode');
     if (savedView && VIEW_MODES.includes(savedView)) {
         currentView = savedView;
     }
+    ensureValidViewMode();
     applyViewMode();
 
     if (btn) {
         btn.addEventListener('click', () => {
-            const currentIndex = VIEW_MODES.indexOf(currentView);
-            const nextIndex = (currentIndex + 1) % VIEW_MODES.length;
-            currentView = VIEW_MODES[nextIndex];
+            const available = getAvailableViewModes();
+            const currentIndex = available.indexOf(currentView);
+            const nextIndex = (currentIndex + 1) % available.length;
+            currentView = available[nextIndex];
             localStorage.setItem('decksViewMode', currentView);
             applyViewMode();
         });
     }
+
+    window.addEventListener('resize', () => {
+        ensureValidViewMode();
+        applyViewMode();
+    });
 }
 
 function applyViewMode() {
     const container = document.getElementById('decksList');
     const btn = document.getElementById('viewToggleBtn');
     if (!container || !btn) return;
+
+    ensureValidViewMode();
 
     container.classList.remove('view-list', 'view-compact', 'view-grid');
     if (currentView === 'grid') {
@@ -114,8 +171,9 @@ function applyViewMode() {
         container.classList.add('view-list');
     }
 
-    const currentIndex = VIEW_MODES.indexOf(currentView);
-    const nextMode = VIEW_MODES[(currentIndex + 1) % VIEW_MODES.length];
+    const available = getAvailableViewModes();
+    const currentIndex = available.indexOf(currentView);
+    const nextMode = available[(currentIndex + 1) % available.length];
     const iconMap = {
         compact: `
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -144,9 +202,9 @@ function applyViewMode() {
                 `
     };
     const labelMap = {
-        compact: 'Switch to table view',
-        list: 'Switch to list view',
-        grid: 'Switch to blocks view'
+        compact: 'Alternar para tabela',
+        list: 'Alternar para lista',
+        grid: 'Alternar para quadros'
     };
 
     btn.innerHTML = iconMap[nextMode];
@@ -170,7 +228,7 @@ function setupPaginationControls() {
     pageSizeSelect.addEventListener('change', () => {
         const selected = parseInt(pageSizeSelect.value, 10);
         pageSize =
-            Number.isInteger(selected) && PAGE_SIZE_OPTIONS.includes(selected) ? selected : 10;
+            Number.isInteger(selected) && PAGE_SIZE_OPTIONS.includes(selected) ? selected : 8;
         localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
         currentPage = 1;
         renderDecksList();
@@ -216,19 +274,33 @@ function renderPagination(totalPages) {
 
     if (totalPages <= 1) return;
 
+    if (currentPage > totalPages) currentPage = totalPages;
+
     const prev = document.createElement('button');
-    prev.textContent = '<';
+    prev.type = 'button';
+    prev.className = 'btn-pagination btn-pagination-prev';
+    prev.textContent = '\u25C0';
+    prev.setAttribute('aria-label', 'Previous page');
     prev.disabled = currentPage === 1;
     prev.addEventListener('click', () => {
+        if (currentPage <= 1) return;
         currentPage -= 1;
         renderDecksList();
     });
     pagination.appendChild(prev);
 
-    for (let p = 1; p <= totalPages; p++) {
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+
+    for (let p = startPage; p <= endPage; p++) {
         const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-pagination-number';
         btn.textContent = String(p);
-        if (p === currentPage) btn.classList.add('active');
+        if (p === currentPage) {
+            btn.classList.add('active');
+            btn.disabled = true;
+        }
         btn.addEventListener('click', () => {
             currentPage = p;
             renderDecksList();
@@ -237,9 +309,13 @@ function renderPagination(totalPages) {
     }
 
     const next = document.createElement('button');
-    next.textContent = '>';
+    next.type = 'button';
+    next.className = 'btn-pagination btn-pagination-next';
+    next.textContent = '\u25B6';
+    next.setAttribute('aria-label', 'Next page');
     next.disabled = currentPage === totalPages;
     next.addEventListener('click', () => {
+        if (currentPage >= totalPages) return;
         currentPage += 1;
         renderDecksList();
     });
@@ -315,6 +391,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
             'https://via.placeholder.com/300x220/667eea/ffffff?text=' +
             encodeURIComponent(deck.name.substring(0, 12));
         const deckCode = extractCodeFromUrl(imageUrl);
+        const deckNameDisplay = getDeckNameForDisplay(deck.name);
 
         const deckCard = document.createElement('div');
         deckCard.className = 'deck-row';
@@ -325,7 +402,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                              class="deck-thumb-image">
                     </div>
                     <div class="deck-info">
-                        <h3 class="deck-name">${deck.name}</h3>
+                        <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
                         ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
                     </div>
                     <div class="deck-actions">
@@ -469,4 +546,5 @@ function updateDecksTotal() {
     const totalEl = document.getElementById('decksTotalCount');
     if (!totalEl) return;
     totalEl.textContent = `Total: ${allDecks.length}`;
+}
 }
