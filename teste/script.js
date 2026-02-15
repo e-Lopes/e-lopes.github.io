@@ -32,8 +32,28 @@ const TEMPLATE_EDITOR_UPDATED_KEY = 'digistats.template-editor.updated.v1';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const POST_PRESETS_STORAGE_KEY = 'digistats.post-layout-presets.v1';
 const CUSTOM_BACKGROUNDS_STORAGE_KEY = 'digistats.custom-backgrounds.v1';
+const POST_TYPE_STORAGE_KEY = 'digistats.post-type.v1';
+const POST_TYPE_OPTIONS = ['top4', 'distribution_results', 'blank_middle'];
 const FORMAT_BG_BUCKET = 'post-backgrounds';
 let formatBackgroundMapPromise = null;
+let selectedPostType = loadSelectedPostType();
+
+function loadSelectedPostType() {
+    try {
+        const raw = localStorage.getItem(POST_TYPE_STORAGE_KEY);
+        return POST_TYPE_OPTIONS.includes(raw) ? raw : 'top4';
+    } catch (_) {
+        return 'top4';
+    }
+}
+
+function saveSelectedPostType() {
+    try {
+        localStorage.setItem(POST_TYPE_STORAGE_KEY, selectedPostType);
+    } catch (_) {
+        // Ignore storage failures.
+    }
+}
 
 function buildPublicBucketObjectUrl(bucketName, objectPath) {
     const cleanPath = String(objectPath || '').trim().replace(/^\/+/, '');
@@ -104,6 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupTemplateKeyboardControls();
     setupTemplateSyncListeners();
     setupPresetControls();
+    setupPostTypeControls();
     bootTemplateEditorPageIfNeeded();
     bootPostPreviewPageIfNeeded();
 });
@@ -151,6 +172,37 @@ function setupEventListeners() {
 
     backgroundUploads.forEach((input) => {
         input.addEventListener('change', onCustomBackgroundUpload);
+    });
+}
+
+function isTopFourPostType() {
+    return selectedPostType === 'top4';
+}
+
+function syncPostTypeSelector() {
+    const select = document.getElementById('postTypeSelect');
+    if (!select) return;
+    if (POST_TYPE_OPTIONS.includes(selectedPostType)) {
+        select.value = selectedPostType;
+    } else {
+        select.value = 'top4';
+    }
+}
+
+function setupPostTypeControls() {
+    const select = document.getElementById('postTypeSelect');
+    if (!select) return;
+    syncPostTypeSelector();
+    select.addEventListener('change', () => {
+        selectedPostType = POST_TYPE_OPTIONS.includes(select.value) ? select.value : 'top4';
+        saveSelectedPostType();
+        if (!isTopFourPostType() && isPostTemplateEditorActive) {
+            setPostTemplateEditorActive(false);
+        }
+        updateTemplateEditorButtons();
+        if (tournamentDataForCanvas) {
+            void drawPostCanvas();
+        }
     });
 }
 
@@ -865,6 +917,10 @@ function setupTemplateKeyboardControls() {
 }
 
 function onPostTemplateEditAction() {
+    if (!isTopFourPostType()) {
+        alert('Template editor is available only for Top 4 post type.');
+        return;
+    }
     if (isTemplateEditorPage()) {
         togglePostTemplateEditor();
         return;
@@ -890,7 +946,8 @@ function openTemplateEditorTab() {
             TEMPLATE_EDITOR_STATE_KEY,
             JSON.stringify({
                 tournamentDataForCanvas,
-                selectedBackgroundPath
+                selectedBackgroundPath,
+                selectedPostType
             })
         );
     } catch (_) {
@@ -909,7 +966,8 @@ function openPostPreviewTab() {
             POST_PREVIEW_STATE_KEY,
             JSON.stringify({
                 tournamentDataForCanvas,
-                selectedBackgroundPath
+                selectedBackgroundPath,
+                selectedPostType
             })
         );
     } catch (_) {
@@ -981,6 +1039,11 @@ function bootTemplateEditorPageIfNeeded() {
             selectedBackgroundPath = state.selectedBackgroundPath;
             initializeBackgroundSelector(selectedBackgroundPath);
         }
+        if (POST_TYPE_OPTIONS.includes(state?.selectedPostType)) {
+            selectedPostType = state.selectedPostType;
+            syncPostTypeSelector();
+            saveSelectedPostType();
+        }
         if (state?.tournamentDataForCanvas) {
             setTournamentDataForCanvas(state.tournamentDataForCanvas);
             openPostPreview().then(() => {
@@ -1015,6 +1078,11 @@ function bootPostPreviewPageIfNeeded() {
         if (state?.selectedBackgroundPath) {
             selectedBackgroundPath = state.selectedBackgroundPath;
             initializeBackgroundSelector(selectedBackgroundPath);
+        }
+        if (POST_TYPE_OPTIONS.includes(state?.selectedPostType)) {
+            selectedPostType = state.selectedPostType;
+            syncPostTypeSelector();
+            saveSelectedPostType();
         }
         if (state?.tournamentDataForCanvas) {
             setTournamentDataForCanvas(state.tournamentDataForCanvas);
@@ -1122,10 +1190,12 @@ function adjustPodiumGap(delta) {
 
 function setTournamentDataForCanvas(data) {
     tournamentDataForCanvas = data || null;
+    syncPostTypeSelector();
     const generatePostBtn = document.getElementById('generatePostBtn');
     if (generatePostBtn) {
         generatePostBtn.disabled = !tournamentDataForCanvas;
     }
+    updateTemplateEditorButtons();
     if (tournamentDataForCanvas) {
         void syncBackgroundWithTournamentFormat(tournamentDataForCanvas);
     }
@@ -1259,38 +1329,44 @@ async function drawPostCanvas() {
     ctx.strokeText(dateLabel, titleCenterX, dateY);
     ctx.fillText(dateLabel, titleCenterX, dateY);
 
-    const rows = (tournamentDataForCanvas.topFour || []).slice(0, 4);
-    const trophyAsset = await loadFirstAvailableAsset(TROPHY_ICON_CANDIDATES);
-    const startY = layout.rows.startY;
-    const rowHeight = layout.rows.rowHeight;
-    const rowGap = layout.rows.rowGap;
-    const borderStartY = layout.rowBorder.startY;
-    const borderRowHeight = layout.rowBorder.rowHeight;
-    const borderRowGap = layout.rowBorder.rowGap;
-    const trophyGap = layout.rowElements.trophy.gap ?? rowGap;
-    const avatarGap = layout.rowElements.avatar.gap ?? rowGap;
-    const textGap = layout.rowElements.text.gap ?? rowGap;
-    for (let i = 0; i < 4; i += 1) {
-        const y = startY + i * (rowHeight + rowGap);
-        const borderY = borderStartY + i * (borderRowHeight + borderRowGap);
-        const trophyY = startY + i * (rowHeight + trophyGap);
-        const avatarY = startY + i * (rowHeight + avatarGap);
-        const textY = startY + i * (rowHeight + textGap);
-        await drawPlacementRow(
-            ctx,
-            i + 1,
-            y,
-            borderY,
-            trophyY,
-            avatarY,
-            textY,
-            rowHeight,
-            borderRowHeight,
-            rows[i] || null,
-            trophyAsset,
-            layout.rows,
-            layout.rowBorder
-        );
+    if (selectedPostType === 'distribution_results') {
+        drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas);
+    } else if (selectedPostType === 'blank_middle') {
+        drawBlankMiddleContent(ctx, width, height);
+    } else {
+        const rows = (tournamentDataForCanvas.topFour || []).slice(0, 4);
+        const trophyAsset = await loadFirstAvailableAsset(TROPHY_ICON_CANDIDATES);
+        const startY = layout.rows.startY;
+        const rowHeight = layout.rows.rowHeight;
+        const rowGap = layout.rows.rowGap;
+        const borderStartY = layout.rowBorder.startY;
+        const borderRowHeight = layout.rowBorder.rowHeight;
+        const borderRowGap = layout.rowBorder.rowGap;
+        const trophyGap = layout.rowElements.trophy.gap ?? rowGap;
+        const avatarGap = layout.rowElements.avatar.gap ?? rowGap;
+        const textGap = layout.rowElements.text.gap ?? rowGap;
+        for (let i = 0; i < 4; i += 1) {
+            const y = startY + i * (rowHeight + rowGap);
+            const borderY = borderStartY + i * (borderRowHeight + borderRowGap);
+            const trophyY = startY + i * (rowHeight + trophyGap);
+            const avatarY = startY + i * (rowHeight + avatarGap);
+            const textY = startY + i * (rowHeight + textGap);
+            await drawPlacementRow(
+                ctx,
+                i + 1,
+                y,
+                borderY,
+                trophyY,
+                avatarY,
+                textY,
+                rowHeight,
+                borderRowHeight,
+                rows[i] || null,
+                trophyAsset,
+                layout.rows,
+                layout.rowBorder
+            );
+        }
     }
 
     const storeBoxX = layout.store.x;
@@ -1763,10 +1839,137 @@ function resetPostTemplateLayout() {
 
 function togglePostTemplateEditor() {
     if (!tournamentDataForCanvas) return;
+    if (!isTopFourPostType()) return;
     setPostTemplateEditorActive(!isPostTemplateEditorActive);
-    if (isPostTemplateEditorActive) {
+    if (isPostTemplateEditorActive && isTopFourPostType()) {
         renderTemplateEditorOverlay();
     }
+}
+
+function getDeckDistributionRows(results) {
+    const map = new Map();
+    (results || []).forEach((item) => {
+        const deck = String(item?.deck || 'Unknown').trim() || 'Unknown';
+        const next = (map.get(deck) || 0) + 1;
+        map.set(deck, next);
+    });
+    return Array.from(map.entries())
+        .map(([deck, count]) => ({ deck, count }))
+        .sort((a, b) => b.count - a.count || a.deck.localeCompare(b.deck));
+}
+
+function drawDistributionAndResultsContent(ctx, width, height, data) {
+    const panelX = 92;
+    const panelY = 300;
+    const panelW = width - panelX * 2;
+    const panelH = 820;
+    drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.58)');
+
+    const pieCardX = panelX + 24;
+    const pieCardY = panelY + 24;
+    const pieCardW = 444;
+    const pieCardH = panelH - 48;
+    drawRoundedRect(ctx, pieCardX, pieCardY, pieCardW, pieCardH, 24, 'rgba(15,48,106,0.10)');
+
+    const listCardX = pieCardX + pieCardW + 24;
+    const listCardY = pieCardY;
+    const listCardW = panelW - (listCardX - panelX) - 24;
+    const listCardH = pieCardH;
+    drawRoundedRect(ctx, listCardX, listCardY, listCardW, listCardH, 24, 'rgba(15,48,106,0.10)');
+
+    ctx.fillStyle = '#184fae';
+    ctx.textAlign = 'left';
+    ctx.font = '900 42px "Barlow Condensed", "Segoe UI", sans-serif';
+    ctx.fillText('DECK DISTRIBUTION', pieCardX + 26, pieCardY + 54);
+    ctx.fillText('FULL RESULTS', listCardX + 26, listCardY + 54);
+
+    const allResults = (data?.allResults || [])
+        .map((item) => ({
+            placement: Number(item?.placement) || 0,
+            deck: String(item?.deck || 'Unknown'),
+            player: String(item?.player || '-')
+        }))
+        .sort((a, b) => a.placement - b.placement);
+    const distributionRows = getDeckDistributionRows(allResults);
+    const pieRows = distributionRows.slice(0, 8);
+    const total = pieRows.reduce((sum, row) => sum + row.count, 0) || 1;
+    const colors = [
+        '#2f6ecb',
+        '#ff6b6b',
+        '#ffd166',
+        '#06d6a0',
+        '#9b5de5',
+        '#118ab2',
+        '#f8961e',
+        '#43aa8b'
+    ];
+
+    const centerX = pieCardX + pieCardW / 2;
+    const centerY = pieCardY + 230;
+    const radius = 142;
+    let angle = -Math.PI / 2;
+    pieRows.forEach((row, index) => {
+        const slice = (row.count / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, angle, angle + slice);
+        ctx.closePath();
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fill();
+        angle += slice;
+    });
+
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 66, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fill();
+    ctx.fillStyle = '#184fae';
+    ctx.textAlign = 'center';
+    ctx.font = '900 42px "Barlow Condensed", "Segoe UI", sans-serif';
+    ctx.fillText(String(allResults.length || 0), centerX, centerY + 14);
+
+    const legendStartY = centerY + 190;
+    ctx.textAlign = 'left';
+    ctx.font = '700 26px "Barlow Condensed", "Segoe UI", sans-serif';
+    pieRows.forEach((row, index) => {
+        const y = legendStartY + index * 38;
+        if (y > pieCardY + pieCardH - 22) return;
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fillRect(pieCardX + 26, y - 18, 20, 20);
+        ctx.fillStyle = '#0f2f63';
+        const label = `${row.deck} (${row.count})`;
+        ctx.fillText(label.slice(0, 26), pieCardX + 54, y);
+    });
+
+    ctx.fillStyle = '#0f2f63';
+    ctx.font = '700 27px "Barlow Condensed", "Segoe UI", sans-serif';
+    const maxRows = 24;
+    const rowStartY = listCardY + 96;
+    const rowGap = 34;
+    allResults.slice(0, maxRows).forEach((row, index) => {
+        const y = rowStartY + index * rowGap;
+        if (y > listCardY + listCardH - 20) return;
+        const left = `${String(row.placement).padStart(2, '0')}. ${row.player}`;
+        const right = row.deck;
+        ctx.textAlign = 'left';
+        ctx.fillText(left.slice(0, 20), listCardX + 26, y);
+        ctx.textAlign = 'right';
+        ctx.fillText(right.slice(0, 18), listCardX + listCardW - 26, y);
+    });
+}
+
+function drawBlankMiddleContent(ctx, width, height) {
+    const panelX = 92;
+    const panelY = 300;
+    const panelW = width - panelX * 2;
+    const panelH = 820;
+    drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.52)');
+    ctx.save();
+    ctx.strokeStyle = 'rgba(24,79,174,0.35)';
+    ctx.setLineDash([14, 12]);
+    ctx.lineWidth = 3;
+    ctx.strokeRect(panelX + 26, panelY + 26, panelW - 52, panelH - 52);
+    ctx.restore();
 }
 
 function setPostTemplateEditorActive(active) {
@@ -1785,6 +1988,13 @@ function setPostTemplateEditorActive(active) {
 function updateTemplateEditorButtons() {
     const btn = document.getElementById('btnPostTemplateEdit');
     if (!btn) return;
+    const enabled = isTopFourPostType();
+    btn.disabled = !enabled;
+    if (!enabled) {
+        btn.textContent = 'Edit Template (Top 4 only)';
+        btn.classList.remove('is-active');
+        return;
+    }
     btn.textContent = isPostTemplateEditorActive ? 'Finish Editing' : 'Edit Template';
     btn.classList.toggle('is-active', isPostTemplateEditorActive);
 }
