@@ -15,19 +15,16 @@ let selectedBackgroundPath = '../icons/backgrounds/EX11.png';
 
 const TOP_LEFT_LOGO_CANDIDATES = ['../icons/digimon-card-game.png', '../icons/logo.png'];
 const TROPHY_ICON_CANDIDATES = [
-    '../icons/Postagem.svg',
-    '../icons/th-icon.png',
-    '../icons/th-icon.svg',
-    '../icons/th-icon.webp'
+    '../icons/Postagem.svg'
 ];
 const TROPHY_SVG_BASE_COLOR = '#50c89f';
 const PLACEMENT_STYLES = {
-    1: { border: '#c99a2e', medal: '#f1c451' },
-    2: { border: '#9497a1', medal: '#c2c4ca' },
-    3: { border: '#a85d2f', medal: '#d88b44' },
-    4: { border: '#4dbf9f', medal: '#59d1af' }
+    1: { border: '#c99a2e', medal: '#f1c451', dark: '#8f6100' },
+    2: { border: '#9497a1', medal: '#c2c4ca', dark: '#616a79' },
+    3: { border: '#a85d2f', medal: '#d88b44', dark: '#6f3417' },
+    4: { border: '#4dbf9f', medal: '#59d1af', dark: '#1f6f62' }
 };
-let cachedTrophySvgTemplate = null;
+const trophySvgTemplateCache = new Map();
 const trophyTintedIconCache = new Map();
 const POST_LAYOUT_STORAGE_KEY = 'digistats.post-layout.v1';
 const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
@@ -76,6 +73,15 @@ let postEditorDragState = null;
 let postEditorGuides = [];
 const EDITOR_SNAP_DISTANCE = 12;
 let activeTemplateHandleKey = 'logo';
+
+function formatPlacementLabel(value) {
+    const n = Number(value);
+    if (n === 1) return '1st';
+    if (n === 2) return '2nd';
+    if (n === 3) return '3rd';
+    if (n === 4) return '4th';
+    return `${n}th`;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     clearDisplay();
@@ -1089,7 +1095,16 @@ async function drawPostCanvas() {
 
     const logo = await loadFirstAvailableImage(TOP_LEFT_LOGO_CANDIDATES);
     if (logo) {
-        drawImageCover(ctx, logo, layout.logo.x, layout.logo.y, layout.logo.w, layout.logo.h);
+        const logoPaddingX = Math.round(layout.logo.w * 0.1);
+        const logoPaddingY = Math.round(layout.logo.h * 0.12);
+        drawImageContain(
+            ctx,
+            logo,
+            layout.logo.x + logoPaddingX,
+            layout.logo.y + logoPaddingY,
+            layout.logo.w - logoPaddingX * 2,
+            layout.logo.h - logoPaddingY * 2
+        );
     }
 
     const titleBoxX = layout.title.x;
@@ -1166,13 +1181,15 @@ async function drawPostCanvas() {
     const storeIconPath = resolveStoreIconPath(tournamentDataForCanvas.storeName || '');
     const storeIcon = await loadImage(storeIconPath);
     if (storeIcon) {
+        const storePaddingX = 24;
+        const storePaddingY = 12;
         drawImageContain(
             ctx,
             storeIcon,
-            storeBoxX + 12,
-            storeBoxY + 6,
-            storeBoxW - 24,
-            storeBoxH - 12
+            storeBoxX + storePaddingX,
+            storeBoxY + storePaddingY,
+            storeBoxW - storePaddingX * 2,
+            storeBoxH - storePaddingY * 2
         );
     }
 
@@ -1210,6 +1227,15 @@ async function drawPlacementRow(
 
     const borderRowX = rowBorderLayout.x;
     const borderRowW = rowBorderLayout.w;
+    const borderGradient = ctx.createLinearGradient(
+        borderRowX,
+        borderY,
+        borderRowX + borderRowW,
+        borderY + borderRowHeight
+    );
+    borderGradient.addColorStop(0, '#ffffff');
+    borderGradient.addColorStop(0.45, style.border);
+    borderGradient.addColorStop(1, style.dark || style.border);
     drawRoundedRect(
         ctx,
         borderRowX,
@@ -1218,7 +1244,7 @@ async function drawPlacementRow(
         borderRowHeight,
         26,
         '#f3f3f6',
-        style.border,
+        borderGradient,
         6
     );
 
@@ -1274,8 +1300,17 @@ async function drawPlacementRow(
         drawImageCoverInCircle(ctx, image, avatarX, avatarY, avatarImageRadius);
     }
 
+    const ringGradient = ctx.createLinearGradient(
+        avatarX - avatarOuterRadius,
+        avatarY - avatarOuterRadius,
+        avatarX + avatarOuterRadius,
+        avatarY + avatarOuterRadius
+    );
+    ringGradient.addColorStop(0, '#ffffff');
+    ringGradient.addColorStop(0.5, style.border);
+    ringGradient.addColorStop(1, style.dark || style.border);
     ctx.lineWidth = rowElements.avatar.borderRingWidth;
-    ctx.strokeStyle = style.border;
+    ctx.strokeStyle = ringGradient;
     ctx.beginPath();
     ctx.arc(avatarX, avatarY, avatarOuterRadius - 2, 0, Math.PI * 2);
     ctx.stroke();
@@ -1287,6 +1322,17 @@ async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAs
     const numberOffsetX = rowElements.podiumNumber.offsetX;
     const numberOffsetY = rowElements.podiumNumber.offsetY;
     const numberSize = rowElements.podiumNumber.size;
+    const style = PLACEMENT_STYLES[placement] || PLACEMENT_STYLES[4];
+
+    const medalGradient = ctx.createLinearGradient(
+        centerX - trophyW / 2,
+        centerY - trophyH / 2,
+        centerX + trophyW / 2,
+        centerY + trophyH / 2
+    );
+    medalGradient.addColorStop(0, '#fffef7');
+    medalGradient.addColorStop(0.4, style.medal);
+    medalGradient.addColorStop(1, style.dark || color);
 
     if (trophyAsset?.type === 'svg') {
         const tintedTrophyIcon = await loadTintedSvgIcon(trophyAsset.src, color);
@@ -1305,64 +1351,45 @@ async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAs
     }
 
     if (trophyAsset) {
-        ctx.fillStyle = color;
+        const textGradient = ctx.createLinearGradient(
+            centerX,
+            centerY - trophyH / 2,
+            centerX,
+            centerY + trophyH / 2
+        );
+        textGradient.addColorStop(0, '#fffef7');
+        textGradient.addColorStop(0.42, style.medal);
+        textGradient.addColorStop(1, style.dark || color);
+        ctx.fillStyle = textGradient;
         ctx.font = `700 ${numberSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.lineWidth = 6;
         ctx.strokeStyle = '#111111';
-        ctx.strokeText(`${placement}º`, centerX + numberOffsetX, centerY + numberOffsetY);
-        ctx.fillText(`${placement}º`, centerX + numberOffsetX, centerY + numberOffsetY);
+        const placementLabel = formatPlacementLabel(placement);
+        ctx.strokeText(placementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
+        ctx.fillText(placementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
         return;
     }
 
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.fillStyle = color;
-
-    // cup
-    ctx.beginPath();
-    ctx.moveTo(-42, -58);
-    ctx.lineTo(42, -58);
-    ctx.lineTo(30, -16);
-    ctx.lineTo(-30, -16);
-    ctx.closePath();
-    ctx.fill();
-
-    // handles
-    ctx.beginPath();
-    ctx.moveTo(-42, -52);
-    ctx.quadraticCurveTo(-66, -44, -60, -22);
-    ctx.lineTo(-48, -22);
-    ctx.quadraticCurveTo(-52, -36, -34, -42);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(42, -52);
-    ctx.quadraticCurveTo(66, -44, 60, -22);
-    ctx.lineTo(48, -22);
-    ctx.quadraticCurveTo(52, -36, 34, -42);
-    ctx.closePath();
-    ctx.fill();
-
-    // stem + base
-    ctx.fillRect(-11, -16, 22, 20);
-    ctx.beginPath();
-    ctx.moveTo(-34, 8);
-    ctx.lineTo(34, 8);
-    ctx.lineTo(24, 36);
-    ctx.lineTo(-24, 36);
-    ctx.closePath();
-    ctx.fill();
-
-    // number
-    ctx.fillStyle = '#101010';
-    ctx.font = '700 54px "Zing Rust Base", "Segoe UI", sans-serif';
+    const fallbackTextGradient = ctx.createLinearGradient(
+        centerX,
+        centerY - trophyH / 2,
+        centerX,
+        centerY + trophyH / 2
+    );
+    fallbackTextGradient.addColorStop(0, '#fffef7');
+    fallbackTextGradient.addColorStop(0.42, style.medal);
+    fallbackTextGradient.addColorStop(1, style.dark || color);
+    ctx.fillStyle = fallbackTextGradient;
+    ctx.font = `700 ${numberSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${placement}º`, 0, -33);
-    ctx.restore();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#111111';
+    const fallbackPlacementLabel = formatPlacementLabel(placement);
+    ctx.strokeText(fallbackPlacementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
+    ctx.fillText(fallbackPlacementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
 }
 
 function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke, strokeWidth) {
@@ -1391,10 +1418,16 @@ function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke, strokeWidth) {
 function loadImage(src) {
     return new Promise((resolve) => {
         const image = new Image();
-        image.crossOrigin = 'anonymous';
+        const resolvedSrc = new URL(src, window.location.href).href;
+        const isHttpContext =
+            window.location.protocol === 'http:' || window.location.protocol === 'https:';
+        const isHttpAsset = resolvedSrc.startsWith('http://') || resolvedSrc.startsWith('https://');
+        if (isHttpContext && isHttpAsset) {
+            image.crossOrigin = 'anonymous';
+        }
         image.onload = () => resolve(image);
         image.onerror = () => resolve(null);
-        image.src = src;
+        image.src = resolvedSrc;
     });
 }
 
@@ -1429,10 +1462,15 @@ async function loadFirstAvailableAsset(candidates) {
             try {
                 const response = await fetch(candidate, { cache: 'no-store' });
                 if (response.ok) {
-                    return { type: 'svg', src: candidate };
+                    return { type: 'svg', src: new URL(candidate, window.location.href).href };
                 }
             } catch (_) {
                 // Keep trying next candidates.
+            }
+
+            const svgImage = await loadImage(candidate);
+            if (svgImage) {
+                return { type: 'image', image: svgImage };
             }
         }
 
@@ -1452,13 +1490,15 @@ async function loadTintedSvgIcon(svgPath, color) {
     }
 
     try {
-        if (!cachedTrophySvgTemplate) {
+        let svgTemplate = trophySvgTemplateCache.get(svgPath) || null;
+        if (!svgTemplate) {
             const response = await fetch(svgPath, { cache: 'no-store' });
             if (!response.ok) return null;
-            cachedTrophySvgTemplate = await response.text();
+            svgTemplate = await response.text();
+            trophySvgTemplateCache.set(svgPath, svgTemplate);
         }
 
-        const withoutOuterWhite = cachedTrophySvgTemplate.replace(
+        const withoutOuterWhite = svgTemplate.replace(
             /<path\s+fill="#(?:fff|ffffff)"\s+d="M 0\.199219 0 L 809\.800781 0 L 809\.800781 1012 L 0\.199219 1012 Z M 0\.199219 0 "\s+fill-opacity="1"\s+fill-rule="nonzero"\/>/gi,
             ''
         );
@@ -2068,3 +2108,5 @@ function findClosestSnap(value, targets, threshold) {
     });
     return closest;
 }
+
+
