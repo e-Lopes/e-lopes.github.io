@@ -261,12 +261,14 @@ function getFormatFallbackBackgroundUrl(formatCode) {
     return buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, `${formatCode}.png`);
 }
 
-function resolveFormatBackgroundUrl(formatCode, formatBackgroundMap) {
+function resolveFormatBackgroundUrl(formatCode, formatBackgroundState) {
     const normalizedCode = normalizeFormatCode(formatCode);
-    if (!normalizedCode) return '';
+    if (!normalizedCode) {
+        return String(formatBackgroundState?.defaultUrl || '');
+    }
 
     const normalizedMapKey = normalizeFormatMapKey(normalizedCode);
-    const map = formatBackgroundMap || {};
+    const map = formatBackgroundState?.byCode || {};
     const mapped =
         map[normalizedCode] ||
         map[normalizedMapKey] ||
@@ -282,31 +284,38 @@ async function loadFormatBackgroundMap() {
 
     formatBackgroundMapPromise = (async () => {
         try {
-            const query = '/rest/v1/formats?select=code,background_path,background_url,is_active';
+            const query =
+                '/rest/v1/formats?select=code,background_path,background_url,is_active,is_default';
             const res = window.supabaseApi
                 ? await window.supabaseApi.get(query)
                 : await fetch(`${SUPABASE_URL}${query}`, { headers });
 
-            if (!res.ok) return {};
+            if (!res.ok) return { byCode: {}, defaultUrl: '' };
 
             const rows = await res.json();
-            if (!Array.isArray(rows)) return {};
+            if (!Array.isArray(rows)) return { byCode: {}, defaultUrl: '' };
 
-            return rows.reduce((acc, row) => {
-                if (!row?.code || row?.is_active === false) return acc;
+            const byCode = {};
+            let defaultUrl = '';
+            rows.forEach((row) => {
+                if (!row?.code || row?.is_active === false) return;
                 const backgroundUrl = String(row.background_url || '').trim();
                 const backgroundPath = String(row.background_path || '').trim();
                 const resolvedUrl =
                     backgroundUrl || buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, backgroundPath);
-                if (!resolvedUrl) return acc;
+                if (!resolvedUrl) return;
 
                 const code = normalizeFormatCode(row.code);
-                acc[code] = resolvedUrl;
-                acc[normalizeFormatMapKey(code)] = resolvedUrl;
-                return acc;
-            }, {});
+                byCode[code] = resolvedUrl;
+                byCode[normalizeFormatMapKey(code)] = resolvedUrl;
+                if (row?.is_default === true) {
+                    defaultUrl = resolvedUrl;
+                }
+            });
+
+            return { byCode, defaultUrl };
         } catch (_) {
-            return {};
+            return { byCode: {}, defaultUrl: '' };
         }
     })();
 
@@ -315,10 +324,8 @@ async function loadFormatBackgroundMap() {
 
 async function syncBackgroundWithTournamentFormat(data) {
     const formatCode = normalizeFormatCode(data?.format);
-    if (!formatCode) return;
-
-    const map = await loadFormatBackgroundMap();
-    const backgroundUrl = resolveFormatBackgroundUrl(formatCode, map);
+    const formatBackgroundState = await loadFormatBackgroundMap();
+    const backgroundUrl = resolveFormatBackgroundUrl(formatCode, formatBackgroundState);
     if (!backgroundUrl) return;
 
     selectedBackgroundPath = backgroundUrl;
