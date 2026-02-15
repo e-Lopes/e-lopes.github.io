@@ -166,6 +166,7 @@ function setupEventListeners() {
         select.addEventListener('change', (event) => {
             selectedBackgroundPath = event.target.value || '';
             syncBackgroundSelectors();
+            updatePostPreviewMeta();
             if (tournamentDataForCanvas) drawPostCanvas();
         });
     });
@@ -177,6 +178,26 @@ function setupEventListeners() {
 
 function isTopFourPostType() {
     return selectedPostType === 'top4';
+}
+
+function getPostTypeLabel(typeValue) {
+    if (typeValue === 'distribution_results') return 'Deck Distribution + Full Results';
+    if (typeValue === 'blank_middle') return 'Blank Middle';
+    return 'Top 4';
+}
+
+function updatePostPreviewMeta() {
+    const meta = document.getElementById('postPreviewMeta');
+    if (!meta) return;
+    const formatCode = String(tournamentDataForCanvas?.format || '-').trim() || '-';
+    meta.textContent = `Type: ${getPostTypeLabel(selectedPostType)} | Format: ${formatCode}`;
+}
+
+function updateTemplateControlsVisibility() {
+    const show = isTopFourPostType();
+    document.querySelectorAll('[data-template-control]').forEach((element) => {
+        element.classList.toggle('u-hidden', !show);
+    });
 }
 
 function syncPostTypeSelector() {
@@ -193,12 +214,16 @@ function setupPostTypeControls() {
     const select = document.getElementById('postTypeSelect');
     if (!select) return;
     syncPostTypeSelector();
+    updateTemplateControlsVisibility();
+    updatePostPreviewMeta();
     select.addEventListener('change', () => {
         selectedPostType = POST_TYPE_OPTIONS.includes(select.value) ? select.value : 'top4';
         saveSelectedPostType();
         if (!isTopFourPostType() && isPostTemplateEditorActive) {
             setPostTemplateEditorActive(false);
         }
+        updateTemplateControlsVisibility();
+        updatePostPreviewMeta();
         updateTemplateEditorButtons();
         if (tournamentDataForCanvas) {
             void drawPostCanvas();
@@ -359,8 +384,10 @@ async function onCustomBackgroundUpload(event) {
         initializeBackgroundSelector(createdFormat.backgroundUrl);
         if (tournamentDataForCanvas) {
             tournamentDataForCanvas.format = createdFormat.code;
+            updatePostPreviewMeta();
             await drawPostCanvas();
         }
+        showPostToast(`Format "${createdFormat.code}" created.`);
     } catch (error) {
         console.error(error);
         alert('Failed to upload background to Supabase or create format.');
@@ -462,6 +489,7 @@ async function syncBackgroundWithTournamentFormat(data) {
 
     selectedBackgroundPath = backgroundUrl;
     initializeBackgroundSelector(backgroundUrl);
+    updatePostPreviewMeta();
     if (tournamentDataForCanvas) {
         await drawPostCanvas();
     }
@@ -730,6 +758,20 @@ function showError() {
     document.getElementById('errorMessage').style.display = 'block';
 }
 
+let toastTimeoutId = null;
+function showPostToast(message) {
+    const toast = document.getElementById('postToast');
+    if (!toast || !message) return;
+    toast.textContent = String(message);
+    toast.classList.remove('u-hidden');
+    if (toastTimeoutId) {
+        clearTimeout(toastTimeoutId);
+    }
+    toastTimeoutId = setTimeout(() => {
+        toast.classList.add('u-hidden');
+    }, 2200);
+}
+
 function setupModalActionButtons() {
     const generatePostBtn = document.getElementById('generatePostBtn');
     const btnPostModalCloseTop = document.getElementById('btnPostModalCloseTop');
@@ -748,6 +790,7 @@ function setupModalActionButtons() {
         btnPostModalCloseTop.addEventListener('click', closePostPreview);
     }
     if (btnPostDownload) {
+        btnPostDownload.title = 'Download (Ctrl/Cmd+S)';
         btnPostDownload.addEventListener('click', downloadPost);
     }
     if (btnPostModalCloseBottom) {
@@ -772,6 +815,15 @@ function setupModalActionButtons() {
         if (isPostTemplateEditorActive) {
             renderTemplateEditorOverlay();
         }
+    });
+    window.addEventListener('keydown', (event) => {
+        const isSave = (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's';
+        if (!isSave) return;
+        const modal = document.getElementById('postPreviewModal');
+        const modalVisible = modal && !modal.classList.contains('u-hidden');
+        if (!modalVisible && !isPostPreviewPage() && !isTemplateEditorPage()) return;
+        event.preventDefault();
+        downloadPost();
     });
 }
 
@@ -845,6 +897,7 @@ function saveLayoutPreset() {
     };
     saveLayoutPresetsMap(presets);
     refreshPresetOptions(cleanName);
+    showPostToast(`Preset "${cleanName}" saved.`);
 }
 
 function loadSelectedLayoutPreset() {
@@ -860,6 +913,7 @@ function loadSelectedLayoutPreset() {
     syncPodiumGapControl();
     syncTemplateObjectSelect();
     drawPostCanvas();
+    showPostToast(`Preset "${select.value}" loaded.`);
 }
 
 function deleteSelectedLayoutPreset() {
@@ -877,6 +931,7 @@ function deleteSelectedLayoutPreset() {
     delete presets[name];
     saveLayoutPresetsMap(presets);
     refreshPresetOptions('Instagram');
+    showPostToast(`Preset "${name}" deleted.`);
 }
 
 function onGeneratePostAction() {
@@ -1271,6 +1326,8 @@ function adjustPodiumGap(delta) {
 function setTournamentDataForCanvas(data) {
     tournamentDataForCanvas = data || null;
     syncPostTypeSelector();
+    updateTemplateControlsVisibility();
+    updatePostPreviewMeta();
     const generatePostBtn = document.getElementById('generatePostBtn');
     if (generatePostBtn) {
         generatePostBtn.disabled = !tournamentDataForCanvas;
