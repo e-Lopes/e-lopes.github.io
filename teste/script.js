@@ -1410,7 +1410,7 @@ async function drawPostCanvas() {
     ctx.fillText(dateLabel, titleCenterX, dateY);
 
     if (selectedPostType === 'distribution_results') {
-        drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas, layout);
+        await drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas, layout);
     } else if (selectedPostType === 'blank_middle') {
         drawBlankMiddleContent(ctx, width, height, layout);
     } else {
@@ -1930,12 +1930,28 @@ function getDeckDistributionRows(results) {
     const map = new Map();
     (results || []).forEach((item) => {
         const deck = String(item?.deck || 'Unknown').trim() || 'Unknown';
-        const next = (map.get(deck) || 0) + 1;
-        map.set(deck, next);
+        if (!map.has(deck)) {
+            map.set(deck, {
+                deck,
+                count: 0,
+                image_url: String(item?.image_url || '').trim()
+            });
+        }
+        const current = map.get(deck);
+        current.count += 1;
+        if (!current.image_url && item?.image_url) {
+            current.image_url = String(item.image_url).trim();
+        }
     });
-    return Array.from(map.entries())
-        .map(([deck, count]) => ({ deck, count }))
-        .sort((a, b) => b.count - a.count || a.deck.localeCompare(b.deck));
+    return Array.from(map.values()).sort((a, b) => b.count - a.count || a.deck.localeCompare(b.deck));
+}
+
+function getResultRowStyle(placement) {
+    if (placement === 1) return { fill: 'rgba(255,215,0,0.38)', stroke: '#c99a2e' };
+    if (placement === 2) return { fill: 'rgba(192,192,192,0.36)', stroke: '#9497a1' };
+    if (placement === 3) return { fill: 'rgba(205,127,50,0.34)', stroke: '#a85d2f' };
+    if (placement === 4) return { fill: 'rgba(77,191,159,0.32)', stroke: '#4dbf9f' };
+    return { fill: 'rgba(173,186,230,0.28)', stroke: '#8292cf' };
 }
 
 function getMiddlePanelRect(layout, width, height) {
@@ -1961,7 +1977,7 @@ function getMiddlePanelRect(layout, width, height) {
     };
 }
 
-function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
+async function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
     const panelRect = getMiddlePanelRect(layout, width, height);
     const panelX = panelRect.x;
     const panelY = panelRect.y;
@@ -2012,17 +2028,47 @@ function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
     const centerX = pieCardX + pieCardW / 2;
     const centerY = pieCardY + Math.min(230, Math.max(190, pieCardH * 0.32));
     const radius = Math.min(142, Math.max(110, pieCardW * 0.31));
+    const fallbackImage = (deckName) =>
+        `https://via.placeholder.com/420x420/5f75b9/ffffff?text=${encodeURIComponent(String(deckName || 'Deck').slice(0, 10))}`;
+    const pieImages = await Promise.all(
+        pieRows.map((row) => loadImage(row.image_url || fallbackImage(row.deck)))
+    );
     let angle = -Math.PI / 2;
     pieRows.forEach((row, index) => {
         const slice = (row.count / total) * Math.PI * 2;
+        const sliceStart = angle;
+        const sliceEnd = angle + slice;
+        ctx.save();
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, angle, angle + slice);
+        ctx.arc(centerX, centerY, radius, sliceStart, sliceEnd);
         ctx.closePath();
-        ctx.fillStyle = colors[index % colors.length];
-        ctx.fill();
+        ctx.clip();
+
+        const image = pieImages[index];
+        if (image) {
+            drawImageCover(ctx, image, centerX - radius, centerY - radius, radius * 2, radius * 2);
+        } else {
+            ctx.fillStyle = colors[index % colors.length];
+            ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, sliceStart, sliceEnd);
+        ctx.closePath();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+        ctx.stroke();
+
         angle += slice;
     });
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.stroke();
 
     ctx.beginPath();
     ctx.arc(centerX, centerY, 66, 0, Math.PI * 2);
@@ -2056,12 +2102,28 @@ function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
     allResults.slice(0, maxRows).forEach((row, index) => {
         const y = rowStartY + index * rowGap;
         if (y > listCardY + listCardH - 20) return;
+
+        const rowStyle = getResultRowStyle(row.placement);
+        const rowHeight = Math.max(24, Math.round(listFontSize * 1.18));
+        const rowY = y - rowHeight + 8;
+        drawRoundedRect(
+            ctx,
+            listCardX + 20,
+            rowY,
+            listCardW - 40,
+            rowHeight,
+            10,
+            rowStyle.fill,
+            rowStyle.stroke,
+            1.2
+        );
+
         const left = `${String(row.placement).padStart(2, '0')}. ${row.player}`;
         const right = row.deck;
         ctx.textAlign = 'left';
-        ctx.fillText(left.slice(0, 20), listCardX + 26, y);
+        ctx.fillText(left.slice(0, 20), listCardX + 30, y);
         ctx.textAlign = 'right';
-        ctx.fillText(right.slice(0, 18), listCardX + listCardW - 26, y);
+        ctx.fillText(right.slice(0, 18), listCardX + listCardW - 30, y);
     });
 }
 
