@@ -1330,9 +1330,9 @@ async function drawPostCanvas() {
     ctx.fillText(dateLabel, titleCenterX, dateY);
 
     if (selectedPostType === 'distribution_results') {
-        drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas);
+        drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas, layout);
     } else if (selectedPostType === 'blank_middle') {
-        drawBlankMiddleContent(ctx, width, height);
+        drawBlankMiddleContent(ctx, width, height, layout);
     } else {
         const rows = (tournamentDataForCanvas.topFour || []).slice(0, 4);
         const trophyAsset = await loadFirstAvailableAsset(TROPHY_ICON_CANDIDATES);
@@ -1858,11 +1858,35 @@ function getDeckDistributionRows(results) {
         .sort((a, b) => b.count - a.count || a.deck.localeCompare(b.deck));
 }
 
-function drawDistributionAndResultsContent(ctx, width, height, data) {
-    const panelX = 92;
-    const panelY = 300;
-    const panelW = width - panelX * 2;
-    const panelH = 820;
+function getMiddlePanelRect(layout, width, height) {
+    const rowBaseY = Number(layout?.rows?.startY) || 280;
+    const rowBaseH = Number(layout?.rows?.rowHeight) || 178;
+    const rowBaseGap = Number(layout?.rows?.rowGap) || 24;
+    const borderBaseY = Number(layout?.rowBorder?.startY) || rowBaseY;
+    const borderBaseH = Number(layout?.rowBorder?.rowHeight) || rowBaseH;
+    const borderBaseGap = Number(layout?.rowBorder?.rowGap) || rowBaseGap;
+    const baseX = Math.min(Number(layout?.rows?.x) || 92, Number(layout?.rowBorder?.x) || 92);
+    const baseW = Math.max(Number(layout?.rows?.w) || 896, Number(layout?.rowBorder?.w) || 896);
+
+    const rowEnd = rowBaseY + rowBaseH * 4 + rowBaseGap * 3;
+    const borderEnd = borderBaseY + borderBaseH * 4 + borderBaseGap * 3;
+    const panelY = Math.max(220, Math.min(rowBaseY, borderBaseY) - 12);
+    const panelH = Math.min(height - panelY - 210, Math.max(rowEnd, borderEnd) - panelY + 12);
+
+    return {
+        x: baseX,
+        y: panelY,
+        w: Math.min(baseW, width - baseX * 2),
+        h: Math.max(420, panelH)
+    };
+}
+
+function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
+    const panelRect = getMiddlePanelRect(layout, width, height);
+    const panelX = panelRect.x;
+    const panelY = panelRect.y;
+    const panelW = panelRect.w;
+    const panelH = panelRect.h;
     drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.58)');
 
     const pieCardX = panelX + 24;
@@ -1879,7 +1903,8 @@ function drawDistributionAndResultsContent(ctx, width, height, data) {
 
     ctx.fillStyle = '#184fae';
     ctx.textAlign = 'left';
-    ctx.font = '900 42px "Barlow Condensed", "Segoe UI", sans-serif';
+    const sectionTitleSize = Math.max(30, Math.round((layout?.typography?.deckSize || 62) * 0.65));
+    ctx.font = `900 ${sectionTitleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     ctx.fillText('DECK DISTRIBUTION', pieCardX + 26, pieCardY + 54);
     ctx.fillText('FULL RESULTS', listCardX + 26, listCardY + 54);
 
@@ -1905,8 +1930,8 @@ function drawDistributionAndResultsContent(ctx, width, height, data) {
     ];
 
     const centerX = pieCardX + pieCardW / 2;
-    const centerY = pieCardY + 230;
-    const radius = 142;
+    const centerY = pieCardY + Math.min(230, Math.max(190, pieCardH * 0.32));
+    const radius = Math.min(142, Math.max(110, pieCardW * 0.31));
     let angle = -Math.PI / 2;
     pieRows.forEach((row, index) => {
         const slice = (row.count / total) * Math.PI * 2;
@@ -1925,12 +1950,13 @@ function drawDistributionAndResultsContent(ctx, width, height, data) {
     ctx.fill();
     ctx.fillStyle = '#184fae';
     ctx.textAlign = 'center';
-    ctx.font = '900 42px "Barlow Condensed", "Segoe UI", sans-serif';
+    ctx.font = `900 ${sectionTitleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     ctx.fillText(String(allResults.length || 0), centerX, centerY + 14);
 
     const legendStartY = centerY + 190;
     ctx.textAlign = 'left';
-    ctx.font = '700 26px "Barlow Condensed", "Segoe UI", sans-serif';
+    const legendFontSize = Math.max(20, Math.round((layout?.typography?.playerSize || 54) * 0.48));
+    ctx.font = `700 ${legendFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     pieRows.forEach((row, index) => {
         const y = legendStartY + index * 38;
         if (y > pieCardY + pieCardH - 22) return;
@@ -1942,10 +1968,11 @@ function drawDistributionAndResultsContent(ctx, width, height, data) {
     });
 
     ctx.fillStyle = '#0f2f63';
-    ctx.font = '700 27px "Barlow Condensed", "Segoe UI", sans-serif';
+    const listFontSize = Math.max(20, Math.round((layout?.typography?.playerSize || 54) * 0.5));
+    ctx.font = `700 ${listFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     const maxRows = 24;
     const rowStartY = listCardY + 96;
-    const rowGap = 34;
+    const rowGap = Math.max(26, Math.round(listFontSize * 1.3));
     allResults.slice(0, maxRows).forEach((row, index) => {
         const y = rowStartY + index * rowGap;
         if (y > listCardY + listCardH - 20) return;
@@ -1958,11 +1985,12 @@ function drawDistributionAndResultsContent(ctx, width, height, data) {
     });
 }
 
-function drawBlankMiddleContent(ctx, width, height) {
-    const panelX = 92;
-    const panelY = 300;
-    const panelW = width - panelX * 2;
-    const panelH = 820;
+function drawBlankMiddleContent(ctx, width, height, layout) {
+    const panelRect = getMiddlePanelRect(layout, width, height);
+    const panelX = panelRect.x;
+    const panelY = panelRect.y;
+    const panelW = panelRect.w;
+    const panelH = panelRect.h;
     drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.52)');
     ctx.save();
     ctx.strokeStyle = 'rgba(24,79,174,0.35)';
