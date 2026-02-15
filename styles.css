@@ -6051,7 +6051,7 @@ body.template-preview-page #postPreviewModal .modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 22px;
+    padding: 10px 16px;
     border-bottom: 1px solid rgba(129, 140, 248, 0.35);
     background: rgba(15, 23, 42, 0.82);
     backdrop-filter: blur(8px);
@@ -6060,22 +6060,24 @@ body.template-preview-page #postPreviewModal .modal-header {
 body.template-editor-page #postPreviewModal .modal-header h2,
 body.template-preview-page #postPreviewModal .modal-header h2 {
     margin: 0;
-    font-size: 32px;
+    font-size: 22px;
     letter-spacing: 0.2px;
     color: #f8fafc;
 }
 
 body.template-editor-page #postPreviewModal .modal-close,
 body.template-preview-page #postPreviewModal .modal-close {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    height: 36px;
+    border-radius: 8px;
     border: 1px solid rgba(99, 102, 241, 0.45);
-    background: rgba(30, 41, 59, 0.95);
-    color: #e2e8f0;
-    font-size: 24px;
-    line-height: 1;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.28), rgba(37, 99, 235, 0.3));
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.1;
+    padding: 0 12px;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 body.template-editor-page #postPreviewModal .modal-body,
