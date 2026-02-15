@@ -1204,7 +1204,7 @@ function enableDedicatedPostPreviewLayout() {
     document.body.classList.add('template-preview-page');
     const title = document.querySelector('#postPreviewModal .modal-header h2');
     if (title) {
-        title.textContent = 'Post Preview (MVP)';
+        title.textContent = 'Post Preview';
     }
 }
 
