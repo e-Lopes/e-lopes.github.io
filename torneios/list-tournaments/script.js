@@ -296,7 +296,7 @@ function populateTournamentFormatSelect(selectId, options = {}) {
         select.appendChild(blankOption);
     }
 
-    const sortedItems = optionItems.sort((a, b) => a.code.localeCompare(b.code));
+    const sortedItems = optionItems.sort((a, b) => b.code.localeCompare(a.code));
     sortedItems.forEach((item) => {
         const option = document.createElement('option');
         option.value = item.id ? String(item.id) : `legacy:${item.code}`;
