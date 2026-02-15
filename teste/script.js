@@ -2134,12 +2134,6 @@ function drawBlankMiddleContent(ctx, width, height, layout) {
     const panelW = panelRect.w;
     const panelH = panelRect.h;
     drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.52)');
-    ctx.save();
-    ctx.strokeStyle = 'rgba(24,79,174,0.35)';
-    ctx.setLineDash([14, 12]);
-    ctx.lineWidth = 3;
-    ctx.strokeRect(panelX + 26, panelY + 26, panelW - 52, panelH - 52);
-    ctx.restore();
 }
 
 function setPostTemplateEditorActive(active) {
