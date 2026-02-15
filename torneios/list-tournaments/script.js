@@ -61,6 +61,9 @@ let decksScriptsPromise = null;
 let playersViewMounted = false;
 let playersScriptsPromise = null;
 let tournamentFormatSupported = true;
+const FALLBACK_FORMAT_OPTIONS = ['BT23', 'BT24', 'EX11'];
+let tournamentFormats = [];
+let tournamentFormatsLoaded = false;
 
 // ============================================================
 // FORMAT DATE FUNCTION
@@ -139,12 +142,125 @@ function formatOrdinal(value) {
 
 function readTournamentFormatValue(inputId) {
     const input = document.getElementById(inputId);
-    return input ? input.value.trim() : '';
+    return input ? normalizeFormatCode(input.value) : '';
 }
 
 function assignTournamentFormat(payload, formatValue) {
     if (!tournamentFormatSupported) return payload;
     return { ...payload, format: formatValue || null };
+}
+
+function normalizeFormatCode(value) {
+    const raw = String(value || '')
+        .trim()
+        .toUpperCase();
+    if (!raw) return '';
+    const explicitCode = raw.match(/[A-Z]{1,4}\d{1,3}/);
+    if (explicitCode?.[0]) return explicitCode[0];
+    return raw.replace(/[^A-Z0-9]/g, '');
+}
+
+function getDefaultTournamentFormatCode() {
+    const preferred = tournamentFormats.find((item) => item.isDefault);
+    if (preferred?.code) return preferred.code;
+    return tournamentFormats[0]?.code || '';
+}
+
+async function loadTournamentFormats() {
+    if (tournamentFormatsLoaded) return tournamentFormats;
+
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/formats?select=code,name,is_active,is_default&is_active=eq.true&order=is_default.desc,code.asc`,
+            { headers }
+        );
+
+        if (!res.ok) throw new Error(`Erro ao carregar formatos (${res.status})`);
+
+        const rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) {
+            tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((code) => ({
+                code,
+                label: code,
+                isDefault: false
+            }));
+            tournamentFormatsLoaded = true;
+            return tournamentFormats;
+        }
+
+        tournamentFormats = rows
+            .map((row) => {
+                const code = normalizeFormatCode(row?.code);
+                if (!code) return null;
+                const name = String(row?.name || '').trim();
+                return {
+                    code,
+                    label: name ? `${code} - ${name}` : code,
+                    isDefault: row?.is_default === true
+                };
+            })
+            .filter(Boolean);
+
+        tournamentFormatsLoaded = true;
+    } catch (err) {
+        console.warn(err);
+        tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((code) => ({
+            code,
+            label: code,
+            isDefault: false
+        }));
+        tournamentFormatsLoaded = true;
+    }
+
+    return tournamentFormats;
+}
+
+function populateTournamentFormatSelect(selectId, options = {}) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const selectedValue = normalizeFormatCode(options.selectedValue || '');
+    const includeBlank = options.includeBlank !== false;
+
+    const map = new Map();
+    tournamentFormats.forEach((format) => {
+        if (!format?.code) return;
+        map.set(format.code, format.label || format.code);
+    });
+
+    if (selectedValue && !map.has(selectedValue)) {
+        map.set(selectedValue, `${selectedValue} (legacy)`);
+    }
+
+    select.innerHTML = '';
+    if (includeBlank) {
+        const blankOption = document.createElement('option');
+        blankOption.value = '';
+        blankOption.textContent = 'Select format...';
+        select.appendChild(blankOption);
+    }
+
+    const optionEntries = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    optionEntries.forEach(([code, label]) => {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = label;
+        select.appendChild(option);
+    });
+
+    if (selectedValue && map.has(selectedValue)) {
+        select.value = selectedValue;
+        return;
+    }
+
+    const defaultCode = getDefaultTournamentFormatCode();
+    if (defaultCode && map.has(defaultCode)) {
+        select.value = defaultCode;
+    } else if (includeBlank) {
+        select.value = '';
+    } else if (optionEntries[0]) {
+        select.value = optionEntries[0][0];
+    }
 }
 
 function getAssetPrefix() {
@@ -176,7 +292,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupViewToggle();
     bindStaticActions();
     setupDashboardViewSwitching();
-    await loadTournaments();
+    await Promise.all([loadTournaments(), loadTournamentFormats()]);
+    populateTournamentFormatSelect('createTournamentFormat');
+    populateTournamentFormatSelect('editTournamentFormat');
     setupFilters();
     setupSorting();
     applyFilters();
@@ -1180,8 +1298,6 @@ async function openCreateTournamentModal(defaultDate = '') {
         : new Date().toISOString().split('T')[0];
     document.getElementById('createTournamentDate').value = safeDate;
     document.getElementById('createTournamentName').value = '';
-    const createTournamentFormatInput = document.getElementById('createTournamentFormat');
-    if (createTournamentFormatInput) createTournamentFormatInput.value = '';
     document.getElementById('createTotalPlayers').value = '';
     document.getElementById('createInstagramLink').value = '';
 
@@ -1189,7 +1305,13 @@ async function openCreateTournamentModal(defaultDate = '') {
 
     // Carrega dados base para o modal
     try {
-        await Promise.all([loadStoresToCreate(), loadPlayersToCreate(), loadDecksToCreate()]);
+        await Promise.all([
+            loadStoresToCreate(),
+            loadPlayersToCreate(),
+            loadDecksToCreate(),
+            loadTournamentFormats()
+        ]);
+        populateTournamentFormatSelect('createTournamentFormat');
         renderCreateResultsRows();
     } catch (err) {
         // CREATE MODAL

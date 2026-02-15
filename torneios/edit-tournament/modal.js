@@ -44,16 +44,26 @@ async function loadEditFormData(id) {
 
         document.getElementById('editTournamentDate').value = data.tournament_date || '';
         document.getElementById('editTournamentName').value = data.tournament_name || '';
-        const editFormatInput = document.getElementById('editTournamentFormat');
-        if (editFormatInput) editFormatInput.value = data.format || '';
         document.getElementById('editTotalPlayers').value = '0';
         document.getElementById('editInstagramLink').value = data.instagram_link || '';
 
+        const formatLoaderPromise =
+            typeof loadTournamentFormats === 'function' ? loadTournamentFormats() : Promise.resolve();
         await Promise.all([
             loadStoresToEdit(data.store_id),
             loadPlayersToEdit(),
-            loadDecksToEdit()
+            loadDecksToEdit(),
+            formatLoaderPromise
         ]);
+
+        if (typeof populateTournamentFormatSelect === 'function') {
+            populateTournamentFormatSelect('editTournamentFormat', {
+                selectedValue: data.format || ''
+            });
+        } else {
+            const editFormatInput = document.getElementById('editTournamentFormat');
+            if (editFormatInput) editFormatInput.value = data.format || '';
+        }
 
         await loadResultsToEdit(id, data);
         renderEditResultsRows();
@@ -283,7 +293,11 @@ async function editTournamentFormSubmit(e) {
             total_players: totalPlayers,
             instagram_link: document.getElementById('editInstagramLink').value.trim()
         };
-        const formatValue = document.getElementById('editTournamentFormat')?.value?.trim() || '';
+        const rawFormatValue = document.getElementById('editTournamentFormat')?.value || '';
+        const formatValue =
+            typeof normalizeFormatCode === 'function'
+                ? normalizeFormatCode(rawFormatValue)
+                : rawFormatValue.trim();
         const updated =
             typeof assignTournamentFormat === 'function'
                 ? assignTournamentFormat(updatedBase, formatValue)
