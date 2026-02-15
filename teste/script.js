@@ -1097,10 +1097,11 @@ async function drawPostCanvas() {
     if (logo) {
         const logoPaddingX = Math.round(layout.logo.w * 0.1);
         const logoPaddingY = Math.round(layout.logo.h * 0.12);
+        const logoShiftLeft = 74;
         drawImageContain(
             ctx,
             logo,
-            layout.logo.x + logoPaddingX,
+            Math.max(0, layout.logo.x + logoPaddingX - logoShiftLeft),
             layout.logo.y + logoPaddingY,
             layout.logo.w - logoPaddingX * 2,
             layout.logo.h - logoPaddingY * 2
@@ -1181,8 +1182,8 @@ async function drawPostCanvas() {
     const storeIconPath = resolveStoreIconPath(tournamentDataForCanvas.storeName || '');
     const storeIcon = await loadImage(storeIconPath);
     if (storeIcon) {
-        const storePaddingX = 24;
-        const storePaddingY = 12;
+        const storePaddingX = 36;
+        const storePaddingY = 18;
         drawImageContain(
             ctx,
             storeIcon,
@@ -1317,37 +1318,49 @@ async function drawPlacementRow(
 }
 
 async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAsset, rowElements) {
-    const trophyW = rowElements.trophy.w;
-    const trophyH = rowElements.trophy.h;
+    const trophyScale = 1.18;
+    const trophyW = Math.round(rowElements.trophy.w * trophyScale);
+    const trophyH = Math.round(rowElements.trophy.h * trophyScale);
     const numberOffsetX = rowElements.podiumNumber.offsetX;
     const numberOffsetY = rowElements.podiumNumber.offsetY;
     const numberSize = rowElements.podiumNumber.size;
     const style = PLACEMENT_STYLES[placement] || PLACEMENT_STYLES[4];
+    function drawAssetWithMetallicGradient(assetImage) {
+        const offscreen = document.createElement('canvas');
+        offscreen.width = Math.max(1, Math.round(trophyW));
+        offscreen.height = Math.max(1, Math.round(trophyH));
+        const offCtx = offscreen.getContext('2d');
+        if (!offCtx) {
+            drawImageContain(ctx, assetImage, drawX, drawY, trophyW, trophyH);
+            return;
+        }
 
-    const medalGradient = ctx.createLinearGradient(
-        centerX - trophyW / 2,
-        centerY - trophyH / 2,
-        centerX + trophyW / 2,
-        centerY + trophyH / 2
-    );
-    medalGradient.addColorStop(0, '#fffef7');
-    medalGradient.addColorStop(0.4, style.medal);
-    medalGradient.addColorStop(1, style.dark || color);
+        // Draw icon into isolated buffer first.
+        drawImageContain(offCtx, assetImage, 0, 0, trophyW, trophyH);
+
+        // Apply metallic gradient only where icon pixels exist.
+        const medalGradient = offCtx.createLinearGradient(0, 0, trophyW, trophyH);
+        medalGradient.addColorStop(0, '#fffef7');
+        medalGradient.addColorStop(0.4, style.medal);
+        medalGradient.addColorStop(1, style.dark || color);
+        offCtx.globalCompositeOperation = 'source-atop';
+        offCtx.fillStyle = medalGradient;
+        offCtx.fillRect(0, 0, trophyW, trophyH);
+        offCtx.globalCompositeOperation = 'source-over';
+
+        ctx.drawImage(offscreen, drawX, drawY);
+    }
+
+    const drawX = centerX - trophyW / 2;
+    const drawY = centerY - trophyH / 2;
 
     if (trophyAsset?.type === 'svg') {
         const tintedTrophyIcon = await loadTintedSvgIcon(trophyAsset.src, color);
         if (tintedTrophyIcon) {
-            drawImageContain(
-                ctx,
-                tintedTrophyIcon,
-                centerX - trophyW / 2,
-                centerY - trophyH / 2,
-                trophyW,
-                trophyH
-            );
+            drawAssetWithMetallicGradient(tintedTrophyIcon);
         }
     } else if (trophyAsset?.image) {
-        drawImageContain(ctx, trophyAsset.image, centerX - trophyW / 2, centerY - trophyH / 2, trophyW, trophyH);
+        drawAssetWithMetallicGradient(trophyAsset.image);
     }
 
     if (trophyAsset) {

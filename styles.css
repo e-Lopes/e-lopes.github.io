@@ -6161,6 +6161,12 @@ body.template-preview-page .btn-cancel {
     border-radius: 10px;
     font-weight: 700;
     border: 1px solid rgba(129, 140, 248, 0.35);
+    white-space: nowrap;
+}
+
+body.template-editor-page #btnPostTemplateEdit,
+body.template-preview-page #btnPostTemplateEdit {
+    min-width: 122px;
 }
 
 body.template-editor-page .btn-secondary,
