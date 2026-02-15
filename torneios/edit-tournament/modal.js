@@ -58,12 +58,11 @@ async function loadEditFormData(id) {
 
         if (typeof populateTournamentFormatSelect === 'function') {
             populateTournamentFormatSelect('editTournamentFormat', {
-                selectedId: data.format_id,
-                selectedValue: data.format || ''
+                selectedId: data.format_id
             });
         } else {
             const editFormatInput = document.getElementById('editTournamentFormat');
-            if (editFormatInput) editFormatInput.value = data.format || '';
+            if (editFormatInput) editFormatInput.value = String(data.format_id || '');
         }
 
         await loadResultsToEdit(id, data);

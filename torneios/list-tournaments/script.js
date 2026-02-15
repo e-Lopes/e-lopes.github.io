@@ -60,7 +60,6 @@ let decksViewMounted = false;
 let decksScriptsPromise = null;
 let playersViewMounted = false;
 let playersScriptsPromise = null;
-let tournamentFormatSupported = true;
 let tournamentFormatIdSupported = true;
 const FALLBACK_FORMAT_OPTIONS = [
     { id: null, code: 'BT23', isDefault: false },
@@ -175,14 +174,10 @@ function readTournamentFormatValue(inputId) {
 
 function assignTournamentFormat(payload, formatSelection) {
     const formatId = Number(formatSelection?.formatId);
-    const formatCode = normalizeFormatCode(formatSelection?.formatCode);
     const nextPayload = { ...payload };
 
     if (tournamentFormatIdSupported) {
         nextPayload.format_id = Number.isFinite(formatId) && formatId > 0 ? formatId : null;
-    }
-    if (tournamentFormatSupported) {
-        nextPayload.format = formatCode || null;
     }
 
     return nextPayload;
@@ -205,9 +200,7 @@ function getDefaultTournamentFormatCode() {
 }
 
 function getTournamentFormatCode(tournament) {
-    const relationCode = normalizeFormatCode(tournament?.format_ref?.code || '');
-    if (relationCode) return relationCode;
-    return normalizeFormatCode(tournament?.format || '');
+    return normalizeFormatCode(tournament?.format_ref?.code || '');
 }
 
 async function loadTournamentFormats() {
@@ -433,15 +426,15 @@ async function loadTournaments() {
     try {
         const baseSelect =
             'id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram_link';
-        const selectWithFormatAndId = `${baseSelect},format,format_id,format_ref:formats!tournament_format_id_fkey(code)`;
-        const selectWithFormat = `${baseSelect},format,format_id`;
+        const selectWithFormatAndId = `${baseSelect},format_id,format_ref:formats!tournament_format_id_fkey(code)`;
+        const selectWithFormatId = `${baseSelect},format_id`;
         let res = await fetch(
             `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormatAndId)}&order=tournament_date.desc`,
             { headers }
         );
         if (!res.ok) {
             res = await fetch(
-                `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormat)}&order=tournament_date.desc`,
+                `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormatId)}&order=tournament_date.desc`,
                 { headers }
             );
         }
@@ -450,10 +443,8 @@ async function loadTournaments() {
                 `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(baseSelect)}&order=tournament_date.desc`,
                 { headers }
             );
-            tournamentFormatSupported = false;
             tournamentFormatIdSupported = false;
         } else {
-            tournamentFormatSupported = true;
             tournamentFormatIdSupported = true;
         }
         if (!res.ok) throw new Error('Erro ao carregar torneios.');

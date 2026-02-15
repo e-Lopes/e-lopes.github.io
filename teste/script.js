@@ -422,10 +422,10 @@ async function displayTournament() {
 
         const tournamentPromise = window.supabaseApi
             ? window.supabaseApi.get(
-                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`
+                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`
               )
             : fetch(
-                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`,
+                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`,
                   { headers }
               );
 
@@ -437,8 +437,7 @@ async function displayTournament() {
         const results = await resultsRes.json();
         const tournamentRows = await tournamentRes.json();
         const tournamentName = tournamentRows?.[0]?.tournament_name || 'SEMANAL';
-        const tournamentFormat =
-            tournamentRows?.[0]?.format_ref?.code || tournamentRows?.[0]?.format || '';
+        const tournamentFormat = tournamentRows?.[0]?.format_ref?.code || '';
 
         if (!results || results.length === 0) {
             clearDisplay();
