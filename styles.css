@@ -6050,7 +6050,8 @@ body.template-preview-page #postPreviewModal .modal-header {
     z-index: 30;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 14px;
     padding: 10px 16px;
     border-bottom: 1px solid rgba(129, 140, 248, 0.35);
     background: rgba(15, 23, 42, 0.82);
@@ -6078,6 +6079,13 @@ body.template-preview-page #postPreviewModal .modal-close {
     padding: 0 12px;
     cursor: pointer;
     white-space: nowrap;
+}
+
+body.template-editor-page #postPreviewModal .modal-back-btn,
+body.template-preview-page #postPreviewModal .modal-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
 body.template-editor-page #postPreviewModal .modal-body,
