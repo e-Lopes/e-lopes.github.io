@@ -197,9 +197,10 @@ async function loadTournamentFormats() {
                 const code = normalizeFormatCode(row?.code);
                 if (!code) return null;
                 const name = String(row?.name || '').trim();
+                const normalizedName = normalizeFormatCode(name);
                 return {
                     code,
-                    label: name ? `${code} - ${name}` : code,
+                    label: name && normalizedName !== code ? `${code} - ${name}` : code,
                     isDefault: row?.is_default === true
                 };
             })
