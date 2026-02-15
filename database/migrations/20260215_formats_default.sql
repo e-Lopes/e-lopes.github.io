@@ -62,8 +62,8 @@ ALTER TABLE public.tournament
 INSERT INTO public.formats (code, name, background_path, is_active, is_default)
 VALUES
     ('BT23', 'BT23', 'BT23.png', true, false),
-    ('BT24', 'BT24', 'BT24.png', true, true),
-    ('EX11', 'EX11', 'EX11.png', true, false)
+    ('BT24', 'BT24', 'BT24.png', true, false),
+    ('EX11', 'EX11', 'EX11.png', true, true)
 ON CONFLICT (code) DO UPDATE
 SET
     name = EXCLUDED.name,
@@ -71,7 +71,7 @@ SET
     is_active = EXCLUDED.is_active;
 
 UPDATE public.formats
-SET is_default = (code = 'BT24');
+SET is_default = (code = 'EX11');
 
 UPDATE public.tournament t
 SET format = f.code

@@ -43,9 +43,9 @@ function buildPublicBucketObjectUrl(bucketName, objectPath) {
 
 const DEFAULT_BACKGROUND_OPTIONS = [
     { label: 'None', value: '' },
+    { label: 'EX11', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'EX11.png') },
     { label: 'BT23', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT23.png') },
-    { label: 'BT24', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT24.png') },
-    { label: 'EX11', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'EX11.png') }
+    { label: 'BT24', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT24.png') }
 ];
 const INSTAGRAM_DEFAULT_LAYOUT = {
     logo: { x: 80, y: 74, w: 540, h: 198 },

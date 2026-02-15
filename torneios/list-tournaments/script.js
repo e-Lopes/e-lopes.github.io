@@ -61,7 +61,11 @@ let decksScriptsPromise = null;
 let playersViewMounted = false;
 let playersScriptsPromise = null;
 let tournamentFormatSupported = true;
-const FALLBACK_FORMAT_OPTIONS = ['BT23', 'BT24', 'EX11'];
+const FALLBACK_FORMAT_OPTIONS = [
+    { code: 'BT23', isDefault: false },
+    { code: 'BT24', isDefault: false },
+    { code: 'EX11', isDefault: true }
+];
 let tournamentFormats = [];
 let tournamentFormatsLoaded = false;
 
@@ -179,10 +183,10 @@ async function loadTournamentFormats() {
 
         const rows = await res.json();
         if (!Array.isArray(rows) || rows.length === 0) {
-            tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((code) => ({
-                code,
-                label: code,
-                isDefault: false
+            tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((item) => ({
+                code: item.code,
+                label: item.code,
+                isDefault: item.isDefault
             }));
             tournamentFormatsLoaded = true;
             return tournamentFormats;
@@ -204,10 +208,10 @@ async function loadTournamentFormats() {
         tournamentFormatsLoaded = true;
     } catch (err) {
         console.warn(err);
-        tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((code) => ({
-            code,
-            label: code,
-            isDefault: false
+        tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((item) => ({
+            code: item.code,
+            label: item.code,
+            isDefault: item.isDefault
         }));
         tournamentFormatsLoaded = true;
     }
