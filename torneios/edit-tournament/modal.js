@@ -58,6 +58,7 @@ async function loadEditFormData(id) {
 
         if (typeof populateTournamentFormatSelect === 'function') {
             populateTournamentFormatSelect('editTournamentFormat', {
+                selectedId: data.format_id,
                 selectedValue: data.format || ''
             });
         } else {
@@ -293,14 +294,13 @@ async function editTournamentFormSubmit(e) {
             total_players: totalPlayers,
             instagram_link: document.getElementById('editInstagramLink').value.trim()
         };
-        const rawFormatValue = document.getElementById('editTournamentFormat')?.value || '';
-        const formatValue =
-            typeof normalizeFormatCode === 'function'
-                ? normalizeFormatCode(rawFormatValue)
-                : rawFormatValue.trim();
+        const formatSelection =
+            typeof readTournamentFormatValue === 'function'
+                ? readTournamentFormatValue('editTournamentFormat')
+                : { formatId: null, formatCode: '' };
         const updated =
             typeof assignTournamentFormat === 'function'
-                ? assignTournamentFormat(updatedBase, formatValue)
+                ? assignTournamentFormat(updatedBase, formatSelection)
                 : updatedBase;
 
         const hasInvalidResult = editResults.some((r) => !r.player_id || !r.deck_id);
