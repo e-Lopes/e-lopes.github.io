@@ -6081,7 +6081,7 @@ body.template-preview-page #postPreviewModal .modal-close {
 body.template-editor-page #postPreviewModal .modal-body,
 body.template-preview-page #postPreviewModal .modal-body {
     padding: 18px;
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 2;
     overflow: auto;
 }
@@ -6112,11 +6112,12 @@ body.template-preview-page #postPreviewModal .modal-footer {
     gap: 10px;
     padding: 16px 14px;
     border-top: none;
-    border-left: 1px solid rgba(129, 140, 248, 0.32);
+    border-left: none;
+    border-right: 1px solid rgba(129, 140, 248, 0.32);
     background: rgba(15, 23, 42, 0.86);
     backdrop-filter: blur(8px);
     overflow: auto;
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 2;
     min-width: 320px;
     max-width: 360px;
@@ -6125,7 +6126,7 @@ body.template-preview-page #postPreviewModal .modal-footer {
 body.template-editor-page #postPreviewModal .modal-content,
 body.template-preview-page #postPreviewModal .modal-content {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
 }
 
