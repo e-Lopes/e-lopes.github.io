@@ -268,23 +268,103 @@ function syncBackgroundSelectors() {
     });
 }
 
-function onCustomBackgroundUpload(event) {
+async function uploadBackgroundAsFormat(file) {
+    const defaultCode = normalizeFormatCode(file.name.replace(/\.[^.]+$/, ''));
+    const rawCode = window.prompt('Format code (ex: EX12):', defaultCode || '');
+    if (!rawCode) return null;
+
+    const formatCode = normalizeFormatCode(rawCode);
+    if (!formatCode) {
+        alert('Invalid format code.');
+        return null;
+    }
+
+    const rawName = window.prompt('Format name (optional):', formatCode);
+    if (rawName === null) return null;
+    const formatName = String(rawName || '').trim() || formatCode;
+
+    const extMatch = String(file.name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+    const ext = extMatch?.[1] || 'png';
+    const safeExt = ['png', 'jpg', 'jpeg', 'webp'].includes(ext) ? ext : 'png';
+    const objectPath = `${formatCode}.${safeExt}`;
+
+    const uploadRes = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/${FORMAT_BG_BUCKET}/${encodeURIComponent(objectPath)}`,
+        {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': file.type || `image/${safeExt}`,
+                'x-upsert': 'true'
+            },
+            body: file
+        }
+    );
+
+    if (!uploadRes.ok) {
+        const errorText = await uploadRes.text();
+        throw new Error(`Storage upload failed (${uploadRes.status}): ${errorText}`);
+    }
+
+    const formatPayload = [
+        {
+            code: formatCode,
+            name: formatName,
+            background_path: objectPath,
+            is_active: true
+        }
+    ];
+    const formatRes = await fetch(`${SUPABASE_URL}/rest/v1/formats?on_conflict=code`, {
+        method: 'POST',
+        headers: {
+            ...headers,
+            Prefer: 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(formatPayload)
+    });
+
+    if (!formatRes.ok) {
+        const errorText = await formatRes.text();
+        throw new Error(`Formats upsert failed (${formatRes.status}): ${errorText}`);
+    }
+
+    return {
+        code: formatCode,
+        name: formatName,
+        backgroundUrl: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, objectPath)
+    };
+}
+
+async function onCustomBackgroundUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-        const value = String(reader.result || '');
-        if (!value) return;
-        const defaultLabel = file.name.replace(/\.[^.]+$/, '');
-        const label = window.prompt('Background name:', defaultLabel) || defaultLabel || 'Custom';
+    try {
+        const createdFormat = await uploadBackgroundAsFormat(file);
+        if (!createdFormat) return;
+
+        formatBackgroundMapPromise = null;
+        selectedBackgroundPath = createdFormat.backgroundUrl;
+
         const custom = getCustomBackgrounds();
-        custom.push({ label: label.trim() || 'Custom', value });
-        saveCustomBackgrounds(custom.slice(-8));
-        initializeBackgroundSelector(value);
-        if (tournamentDataForCanvas) drawPostCanvas();
-    };
-    reader.readAsDataURL(file);
+        const deduped = custom.filter(
+            (item) =>
+                String(item?.value || '') !== createdFormat.backgroundUrl &&
+                String(item?.label || '').toUpperCase() !== createdFormat.code
+        );
+        deduped.push({ label: createdFormat.code, value: createdFormat.backgroundUrl });
+        saveCustomBackgrounds(deduped.slice(-20));
+
+        initializeBackgroundSelector(createdFormat.backgroundUrl);
+        if (tournamentDataForCanvas) {
+            tournamentDataForCanvas.format = createdFormat.code;
+            await drawPostCanvas();
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Failed to upload background to Supabase or create format.');
+    }
 
     event.target.value = '';
 }
