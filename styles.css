@@ -6177,6 +6177,7 @@ body.template-preview-page .btn-secondary {
 
 body.template-editor-page .btn-download,
 body.template-preview-page .btn-download {
+    min-width: 122px;
     background: linear-gradient(135deg, #2563eb, #4f46e5);
     color: #fff;
 }
