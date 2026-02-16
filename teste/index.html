@@ -170,60 +170,120 @@
                         </button>
                     </div>
                     <div class="sidebar-section">
-                        <h3 class="sidebar-section-title">Post</h3>
-                        <label id="postTypePicker" class="template-object-picker">
-                            Post Type
-                            <select id="postTypeSelect">
-                                <option value="top4">Top 4</option>
-                                <option value="distribution_results">Deck Distribution + Full Results</option>
-                                <option value="blank_middle">Blank Middle</option>
-                            </select>
-                        </label>
+                        <button type="button" class="sidebar-section-toggle" aria-expanded="true">
+                            <span class="sidebar-section-toggle-text">
+                                <span class="sidebar-section-title">Post</span>
+                                <span class="sidebar-section-hint">Tipo e zoom</span>
+                            </span>
+                            <span class="sidebar-section-toggle-icon" aria-hidden="true"></span>
+                        </button>
+                        <div class="sidebar-section-content">
+                            <label id="postTypePicker" class="template-object-picker">
+                                Post Type
+                                <select id="postTypeSelect">
+                                    <option value="top4">Top 4</option>
+                                    <option value="distribution_results">Deck Distribution + Full Results</option>
+                                    <option value="blank_middle">Blank Middle</option>
+                                </select>
+                            </label>
+                            <label class="template-object-picker">
+                                Preview Zoom
+                                <select id="postPreviewZoomSelect">
+                                    <option value="0.6">60%</option>
+                                    <option value="0.7">70%</option>
+                                    <option value="0.8">80%</option>
+                                    <option value="0.9" selected>90%</option>
+                                    <option value="1">100%</option>
+                                    <option value="1.1">110%</option>
+                                </select>
+                            </label>
+                        </div>
                     </div>
                     <div class="sidebar-section">
-                        <h3 class="sidebar-section-title">Background</h3>
-                        <label id="templateBackgroundPicker" class="template-object-picker">
-                            Background
-                            <select id="templateBackgroundSelect">
-                                <option value="">None</option>
-                                <option value="../icons/backgrounds/EX11.png">EX11</option>
-                            </select>
-                        </label>
-                        <label id="templateBackgroundUploadWrap" class="template-upload-label">
-                            New Format Background
-                            <input id="templateBackgroundUpload" type="file" accept="image/*" />
-                        </label>
+                        <button type="button" class="sidebar-section-toggle" aria-expanded="true">
+                            <span class="sidebar-section-toggle-text">
+                                <span class="sidebar-section-title">Background</span>
+                                <span class="sidebar-section-hint">Fundo do formato</span>
+                            </span>
+                            <span class="sidebar-section-toggle-icon" aria-hidden="true"></span>
+                        </button>
+                        <div class="sidebar-section-content">
+                            <label id="templateBackgroundPicker" class="template-object-picker">
+                                Background
+                                <select id="templateBackgroundSelect">
+                                    <option value="">None</option>
+                                    <option value="../icons/backgrounds/EX11.png">EX11</option>
+                                </select>
+                            </label>
+                            <label id="templateBackgroundUploadWrap" class="template-upload-label">
+                                New Format Background
+                                <input id="templateBackgroundUpload" type="file" accept="image/*" />
+                            </label>
+                        </div>
                     </div>
                     <div class="sidebar-section sidebar-template-controls" data-template-control>
-                        <h3 class="sidebar-section-title">Template</h3>
-                        <label id="templatePresetPicker" class="template-object-picker">
-                            Preset
-                            <select id="templatePresetSelect">
-                                <option value="">Select preset...</option>
-                            </select>
-                        </label>
-                        <button id="btnSavePreset" class="btn-secondary">Save Preset</button>
-                        <button id="btnLoadPreset" class="btn-secondary">Load Preset</button>
-                        <button id="btnDeletePreset" class="btn-cancel">Delete Preset</button>
-                        <label id="templateObjectPicker" class="template-object-picker">
-                            Object
-                            <select id="templateObjectSelect">
-                                <option value="logo">Logo</option>
-                                <option value="title">Title/Date</option>
-                                <option value="rows">Podium Border</option>
-                                <option value="trophy">Trophy Icon</option>
-                                <option value="podiumNumber">Podium Number</option>
-                                <option value="avatar">Deck Circle</option>
-                                <option value="rowText">Player/Deck</option>
-                                <option value="store">Store Logo</option>
-                                <option value="handle">@digimoncwb</option>
-                            </select>
-                        </label>
-                        <span class="template-help-label">Move: WASD | Size: &lt; / &gt; | Gap: Q / E (Shift = passo maior)</span>
-                        <button id="btnPostTemplateEdit" class="btn-secondary">Edit Template</button>
-                        <button id="btnPostTemplateReset" class="btn-cancel">Reset Layout</button>
+                        <button type="button" class="sidebar-section-toggle" aria-expanded="true">
+                            <span class="sidebar-section-toggle-text">
+                                <span class="sidebar-section-title">Template</span>
+                                <span class="sidebar-section-hint">Layout e objetos</span>
+                            </span>
+                            <span class="sidebar-section-toggle-icon" aria-hidden="true"></span>
+                        </button>
+                        <div class="sidebar-section-content">
+                            <label id="templatePresetPicker" class="template-object-picker">
+                                Preset
+                                <select id="templatePresetSelect">
+                                    <option value="">Select preset...</option>
+                                </select>
+                            </label>
+                            <button id="btnSavePreset" class="btn-secondary">Save Preset</button>
+                            <button id="btnLoadPreset" class="btn-secondary">Load Preset</button>
+                            <button id="btnDeletePreset" class="btn-cancel">Delete Preset</button>
+                            <label id="templateObjectPicker" class="template-object-picker">
+                                Object
+                                <select id="templateObjectSelect">
+                                    <option value="logo">Logo</option>
+                                    <option value="title">Title/Date</option>
+                                    <option value="rows">Podium Border</option>
+                                    <option value="trophy">Trophy Icon</option>
+                                    <option value="podiumNumber">Podium Number</option>
+                                    <option value="avatar">Deck Circle</option>
+                                    <option value="rowText">Player/Deck</option>
+                                    <option value="distDeckCard">Deck Distribution Card</option>
+                                    <option value="distResultsCard">Full Results Card</option>
+                                    <option value="distPie">Distribution Pie</option>
+                                    <option value="store">Store Logo</option>
+                                    <option value="handle">@digimoncwb</option>
+                                </select>
+                            </label>
+                            <label id="templatePieSlicePicker" class="template-object-picker">
+                                Pie Slice
+                                <select id="templatePieSliceSelect">
+                                    <option value="">Select deck...</option>
+                                </select>
+                            </label>
+                            <button id="btnPieEditorToggle" class="btn-secondary">Open Pie Editor</button>
+                            <div id="templatePieAdjustRow" class="template-pie-adjust-row">
+                                <label>
+                                    X
+                                    <input id="templatePieXInput" type="number" min="-300" max="300" step="1" />
+                                </label>
+                                <label>
+                                    Y
+                                    <input id="templatePieYInput" type="number" min="-300" max="300" step="1" />
+                                </label>
+                                <label>
+                                    Zoom
+                                    <input id="templatePieZoomInput" type="number" min="120" max="420" step="1" />
+                                </label>
+                            </div>
+                            <span id="templatePieEditorHint" class="template-help-label u-hidden">Pie Editor: arraste a fatia no grafico e use scroll para zoom.</span>
+                            <span class="template-help-label">Move: WASD | Size: &lt; / &gt; | Gap: Q / E (Shift = passo maior)</span>
+                            <button id="btnPostTemplateEdit" class="btn-secondary">Edit Template</button>
+                            <button id="btnPostTemplateReset" class="btn-cancel">Reset Layout</button>
+                        </div>
                     </div>
-                    <div class="sidebar-section">
+                    <div class="sidebar-actions">
                         <button id="btnPostModalCloseBottom" class="btn-cancel">Close</button>
                     </div>
                 </div>

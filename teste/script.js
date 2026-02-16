@@ -33,10 +33,12 @@ const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const POST_PRESETS_STORAGE_KEY = 'digistats.post-layout-presets.v1';
 const CUSTOM_BACKGROUNDS_STORAGE_KEY = 'digistats.custom-backgrounds.v1';
 const POST_TYPE_STORAGE_KEY = 'digistats.post-type.v1';
+const POST_PREVIEW_ZOOM_STORAGE_KEY = 'digistats.post-preview.zoom.v1';
 const POST_TYPE_OPTIONS = ['top4', 'distribution_results', 'blank_middle'];
 const FORMAT_BG_BUCKET = 'post-backgrounds';
 let formatBackgroundMapPromise = null;
 let selectedPostType = loadSelectedPostType();
+let postPreviewZoom = loadPostPreviewZoom();
 
 function loadSelectedPostType() {
     try {
@@ -50,6 +52,26 @@ function loadSelectedPostType() {
 function saveSelectedPostType() {
     try {
         localStorage.setItem(POST_TYPE_STORAGE_KEY, selectedPostType);
+    } catch (_) {
+        // Ignore storage failures.
+    }
+}
+
+function loadPostPreviewZoom() {
+    try {
+        const raw = Number(localStorage.getItem(POST_PREVIEW_ZOOM_STORAGE_KEY));
+        if (Number.isFinite(raw) && raw >= 0.6 && raw <= 1.1) {
+            return raw;
+        }
+    } catch (_) {
+        // Ignore storage failures.
+    }
+    return 0.9;
+}
+
+function savePostPreviewZoom() {
+    try {
+        localStorage.setItem(POST_PREVIEW_ZOOM_STORAGE_KEY, String(postPreviewZoom));
     } catch (_) {
         // Ignore storage failures.
     }
@@ -88,7 +110,15 @@ const INSTAGRAM_DEFAULT_LAYOUT = {
     },
     store: { x: 96, y: 1162, w: 330, h: 122 },
     handle: { x: 988, y: 1234 },
-    typography: { titleSize: 72, dateSize: 72, playerSize: 54, deckSize: 62, handleSize: 46 }
+    typography: { titleSize: 72, dateSize: 72, playerSize: 54, deckSize: 62, handleSize: 46 },
+    distribution: {
+        panel: { inset: 16 },
+        cards: { leftRatio: 0.54, gutter: 14 },
+        deckCard: { x: 0, y: 0 },
+        resultsCard: { x: 0, y: 0 },
+        pie: { x: 0, y: 0, radius: 0 },
+        results: { x: 0, y: 0, width: 0 }
+    }
 };
 const DEFAULT_POST_LAYOUT = INSTAGRAM_DEFAULT_LAYOUT;
 const BUILT_IN_PRESETS = {
@@ -103,6 +133,11 @@ let postEditorDragState = null;
 let postEditorGuides = [];
 const EDITOR_SNAP_DISTANCE = 12;
 let activeTemplateHandleKey = 'logo';
+let distributionPieStateOverride = {};
+let activeDistributionPieDeck = '';
+let distributionPieDragState = null;
+let lastDistributionPieRenderState = null;
+let isPieEditorActive = false;
 
 function formatPlacementLabel(value) {
     const n = Number(value);
@@ -125,6 +160,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupTemplateSyncListeners();
     setupPresetControls();
     setupPostTypeControls();
+    setupPostPreviewZoomControl();
+    setupCollapsibleSidebarSections();
+    setupDistributionPieControls();
     bootTemplateEditorPageIfNeeded();
     bootPostPreviewPageIfNeeded();
 });
@@ -194,10 +232,20 @@ function updatePostPreviewMeta() {
 }
 
 function updateTemplateControlsVisibility() {
-    const show = isTopFourPostType();
     document.querySelectorAll('[data-template-control]').forEach((element) => {
-        element.classList.toggle('u-hidden', !show);
+        element.classList.remove('u-hidden');
     });
+    const pieControls = ['templatePieSlicePicker', 'templatePieAdjustRow', 'btnPieEditorToggle']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+    const showPieControls = selectedPostType === 'distribution_results';
+    pieControls.forEach((el) => {
+        el.classList.toggle('u-hidden', !showPieControls);
+    });
+    if (!showPieControls) {
+        setPieEditorActive(false);
+    }
+    refreshDistributionPieControls();
 }
 
 function syncPostTypeSelector() {
@@ -219,16 +267,302 @@ function setupPostTypeControls() {
     select.addEventListener('change', () => {
         selectedPostType = POST_TYPE_OPTIONS.includes(select.value) ? select.value : 'top4';
         saveSelectedPostType();
-        if (!isTopFourPostType() && isPostTemplateEditorActive) {
-            setPostTemplateEditorActive(false);
-        }
         updateTemplateControlsVisibility();
         updatePostPreviewMeta();
         updateTemplateEditorButtons();
+        syncTemplateObjectSelect();
         if (tournamentDataForCanvas) {
             void drawPostCanvas();
         }
     });
+}
+
+function applyPostPreviewZoom() {
+    const wrap = document.getElementById('postCanvasWrap');
+    if (!wrap) return;
+    wrap.style.setProperty('--post-preview-zoom', String(postPreviewZoom));
+    if (isPostTemplateEditorActive) {
+        renderTemplateEditorOverlay();
+    }
+}
+
+function syncPostPreviewZoomSelector() {
+    const select = document.getElementById('postPreviewZoomSelect');
+    if (!select) return;
+    select.value = String(postPreviewZoom);
+}
+
+function setupPostPreviewZoomControl() {
+    const select = document.getElementById('postPreviewZoomSelect');
+    applyPostPreviewZoom();
+    if (!select) return;
+    syncPostPreviewZoomSelector();
+    select.addEventListener('change', () => {
+        const parsed = Number(select.value);
+        postPreviewZoom = Number.isFinite(parsed) && parsed >= 0.6 && parsed <= 1.1 ? parsed : 0.9;
+        savePostPreviewZoom();
+        applyPostPreviewZoom();
+    });
+}
+
+function setupCollapsibleSidebarSections() {
+    const sections = document.querySelectorAll('#postPreviewModal .sidebar-section');
+    sections.forEach((section) => {
+        const toggle = section.querySelector('.sidebar-section-toggle');
+        const content = section.querySelector('.sidebar-section-content');
+        if (!toggle || !content) return;
+        toggle.addEventListener('click', () => {
+            const isCollapsed = section.classList.toggle('is-collapsed');
+            toggle.setAttribute('aria-expanded', String(!isCollapsed));
+        });
+    });
+}
+
+function getDistributionDeckEntries() {
+    const results = Array.isArray(tournamentDataForCanvas?.allResults)
+        ? tournamentDataForCanvas.allResults
+        : [];
+    const grouped = new Map();
+    results.forEach((item) => {
+        const deck = String(item?.deck || 'Unknown Deck').trim() || 'Unknown Deck';
+        const placement = Number(item?.placement) || Number.MAX_SAFE_INTEGER;
+        if (!grouped.has(deck)) grouped.set(deck, { count: 0, firstPlacement: placement });
+        const current = grouped.get(deck);
+        current.count += 1;
+        current.firstPlacement = Math.min(current.firstPlacement, placement);
+    });
+    return Array.from(grouped.entries())
+        .map(([deck, info]) => ({ deck, count: info.count, firstPlacement: info.firstPlacement }))
+        .sort((a, b) => a.firstPlacement - b.firstPlacement || a.deck.localeCompare(b.deck));
+}
+
+function getCombinedDistributionPieState(data) {
+    return {
+        ...loadSavedPieStateForPost(data),
+        ...(distributionPieStateOverride || {})
+    };
+}
+
+function saveDistributionPieStateForPost(data) {
+    const key = String(data?.pieStateKey || data?.tournamentId || '').trim();
+    if (!key) return;
+    try {
+        const merged = getCombinedDistributionPieState(data);
+        localStorage.setItem(getPieStorageKey(key), JSON.stringify(merged));
+    } catch (_) {
+        // Ignore storage failures.
+    }
+}
+
+function refreshDistributionPieControls() {
+    const select = document.getElementById('templatePieSliceSelect');
+    const xInput = document.getElementById('templatePieXInput');
+    const yInput = document.getElementById('templatePieYInput');
+    const zoomInput = document.getElementById('templatePieZoomInput');
+    if (!select || !xInput || !yInput || !zoomInput) return;
+
+    const deckEntries = getDistributionDeckEntries();
+    const prevDeck = activeDistributionPieDeck;
+    select.innerHTML = '<option value="">Select deck...</option>';
+    deckEntries.forEach((entry) => {
+        const option = document.createElement('option');
+        option.value = entry.deck;
+        option.textContent = `${entry.deck} (${entry.count})`;
+        select.appendChild(option);
+    });
+
+    const availableDecks = new Set(deckEntries.map((entry) => entry.deck));
+    if (!availableDecks.has(activeDistributionPieDeck)) {
+        activeDistributionPieDeck = deckEntries[0]?.deck || '';
+    }
+    if (prevDeck && availableDecks.has(prevDeck)) {
+        activeDistributionPieDeck = prevDeck;
+    }
+    select.value = activeDistributionPieDeck;
+
+    const combinedState = getCombinedDistributionPieState(tournamentDataForCanvas);
+    const state = combinedState[activeDistributionPieDeck] || {};
+    const x = Number(state.x);
+    const y = Number(state.y);
+    const zoom = Number(state.zoom);
+    xInput.value = String(Number.isFinite(x) ? Math.round(x) : 50);
+    yInput.value = String(Number.isFinite(y) ? Math.round(y) : 13);
+    zoomInput.value = String(Number.isFinite(zoom) ? Math.round(zoom) : 195);
+
+    const disabled = !activeDistributionPieDeck || selectedPostType !== 'distribution_results';
+    xInput.disabled = disabled;
+    yInput.disabled = disabled;
+    zoomInput.disabled = disabled;
+    select.disabled = selectedPostType !== 'distribution_results';
+}
+
+function updateActivePieSliceStateFromInputs() {
+    const xInput = document.getElementById('templatePieXInput');
+    const yInput = document.getElementById('templatePieYInput');
+    const zoomInput = document.getElementById('templatePieZoomInput');
+    if (!xInput || !yInput || !zoomInput || !activeDistributionPieDeck) return;
+
+    const nextX = Math.max(-300, Math.min(300, Number(xInput.value)));
+    const nextY = Math.max(-300, Math.min(300, Number(yInput.value)));
+    const nextZoom = Math.max(120, Math.min(420, Number(zoomInput.value)));
+    distributionPieStateOverride[activeDistributionPieDeck] = {
+        x: Number.isFinite(nextX) ? nextX : 50,
+        y: Number.isFinite(nextY) ? nextY : 13,
+        zoom: Number.isFinite(nextZoom) ? nextZoom : 195
+    };
+    saveDistributionPieStateForPost(tournamentDataForCanvas);
+    drawPostCanvas();
+}
+
+function setupDistributionPieControls() {
+    const select = document.getElementById('templatePieSliceSelect');
+    const xInput = document.getElementById('templatePieXInput');
+    const yInput = document.getElementById('templatePieYInput');
+    const zoomInput = document.getElementById('templatePieZoomInput');
+    if (!select || !xInput || !yInput || !zoomInput) return;
+
+    select.addEventListener('change', () => {
+        activeDistributionPieDeck = select.value || '';
+        refreshDistributionPieControls();
+    });
+    [xInput, yInput, zoomInput].forEach((input) => {
+        input.addEventListener('input', updateActivePieSliceStateFromInputs);
+    });
+
+    refreshDistributionPieControls();
+}
+
+function setPieEditorActive(active) {
+    isPieEditorActive = Boolean(active) && selectedPostType === 'distribution_results';
+    const button = document.getElementById('btnPieEditorToggle');
+    const hint = document.getElementById('templatePieEditorHint');
+    const canvas = document.getElementById('postCanvas');
+    if (button) {
+        button.textContent = isPieEditorActive ? 'Close Pie Editor' : 'Open Pie Editor';
+        button.classList.toggle('is-active', isPieEditorActive);
+    }
+    if (hint) {
+        hint.classList.toggle('u-hidden', !isPieEditorActive);
+    }
+    if (canvas) {
+        canvas.style.cursor = isPieEditorActive ? 'grab' : '';
+    }
+}
+
+function getCanvasCoordinatesFromPointer(event) {
+    const canvas = document.getElementById('postCanvas');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+    };
+}
+
+function getDeckAtPiePoint(x, y) {
+    const state = lastDistributionPieRenderState;
+    if (!state) return '';
+    const dx = x - state.centerX;
+    const dy = y - state.centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > state.radius) return '';
+    let angle = Math.atan2(dy, dx);
+    if (angle < -Math.PI / 2) angle += Math.PI * 2;
+    const found = state.slices.find((slice) => {
+            let start = slice.start;
+            let end = slice.end;
+            if (start > end) end += Math.PI * 2;
+            const normalizedAngle = angle < start ? angle + Math.PI * 2 : angle;
+            return normalizedAngle >= start - 1e-6 && normalizedAngle <= end + 1e-6;
+        })?.deck;
+    return found || state.slices[state.slices.length - 1]?.deck || '';
+}
+
+function onDistributionPiePointerDown(event) {
+    if (selectedPostType !== 'distribution_results') return;
+    if (!isPieEditorActive && !isPostTemplateEditorActive) return;
+    const point = getCanvasCoordinatesFromPointer(event);
+    if (!point) return;
+    const deck = getDeckAtPiePoint(point.x, point.y);
+    if (!deck) return;
+
+    activeDistributionPieDeck = deck;
+    refreshDistributionPieControls();
+    const base = getCombinedDistributionPieState(tournamentDataForCanvas)[deck] || {
+        x: 50,
+        y: 13,
+        zoom: 195
+    };
+    distributionPieDragState = {
+        deck,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        baseX: Number(base.x) || 50,
+        baseY: Number(base.y) || 13
+    };
+    const canvas = document.getElementById('postCanvas');
+    if (canvas) canvas.style.cursor = 'grabbing';
+
+    window.addEventListener('pointermove', onDistributionPiePointerMove);
+    window.addEventListener('pointerup', stopDistributionPiePointerDrag);
+}
+
+function onDistributionPiePointerMove(event) {
+    if (!distributionPieDragState) return;
+    const deltaX = (event.clientX - distributionPieDragState.startClientX) * 0.2;
+    const deltaY = (event.clientY - distributionPieDragState.startClientY) * 0.2;
+    const nextX = Math.max(-300, Math.min(300, distributionPieDragState.baseX + deltaX));
+    const nextY = Math.max(-300, Math.min(300, distributionPieDragState.baseY + deltaY));
+    distributionPieStateOverride[distributionPieDragState.deck] = {
+        ...(distributionPieStateOverride[distributionPieDragState.deck] || {}),
+        x: nextX,
+        y: nextY,
+        zoom:
+            Number(distributionPieStateOverride[distributionPieDragState.deck]?.zoom) ||
+            Number(getCombinedDistributionPieState(tournamentDataForCanvas)[distributionPieDragState.deck]?.zoom) ||
+            195
+    };
+    saveDistributionPieStateForPost(tournamentDataForCanvas);
+    refreshDistributionPieControls();
+    drawPostCanvas();
+}
+
+function stopDistributionPiePointerDrag() {
+    if (!distributionPieDragState) return;
+    distributionPieDragState = null;
+    const canvas = document.getElementById('postCanvas');
+    if (canvas) canvas.style.cursor = isPieEditorActive ? 'grab' : '';
+    window.removeEventListener('pointermove', onDistributionPiePointerMove);
+    window.removeEventListener('pointerup', stopDistributionPiePointerDrag);
+}
+
+function onDistributionPieWheel(event) {
+    if (selectedPostType !== 'distribution_results') return;
+    if (!isPieEditorActive && !isPostTemplateEditorActive) return;
+    const point = getCanvasCoordinatesFromPointer(event);
+    if (!point) return;
+    const deck = getDeckAtPiePoint(point.x, point.y);
+    if (!deck) return;
+    event.preventDefault();
+    activeDistributionPieDeck = deck;
+    const currentState = getCombinedDistributionPieState(tournamentDataForCanvas)[deck] || {
+        x: 50,
+        y: 13,
+        zoom: 195
+    };
+    let zoom = Number(currentState.zoom) || 195;
+    zoom += event.deltaY < 0 ? 8 : -8;
+    zoom = Math.max(120, Math.min(420, zoom));
+    distributionPieStateOverride[deck] = {
+        x: Number(currentState.x) || 50,
+        y: Number(currentState.y) || 13,
+        zoom
+    };
+    saveDistributionPieStateForPost(tournamentDataForCanvas);
+    refreshDistributionPieControls();
+    drawPostCanvas();
 }
 
 function getCustomBackgrounds() {
@@ -582,10 +916,10 @@ async function displayTournament() {
 
         const tournamentPromise = window.supabaseApi
             ? window.supabaseApi.get(
-                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`
+                  `/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=id,store_id,tournament_date,tournament_name,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`
               )
             : fetch(
-                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=tournament_name,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`,
+                  `${SUPABASE_URL}/rest/v1/tournament?store_id=eq.${currentStore}&tournament_date=eq.${currentDate}&select=id,store_id,tournament_date,tournament_name,format_id,format_ref:formats!tournament_format_id_fkey(code)&order=created_at.desc&limit=1`,
                   { headers }
               );
 
@@ -598,6 +932,7 @@ async function displayTournament() {
         const tournamentRows = await tournamentRes.json();
         const tournamentName = tournamentRows?.[0]?.tournament_name || 'SEMANAL';
         const tournamentFormat = tournamentRows?.[0]?.format_ref?.code || '';
+        const tournamentId = String(tournamentRows?.[0]?.id || '');
 
         if (!results || results.length === 0) {
             clearDisplay();
@@ -620,6 +955,10 @@ async function displayTournament() {
                 storeName: storeName,
                 tournamentName: tournamentName,
                 format: tournamentFormat,
+                tournamentId,
+                storeId: String(currentStore || ''),
+                tournamentDate: String(currentDate || ''),
+                pieStateKey: tournamentId || `${String(currentStore || '')}-${String(currentDate || '')}`,
                 dateStr: dateStr,
                 totalPlayers: totalPlayers,
                 allResults: results
@@ -782,6 +1121,8 @@ function setupModalActionButtons() {
     const btnSavePreset = document.getElementById('btnSavePreset');
     const btnLoadPreset = document.getElementById('btnLoadPreset');
     const btnDeletePreset = document.getElementById('btnDeletePreset');
+    const btnPieEditorToggle = document.getElementById('btnPieEditorToggle');
+    const postCanvas = document.getElementById('postCanvas');
 
     if (generatePostBtn) {
         generatePostBtn.addEventListener('click', onGeneratePostAction);
@@ -810,6 +1151,15 @@ function setupModalActionButtons() {
     }
     if (btnDeletePreset) {
         btnDeletePreset.addEventListener('click', deleteSelectedLayoutPreset);
+    }
+    if (btnPieEditorToggle) {
+        btnPieEditorToggle.addEventListener('click', () => {
+            setPieEditorActive(!isPieEditorActive);
+        });
+    }
+    if (postCanvas) {
+        postCanvas.addEventListener('pointerdown', onDistributionPiePointerDown);
+        postCanvas.addEventListener('wheel', onDistributionPieWheel, { passive: false });
     }
     window.addEventListener('resize', () => {
         if (isPostTemplateEditorActive) {
@@ -995,30 +1345,39 @@ function syncPodiumGapControl() {
 function setupTemplateObjectControls() {
     const select = document.getElementById('templateObjectSelect');
     if (!select) return;
-    let previousValue = activeTemplateHandleKey;
     select.addEventListener('change', () => {
         const nextValue = select.value;
-        if (nextValue === previousValue) return;
-        const confirmed = window.confirm(
-            `Switch selected object from "${previousValue}" to "${nextValue}"?`
-        );
-        if (!confirmed) {
-            select.value = previousValue;
-            return;
-        }
+        if (nextValue === activeTemplateHandleKey) return;
         activeTemplateHandleKey = nextValue;
-        previousValue = nextValue;
         syncPodiumGapControl();
         renderTemplateEditorOverlay();
     });
-    select.value = activeTemplateHandleKey;
+    syncTemplateObjectSelect();
 }
 
 function syncTemplateObjectSelect() {
     const select = document.getElementById('templateObjectSelect');
     if (!select) return;
+    const allowedKeys = getAvailableTemplateObjectKeys();
+    [...select.options].forEach((option) => {
+        option.hidden = !allowedKeys.includes(option.value);
+    });
+    if (!allowedKeys.includes(activeTemplateHandleKey)) {
+        activeTemplateHandleKey = allowedKeys[0] || 'title';
+    }
     select.value = activeTemplateHandleKey;
     syncPodiumGapControl();
+}
+
+function getAvailableTemplateObjectKeys() {
+    const shared = ['logo', 'title', 'store', 'handle'];
+    if (selectedPostType === 'distribution_results') {
+        return [...shared, 'distDeckCard', 'distResultsCard', 'distPie'];
+    }
+    if (selectedPostType === 'blank_middle') {
+        return shared;
+    }
+    return [...shared, 'rows', 'trophy', 'podiumNumber', 'avatar', 'rowText'];
 }
 
 function setupTemplateKeyboardControls() {
@@ -1052,10 +1411,6 @@ function setupTemplateKeyboardControls() {
 }
 
 function onPostTemplateEditAction() {
-    if (!isTopFourPostType()) {
-        alert('Template editor is available only for Top 4 post type.');
-        return;
-    }
     if (isTemplateEditorPage()) {
         togglePostTemplateEditor();
         return;
@@ -1325,8 +1680,12 @@ function adjustPodiumGap(delta) {
 
 function setTournamentDataForCanvas(data) {
     tournamentDataForCanvas = data || null;
+    distributionPieStateOverride = {};
+    activeDistributionPieDeck = '';
+    setPieEditorActive(false);
     syncPostTypeSelector();
     updateTemplateControlsVisibility();
+    refreshDistributionPieControls();
     updatePostPreviewMeta();
     const generatePostBtn = document.getElementById('generatePostBtn');
     if (generatePostBtn) {
@@ -1364,6 +1723,9 @@ async function openPostPreview() {
     }
     syncTypographyControls();
     syncPodiumGapControl();
+    syncPostPreviewZoomSelector();
+    applyPostPreviewZoom();
+    refreshDistributionPieControls();
     updateTemplateEditorButtons();
     if (isPostTemplateEditorActive) {
         renderTemplateEditorOverlay();
@@ -1469,8 +1831,10 @@ async function drawPostCanvas() {
     if (selectedPostType === 'distribution_results') {
         await drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas, layout);
     } else if (selectedPostType === 'blank_middle') {
+        lastDistributionPieRenderState = null;
         drawBlankMiddleContent(ctx, width, height, layout);
     } else {
+        lastDistributionPieRenderState = null;
         const rows = (tournamentDataForCanvas.topFour || []).slice(0, 4);
         const trophyAsset = await loadFirstAvailableAsset(TROPHY_ICON_CANDIDATES);
         const startY = layout.rows.startY;
@@ -1900,6 +2264,36 @@ function drawImageCoverInCircle(ctx, image, centerX, centerY, radius) {
     ctx.restore();
 }
 
+function drawImageCoverInCircleWithPosition(
+    ctx,
+    image,
+    centerX,
+    centerY,
+    radius,
+    zoomPct = 190,
+    xPct = 50,
+    yPct = 11
+) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.clip();
+
+    const size = radius * 2;
+    const coverScale = Math.max(size / image.width, size / image.height);
+    const scale = coverScale * Math.max(1, Number(zoomPct || 190) / 100);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const freeX = size - drawWidth;
+    const freeY = size - drawHeight;
+    const posX = Number.isFinite(Number(xPct)) ? Number(xPct) / 100 : 0.5;
+    const posY = Number.isFinite(Number(yPct)) ? Number(yPct) / 100 : 0.11;
+    const dx = centerX - radius + freeX * posX;
+    const dy = centerY - radius + freeY * posY;
+    ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+    ctx.restore();
+}
+
 function drawStoreBadge(ctx, x, y, w, h, color) {
     const r = 18;
     const notch = 14;
@@ -1976,9 +2370,8 @@ function resetPostTemplateLayout() {
 
 function togglePostTemplateEditor() {
     if (!tournamentDataForCanvas) return;
-    if (!isTopFourPostType()) return;
     setPostTemplateEditorActive(!isPostTemplateEditorActive);
-    if (isPostTemplateEditorActive && isTopFourPostType()) {
+    if (isPostTemplateEditorActive) {
         renderTemplateEditorOverlay();
     }
 }
@@ -2003,12 +2396,160 @@ function getDeckDistributionRows(results) {
     return Array.from(map.values()).sort((a, b) => b.count - a.count || a.deck.localeCompare(b.deck));
 }
 
+function buildDeckPieDataForCanvas(results) {
+    const grouped = new Map();
+    (results || []).forEach((item) => {
+        const key = String(item?.deck || 'Unknown Deck') || 'Unknown Deck';
+        const placement = Number(item?.placement) || Number.MAX_SAFE_INTEGER;
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                deck: key,
+                image_url: String(item?.image_url || '').trim(),
+                count: 0,
+                firstPlacement: placement
+            });
+        }
+        const current = grouped.get(key);
+        current.count += 1;
+        current.firstPlacement = Math.min(current.firstPlacement, placement);
+        if (!current.image_url && item?.image_url) {
+            current.image_url = String(item.image_url).trim();
+        }
+    });
+
+    const entries = Array.from(grouped.values()).sort(
+        (a, b) => a.firstPlacement - b.firstPlacement || a.deck.localeCompare(b.deck)
+    );
+    const total = entries.reduce((acc, item) => acc + item.count, 0) || 1;
+    const colors = ['#ffd700', '#c0c0c0', '#cd7f32', '#268d7c', '#667eea', '#764ba2', '#2a9d8f', '#e76f51', '#8ab17d', '#3d5a80'];
+
+    const fullStart = -Math.PI / 2;
+    const fullEnd = fullStart + Math.PI * 2;
+    let currentAngle = fullStart;
+    return entries.map((entry, index) => {
+        const ratio = entry.count / total;
+        const sliceAngle = ratio * Math.PI * 2;
+        const start = currentAngle;
+        const isLast = index === entries.length - 1;
+        const end = isLast ? fullEnd : currentAngle + sliceAngle;
+        currentAngle = end;
+        const mid = (start + end) / 2;
+
+        const percent = ratio * 100;
+        const zoomPct = Math.max(155, Math.min(320, 155 + percent * 3.2));
+        const xPct = Math.max(34, Math.min(66, 50 - Math.cos(mid) * 12));
+        const yPct = Math.max(4, Math.min(24, 13 - Math.sin(mid) * 4));
+
+        return {
+            deck: entry.deck,
+            count: entry.count,
+            color: colors[index % colors.length],
+            image_url: entry.image_url,
+            start,
+            end,
+            zoomPct,
+            xPct,
+            yPct
+        };
+    });
+}
+
+function getPieStorageKey(tournamentId) {
+    return `pieState:${tournamentId}`;
+}
+
+function loadSavedPieStateForPost(data) {
+    const directKey = String(data?.pieStateKey || '').trim();
+    const tournamentId = String(data?.tournamentId || '').trim();
+    const storeId = String(data?.storeId || '').trim();
+    const tournamentDate = String(data?.tournamentDate || '').trim();
+    const fallbackComposite = storeId && tournamentDate ? `${storeId}-${tournamentDate}` : '';
+    const keys = [directKey, tournamentId, fallbackComposite].filter(Boolean);
+
+    for (const key of keys) {
+        try {
+            const raw = localStorage.getItem(getPieStorageKey(key));
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                return parsed;
+            }
+        } catch (_) {
+            // Ignore invalid state and keep trying other keys.
+        }
+    }
+    return {};
+}
+
 function getResultRowStyle(placement) {
-    if (placement === 1) return { fill: 'rgba(255,215,0,0.38)', stroke: '#c99a2e' };
-    if (placement === 2) return { fill: 'rgba(192,192,192,0.36)', stroke: '#9497a1' };
-    if (placement === 3) return { fill: 'rgba(205,127,50,0.34)', stroke: '#a85d2f' };
-    if (placement === 4) return { fill: 'rgba(77,191,159,0.32)', stroke: '#4dbf9f' };
-    return { fill: 'rgba(173,186,230,0.28)', stroke: '#8292cf' };
+    if (placement === 1) {
+        return {
+            rowStart: '#fff8d4',
+            rowEnd: '#ffe58a',
+            rowStroke: 'rgba(198, 141, 0, 0.45)',
+            badgeStart: '#fff8cc',
+            badgeMid: '#ffd447',
+            badgeEnd: '#c68d00',
+            badgeStroke: 'rgba(144, 102, 0, 0.5)',
+            deckColor: '#161b26',
+            playerColor: '#1f2430',
+            badgeColor: '#4a3900'
+        };
+    }
+    if (placement === 2) {
+        return {
+            rowStart: '#f8fafc',
+            rowEnd: '#d4dbe6',
+            rowStroke: 'rgba(141, 153, 171, 0.45)',
+            badgeStart: '#f6f8fb',
+            badgeMid: '#c6cdd8',
+            badgeEnd: '#8d99ab',
+            badgeStroke: 'rgba(84, 90, 102, 0.45)',
+            deckColor: '#161b26',
+            playerColor: '#1f2430',
+            badgeColor: '#2f333a'
+        };
+    }
+    if (placement === 3) {
+        return {
+            rowStart: '#f7d9c2',
+            rowEnd: '#d29a72',
+            rowStroke: 'rgba(134, 71, 31, 0.48)',
+            badgeStart: '#f3ccb0',
+            badgeMid: '#c7814d',
+            badgeEnd: '#86471f',
+            badgeStroke: 'rgba(97, 52, 21, 0.55)',
+            deckColor: '#161b26',
+            playerColor: '#1f2430',
+            badgeColor: '#ffffff'
+        };
+    }
+    if (placement === 4) {
+        return {
+            rowStart: '#d7f3ee',
+            rowEnd: '#8ad2c4',
+            rowStroke: 'rgba(27, 107, 95, 0.45)',
+            badgeStart: '#bfeee6',
+            badgeMid: '#3da996',
+            badgeEnd: '#1b6b5f',
+            badgeStroke: 'rgba(18, 82, 72, 0.55)',
+            deckColor: '#161b26',
+            playerColor: '#1f2430',
+            badgeColor: '#ffffff'
+        };
+    }
+    return {
+        rowStart: '#f8f9fd',
+        rowEnd: '#edf1fb',
+        rowStroke: 'rgba(114, 127, 173, 0.35)',
+        badgeStart: '#f1f4ff',
+        badgeMid: '#c5d1ff',
+        badgeEnd: '#8ca4f2',
+        badgeStroke: 'rgba(77, 96, 168, 0.45)',
+        deckColor: '#161b26',
+        playerColor: '#1f2430',
+        badgeColor: '#132157'
+    };
 }
 
 function getMiddlePanelRect(layout, width, height) {
@@ -2034,163 +2575,221 @@ function getMiddlePanelRect(layout, width, height) {
     };
 }
 
-async function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
+function getDistributionGeometry(layout, width, height) {
     const panelRect = getMiddlePanelRect(layout, width, height);
+    const dist = layout?.distribution || {};
+    const inset = Math.max(8, Number(dist?.panel?.inset) || 16);
+    const gutter = Math.max(8, Number(dist?.cards?.gutter) || 14);
+    const leftRatio = Math.max(0.38, Math.min(0.68, Number(dist?.cards?.leftRatio) || 0.54));
+
+    const cardX = panelRect.x + inset;
+    const cardY = panelRect.y + inset;
+    const cardW = panelRect.w - inset * 2;
+    const cardH = panelRect.h - inset * 2;
+
+    const leftCardW = Math.round(cardW * leftRatio);
+    const rightCardW = cardW - leftCardW - gutter;
+    const leftCardX = cardX + Math.round(Number(dist?.deckCard?.x) || 0);
+    const leftCardY = cardY + Math.round(Number(dist?.deckCard?.y) || 0);
+    const rightCardX = leftCardX + leftCardW + gutter + Math.round(Number(dist?.resultsCard?.x) || 0);
+    const rightCardY = cardY + Math.round(Number(dist?.resultsCard?.y) || 0);
+
+    const defaultPieX = leftCardX + leftCardW / 2;
+    const defaultPieY = leftCardY + Math.round(cardH * 0.35);
+    const defaultPieRadius = Math.round(Math.min(leftCardW, cardH) * 0.24);
+    const pieX = Math.round(defaultPieX + (Number(dist?.pie?.x) || 0));
+    const pieY = Math.round(defaultPieY + (Number(dist?.pie?.y) || 0));
+    const pieRadius = Math.max(64, Math.round(Number(dist?.pie?.radius) || defaultPieRadius));
+
+    const resultsOffsetX = Math.round(Number(dist?.results?.x) || 0);
+    const resultsOffsetY = Math.round(Number(dist?.results?.y) || 0);
+    const resultsWidthDelta = Math.round(Number(dist?.results?.width) || 0);
+
+    return {
+        panelRect,
+        leftCard: { x: leftCardX, y: leftCardY, w: leftCardW, h: cardH },
+        rightCard: { x: rightCardX, y: rightCardY, w: rightCardW, h: cardH },
+        pie: { x: pieX, y: pieY, radius: pieRadius },
+        results: { x: resultsOffsetX, y: resultsOffsetY, width: resultsWidthDelta }
+    };
+}
+
+async function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
+    const geometry = getDistributionGeometry(layout, width, height);
+    const panelRect = geometry.panelRect;
     const panelX = panelRect.x;
     const panelY = panelRect.y;
     const panelW = panelRect.w;
     const panelH = panelRect.h;
-    drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.58)');
-
-    const pieCardX = panelX + 24;
-    const pieCardY = panelY + 24;
-    const pieCardW = 444;
-    const pieCardH = panelH - 48;
-    drawRoundedRect(ctx, pieCardX, pieCardY, pieCardW, pieCardH, 24, 'rgba(15,48,106,0.10)');
-
-    const listCardX = pieCardX + pieCardW + 24;
-    const listCardY = pieCardY;
-    const listCardW = panelW - (listCardX - panelX) - 24;
-    const listCardH = pieCardH;
-    drawRoundedRect(ctx, listCardX, listCardY, listCardW, listCardH, 24, 'rgba(15,48,106,0.10)');
-
-    ctx.fillStyle = '#184fae';
-    ctx.textAlign = 'left';
-    const sectionTitleSize = Math.max(30, Math.round((layout?.typography?.deckSize || 62) * 0.65));
-    ctx.font = `900 ${sectionTitleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-    ctx.fillText('DECK DISTRIBUTION', pieCardX + 26, pieCardY + 54);
-    ctx.fillText('FULL RESULTS', listCardX + 26, listCardY + 54);
+    drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 26, 'rgba(255,255,255,0.84)');
 
     const allResults = (data?.allResults || [])
         .map((item) => ({
             placement: Number(item?.placement) || 0,
             deck: String(item?.deck || 'Unknown'),
-            player: String(item?.player || '-')
+            player: String(item?.player || '-'),
+            image_url: String(item?.image_url || '').trim()
         }))
         .sort((a, b) => a.placement - b.placement);
-    const distributionRows = getDeckDistributionRows(allResults);
-    const pieRows = distributionRows.slice(0, 8);
-    const total = pieRows.reduce((sum, row) => sum + row.count, 0) || 1;
-    const colors = [
-        '#2f6ecb',
-        '#ff6b6b',
-        '#ffd166',
-        '#06d6a0',
-        '#9b5de5',
-        '#118ab2',
-        '#f8961e',
-        '#43aa8b'
-    ];
 
-    const centerX = pieCardX + pieCardW / 2;
-    const centerY = pieCardY + Math.min(230, Math.max(190, pieCardH * 0.32));
-    const radius = Math.min(142, Math.max(110, pieCardW * 0.31));
+    const leftCardX = geometry.leftCard.x;
+    const leftCardY = geometry.leftCard.y;
+    const leftCardW = geometry.leftCard.w;
+    const leftCardH = geometry.leftCard.h;
+    const rightCardX = geometry.rightCard.x;
+    const rightCardY = geometry.rightCard.y;
+    const rightCardW = geometry.rightCard.w;
+    const rightCardH = geometry.rightCard.h;
+
+    drawRoundedRect(ctx, leftCardX, leftCardY, leftCardW, leftCardH, 14, '#f3f4f7', '#d7dce8', 1.2);
+    drawRoundedRect(ctx, rightCardX, rightCardY, rightCardW, rightCardH, 14, '#f3f4f7', '#d7dce8', 1.2);
+
+    const titleY = leftCardY + 40;
+    ctx.fillStyle = '#0b0f19';
+    ctx.textAlign = 'left';
+    const sectionTitleSize = Math.max(34, Math.round((layout?.typography?.deckSize || 62) * 0.56));
+    ctx.font = `700 ${sectionTitleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    ctx.fillText('Deck Distribution', leftCardX + 20, titleY);
+    ctx.fillText('Full Results', rightCardX + 20, titleY);
+
+    ctx.strokeStyle = '#d7dce8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftCardX + 10, leftCardY + 56);
+    ctx.lineTo(leftCardX + leftCardW - 10, leftCardY + 56);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(rightCardX + 10, rightCardY + 56);
+    ctx.lineTo(rightCardX + rightCardW - 10, rightCardY + 56);
+    ctx.stroke();
+
+    const savedPieState = getCombinedDistributionPieState(data);
+    const pieRows = buildDeckPieDataForCanvas(allResults).map((row) => {
+            const saved = savedPieState?.[row.deck];
+            if (!saved) return row;
+            const savedX = Number(saved.x);
+            const savedY = Number(saved.y);
+            const savedZoom = Number(saved.zoom);
+            return {
+                ...row,
+                xPct: Number.isFinite(savedX) ? Math.max(-300, Math.min(300, savedX)) : row.xPct,
+                yPct: Number.isFinite(savedY) ? Math.max(-300, Math.min(300, savedY)) : row.yPct,
+                zoomPct: Number.isFinite(savedZoom) ? Math.max(120, Math.min(420, savedZoom)) : row.zoomPct
+            };
+        });
+    const centerX = geometry.pie.x;
+    const centerY = geometry.pie.y;
+    const radius = geometry.pie.radius;
+    lastDistributionPieRenderState = {
+        centerX,
+        centerY,
+        radius,
+        slices: pieRows.map((row) => ({ deck: row.deck, start: row.start, end: row.end }))
+    };
     const fallbackImage = (deckName) =>
         `https://via.placeholder.com/420x420/5f75b9/ffffff?text=${encodeURIComponent(String(deckName || 'Deck').slice(0, 10))}`;
     const pieImages = await Promise.all(
         pieRows.map((row) => loadImage(row.image_url || fallbackImage(row.deck)))
     );
-    let angle = -Math.PI / 2;
+
     pieRows.forEach((row, index) => {
-        const slice = (row.count / total) * Math.PI * 2;
-        const sliceStart = angle;
-        const sliceEnd = angle + slice;
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, sliceStart, sliceEnd);
+        ctx.arc(centerX, centerY, radius, row.start, row.end);
         ctx.closePath();
         ctx.clip();
 
         const image = pieImages[index];
         if (image) {
-            drawImageCover(ctx, image, centerX - radius, centerY - radius, radius * 2, radius * 2);
+            drawImageCoverInCircleWithPosition(
+                ctx,
+                image,
+                centerX,
+                centerY,
+                radius,
+                row.zoomPct,
+                row.xPct,
+                row.yPct
+            );
         } else {
-            ctx.fillStyle = colors[index % colors.length];
+            ctx.fillStyle = row.color;
             ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
         }
         ctx.restore();
 
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, sliceStart, sliceEnd);
+        ctx.arc(centerX, centerY, radius, row.start, row.end);
         ctx.closePath();
         ctx.lineWidth = 2;
         ctx.strokeStyle = 'rgba(255,255,255,0.88)';
         ctx.stroke();
-
-        angle += slice;
     });
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, radius + 4, 0, Math.PI * 2);
     ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.strokeStyle = '#ffffff';
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 66, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.fill();
-    ctx.fillStyle = '#184fae';
-    ctx.textAlign = 'center';
-    ctx.font = `900 ${sectionTitleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-    ctx.fillText(String(allResults.length || 0), centerX, centerY + 14);
+    ctx.arc(centerX, centerY, radius + 1, 0, Math.PI * 2);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#d3d8e5';
+    ctx.stroke();
 
-    const legendStartY = centerY + 190;
-    ctx.textAlign = 'left';
-    const legendFontSize = Math.max(20, Math.round((layout?.typography?.playerSize || 54) * 0.48));
-    ctx.font = `700 ${legendFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-    pieRows.forEach((row, index) => {
-        const y = legendStartY + index * 38;
-        if (y > pieCardY + pieCardH - 22) return;
-        ctx.fillStyle = colors[index % colors.length];
-        ctx.fillRect(pieCardX + 26, y - 18, 20, 20);
-        ctx.fillStyle = '#0f2f63';
-        const label = `${row.deck} (${row.count})`;
-        ctx.fillText(label.slice(0, 26), pieCardX + 54, y);
-    });
-
-    ctx.fillStyle = '#0f2f63';
-    const listFontSize = Math.max(20, Math.round((layout?.typography?.playerSize || 54) * 0.5));
-    ctx.font = `700 ${listFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-    const maxRows = 24;
-    const rowStartY = listCardY + 96;
-    const rowGap = Math.max(26, Math.round(listFontSize * 1.3));
+    const listDeckFontSize = Math.max(22, Math.round((layout?.typography?.deckSize || 62) * 0.36));
+    const rowHeight = Math.max(46, Math.round(listDeckFontSize * 1.2));
+    const rowGap = 8;
+    const rowStartY = rightCardY + 70 + geometry.results.y;
+    const rowX = rightCardX + 10 + geometry.results.x;
+    const rowW = Math.max(180, rightCardW - 20 + geometry.results.width);
+    const maxRows = Math.max(1, Math.floor((rightCardH - 78 + rowGap) / (rowHeight + rowGap)));
     allResults.slice(0, maxRows).forEach((row, index) => {
-        const y = rowStartY + index * rowGap;
-        if (y > listCardY + listCardH - 20) return;
+        const rowY = rowStartY + index * (rowHeight + rowGap);
+        if (rowY + rowHeight > rightCardY + rightCardH - 10) return;
 
         const rowStyle = getResultRowStyle(row.placement);
-        const rowHeight = Math.max(24, Math.round(listFontSize * 1.18));
-        const rowY = y - rowHeight + 8;
+        const rowGradient = ctx.createLinearGradient(rowX, rowY, rowX + rowW, rowY + rowHeight);
+        rowGradient.addColorStop(0, rowStyle.rowStart);
+        rowGradient.addColorStop(1, rowStyle.rowEnd);
         drawRoundedRect(
             ctx,
-            listCardX + 20,
+            rowX,
             rowY,
-            listCardW - 40,
+            rowW,
             rowHeight,
-            10,
-            rowStyle.fill,
-            rowStyle.stroke,
+            8,
+            rowGradient,
+            rowStyle.rowStroke,
             1.2
         );
 
-        const left = `${String(row.placement).padStart(2, '0')}. ${row.player}`;
-        const right = row.deck;
+        const badgeW = 42;
+        const badgeH = rowHeight - 12;
+        const badgeX = rowX + 6;
+        const badgeY = rowY + 6;
+        const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH);
+        badgeGradient.addColorStop(0, rowStyle.badgeStart);
+        badgeGradient.addColorStop(0.46, rowStyle.badgeMid);
+        badgeGradient.addColorStop(1, rowStyle.badgeEnd);
+        drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 14, badgeGradient, rowStyle.badgeStroke, 1);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = rowStyle.badgeColor;
+        ctx.font = `700 ${Math.max(14, Math.round(listDeckFontSize * 0.52))}px "Barlow Condensed", "Segoe UI", sans-serif`;
+        ctx.fillText(formatPlacementLabel(row.placement || index + 1), badgeX + badgeW / 2, badgeY + badgeH / 2 + 5);
+
+        const textX = badgeX + badgeW + 12;
         ctx.textAlign = 'left';
-        ctx.fillText(left.slice(0, 20), listCardX + 30, y);
-        ctx.textAlign = 'right';
-        ctx.fillText(right.slice(0, 18), listCardX + listCardW - 30, y);
+        ctx.fillStyle = rowStyle.deckColor;
+        ctx.font = `700 ${listDeckFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+        ctx.fillText(String(row.deck || 'Unknown').slice(0, 24), textX, rowY + Math.round(rowHeight * 0.62));
     });
 }
 
 function drawBlankMiddleContent(ctx, width, height, layout) {
-    const panelRect = getMiddlePanelRect(layout, width, height);
-    const panelX = panelRect.x;
-    const panelY = panelRect.y;
-    const panelW = panelRect.w;
-    const panelH = panelRect.h;
-    drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 30, 'rgba(255,255,255,0.52)');
+    if (!ctx || !layout || width <= 0 || height <= 0) return;
+    // Keep this mode visually clean so the middle area stays transparent over the background.
 }
 
 function setPostTemplateEditorActive(active) {
@@ -2209,13 +2808,6 @@ function setPostTemplateEditorActive(active) {
 function updateTemplateEditorButtons() {
     const btn = document.getElementById('btnPostTemplateEdit');
     if (!btn) return;
-    const enabled = isTopFourPostType();
-    btn.disabled = !enabled;
-    if (!enabled) {
-        btn.textContent = 'Edit Template (Top 4 only)';
-        btn.classList.remove('is-active');
-        return;
-    }
     btn.textContent = isPostTemplateEditorActive ? 'Finish Editing' : 'Edit Template';
     btn.classList.toggle('is-active', isPostTemplateEditorActive);
 }
@@ -2265,6 +2857,105 @@ function renderTemplateEditorOverlay() {
 }
 
 function getTemplateEditorHandles() {
+    if (selectedPostType === 'distribution_results') {
+        const geometry = getDistributionGeometry(postLayout, 1080, 1350);
+        return [
+            {
+                key: 'logo',
+                label: 'Logo',
+                x: postLayout.logo.x,
+                y: postLayout.logo.y,
+                w: postLayout.logo.w,
+                h: postLayout.logo.h
+            },
+            {
+                key: 'title',
+                label: 'Title/Date',
+                x: postLayout.title.x,
+                y: postLayout.title.y,
+                w: postLayout.title.w,
+                h: postLayout.title.h
+            },
+            {
+                key: 'distDeckCard',
+                label: 'Deck Distribution Card',
+                x: geometry.leftCard.x,
+                y: geometry.leftCard.y,
+                w: geometry.leftCard.w,
+                h: geometry.leftCard.h
+            },
+            {
+                key: 'distResultsCard',
+                label: 'Full Results Card',
+                x: geometry.rightCard.x,
+                y: geometry.rightCard.y,
+                w: geometry.rightCard.w,
+                h: geometry.rightCard.h
+            },
+            {
+                key: 'distPie',
+                label: 'Distribution Pie',
+                x: geometry.pie.x - geometry.pie.radius,
+                y: geometry.pie.y - geometry.pie.radius,
+                w: geometry.pie.radius * 2,
+                h: geometry.pie.radius * 2
+            },
+            {
+                key: 'store',
+                label: 'Store Logo',
+                x: postLayout.store.x,
+                y: postLayout.store.y,
+                w: postLayout.store.w,
+                h: postLayout.store.h
+            },
+            {
+                key: 'handle',
+                label: '@digimoncwb',
+                x: postLayout.handle.x - 280,
+                y: postLayout.handle.y - 52,
+                w: 280,
+                h: 62
+            }
+        ];
+    }
+
+    if (selectedPostType === 'blank_middle') {
+        return [
+            {
+                key: 'logo',
+                label: 'Logo',
+                x: postLayout.logo.x,
+                y: postLayout.logo.y,
+                w: postLayout.logo.w,
+                h: postLayout.logo.h
+            },
+            {
+                key: 'title',
+                label: 'Title/Date',
+                x: postLayout.title.x,
+                y: postLayout.title.y,
+                w: postLayout.title.w,
+                h: postLayout.title.h
+            },
+            {
+                key: 'store',
+                label: 'Store Logo',
+                x: postLayout.store.x,
+                y: postLayout.store.y,
+                w: postLayout.store.w,
+                h: postLayout.store.h
+            },
+            {
+                key: 'handle',
+                label: '@digimoncwb',
+                x: postLayout.handle.x - 280,
+                y: postLayout.handle.y - 52,
+                w: 280,
+                h: 62
+            }
+        ];
+    }
+
     const rowsHeight = postLayout.rows.rowHeight * 4 + postLayout.rows.rowGap * 3;
     const rowX = postLayout.rows.x;
     const rowY = postLayout.rows.startY;
@@ -2404,6 +3095,30 @@ function stopTemplateHandleDrag() {
 }
 
 function getHandleOrigin(key) {
+    if (selectedPostType === 'distribution_results') {
+        const geometry = getDistributionGeometry(postLayout, 1080, 1350);
+        switch (key) {
+            case 'logo':
+                return { x: postLayout.logo.x, y: postLayout.logo.y };
+            case 'title':
+                return { x: postLayout.title.x, y: postLayout.title.y };
+            case 'distPanel':
+                return { x: geometry.panelRect.x, y: geometry.panelRect.y };
+            case 'distDeckCard':
+                return { x: geometry.leftCard.x, y: geometry.leftCard.y };
+            case 'distResultsCard':
+                return { x: geometry.rightCard.x, y: geometry.rightCard.y };
+            case 'distPie':
+                return { x: geometry.pie.x - geometry.pie.radius, y: geometry.pie.y - geometry.pie.radius };
+            case 'store':
+                return { x: postLayout.store.x, y: postLayout.store.y };
+            case 'handle':
+                return { x: postLayout.handle.x - 280, y: postLayout.handle.y - 52 };
+            default:
+                return { x: 0, y: 0 };
+        }
+    }
+
     const rowX = postLayout.rows.x;
     const rowY = postLayout.rows.startY;
     const rowW = postLayout.rows.w;
@@ -2449,6 +3164,55 @@ function getHandleOrigin(key) {
 }
 
 function updateHandleOrigin(key, x, y) {
+    if (selectedPostType === 'distribution_results') {
+        const layoutDist = (postLayout.distribution ||= {
+            panel: { inset: 16 },
+            cards: { leftRatio: 0.54, gutter: 14 },
+            deckCard: { x: 0, y: 0 },
+            resultsCard: { x: 0, y: 0 },
+            pie: { x: 0, y: 0, radius: 0 },
+            results: { x: 0, y: 0, width: 0 }
+        });
+        const geometry = getDistributionGeometry(postLayout, 1080, 1350);
+        switch (key) {
+            case 'logo':
+                postLayout.logo.x = x;
+                postLayout.logo.y = y;
+                return;
+            case 'title':
+                postLayout.title.x = x;
+                postLayout.title.y = y;
+                return;
+            case 'distPanel': {
+                const base = getMiddlePanelRect(postLayout, 1080, 1350);
+                layoutDist.panel.inset = Math.max(8, Math.round(x - base.x));
+                return;
+            }
+            case 'distDeckCard':
+                layoutDist.deckCard.x = Math.round(x - geometry.leftCard.x + (layoutDist.deckCard.x || 0));
+                layoutDist.deckCard.y = Math.round(y - geometry.leftCard.y + (layoutDist.deckCard.y || 0));
+                return;
+            case 'distResultsCard':
+                layoutDist.resultsCard.x = Math.round(x - geometry.rightCard.x + (layoutDist.resultsCard.x || 0));
+                layoutDist.resultsCard.y = Math.round(y - geometry.rightCard.y + (layoutDist.resultsCard.y || 0));
+                return;
+            case 'distPie':
+                layoutDist.pie.x = Math.round(x + geometry.pie.radius - (geometry.leftCard.x + geometry.leftCard.w / 2));
+                layoutDist.pie.y = Math.round(y + geometry.pie.radius - (geometry.leftCard.y + Math.round(geometry.leftCard.h * 0.35)));
+                return;
+            case 'store':
+                postLayout.store.x = x;
+                postLayout.store.y = y;
+                return;
+            case 'handle':
+                postLayout.handle.x = x + 280;
+                postLayout.handle.y = y + 52;
+                return;
+            default:
+                return;
+        }
+    }
+
     const rowX = postLayout.rows.x;
     const rowY = postLayout.rows.startY;
     const rowW = postLayout.rows.w;
@@ -2503,6 +3267,40 @@ function updateHandleOrigin(key, x, y) {
 }
 
 function getTemplateHandleRect(key) {
+    if (selectedPostType === 'distribution_results') {
+        const geometry = getDistributionGeometry(postLayout, 1080, 1350);
+        switch (key) {
+            case 'logo':
+                return { x: postLayout.logo.x, y: postLayout.logo.y, w: postLayout.logo.w, h: postLayout.logo.h };
+            case 'title':
+                return { x: postLayout.title.x, y: postLayout.title.y, w: postLayout.title.w, h: postLayout.title.h };
+            case 'distPanel':
+                return {
+                    x: geometry.panelRect.x,
+                    y: geometry.panelRect.y,
+                    w: geometry.panelRect.w,
+                    h: geometry.panelRect.h
+                };
+            case 'distDeckCard':
+                return { x: geometry.leftCard.x, y: geometry.leftCard.y, w: geometry.leftCard.w, h: geometry.leftCard.h };
+            case 'distResultsCard':
+                return { x: geometry.rightCard.x, y: geometry.rightCard.y, w: geometry.rightCard.w, h: geometry.rightCard.h };
+            case 'distPie':
+                return {
+                    x: geometry.pie.x - geometry.pie.radius,
+                    y: geometry.pie.y - geometry.pie.radius,
+                    w: geometry.pie.radius * 2,
+                    h: geometry.pie.radius * 2
+                };
+            case 'store':
+                return { x: postLayout.store.x, y: postLayout.store.y, w: postLayout.store.w, h: postLayout.store.h };
+            case 'handle':
+                return { x: postLayout.handle.x - 280, y: postLayout.handle.y - 52, w: 280, h: 62 };
+            default:
+                return { x: 0, y: 0, w: 0, h: 0 };
+        }
+    }
+
     const rowX = postLayout.rows.x;
     const rowY = postLayout.rows.startY;
     const rowW = postLayout.rows.w;
@@ -2603,6 +3401,53 @@ function nudgeTemplateHandle(key, dx, dy) {
 }
 
 function resizeTemplateHandle(key, delta) {
+    if (selectedPostType === 'distribution_results') {
+        const layoutDist = (postLayout.distribution ||= {
+            panel: { inset: 16 },
+            cards: { leftRatio: 0.54, gutter: 14 },
+            deckCard: { x: 0, y: 0 },
+            resultsCard: { x: 0, y: 0 },
+            pie: { x: 0, y: 0, radius: 0 },
+            results: { x: 0, y: 0, width: 0 }
+        });
+        switch (key) {
+            case 'logo':
+                postLayout.logo.w = Math.max(120, postLayout.logo.w + delta);
+                postLayout.logo.h = Math.max(60, postLayout.logo.h + delta);
+                break;
+            case 'title':
+                postLayout.title.w = Math.max(180, postLayout.title.w + delta);
+                postLayout.title.h = Math.max(90, postLayout.title.h + delta);
+                break;
+            case 'distDeckCard': {
+                const current = Number(layoutDist.cards.leftRatio) || 0.54;
+                layoutDist.cards.leftRatio = Math.max(0.38, Math.min(0.68, current + delta / 1200));
+                break;
+            }
+            case 'distResultsCard':
+                layoutDist.results.width = Math.max(-80, Math.min(80, (Number(layoutDist.results.width) || 0) + delta));
+                break;
+            case 'distPie':
+                layoutDist.pie.radius = Math.max(64, (Number(layoutDist.pie.radius) || 0) + Math.round(delta / 2));
+                break;
+            case 'store':
+                postLayout.store.w = Math.max(120, postLayout.store.w + delta);
+                postLayout.store.h = Math.max(60, postLayout.store.h + Math.round(delta / 2));
+                break;
+            case 'handle':
+                postLayout.typography.handleSize = Math.max(
+                    20,
+                    postLayout.typography.handleSize + Math.round(delta / 2)
+                );
+                break;
+            default:
+                break;
+        }
+        postEditorGuides = [];
+        renderTemplateEditorOverlay();
+        return;
+    }
+
     switch (key) {
         case 'logo':
             postLayout.logo.w = Math.max(120, postLayout.logo.w + delta);

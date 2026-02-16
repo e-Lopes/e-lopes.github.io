@@ -575,6 +575,12 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
             player: item.player || '-',
             image_url: item.image_url || ''
         })),
+        tournamentId: String(tournament.id || ''),
+        storeId: String(tournament.store_id || ''),
+        tournamentDate: String(tournament.tournament_date || ''),
+        pieStateKey: String(
+            tournament.id || `${String(tournament.store_id || '')}-${String(tournament.tournament_date || '')}`
+        ),
         storeName: tournament.store?.name || 'Store',
         tournamentName: tournament.tournament_name || 'Tournament',
         format: formatCode || '',
