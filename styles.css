@@ -6373,6 +6373,8 @@ body.template-preview-page .template-upload-label {
 
 body.template-editor-page .template-object-picker select,
 body.template-preview-page .template-object-picker select,
+body.template-editor-page .template-object-picker input,
+body.template-preview-page .template-object-picker input,
 body.template-editor-page #templateBackgroundSelect,
 body.template-preview-page #templateBackgroundSelect {
     height: 38px;
@@ -6381,6 +6383,8 @@ body.template-preview-page #templateBackgroundSelect {
     color: #e2e8f0;
     min-width: 0;
     width: 56%;
+    border-radius: 8px;
+    padding: 0 8px;
 }
 
 body.template-editor-page #templateBackgroundUpload,

@@ -117,7 +117,7 @@ const INSTAGRAM_DEFAULT_LAYOUT = {
         deckCard: { x: 0, y: 0 },
         resultsCard: { x: 0, y: 0 },
         pie: { x: 0, y: 0, radius: 0 },
-        results: { x: 0, y: 0, width: 0 }
+        results: { x: 0, y: 0, width: 0, columnSize: 12 }
     }
 };
 const DEFAULT_POST_LAYOUT = INSTAGRAM_DEFAULT_LAYOUT;
@@ -163,6 +163,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupPostPreviewZoomControl();
     setupCollapsibleSidebarSections();
     setupDistributionPieControls();
+    setupDistributionResultsColumnLimitControl();
     bootTemplateEditorPageIfNeeded();
     bootPostPreviewPageIfNeeded();
 });
@@ -238,13 +239,20 @@ function updateTemplateControlsVisibility() {
     const pieControls = ['templatePieSlicePicker', 'templatePieAdjustRow', 'btnPieEditorToggle']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
+    const distributionOnlyControls = ['templateResultsColumnLimitWrap']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
     const showPieControls = selectedPostType === 'distribution_results';
     pieControls.forEach((el) => {
+        el.classList.toggle('u-hidden', !showPieControls);
+    });
+    distributionOnlyControls.forEach((el) => {
         el.classList.toggle('u-hidden', !showPieControls);
     });
     if (!showPieControls) {
         setPieEditorActive(false);
     }
+    syncDistributionResultsColumnLimitControl();
     refreshDistributionPieControls();
 }
 
@@ -350,7 +358,7 @@ function saveDistributionPieStateForPost(data) {
         const merged = getCombinedDistributionPieState(data);
         const payload = JSON.stringify(merged);
         keys.forEach((key) => {
-            localStorage.setItem(getPieStorageKey(key), payload);
+            localStorage.setItem(getPostPieStorageKey(key), payload);
         });
     } catch (_) {
         // Ignore storage failures.
@@ -390,7 +398,7 @@ function refreshDistributionPieControls() {
     const zoom = Number(state.zoom);
     xInput.value = String(Number.isFinite(x) ? Math.round(x) : 50);
     yInput.value = String(Number.isFinite(y) ? Math.round(y) : 13);
-    zoomInput.value = String(Number.isFinite(zoom) ? Math.round(zoom) : 195);
+    zoomInput.value = String(Number.isFinite(zoom) ? Math.round(zoom) : 120);
 
     const disabled = !activeDistributionPieDeck || selectedPostType !== 'distribution_results';
     xInput.disabled = disabled;
@@ -411,7 +419,7 @@ function updateActivePieSliceStateFromInputs() {
     distributionPieStateOverride[activeDistributionPieDeck] = {
         x: Number.isFinite(nextX) ? nextX : 50,
         y: Number.isFinite(nextY) ? nextY : 13,
-        zoom: Number.isFinite(nextZoom) ? nextZoom : 195
+        zoom: Number.isFinite(nextZoom) ? nextZoom : 120
     };
     saveDistributionPieStateForPost(tournamentDataForCanvas);
     drawPostCanvas();
@@ -431,8 +439,70 @@ function setupDistributionPieControls() {
     [xInput, yInput, zoomInput].forEach((input) => {
         input.addEventListener('input', updateActivePieSliceStateFromInputs);
     });
+    window.addEventListener('keydown', (event) => {
+        if (!isPieEditorActive || selectedPostType !== 'distribution_results') return;
+        if (!activeDistributionPieDeck) return;
+        if (event.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) return;
+
+        const step = event.shiftKey ? 5 : 1;
+        const key = String(event.key || '').toLowerCase();
+        let dx = 0;
+        let dy = 0;
+        if (key === 'arrowleft' || key === 'a') dx = -step;
+        else if (key === 'arrowright' || key === 'd') dx = step;
+        else if (key === 'arrowup' || key === 'w') dy = -step;
+        else if (key === 'arrowdown' || key === 's') dy = step;
+        else return;
+
+        event.preventDefault();
+        nudgeActiveDistributionPieSlice(dx, dy);
+    });
 
     refreshDistributionPieControls();
+}
+
+function nudgeActiveDistributionPieSlice(dx, dy) {
+    if (!activeDistributionPieDeck) return;
+    const currentState = getCombinedDistributionPieState(tournamentDataForCanvas)[activeDistributionPieDeck] || {
+        x: 50,
+        y: 13,
+        zoom: 120
+    };
+    const nextX = Math.max(-300, Math.min(300, (Number(currentState.x) || 0) + dx));
+    const nextY = Math.max(-300, Math.min(300, (Number(currentState.y) || 0) + dy));
+    distributionPieStateOverride[activeDistributionPieDeck] = {
+        x: nextX,
+        y: nextY,
+        zoom: Number(currentState.zoom) || 120
+    };
+    saveDistributionPieStateForPost(tournamentDataForCanvas);
+    refreshDistributionPieControls();
+    drawPostCanvas();
+}
+
+function syncDistributionResultsColumnLimitControl() {
+    const input = document.getElementById('templateResultsColumnLimitInput');
+    if (!input) return;
+    const current = Number(postLayout?.distribution?.results?.columnSize);
+    const safeValue = Number.isFinite(current) ? Math.max(4, Math.min(30, Math.round(current))) : 12;
+    input.value = String(safeValue);
+    input.disabled = selectedPostType !== 'distribution_results';
+}
+
+function setupDistributionResultsColumnLimitControl() {
+    const input = document.getElementById('templateResultsColumnLimitInput');
+    if (!input) return;
+    input.addEventListener('input', () => {
+        const value = Number(input.value);
+        if (!Number.isFinite(value)) return;
+        const safeValue = Math.max(4, Math.min(30, Math.round(value)));
+        postLayout.distribution ||= {};
+        postLayout.distribution.results ||= {};
+        postLayout.distribution.results.columnSize = safeValue;
+        savePostLayout();
+        drawPostCanvas();
+    });
+    syncDistributionResultsColumnLimitControl();
 }
 
 function setPieEditorActive(active) {
@@ -496,7 +566,7 @@ function onDistributionPiePointerDown(event) {
     const base = getCombinedDistributionPieState(tournamentDataForCanvas)[deck] || {
         x: 50,
         y: 13,
-        zoom: 195
+        zoom: 120
     };
     distributionPieDragState = {
         deck,
@@ -525,7 +595,7 @@ function onDistributionPiePointerMove(event) {
         zoom:
             Number(distributionPieStateOverride[distributionPieDragState.deck]?.zoom) ||
             Number(getCombinedDistributionPieState(tournamentDataForCanvas)[distributionPieDragState.deck]?.zoom) ||
-            195
+            120
     };
     saveDistributionPieStateForPost(tournamentDataForCanvas);
     refreshDistributionPieControls();
@@ -553,9 +623,9 @@ function onDistributionPieWheel(event) {
     const currentState = getCombinedDistributionPieState(tournamentDataForCanvas)[deck] || {
         x: 50,
         y: 13,
-        zoom: 195
+        zoom: 120
     };
-    let zoom = Number(currentState.zoom) || 195;
+    let zoom = Number(currentState.zoom) || 120;
     zoom += event.deltaY < 0 ? 8 : -8;
     zoom = Math.max(120, Math.min(420, zoom));
     distributionPieStateOverride[deck] = {
@@ -2285,7 +2355,7 @@ function drawImageCoverInCircleWithPosition(
     centerX,
     centerY,
     radius,
-    zoomPct = 190,
+    zoomPct = 120,
     xPct = 50,
     yPct = 11
 ) {
@@ -2296,7 +2366,7 @@ function drawImageCoverInCircleWithPosition(
 
     const size = radius * 2;
     const coverScale = Math.max(size / image.width, size / image.height);
-    const scale = coverScale * Math.max(1, Number(zoomPct || 190) / 100);
+    const scale = coverScale * Math.max(1, Number(zoomPct || 120) / 100);
     const drawWidth = image.width * scale;
     const drawHeight = image.height * scale;
     const freeX = size - drawWidth;
@@ -2450,8 +2520,7 @@ function buildDeckPieDataForCanvas(results) {
         currentAngle = end;
         const mid = (start + end) / 2;
 
-        const percent = ratio * 100;
-        const zoomPct = Math.max(155, Math.min(320, 155 + percent * 3.2));
+        const zoomPct = 120;
         const xPct = Math.max(34, Math.min(66, 50 - Math.cos(mid) * 12));
         const yPct = Math.max(4, Math.min(24, 13 - Math.sin(mid) * 4));
 
@@ -2471,6 +2540,10 @@ function buildDeckPieDataForCanvas(results) {
 
 function getPieStorageKey(tournamentId) {
     return `pieState:${tournamentId}`;
+}
+
+function getPostPieStorageKey(tournamentId) {
+    return `postPieState:${tournamentId}`;
 }
 
 function getPieStateKeysForPostData(data) {
@@ -2494,6 +2567,21 @@ function getPieStateKeysForPostData(data) {
 function loadSavedPieStateForPost(data) {
     const keys = getPieStateKeysForPostData(data);
 
+    // Prefer post-specific state first so changes here don't break dashboard details pie.
+    for (const key of keys) {
+        try {
+            const raw = localStorage.getItem(getPostPieStorageKey(key));
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                return parsed;
+            }
+        } catch (_) {
+            // Ignore invalid state and keep trying other keys.
+        }
+    }
+
+    // Fallback to dashboard state for initial import.
     for (const key of keys) {
         try {
             const raw = localStorage.getItem(getPieStorageKey(key));
@@ -2549,7 +2637,7 @@ function getResultRowStyle(placement) {
             badgeStroke: 'rgba(97, 52, 21, 0.55)',
             deckColor: '#161b26',
             playerColor: '#1f2430',
-            badgeColor: '#ffffff'
+            badgeColor: '#161b26'
         };
     }
     if (placement === 4) {
@@ -2563,7 +2651,7 @@ function getResultRowStyle(placement) {
             badgeStroke: 'rgba(18, 82, 72, 0.55)',
             deckColor: '#161b26',
             playerColor: '#1f2430',
-            badgeColor: '#ffffff'
+            badgeColor: '#161b26'
         };
     }
     return {
@@ -2649,7 +2737,7 @@ async function drawDistributionAndResultsContent(ctx, width, height, data, layou
     const panelY = panelRect.y;
     const panelW = panelRect.w;
     const panelH = panelRect.h;
-    drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 26, 'rgba(255,255,255,0.84)');
+    // Keep distribution mode visually clean: no extra white panel behind content.
 
     const allResults = (data?.allResults || [])
         .map((item) => ({
@@ -2669,27 +2757,7 @@ async function drawDistributionAndResultsContent(ctx, width, height, data, layou
     const rightCardW = geometry.rightCard.w;
     const rightCardH = geometry.rightCard.h;
 
-    drawRoundedRect(ctx, leftCardX, leftCardY, leftCardW, leftCardH, 14, '#f3f4f7', '#d7dce8', 1.2);
-    drawRoundedRect(ctx, rightCardX, rightCardY, rightCardW, rightCardH, 14, '#f3f4f7', '#d7dce8', 1.2);
-
-    const titleY = leftCardY + 40;
-    ctx.fillStyle = '#0b0f19';
-    ctx.textAlign = 'left';
-    const sectionTitleSize = Math.max(34, Math.round((layout?.typography?.deckSize || 62) * 0.56));
-    ctx.font = `700 ${sectionTitleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-    ctx.fillText('Deck Distribution', leftCardX + 20, titleY);
-    ctx.fillText('Full Results', rightCardX + 20, titleY);
-
-    ctx.strokeStyle = '#d7dce8';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(leftCardX + 10, leftCardY + 56);
-    ctx.lineTo(leftCardX + leftCardW - 10, leftCardY + 56);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(rightCardX + 10, rightCardY + 56);
-    ctx.lineTo(rightCardX + rightCardW - 10, rightCardY + 56);
-    ctx.stroke();
+    // No card boxes/separators: only pie and result rows.
 
     const savedPieState = getCombinedDistributionPieState(data);
     const pieRows = buildDeckPieDataForCanvas(allResults).map((row) => {
@@ -2766,52 +2834,103 @@ async function drawDistributionAndResultsContent(ctx, width, height, data, layou
     ctx.strokeStyle = '#d3d8e5';
     ctx.stroke();
 
-    const listDeckFontSize = Math.max(22, Math.round((layout?.typography?.deckSize || 62) * 0.36));
-    const rowHeight = Math.max(46, Math.round(listDeckFontSize * 1.2));
-    const rowGap = 8;
-    const rowStartY = rightCardY + 70 + geometry.results.y;
-    const rowX = rightCardX + 10 + geometry.results.x;
-    const rowW = Math.max(180, rightCardW - 20 + geometry.results.width);
-    const maxRows = Math.max(1, Math.floor((rightCardH - 78 + rowGap) / (rowHeight + rowGap)));
-    allResults.slice(0, maxRows).forEach((row, index) => {
-        const rowY = rowStartY + index * (rowHeight + rowGap);
-        if (rowY + rowHeight > rightCardY + rightCardH - 10) return;
+    const configuredColumnSize = Number(postLayout?.distribution?.results?.columnSize);
+    const columnSize = Number.isFinite(configuredColumnSize)
+        ? Math.max(4, Math.min(30, Math.round(configuredColumnSize)))
+        : 12;
+    const columns = [];
+    for (let i = 0; i < allResults.length; i += columnSize) {
+        columns.push(allResults.slice(i, i + columnSize));
+    }
+    if (!columns.length) columns.push([]);
 
-        const rowStyle = getResultRowStyle(row.placement);
-        const rowGradient = ctx.createLinearGradient(rowX, rowY, rowX + rowW, rowY + rowHeight);
-        rowGradient.addColorStop(0, rowStyle.rowStart);
-        rowGradient.addColorStop(1, rowStyle.rowEnd);
-        drawRoundedRect(
-            ctx,
-            rowX,
-            rowY,
-            rowW,
-            rowHeight,
-            8,
-            rowGradient,
-            rowStyle.rowStroke,
-            1.2
-        );
+    const totalRows = Math.max(1, Math.max(...columns.map((col) => col.length)));
+    const listTopOffset = 40;
+    const listBottomPadding = 10;
+    const availableListHeight = Math.max(140, rightCardH - listTopOffset - listBottomPadding);
+    const rowGap = totalRows >= 16 ? 3 : totalRows >= 13 ? 4 : totalRows >= 10 ? 6 : 8;
+    const pitch = Math.floor((availableListHeight + rowGap) / totalRows);
+    const rowHeight = Math.max(30, pitch - rowGap);
+    const listDeckFontSize = Math.max(13, Math.min(22, Math.round(rowHeight * 0.48)));
+    const rowStartY = rightCardY + listTopOffset + geometry.results.y;
+    const baseRowX = rightCardX + 10 + geometry.results.x;
+    const baseRowW = Math.max(180, rightCardW - 20 + geometry.results.width);
+    const columnCount = Math.max(1, columns.length);
+    const columnGap = columnCount >= 3 ? 6 : 8;
+    const rowW = Math.max(
+        102,
+        Math.floor((baseRowW - columnGap * Math.max(0, columnCount - 1)) / columnCount)
+    );
+    const maxRows = Math.max(
+        1,
+        Math.floor((rightCardH - (listTopOffset + listBottomPadding) + rowGap) / (rowHeight + rowGap))
+    );
+    columns.forEach((columnRows, columnIndex) => {
+        const rowX = baseRowX + columnIndex * (rowW + columnGap);
+        columnRows.slice(0, maxRows).forEach((row, rowIndex) => {
+            const rowY = rowStartY + rowIndex * (rowHeight + rowGap);
+            if (rowY + rowHeight > rightCardY + rightCardH - 10) return;
 
-        const badgeW = 42;
-        const badgeH = rowHeight - 12;
-        const badgeX = rowX + 6;
-        const badgeY = rowY + 6;
-        const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH);
-        badgeGradient.addColorStop(0, rowStyle.badgeStart);
-        badgeGradient.addColorStop(0.46, rowStyle.badgeMid);
-        badgeGradient.addColorStop(1, rowStyle.badgeEnd);
-        drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 14, badgeGradient, rowStyle.badgeStroke, 1);
-        ctx.textAlign = 'center';
-        ctx.fillStyle = rowStyle.badgeColor;
-        ctx.font = `700 ${Math.max(14, Math.round(listDeckFontSize * 0.52))}px "Barlow Condensed", "Segoe UI", sans-serif`;
-        ctx.fillText(formatPlacementLabel(row.placement || index + 1), badgeX + badgeW / 2, badgeY + badgeH / 2 + 5);
+            const rowStyle = getResultRowStyle(row.placement);
+            const rowGradient = ctx.createLinearGradient(rowX, rowY, rowX + rowW, rowY + rowHeight);
+            rowGradient.addColorStop(0, rowStyle.rowStart);
+            rowGradient.addColorStop(1, rowStyle.rowEnd);
+            drawRoundedRect(
+                ctx,
+                rowX,
+                rowY,
+                rowW,
+                rowHeight,
+                8,
+                rowGradient,
+                rowStyle.rowStroke,
+                1.2
+            );
 
-        const textX = badgeX + badgeW + 12;
-        ctx.textAlign = 'left';
-        ctx.fillStyle = rowStyle.deckColor;
-        ctx.font = `700 ${listDeckFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-        ctx.fillText(String(row.deck || 'Unknown').slice(0, 24), textX, rowY + Math.round(rowHeight * 0.62));
+            const badgeW = Math.max(24, Math.round(rowHeight * 0.78));
+            const badgeH = Math.max(18, rowHeight - 8);
+            const badgeX = rowX + 5;
+            const badgeY = rowY + Math.max(3, Math.round((rowHeight - badgeH) / 2));
+            const badgeGradient = ctx.createLinearGradient(
+                badgeX,
+                badgeY,
+                badgeX + badgeW,
+                badgeY + badgeH
+            );
+            badgeGradient.addColorStop(0, rowStyle.badgeStart);
+            badgeGradient.addColorStop(0.46, rowStyle.badgeMid);
+            badgeGradient.addColorStop(1, rowStyle.badgeEnd);
+            drawRoundedRect(
+                ctx,
+                badgeX,
+                badgeY,
+                badgeW,
+                badgeH,
+                Math.max(10, Math.round(badgeH / 2)),
+                badgeGradient,
+                rowStyle.badgeStroke,
+                1
+            );
+            ctx.textAlign = 'center';
+            ctx.fillStyle = rowStyle.badgeColor;
+            ctx.font = `700 ${Math.max(10, Math.round(rowHeight * 0.29))}px "Barlow Condensed", "Segoe UI", sans-serif`;
+            ctx.fillText(
+                formatPlacementLabel(row.placement || rowIndex + 1),
+                badgeX + badgeW / 2,
+                badgeY + badgeH / 2 + Math.max(3, Math.round(rowHeight * 0.1))
+            );
+
+            const textX = badgeX + badgeW + 8;
+            const charLimit = Math.max(10, Math.floor((rowW - (badgeW + 16)) / 6.3));
+            ctx.textAlign = 'left';
+            ctx.fillStyle = rowStyle.deckColor;
+            ctx.font = `700 ${listDeckFontSize}px "Segoe UI", Arial, sans-serif`;
+            ctx.fillText(
+                String(row.deck || 'Unknown').slice(0, charLimit),
+                textX,
+                rowY + Math.round(rowHeight * 0.62)
+            );
+        });
     });
 }
 
@@ -3199,7 +3318,7 @@ function updateHandleOrigin(key, x, y) {
             deckCard: { x: 0, y: 0 },
             resultsCard: { x: 0, y: 0 },
             pie: { x: 0, y: 0, radius: 0 },
-            results: { x: 0, y: 0, width: 0 }
+            results: { x: 0, y: 0, width: 0, columnSize: 12 }
         });
         const geometry = getDistributionGeometry(postLayout, 1080, 1350);
         switch (key) {
@@ -3436,7 +3555,7 @@ function resizeTemplateHandle(key, delta) {
             deckCard: { x: 0, y: 0 },
             resultsCard: { x: 0, y: 0 },
             pie: { x: 0, y: 0, radius: 0 },
-            results: { x: 0, y: 0, width: 0 }
+            results: { x: 0, y: 0, width: 0, columnSize: 12 }
         });
         switch (key) {
             case 'logo':

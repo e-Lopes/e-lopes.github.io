@@ -1603,12 +1603,22 @@ function setupInteractivePieSlices(rootElement, tournamentId) {
     slices.forEach((slice) => {
         const deck = slice.dataset.deck || '';
         const saved = deck ? savedState[deck] : null;
+        const clamp = (value, min, max, fallback) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return fallback;
+            return Math.max(min, Math.min(max, numeric));
+        };
+        const safeX = clamp(saved?.x ?? slice.dataset.x ?? 50, 0, 100, 50);
+        const safeY = clamp(saved?.y ?? slice.dataset.y ?? 13, 0, 100, 13);
+        const minZoom = clamp(slice.dataset.minZoom || 120, 80, 420, 120);
+        const maxZoom = clamp(slice.dataset.maxZoom || 420, minZoom, 500, 420);
+        const safeZoom = clamp(saved?.zoom ?? slice.dataset.zoom ?? 195, minZoom, maxZoom, 195);
 
-        slice.dataset.x = String(saved?.x ?? slice.dataset.x ?? '50');
-        slice.dataset.y = String(saved?.y ?? slice.dataset.y ?? '13');
-        slice.dataset.zoom = String(saved?.zoom ?? slice.dataset.zoom ?? '195');
-        slice.style.backgroundPosition = `${slice.dataset.x}% ${slice.dataset.y}%`;
-        slice.style.backgroundSize = `${slice.dataset.zoom}%`;
+        slice.dataset.x = String(safeX);
+        slice.dataset.y = String(safeY);
+        slice.dataset.zoom = String(safeZoom);
+        slice.style.backgroundPosition = `${safeX}% ${safeY}%`;
+        slice.style.backgroundSize = `${safeZoom}%`;
 
         slice.onpointerdown = (e) => {
             slice.style.zIndex = String(++topZ);
