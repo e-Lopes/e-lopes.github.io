@@ -44,16 +44,26 @@ async function loadEditFormData(id) {
 
         document.getElementById('editTournamentDate').value = data.tournament_date || '';
         document.getElementById('editTournamentName').value = data.tournament_name || '';
-        const editFormatInput = document.getElementById('editTournamentFormat');
-        if (editFormatInput) editFormatInput.value = data.format || '';
         document.getElementById('editTotalPlayers').value = '0';
         document.getElementById('editInstagramLink').value = data.instagram_link || '';
 
+        const formatLoaderPromise =
+            typeof loadTournamentFormats === 'function' ? loadTournamentFormats() : Promise.resolve();
         await Promise.all([
             loadStoresToEdit(data.store_id),
             loadPlayersToEdit(),
-            loadDecksToEdit()
+            loadDecksToEdit(),
+            formatLoaderPromise
         ]);
+
+        if (typeof populateTournamentFormatSelect === 'function') {
+            populateTournamentFormatSelect('editTournamentFormat', {
+                selectedId: data.format_id
+            });
+        } else {
+            const editFormatInput = document.getElementById('editTournamentFormat');
+            if (editFormatInput) editFormatInput.value = String(data.format_id || '');
+        }
 
         await loadResultsToEdit(id, data);
         renderEditResultsRows();
@@ -283,10 +293,13 @@ async function editTournamentFormSubmit(e) {
             total_players: totalPlayers,
             instagram_link: document.getElementById('editInstagramLink').value.trim()
         };
-        const formatValue = document.getElementById('editTournamentFormat')?.value?.trim() || '';
+        const formatSelection =
+            typeof readTournamentFormatValue === 'function'
+                ? readTournamentFormatValue('editTournamentFormat')
+                : { formatId: null, formatCode: '' };
         const updated =
             typeof assignTournamentFormat === 'function'
-                ? assignTournamentFormat(updatedBase, formatValue)
+                ? assignTournamentFormat(updatedBase, formatSelection)
                 : updatedBase;
 
         const hasInvalidResult = editResults.some((r) => !r.player_id || !r.deck_id);

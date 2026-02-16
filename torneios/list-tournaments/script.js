@@ -60,7 +60,14 @@ let decksViewMounted = false;
 let decksScriptsPromise = null;
 let playersViewMounted = false;
 let playersScriptsPromise = null;
-let tournamentFormatSupported = true;
+let tournamentFormatIdSupported = true;
+const FALLBACK_FORMAT_OPTIONS = [
+    { id: null, code: 'BT23', isDefault: false },
+    { id: null, code: 'BT24', isDefault: false },
+    { id: null, code: 'EX11', isDefault: true }
+];
+let tournamentFormats = [];
+let tournamentFormatsLoaded = false;
 
 // ============================================================
 // FORMAT DATE FUNCTION
@@ -139,12 +146,195 @@ function formatOrdinal(value) {
 
 function readTournamentFormatValue(inputId) {
     const input = document.getElementById(inputId);
-    return input ? input.value.trim() : '';
+    if (!input) {
+        return { formatId: null, formatCode: '' };
+    }
+
+    const selectedOption = input.options?.[input.selectedIndex] || null;
+    const rawFormatId = String(input.value || '').trim();
+    if (!rawFormatId) {
+        return { formatId: null, formatCode: '' };
+    }
+
+    if (rawFormatId.startsWith('legacy:')) {
+        const legacyCode = normalizeFormatCode(rawFormatId.replace(/^legacy:/, ''));
+        return { formatId: null, formatCode: legacyCode };
+    }
+
+    const formatId = Number(rawFormatId);
+    const formatCode = normalizeFormatCode(
+        selectedOption?.dataset?.formatCode || selectedOption?.textContent || ''
+    );
+
+    return {
+        formatId: Number.isFinite(formatId) && formatId > 0 ? formatId : null,
+        formatCode
+    };
 }
 
-function assignTournamentFormat(payload, formatValue) {
-    if (!tournamentFormatSupported) return payload;
-    return { ...payload, format: formatValue || null };
+function assignTournamentFormat(payload, formatSelection) {
+    const formatId = Number(formatSelection?.formatId);
+    const nextPayload = { ...payload };
+
+    if (tournamentFormatIdSupported) {
+        nextPayload.format_id = Number.isFinite(formatId) && formatId > 0 ? formatId : null;
+    }
+
+    return nextPayload;
+}
+
+function normalizeFormatCode(value) {
+    const raw = String(value || '')
+        .trim()
+        .toUpperCase();
+    if (!raw) return '';
+    const explicitCode = raw.match(/[A-Z]{1,4}\d{1,3}/);
+    if (explicitCode?.[0]) return explicitCode[0];
+    return raw.replace(/[^A-Z0-9]/g, '');
+}
+
+function getDefaultTournamentFormatCode() {
+    const preferred = tournamentFormats.find((item) => item.isDefault);
+    if (preferred?.code) return preferred.code;
+    return tournamentFormats[0]?.code || '';
+}
+
+function getTournamentFormatCode(tournament) {
+    return normalizeFormatCode(tournament?.format_ref?.code || '');
+}
+
+async function loadTournamentFormats() {
+    if (tournamentFormatsLoaded) return tournamentFormats;
+
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/formats?select=id,code,name,is_active,is_default&is_active=eq.true&order=is_default.desc,code.asc`,
+            { headers }
+        );
+
+        if (!res.ok) throw new Error(`Erro ao carregar formatos (${res.status})`);
+
+        const rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) {
+            tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((item) => ({
+                id: item.id,
+                code: item.code,
+                label: item.code,
+                isDefault: item.isDefault
+            }));
+            tournamentFormatsLoaded = true;
+            return tournamentFormats;
+        }
+
+        tournamentFormats = rows
+            .map((row) => {
+                const code = normalizeFormatCode(row?.code);
+                if (!code) return null;
+                const name = String(row?.name || '').trim();
+                const normalizedName = normalizeFormatCode(name);
+                return {
+                    id: Number.isFinite(Number(row?.id)) ? Number(row.id) : null,
+                    code,
+                    label: name && normalizedName !== code ? `${code} - ${name}` : code,
+                    isDefault: row?.is_default === true
+                };
+            })
+            .filter(Boolean);
+
+        tournamentFormatsLoaded = true;
+    } catch (err) {
+        console.warn(err);
+        tournamentFormats = FALLBACK_FORMAT_OPTIONS.map((item) => ({
+            id: item.id,
+            code: item.code,
+            label: item.code,
+            isDefault: item.isDefault
+        }));
+        tournamentFormatsLoaded = true;
+    }
+
+    return tournamentFormats;
+}
+
+function populateTournamentFormatSelect(selectId, options = {}) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const selectedValue = normalizeFormatCode(options.selectedValue || '');
+    const selectedId = Number(options.selectedId);
+    const includeBlank = options.includeBlank !== false;
+    const optionItems = [];
+    tournamentFormats.forEach((format) => {
+        if (!format?.code) return;
+        optionItems.push({
+            id: Number.isFinite(Number(format.id)) ? Number(format.id) : null,
+            code: format.code,
+            label: format.label || format.code
+        });
+    });
+
+    if (selectedValue && !optionItems.some((item) => item.code === selectedValue)) {
+        optionItems.push({
+            id: null,
+            code: selectedValue,
+            label: `${selectedValue} (legacy)`
+        });
+    }
+
+    select.innerHTML = '';
+    if (includeBlank) {
+        const blankOption = document.createElement('option');
+        blankOption.value = '';
+        blankOption.textContent = 'Select format...';
+        select.appendChild(blankOption);
+    }
+
+    const sortedItems = optionItems.sort((a, b) => b.code.localeCompare(a.code));
+    sortedItems.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.id ? String(item.id) : `legacy:${item.code}`;
+        option.dataset.formatCode = item.code;
+        option.textContent = item.label;
+        select.appendChild(option);
+    });
+
+    if (Number.isFinite(selectedId) && selectedId > 0) {
+        const idMatch = sortedItems.find((item) => item.id === selectedId);
+        if (idMatch) {
+            select.value = String(selectedId);
+            return;
+        }
+    }
+
+    if (selectedValue) {
+        const codeMatch = sortedItems.find((item) => item.code === selectedValue);
+        if (codeMatch && codeMatch.id) {
+            select.value = String(codeMatch.id);
+            return;
+        }
+        if (codeMatch && !codeMatch.id) {
+            select.value = `legacy:${codeMatch.code}`;
+            return;
+        }
+    }
+
+    const defaultCode = getDefaultTournamentFormatCode();
+    const defaultItem = sortedItems.find((item) => item.code === defaultCode && item.id);
+    if (defaultItem) {
+        select.value = String(defaultItem.id);
+        return;
+    }
+    const defaultLegacyItem = sortedItems.find((item) => item.code === defaultCode && !item.id);
+    if (defaultLegacyItem) {
+        select.value = `legacy:${defaultLegacyItem.code}`;
+        return;
+    }
+
+    if (includeBlank) {
+        select.value = '';
+    } else if (sortedItems[0]?.id) {
+        select.value = String(sortedItems[0].id);
+    }
 }
 
 function getAssetPrefix() {
@@ -176,7 +366,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupViewToggle();
     bindStaticActions();
     setupDashboardViewSwitching();
-    await loadTournaments();
+    await Promise.all([loadTournaments(), loadTournamentFormats()]);
+    populateTournamentFormatSelect('createTournamentFormat');
+    populateTournamentFormatSelect('editTournamentFormat');
     setupFilters();
     setupSorting();
     applyFilters();
@@ -234,19 +426,26 @@ async function loadTournaments() {
     try {
         const baseSelect =
             'id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram_link';
-        const selectWithFormat = `${baseSelect},format`;
+        const selectWithFormatAndId = `${baseSelect},format_id,format_ref:formats!tournament_format_id_fkey(code)`;
+        const selectWithFormatId = `${baseSelect},format_id`;
         let res = await fetch(
-            `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormat)}&order=tournament_date.desc`,
+            `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormatAndId)}&order=tournament_date.desc`,
             { headers }
         );
         if (!res.ok) {
-            tournamentFormatSupported = false;
+            res = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormatId)}&order=tournament_date.desc`,
+                { headers }
+            );
+        }
+        if (!res.ok) {
             res = await fetch(
                 `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(baseSelect)}&order=tournament_date.desc`,
                 { headers }
             );
+            tournamentFormatIdSupported = false;
         } else {
-            tournamentFormatSupported = true;
+            tournamentFormatIdSupported = true;
         }
         if (!res.ok) throw new Error('Erro ao carregar torneios.');
         tournaments = await res.json();
@@ -368,6 +567,7 @@ function formatMonthYearLabel(monthKey) {
 }
 
 function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) {
+    const formatCode = getTournamentFormatCode(tournament);
     const tournamentDataForCanvas = {
         topFour: (results || []).slice(0, 4).map((item) => ({
             placement: Number(item.placement),
@@ -375,8 +575,15 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
             player: item.player || '-',
             image_url: item.image_url || ''
         })),
+        tournamentId: String(tournament.id || ''),
+        storeId: String(tournament.store_id || ''),
+        tournamentDate: String(tournament.tournament_date || ''),
+        pieStateKey: String(
+            tournament.id || `${String(tournament.store_id || '')}-${String(tournament.tournament_date || '')}`
+        ),
         storeName: tournament.store?.name || 'Store',
         tournamentName: tournament.tournament_name || 'Tournament',
+        format: formatCode || '',
         dateStr: formatDate(tournament.tournament_date),
         totalPlayers: Number(totalPlayers) || 0,
         allResults: (results || []).map((item) => ({
@@ -1179,8 +1386,6 @@ async function openCreateTournamentModal(defaultDate = '') {
         : new Date().toISOString().split('T')[0];
     document.getElementById('createTournamentDate').value = safeDate;
     document.getElementById('createTournamentName').value = '';
-    const createTournamentFormatInput = document.getElementById('createTournamentFormat');
-    if (createTournamentFormatInput) createTournamentFormatInput.value = '';
     document.getElementById('createTotalPlayers').value = '';
     document.getElementById('createInstagramLink').value = '';
 
@@ -1188,7 +1393,13 @@ async function openCreateTournamentModal(defaultDate = '') {
 
     // Carrega dados base para o modal
     try {
-        await Promise.all([loadStoresToCreate(), loadPlayersToCreate(), loadDecksToCreate()]);
+        await Promise.all([
+            loadStoresToCreate(),
+            loadPlayersToCreate(),
+            loadDecksToCreate(),
+            loadTournamentFormats()
+        ]);
+        populateTournamentFormatSelect('createTournamentFormat');
         renderCreateResultsRows();
     } catch (err) {
         // CREATE MODAL
@@ -1473,6 +1684,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         const totalPlayers = Number.isFinite(Number(tournament.total_players))
             ? Number(tournament.total_players)
             : results[0]?.total_players || 0;
+        const formatCode = getTournamentFormatCode(tournament);
         const header = `
             <div class="tournament-details-header">
                 <div class="details-header-top">
@@ -1480,7 +1692,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                         <strong>${tournament.tournament_name || 'Tournament'}</strong>
                         <div>${formatDate(tournament.tournament_date)} - ${tournament.store?.name || 'Store'}</div>
                         <div>Total Players: ${totalPlayers}</div>
-                        <div>Format: ${tournament.format || '-'}</div>
+                        <div>Format: ${formatCode || '-'}</div>
                     </div>
                     <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
                         <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
