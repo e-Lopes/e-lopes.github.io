@@ -4,7 +4,7 @@ This folder documents legacy parts of the project.
 
 Current legacy surface:
 
-- `teste/` (kept for compatibility and reference)
+- legacy-only routes/files kept for compatibility and reference
 
 Guideline:
 

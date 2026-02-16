@@ -2,7 +2,7 @@
 
 ## Scope
 
-- `teste/` is maintained only for compatibility.
+- `legacy/` is maintained only for compatibility.
 
 ## Policy
 
@@ -13,4 +13,4 @@
 
 - All active users/routes moved to current pages.
 - Replace legacy links with redirects.
-- Remove `teste/` in a planned major cleanup.
+- Remove legacy routes in a planned major cleanup.

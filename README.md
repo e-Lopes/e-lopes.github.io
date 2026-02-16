@@ -30,7 +30,8 @@ Centralizar operações de:
 - `config/`: configuração e utilitários compartilhados
 - `database/`: documentação e snapshots SQL
 - `tests/`: testes automatizados
-- `teste/` e `legacy/`: area de testes legada e compatibilidade
+- `post-preview/`: editor de posts e preview
+- `legacy/`: area legada para compatibilidade
 
 ## Setup Local
 

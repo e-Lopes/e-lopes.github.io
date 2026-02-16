@@ -599,7 +599,7 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
         localStorage.setItem(POST_PREVIEW_STATE_KEY, JSON.stringify(previewState));
         const previewData = encodeURIComponent(JSON.stringify(previewState));
         window.open(
-            `${getAssetPrefix()}teste/index.html?postPreview=1&previewData=${previewData}`,
+            `${getAssetPrefix()}post-preview/index.html?postPreview=1&previewData=${previewData}`,
             '_blank'
         );
     } catch (error) {

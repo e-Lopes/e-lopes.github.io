@@ -53,5 +53,5 @@ styles/
 ## Critical Cleanup Candidates
 
 - `styles.css`: split and remove duplicated blocks
-- `teste/`: keep as explicitly legacy/testing area
+- `post-preview/`: dedicated post editor route
 - duplicated Supabase constants: now centralized, continue removing leftovers
