@@ -344,11 +344,14 @@ function getCombinedDistributionPieState(data) {
 }
 
 function saveDistributionPieStateForPost(data) {
-    const key = String(data?.pieStateKey || data?.tournamentId || '').trim();
-    if (!key) return;
+    const keys = getPieStateKeysForPostData(data);
+    if (!keys.length) return;
     try {
         const merged = getCombinedDistributionPieState(data);
-        localStorage.setItem(getPieStorageKey(key), JSON.stringify(merged));
+        const payload = JSON.stringify(merged);
+        keys.forEach((key) => {
+            localStorage.setItem(getPieStorageKey(key), payload);
+        });
     } catch (_) {
         // Ignore storage failures.
     }
@@ -1243,6 +1246,9 @@ function saveLayoutPreset() {
     const presets = getLayoutPresetsMap();
     presets[cleanName] = {
         layout: JSON.parse(JSON.stringify(postLayout)),
+        pieStateSnapshot: JSON.parse(
+            JSON.stringify(getCombinedDistributionPieState(tournamentDataForCanvas))
+        ),
         updatedAt: new Date().toISOString()
     };
     saveLayoutPresetsMap(presets);
@@ -1258,10 +1264,15 @@ function loadSelectedLayoutPreset() {
     if (!preset?.layout) return;
 
     postLayout = mergePostLayout(getDefaultPostLayout(), preset.layout);
+    if (preset?.pieStateSnapshot && typeof preset.pieStateSnapshot === 'object') {
+        distributionPieStateOverride = JSON.parse(JSON.stringify(preset.pieStateSnapshot));
+        saveDistributionPieStateForPost(tournamentDataForCanvas);
+    }
     savePostLayout();
     syncTypographyControls();
     syncPodiumGapControl();
     syncTemplateObjectSelect();
+    refreshDistributionPieControls();
     drawPostCanvas();
     showPostToast(`Preset "${select.value}" loaded.`);
 }
@@ -1606,7 +1617,11 @@ function enableDedicatedTemplateEditorLayout() {
     document.body.classList.add('template-editor-page');
     const title = document.querySelector('#postPreviewModal .modal-header h2');
     if (title) {
-        title.textContent = 'Template Editor';
+        title.textContent = 'Post Preview';
+    }
+    const subtitle = document.querySelector('#postPreviewModal .preview-title-wrap small');
+    if (subtitle) {
+        subtitle.textContent = 'Preview and export';
     }
 }
 
@@ -2458,13 +2473,26 @@ function getPieStorageKey(tournamentId) {
     return `pieState:${tournamentId}`;
 }
 
-function loadSavedPieStateForPost(data) {
+function getPieStateKeysForPostData(data) {
+    const keys = [];
     const directKey = String(data?.pieStateKey || '').trim();
     const tournamentId = String(data?.tournamentId || '').trim();
     const storeId = String(data?.storeId || '').trim();
     const tournamentDate = String(data?.tournamentDate || '').trim();
     const fallbackComposite = storeId && tournamentDate ? `${storeId}-${tournamentDate}` : '';
-    const keys = [directKey, tournamentId, fallbackComposite].filter(Boolean);
+    const normalizedStoreName = normalizeStoreName(String(data?.storeName || ''));
+    const dateStr = String(data?.dateStr || '').trim();
+    const fallbackByNameDate =
+        normalizedStoreName && dateStr ? `name:${normalizedStoreName}|date:${dateStr}` : '';
+
+    [directKey, tournamentId, fallbackComposite, fallbackByNameDate].forEach((key) => {
+        if (key && !keys.includes(key)) keys.push(key);
+    });
+    return keys;
+}
+
+function loadSavedPieStateForPost(data) {
+    const keys = getPieStateKeysForPostData(data);
 
     for (const key of keys) {
         try {

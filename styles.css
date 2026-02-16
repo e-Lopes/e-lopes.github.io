@@ -6131,6 +6131,16 @@ body.template-preview-page #postPreviewModal .modal-header {
     backdrop-filter: blur(8px);
 }
 
+body.template-editor-page .btn-download-header,
+body.template-preview-page .btn-download-header {
+    margin-left: auto;
+    width: auto !important;
+    min-width: 132px;
+    height: 36px !important;
+    padding: 0 14px;
+    border-radius: 9px;
+}
+
 body.template-editor-page #postPreviewModal .modal-header h2,
 body.template-preview-page #postPreviewModal .modal-header h2 {
     margin: 0;
