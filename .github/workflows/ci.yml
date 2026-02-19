@@ -8,6 +8,9 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    env:
+      TZ: America/Sao_Paulo
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
