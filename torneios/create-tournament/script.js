@@ -38,7 +38,11 @@ async function loadStores() {
 // DEFINIR DATA ATUAL
 // ============================================================
 function setTodayDate() {
-    document.getElementById('tournamentDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('tournamentDate').value = getTodayInSaoPaulo();
+}
+
+function getTodayInSaoPaulo() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 
 // ============================================================

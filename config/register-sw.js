@@ -14,32 +14,6 @@
         return url.pathname.replace(/\/sw\.js$/, '/') || '/';
     }
 
-    function getVersionLabel() {
-        return window.APP_VERSION || 'dev';
-    }
-
-    function renderVersionBadge() {
-        const id = 'app-version-badge';
-        if (document.getElementById(id)) return;
-
-        const badge = document.createElement('div');
-        badge.id = id;
-        badge.textContent = `v${getVersionLabel()}`;
-        badge.style.cssText = [
-            'position:fixed',
-            'right:10px',
-            'bottom:10px',
-            'z-index:9999',
-            'font:600 11px/1.2 Segoe UI, sans-serif',
-            'color:#fff',
-            'background:rgba(20,20,20,.65)',
-            'padding:6px 8px',
-            'border-radius:8px',
-            'backdrop-filter: blur(3px)'
-        ].join(';');
-        document.body.appendChild(badge);
-    }
-
     function showUpdateNotice() {
         const id = 'sw-update-notice';
         if (document.getElementById(id)) return;
@@ -99,8 +73,6 @@
     }
 
     window.addEventListener('load', async () => {
-        renderVersionBadge();
-
         const swUrl = await findSwUrl();
         if (!swUrl) return;
 

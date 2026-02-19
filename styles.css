@@ -1513,6 +1513,10 @@ th {
 }
 
 .filter-group .filter-select {
+    min-height: 52px;
+    line-height: 1.25;
+    padding-top: 10px;
+    padding-bottom: 10px;
     padding-left: 38px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h18'/%3E%3Cpath d='M6 4v2l5 6v6l2-1v-5l5-6V4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -2153,6 +2157,7 @@ th {
     border-radius: 8px;
     box-sizing: border-box;
     transition: all 0.2s;
+    line-height: 1.25;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -2366,6 +2371,17 @@ th {
 
 .result-row .form-group select,
 .result-row .form-group input[type='number'] {
+    height: 48px;
+    min-height: 48px;
+}
+
+.result-row .autocomplete-wrapper {
+    width: 100%;
+}
+
+.result-row .autocomplete-wrapper .player-input,
+.result-row .autocomplete-wrapper .deck-input {
+    width: 100%;
     height: 48px;
     min-height: 48px;
 }
@@ -2618,16 +2634,14 @@ th {
     }
 
     .filters-row {
-        grid-template-columns: 52px minmax(0, 1fr) 52px;
+        grid-template-columns: minmax(0, 1fr) 52px 52px 52px;
         gap: 10px 8px;
         grid-template-areas:
-            'create . .'
-            'store store store'
-            'name name name'
-            'instagram instagram instagram'
-            'month month month'
-            'clear . .'
-            'perpage . toggle';
+            'create perpage toggle clear'
+            'store store store store'
+            'name name name name'
+            'instagram instagram instagram instagram'
+            'month month month month';
     }
 
     .filters-row > :nth-child(2) {
@@ -2649,15 +2663,15 @@ th {
     .filters-row > :nth-child(1) {
         grid-area: create;
         width: auto;
-        min-width: 120px;
+        min-width: 0;
         height: 52px;
-        justify-self: start;
+        justify-self: stretch;
     }
 
     .filters-row > :nth-child(6) {
         grid-area: perpage;
-        justify-self: start;
-        align-self: stretch;
+        justify-self: stretch;
+        align-self: end;
     }
 
     .filters-row > :nth-child(7) {
@@ -2666,10 +2680,12 @@ th {
 
     #btnToggleView {
         grid-area: toggle;
+        justify-self: stretch;
     }
 
     #btnClearFilters {
         grid-area: clear;
+        justify-self: stretch;
     }
 
     .filter-label-spacer {
@@ -2843,9 +2859,10 @@ th {
     .form-group input[type='number'],
     .form-group input[type='url'],
     .form-group select {
-        height: 44px;
+        height: 48px;
         font-size: 16px;
-        padding: 12px;
+        padding: 10px 12px;
+        line-height: 1.25;
     }
 
     .modal-actions {
@@ -2939,8 +2956,10 @@ th {
     .form-group input[type='number'],
     .form-group input[type='url'],
     .form-group select {
-        height: 40px;
+        height: 46px;
         font-size: 16px;
+        padding: 8px 12px;
+        line-height: 1.25;
     }
 }
 

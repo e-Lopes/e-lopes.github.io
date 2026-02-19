@@ -42,6 +42,10 @@ const MONTH_NAMES_PT = [
     'December'
 ];
 
+function getTodayInSaoPaulo() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
 let tournaments = [];
 let filteredTournaments = [];
 let currentSort = getSavedSort();
@@ -1383,7 +1387,7 @@ async function openCreateTournamentModal(defaultDate = '') {
     document.getElementById('createStoreSelect').value = '';
     const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(defaultDate)
         ? defaultDate
-        : new Date().toISOString().split('T')[0];
+        : getTodayInSaoPaulo();
     document.getElementById('createTournamentDate').value = safeDate;
     document.getElementById('createTournamentName').value = '';
     document.getElementById('createTotalPlayers').value = '';
@@ -1902,13 +1906,75 @@ function updateCreateResultField(index, field, value) {
     createResults[index][field] = value;
 }
 
-function buildOptions(items, selectedValue, placeholder) {
-    const initial = `<option value="">${placeholder}</option>`;
-    const options = items.map((item) => {
-        const selected = String(item.id) === String(selectedValue) ? 'selected' : '';
-        return `<option value="${item.id}" ${selected}>${item.name}</option>`;
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return map[char] || char;
     });
-    return initial + options.join('');
+}
+
+function getItemNameById(items, id) {
+    const match = items.find((item) => String(item.id) === String(id));
+    return match?.name || '';
+}
+
+function bindCreateResultsAutocomplete() {
+    const wrappers = document.querySelectorAll('#createResultsRows .autocomplete-wrapper');
+    wrappers.forEach((wrapper) => {
+        const input = wrapper.querySelector('input[data-autocomplete-type]');
+        const dropdown = wrapper.querySelector('.autocomplete-dropdown');
+        if (!input || !dropdown) return;
+
+        const rowIndex = Number(wrapper.dataset.rowIndex);
+        const type = input.dataset.autocompleteType;
+        const field = type === 'player' ? 'player_id' : 'deck_id';
+        const source = type === 'player' ? createPlayers : createDecks;
+
+        const renderOptions = (query) => {
+            const value = (query || '').trim().toLowerCase();
+            const filtered = source
+                .filter((item) => item.name.toLowerCase().includes(value))
+                .slice(0, 8);
+
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div class="autocomplete-item no-match">Nao encontrado</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            dropdown.innerHTML = filtered
+                .map(
+                    (item) =>
+                        `<div class="autocomplete-item" data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>`
+                )
+                .join('');
+            dropdown.style.display = 'block';
+        };
+
+        input.addEventListener('input', () => {
+            updateCreateResultField(rowIndex, field, '');
+            renderOptions(input.value);
+        });
+
+        input.addEventListener('focus', () => {
+            renderOptions(input.value);
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                dropdown.style.display = 'none';
+            }, 120);
+        });
+
+        dropdown.addEventListener('mousedown', (event) => {
+            const option = event.target.closest('.autocomplete-item');
+            if (!option || option.classList.contains('no-match')) return;
+            event.preventDefault();
+            updateCreateResultField(rowIndex, field, option.dataset.id || '');
+            input.value = option.dataset.name || '';
+            dropdown.style.display = 'none';
+        });
+    });
 }
 
 function renderCreateResultsRows() {
@@ -1931,15 +1997,33 @@ function renderCreateResultsRows() {
             </div>
             <div class="form-group">
                 <label>Player<span class="required">*</span></label>
-                <select onchange="updateCreateResultField(${index}, 'player_id', this.value)" required>
-                    ${buildOptions(createPlayers, row.player_id, 'Selecione o player...')}
-                </select>
+                <div class="autocomplete-wrapper" data-row-index="${index}">
+                    <input
+                        type="text"
+                        class="player-input"
+                        data-autocomplete-type="player"
+                        placeholder="Digite o player..."
+                        value="${escapeHtml(getItemNameById(createPlayers, row.player_id))}"
+                        autocomplete="off"
+                        required
+                    >
+                    <div class="autocomplete-dropdown"></div>
+                </div>
             </div>
             <div class="form-group">
                 <label>Deck<span class="required">*</span></label>
-                <select onchange="updateCreateResultField(${index}, 'deck_id', this.value)" required>
-                    ${buildOptions(createDecks, row.deck_id, 'Selecione o deck...')}
-                </select>
+                <div class="autocomplete-wrapper" data-row-index="${index}">
+                    <input
+                        type="text"
+                        class="deck-input"
+                        data-autocomplete-type="deck"
+                        placeholder="Digite o deck..."
+                        value="${escapeHtml(getItemNameById(createDecks, row.deck_id))}"
+                        autocomplete="off"
+                        required
+                    >
+                    <div class="autocomplete-dropdown"></div>
+                </div>
             </div>
             <button type="button" class="btn-remove-result" data-create-remove-index="${index}" aria-label="Remove result" title="Remove result">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
@@ -1961,6 +2045,7 @@ function renderCreateResultsRows() {
             removeCreateResultRow(index);
         });
     });
+    bindCreateResultsAutocomplete();
 
     document.getElementById('createTotalPlayers').value = String(createResults.length);
 }
