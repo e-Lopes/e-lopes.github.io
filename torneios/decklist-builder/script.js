@@ -342,7 +342,7 @@
         const footerY = frameY + frameHeight - footerHeight + 8;
         const footerX = frameX + 18;
         const footerWidth = frameWidth - 36;
-        const createdText = 'Criado com DigiStats';
+        const createdText = 'Created with DigiStats';
         const logoSize = brandLogo ? 192 : 0;
         const logoX = footerX + footerWidth - logoSize - 4;
         const logoY = footerY + Math.round((footerHeight - logoSize) / 2) - 10;
@@ -443,7 +443,7 @@
             ctx.fillRect(0, 0, width, height);
         }
 
-        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        ctx.fillStyle = 'rgba(255,255,255,0.86)';
         roundRect(ctx, 22, 16, width - 44, height - 32, 22);
         ctx.fill();
 
@@ -463,12 +463,24 @@
     }
 
     function buildDeckImageStoreDateLine() {
-        const formattedDate = context.date ? formatContextDate(context.date) : '';
+        const formattedDate = context.date ? formatContextDateForImage(context.date) : '';
         const store = String(context.store || '').trim();
         if (store && formattedDate) return `${store}, ${formattedDate}`;
         if (store) return store;
         if (formattedDate) return formattedDate;
         return '-';
+    }
+
+    function formatContextDateForImage(rawDate) {
+        const value = String(rawDate || '').trim();
+        if (!value) return '';
+        const parsed = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) return value;
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        }).format(parsed);
     }
 
     async function loadCardImage(code) {
@@ -924,4 +936,3 @@
         });
     }
 })();
-
