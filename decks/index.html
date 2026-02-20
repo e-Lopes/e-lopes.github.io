@@ -71,6 +71,58 @@
                     ></button>
                 </div>
 
+                <section class="decklist-mvp-panel" aria-labelledby="decklistMvpTitle">
+                    <div class="decklist-mvp-header">
+                        <h2 id="decklistMvpTitle">Decklist MVP</h2>
+                        <div id="decklistMvpStats" class="decklist-mvp-stats">0 cards</div>
+                    </div>
+                    <p class="decklist-mvp-help">
+                        Cole a decklist (qualquer um dos formatos) ou adicione cartas por codigo.
+                    </p>
+
+                    <div class="decklist-mvp-bulk">
+                        <label for="decklistBulkInput">Import decklist</label>
+                        <textarea
+                            id="decklistBulkInput"
+                            rows="8"
+                            placeholder="Ex: 4 Puyoyomon BT22-001&#10;ou [&#34;BT22-001&#34;,&#34;BT22-001&#34;]&#10;ou 4 (BT22-001)"
+                        ></textarea>
+                        <div class="decklist-mvp-actions">
+                            <button type="button" id="btnDecklistParse" class="btn-primary">
+                                Parse list
+                            </button>
+                            <button type="button" id="btnDecklistClear" class="btn-secondary">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="decklist-mvp-manual">
+                        <label for="decklistManualCode">Add by code</label>
+                        <div class="decklist-mvp-manual-row">
+                            <input
+                                type="text"
+                                id="decklistManualCode"
+                                class="form-input"
+                                placeholder="BT22-001"
+                                autocomplete="off"
+                            />
+                            <select id="decklistManualQty" aria-label="Quantity">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4" selected>4</option>
+                            </select>
+                            <button type="button" id="btnDecklistAddManual" class="btn-primary">
+                                Add
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="decklistMvpErrors" class="decklist-mvp-errors" role="status"></div>
+                    <div id="decklistMvpBoard" class="decklist-mvp-board" aria-live="polite"></div>
+                </section>
+
                 <div id="decksList" class="decks-grid">
                     <div class="loading">
                         <div class="spinner"></div>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Decklist Builder - Digimon TCG</title>
+        <link rel="icon" type="image/png" href="../../icons/favicon/favicon.png" />
+        <link rel="stylesheet" href="../../styles.css" />
+        <link rel="stylesheet" href="../../styles/components/utilities.css" />
+        <link rel="stylesheet" href="../../styles/components/states.css" />
+    </head>
+    <body>
+        <div class="container">
+            <div>
+                <a href="../../index.html" class="nav-button">
+                    <span>&larr; Back to Dashboard</span>
+                </a>
+            </div>
+
+            <header class="decklist-builder-header">
+                <h1>Deck Builder</h1>
+                <div id="decklistBuilderMeta" class="decklist-builder-meta" aria-live="polite"></div>
+            </header>
+
+            <section class="decklist-builder-panel">
+                <div class="decklist-builder-top">
+                    <div id="decklistBuilderStats" class="decklist-builder-stats">0 cards</div>
+                    <div class="decklist-builder-top-actions">
+                        <button type="button" id="btnDecklistBuilderImport" class="btn-secondary">
+                            Import decklist
+                        </button>
+                        <button type="button" id="btnDecklistBuilderExport" class="btn-secondary">
+                            Export decklist
+                        </button>
+                        <button type="button" id="btnDecklistBuilderSave" class="btn-primary">
+                            Save
+                        </button>
+                    </div>
+                </div>
+                <div id="decklistBuilderSaveStatus" class="decklist-builder-save-status" aria-live="polite"></div>
+
+                <div class="decklist-builder-manual">
+                    <label for="decklistBuilderManualCode">Add by code</label>
+                    <div class="decklist-builder-manual-row">
+                        <input
+                            type="text"
+                            id="decklistBuilderManualCode"
+                            class="form-input"
+                            placeholder="BT22-001"
+                            autocomplete="off"
+                        />
+                        <button type="button" id="btnDecklistBuilderAdd" class="btn-primary">
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <div id="decklistBuilderErrors" class="decklist-builder-errors" role="status"></div>
+                <div id="decklistBuilderBoard" class="decklist-builder-board" aria-live="polite"></div>
+            </section>
+        </div>
+
+        <div id="decklistImportModal" class="decklist-import-modal" aria-hidden="true">
+            <div class="decklist-import-dialog" role="dialog" aria-modal="true" aria-labelledby="decklistImportTitle">
+                <div class="decklist-import-header">
+                    <h2 id="decklistImportTitle">Import Deck</h2>
+                    <button type="button" id="btnDecklistImportClose" class="decklist-import-close" aria-label="Close import modal">
+                        &times;
+                    </button>
+                </div>
+                <div class="decklist-import-body">
+                    <label for="decklistImportTextarea">Paste Decklist</label>
+                    <textarea
+                        id="decklistImportTextarea"
+                        rows="12"
+                        placeholder="// Digimon Deck List&#10;4 Koromon ST1-01&#10;4 Biyomon ST1-02&#10;4 Agumon ST1-03"
+                    ></textarea>
+                </div>
+                <div class="decklist-import-footer">
+                    <button type="button" id="btnDecklistImportCancel" class="btn-secondary">Cancel</button>
+                    <button type="button" id="btnDecklistImportConfirm" class="btn-primary">Import</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="../../config/supabase.js"></script>
+        <script src="../../config/app-version.js"></script>
+        <script src="script.js"></script>
+        <script src="../../config/register-sw.js"></script>
+    </body>
+</html>

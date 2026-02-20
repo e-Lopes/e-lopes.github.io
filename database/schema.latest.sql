@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS "public"."tournament_results" (
     "total_players" smallint NOT NULL,
     "placement" smallint NOT NULL,
     "deck_id" "uuid" NOT NULL,
-    "decklist_link" "text",
+    "decklist" "text",
     "player_id" "uuid",
     "tournament_id" bigint,
     CONSTRAINT "placement_valid" CHECK (("placement" <= "total_players")),
@@ -638,7 +638,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
-
 
 
 

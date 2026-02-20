@@ -345,6 +345,11 @@ function getAssetPrefix() {
     return window.location.pathname.includes('/torneios/list-tournaments/') ? '../../' : '';
 }
 
+function extractDeckCodeFromImageUrl(imageUrl) {
+    const match = String(imageUrl || '').match(/\/([A-Z0-9-]+)\.webp(?:$|\?)/i);
+    return match ? String(match[1]).toUpperCase() : '';
+}
+
 function normalizeStoreName(name) {
     return String(name || '')
         .toLowerCase()
@@ -1790,15 +1795,36 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         const resultsHtml = (results || []).length
             ? results
                 .map(
-                    (item) => `
-                <div class="results-mini-item ${fullResultsPlacementClass(Number(item.placement))}">
+                    (item) => {
+                        const payload = encodeURIComponent(
+                            JSON.stringify({
+                                resultId: item.id || '',
+                                deck: item.deck || '',
+                                player: item.player || '',
+                                code: extractDeckCodeFromImageUrl(item.image_url || ''),
+                                store: tournament.store?.name || '',
+                                date: tournament.tournament_date || '',
+                                tournamentName: tournament.tournament_name || ''
+                            })
+                        );
+                        return `
+                <div
+                    class="results-mini-item with-action ${fullResultsPlacementClass(Number(item.placement))}"
+                    data-action="open-decklist-builder"
+                    data-decklist-payload="${payload}"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Open decklist builder for ${escapeHtml(item.deck || 'Deck')}"
+                    title="Open decklist builder"
+                >
                     <div class="results-mini-rank">${formatOrdinal(item.placement)}</div>
                     <div class="results-mini-main">
                         <strong>${item.deck || '-'}</strong>
                         <span>${item.player || '-'}</span>
                     </div>
                 </div>
-            `
+            `;
+                    }
                   )
                   .join('')
             : `<div class="results-mini-item"><div class="results-mini-main">No results found.</div></div>`;
@@ -1859,6 +1885,36 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 openPostGeneratorWithTournamentData(tournament, results, totalPlayers);
             });
         }
+        content.querySelectorAll('.results-mini-item.with-action[data-action="open-decklist-builder"]').forEach((row) => {
+            const openDecklistBuilder = () => {
+                const rawPayload = row.getAttribute('data-decklist-payload') || '';
+                let payload;
+                try {
+                    payload = JSON.parse(decodeURIComponent(rawPayload));
+                } catch {
+                    return;
+                }
+
+                const params = new URLSearchParams();
+                if (payload.deck) params.set('deck', payload.deck);
+                if (payload.player) params.set('player', payload.player);
+                if (payload.code) params.set('code', payload.code);
+                if (payload.store) params.set('store', payload.store);
+                if (payload.date) params.set('date', payload.date);
+                if (payload.tournamentName) params.set('tournamentName', payload.tournamentName);
+                if (payload.resultId) params.set('resultId', payload.resultId);
+
+                window.location.href = `${getAssetPrefix()}torneios/decklist-builder/index.html?${params.toString()}`;
+            };
+
+            row.addEventListener('click', openDecklistBuilder);
+            row.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openDecklistBuilder();
+                }
+            });
+        });
     } catch (err) {
         console.error(err);
         if (!targetContainer) {

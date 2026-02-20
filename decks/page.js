@@ -1,6 +1,7 @@
 {
 const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
+const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
 const headers = window.createSupabaseHeaders
     ? window.createSupabaseHeaders()
     : {
@@ -20,6 +21,8 @@ const PAGE_SIZE_OPTIONS = [4, 8, 12, 24, 40, 80];
 let pageSize = getInitialPageSize();
 let currentSearchTerm = '';
 let decksPageInitialized = false;
+let decklistMvpEntries = [];
+const DECK_CODE_PATTERN = /^[A-Z]{1,3}\d{0,2}-\d{1,3}$/;
 
 function getDeckNameForDisplay(name) {
     const text = String(name || '');
@@ -56,9 +59,245 @@ function initDecksPage() {
             await loadDecks();
         }
     });
+    setupDecklistMvp();
     loadDecks();
     setupSearch();
     setupPaginationControls();
+}
+
+function setupDecklistMvp() {
+    const parseButton = document.getElementById('btnDecklistParse');
+    const clearButton = document.getElementById('btnDecklistClear');
+    const addManualButton = document.getElementById('btnDecklistAddManual');
+    const manualInput = document.getElementById('decklistManualCode');
+
+    if (parseButton) {
+        parseButton.addEventListener('click', () => {
+            const text = document.getElementById('decklistBulkInput')?.value || '';
+            const result = parseDecklistText(text);
+            decklistMvpEntries = result.entries;
+            renderDecklistMvpBoard(result.errors);
+        });
+    }
+
+    if (clearButton) {
+        clearButton.addEventListener('click', () => {
+            decklistMvpEntries = [];
+            const bulkInput = document.getElementById('decklistBulkInput');
+            if (bulkInput) bulkInput.value = '';
+            const manual = document.getElementById('decklistManualCode');
+            if (manual) manual.value = '';
+            renderDecklistMvpBoard([]);
+        });
+    }
+
+    if (addManualButton) {
+        addManualButton.addEventListener('click', () => {
+            addManualDecklistCode();
+        });
+    }
+
+    if (manualInput) {
+        manualInput.addEventListener('input', () => {
+            manualInput.value = manualInput.value.toUpperCase();
+        });
+        manualInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addManualDecklistCode();
+            }
+        });
+    }
+
+    renderDecklistMvpBoard([]);
+}
+
+function addManualDecklistCode() {
+    const manualInput = document.getElementById('decklistManualCode');
+    const qtySelect = document.getElementById('decklistManualQty');
+    if (!manualInput || !qtySelect) return;
+
+    const code = normalizeDeckCode(manualInput.value);
+    const qty = Math.max(1, Math.min(4, Number(qtySelect.value) || 1));
+
+    if (!isValidDeckCode(code)) {
+        renderDecklistMvpBoard([`Invalid code: ${manualInput.value || '(empty)'}`]);
+        return;
+    }
+
+    upsertDecklistEntry(code, qty);
+    manualInput.value = '';
+    renderDecklistMvpBoard([]);
+}
+
+function isValidDeckCode(code) {
+    return DECK_CODE_PATTERN.test(String(code || ''));
+}
+
+function normalizeDeckCode(value) {
+    return String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/^["'\[\(]+/, '')
+        .replace(/["'\]\),;:.]+$/, '');
+}
+
+function upsertDecklistEntry(code, qty) {
+    const existing = decklistMvpEntries.find((item) => item.code === code);
+    if (existing) {
+        existing.count += qty;
+        return;
+    }
+    decklistMvpEntries.push({ code, count: qty });
+}
+
+function parseDecklistText(rawText) {
+    const text = String(rawText || '').trim();
+    if (!text) return { entries: [], errors: [] };
+
+    const errors = [];
+
+    const jsonParsed = tryParseDecklistJsonArray(text);
+    if (jsonParsed.length > 0) {
+        return { entries: aggregateDeckCodes(jsonParsed), errors: [] };
+    }
+
+    const lineBased = parseDecklistByLines(text);
+    if (lineBased.entries.length > 0) {
+        return { entries: lineBased.entries, errors: lineBased.errors };
+    }
+
+    const repeatedCodes = parseDecklistRepeatedCodes(text);
+    if (repeatedCodes.length > 0) {
+        return { entries: aggregateDeckCodes(repeatedCodes), errors: [] };
+    }
+
+    errors.push('No valid deck codes found in the provided text.');
+    return { entries: [], errors };
+}
+
+function tryParseDecklistJsonArray(text) {
+    try {
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .map((item) => normalizeDeckCode(item))
+            .filter((code) => isValidDeckCode(code));
+    } catch {
+        return [];
+    }
+}
+
+function parseDecklistByLines(text) {
+    const lines = text.split(/\r?\n/);
+    const entries = [];
+    const errors = [];
+
+    lines.forEach((line, idx) => {
+        const raw = String(line || '').trim();
+        if (!raw) return;
+        if (/^\/\/\s*/.test(raw)) return;
+        if (/^decklist$/i.test(raw)) return;
+
+        const parenMatch = raw.match(/^(\d{1,2})\s*\(\s*([A-Z0-9-]+)\s*\)\s*$/i);
+        if (parenMatch) {
+            const qty = Number(parenMatch[1]);
+            const code = normalizeDeckCode(parenMatch[2]);
+            if (isValidDeckCode(code)) entries.push({ code, count: qty });
+            else errors.push(`Line ${idx + 1}: invalid code "${parenMatch[2]}"`);
+            return;
+        }
+
+        const namedMatch = raw.match(/^(\d{1,2})\s+.*?([A-Z]{1,3}\d{0,2}-\d{1,3})\s*$/i);
+        if (namedMatch) {
+            const qty = Number(namedMatch[1]);
+            const code = normalizeDeckCode(namedMatch[2]);
+            if (isValidDeckCode(code)) entries.push({ code, count: qty });
+            else errors.push(`Line ${idx + 1}: invalid code "${namedMatch[2]}"`);
+            return;
+        }
+
+        const loneCodeMatch = raw.match(/^([A-Z]{1,3}\d{0,2}-\d{1,3})$/i);
+        if (loneCodeMatch) {
+            const code = normalizeDeckCode(loneCodeMatch[1]);
+            if (isValidDeckCode(code)) entries.push({ code, count: 1 });
+            return;
+        }
+    });
+
+    return { entries: aggregateDeckEntryCounts(entries), errors };
+}
+
+function parseDecklistRepeatedCodes(text) {
+    const pattern = /([A-Z]{1,3}\d{0,2}-\d{1,3})/gi;
+    const matches = [...text.matchAll(pattern)];
+    return matches.map((match) => normalizeDeckCode(match[1])).filter((code) => isValidDeckCode(code));
+}
+
+function aggregateDeckCodes(codes) {
+    const temp = codes.map((code) => ({ code, count: 1 }));
+    return aggregateDeckEntryCounts(temp);
+}
+
+function aggregateDeckEntryCounts(entries) {
+    const map = new Map();
+    entries.forEach((entry) => {
+        const code = normalizeDeckCode(entry.code);
+        const count = Number(entry.count) || 1;
+        if (!isValidDeckCode(code)) return;
+        if (!map.has(code)) {
+            map.set(code, { code, count: 0 });
+        }
+        map.get(code).count += count;
+    });
+    return Array.from(map.values());
+}
+
+function renderDecklistMvpBoard(errors = []) {
+    const board = document.getElementById('decklistMvpBoard');
+    const stats = document.getElementById('decklistMvpStats');
+    const errorBox = document.getElementById('decklistMvpErrors');
+    if (!board || !stats || !errorBox) return;
+
+    const totalCards = decklistMvpEntries.reduce((acc, item) => acc + item.count, 0);
+    stats.textContent = `${totalCards} cards | ${decklistMvpEntries.length} unique`;
+
+    if (errors.length > 0) {
+        errorBox.textContent = errors.join(' | ');
+        errorBox.style.display = 'block';
+    } else {
+        errorBox.textContent = '';
+        errorBox.style.display = 'none';
+    }
+
+    if (decklistMvpEntries.length === 0) {
+        board.innerHTML = '<div class="decklist-mvp-empty">No cards yet.</div>';
+        return;
+    }
+
+    board.innerHTML = decklistMvpEntries
+        .map((entry) => {
+            const imageUrl = `${IMAGE_BASE_URL}${entry.code}.webp`;
+            return `
+                <article class="decklist-mvp-card" data-code="${escapeHtmlAttribute(entry.code)}">
+                    <div class="decklist-mvp-count">${entry.count}</div>
+                    <img src="${imageUrl}" alt="${escapeHtmlAttribute(entry.code)}">
+                    <div class="decklist-mvp-code">${entry.code}</div>
+                </article>
+            `;
+        })
+        .join('');
+
+    board.querySelectorAll('.decklist-mvp-card img').forEach((img) => {
+        img.addEventListener(
+            'error',
+            () => {
+                const code = img.closest('.decklist-mvp-card')?.dataset.code || 'CODE';
+                img.src = `https://via.placeholder.com/220x308/667eea/ffffff?text=${encodeURIComponent(code)}`;
+            },
+            { once: true }
+        );
+    });
 }
 
 window.initDecksPage = initDecksPage;

@@ -51,7 +51,7 @@ CREATE TABLE public.tournament_results (
   total_players smallint NOT NULL CHECK (total_players > 0),
   placement smallint NOT NULL CHECK (placement > 0),
   deck_id uuid NOT NULL,
-  decklist_link text,
+  decklist text,
   player_id uuid,
   tournament_id bigint,
   CONSTRAINT tournament_results_pkey PRIMARY KEY (id),
