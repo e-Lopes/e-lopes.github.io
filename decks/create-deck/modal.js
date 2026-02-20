@@ -1,9 +1,9 @@
 (function () {
     const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const MODAL_TEMPLATE = `
-<div id="createDeckModal" class="modal-overlay" aria-hidden="true">
-    <div class="modal-content">
-        <h2>Create Deck</h2>
+<div id="createDeckModal" class="modal-overlay" aria-hidden="true" inert>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="createDeckTitle">
+        <h2 id="createDeckTitle">Create Deck</h2>
         <form id="createDeckForm">
             <div class="form-group">
                 <label class="form-label" for="createDeckName">Deck Name*</label>
@@ -111,6 +111,8 @@
         const preview = document.getElementById('createDeckPreview');
         const previewImage = document.getElementById('createDeckPreviewImage');
 
+        let lastFocused = null;
+
         const updatePreview = () => {
             if (!codeInput || !preview || !previewImage) return;
             const code = codeInput.value.trim().toUpperCase();
@@ -127,18 +129,29 @@
         };
 
         const closeModal = () => {
+            const active = document.activeElement;
+            if (active && modal.contains(active) && typeof active.blur === 'function') {
+                active.blur();
+            }
             modal.classList.remove('active');
             modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('inert', '');
+            if (lastFocused && typeof lastFocused.focus === 'function') {
+                lastFocused.focus();
+            }
         };
 
         if (openBtn) {
             openBtn.addEventListener('click', () => {
+                lastFocused = document.activeElement;
                 if (nameInput) nameInput.value = '';
                 if (codeInput) codeInput.value = '';
                 if (preview) preview.style.display = 'none';
                 if (previewImage) previewImage.removeAttribute('src');
                 modal.classList.add('active');
                 modal.setAttribute('aria-hidden', 'false');
+                modal.removeAttribute('inert');
+                if (nameInput) nameInput.focus();
             });
         }
 

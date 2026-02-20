@@ -1,9 +1,9 @@
 (function () {
     const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const MODAL_TEMPLATE = `
-<div id="editDeckModal" class="modal-overlay" aria-hidden="true">
-    <div class="modal-content">
-        <h2>Edit Deck</h2>
+<div id="editDeckModal" class="modal-overlay" aria-hidden="true" inert>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editDeckTitle">
+        <h2 id="editDeckTitle">Edit Deck</h2>
         <form id="editDeckForm">
             <input id="editDeckId" type="hidden">
             <div class="form-group">
@@ -126,9 +126,19 @@
         const preview = document.getElementById('editDeckPreview');
         const previewImage = document.getElementById('editDeckPreviewImage');
 
+        let lastFocused = null;
+
         const closeModal = () => {
+            const active = document.activeElement;
+            if (active && modal.contains(active) && typeof active.blur === 'function') {
+                active.blur();
+            }
             modal.classList.remove('active');
             modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('inert', '');
+            if (lastFocused && typeof lastFocused.focus === 'function') {
+                lastFocused.focus();
+            }
         };
 
         const updatePreview = () => {
@@ -219,12 +229,15 @@
         }
 
         window.openEditDeckModal = function openEditDeckModal(deckId, deckName, imageUrl) {
+            lastFocused = document.activeElement;
             if (idInput) idInput.value = deckId || '';
             if (nameInput) nameInput.value = deckName || '';
             if (codeInput) codeInput.value = extractCodeFromUrl(imageUrl || '');
             updatePreview();
             modal.classList.add('active');
             modal.setAttribute('aria-hidden', 'false');
+            modal.removeAttribute('inert');
+            if (nameInput) nameInput.focus();
         };
     };
 })();
