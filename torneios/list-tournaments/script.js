@@ -579,6 +579,7 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
     const formatCode = getTournamentFormatCode(tournament);
     const tournamentDataForCanvas = {
         topFour: (results || []).slice(0, 4).map((item) => ({
+            result_id: item.id || '',
             placement: Number(item.placement),
             deck: item.deck || '-',
             player: item.player || '-',
@@ -596,6 +597,7 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
         dateStr: formatDate(tournament.tournament_date),
         totalPlayers: Number(totalPlayers) || 0,
         allResults: (results || []).map((item) => ({
+            result_id: item.id || '',
             placement: Number(item.placement),
             deck: item.deck || '-',
             player: item.player || '-',

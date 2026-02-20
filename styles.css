@@ -2172,7 +2172,8 @@ th {
 }
 
 #btnDecklistBuilderImport,
-#btnDecklistBuilderExport {
+#btnDecklistBuilderExport,
+#btnDecklistBuilderExportImage {
     height: 38px;
     white-space: nowrap;
     padding: 0 12px;
@@ -3307,12 +3308,9 @@ th {
 
     #btnDecklistBuilderImport,
     #btnDecklistBuilderExport,
+    #btnDecklistBuilderExportImage,
     #btnDecklistBuilderSave {
         width: 100%;
-    }
-
-    #btnDecklistBuilderSave {
-        grid-column: 1 / -1;
     }
 
     .decklist-builder-board {
