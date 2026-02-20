@@ -60,14 +60,10 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         entries: 'Total de aparições/resultados registrados.',
         titles: 'Quantidade de títulos (1º lugar).',
         top4_total: 'Quantidade de vezes no Top 4.',
-        top8_total: 'Quantidade de vezes no Top 8.',
         ranking_points: 'Pontuação acumulada conforme o sistema de pontos da view.',
         avg_placement: 'Média de colocação (quanto menor, melhor).',
         meta_share_percent:
             'Meta Share (%): (aparições do deck no recorte / total de aparições no mesmo recorte) x 100.',
-        top_cut_conversion_percent:
-            'Conversão Top16 (%): (resultados no Top16 / total de entradas no recorte) x 100.',
-        top_cut_rate_percent: 'Taxa Top16 (%): (resultados no Top16 / total de entradas) x 100.',
         title_rate_percent: 'Taxa de Títulos (%): (títulos / total de entradas) x 100.',
         top4_rate_percent: 'Taxa Top4 (%): (resultados no Top4 / total de entradas) x 100.',
         format_code: 'Código do formato do torneio (ex.: BT24, EX11).',
@@ -83,11 +79,9 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         tournaments_played: 'Quantidade de torneios distintos em que o deck apareceu.',
         unique_players: 'Quantidade de jogadores únicos usando o deck.',
         top4_finishes: 'Quantidade de resultados no Top 4.',
-        top_cut_finishes: 'Quantidade de resultados no Top16.',
         avg_placement: 'Média de colocação do deck em todos os resultados.'
     },
     v_deck_stats: {
-        top_cut_total: 'Total de resultados em Top16.',
         best_finish: 'Melhor colocação já alcançada pelo deck.',
         worst_finish: 'Pior colocação já registrada para o deck.',
         performance_rank: 'Ranking geral de desempenho do deck.'
@@ -126,13 +120,18 @@ const PLAYER_RANKING_TABLE_COLUMNS = [
     'ranking_points',
     'titles',
     'top4_total',
-    'top8_total',
-    'top_cut_total',
     'entries',
     'unique_decks_used',
-    'title_rate_percent',
-    'top_cut_rate_percent'
+    'title_rate_percent'
 ];
+const STATISTICS_REMOVED_COLUMNS = new Set([
+    'top8_total',
+    'top16_total',
+    'top_cut_total',
+    'top_cut_finishes',
+    'top_cut_rate_percent',
+    'top_cut_conversion_percent'
+]);
 const STATISTICS_VIEW_COLUMN_ORDER = {
     v_deck_representation: [
         'deck',
@@ -141,25 +140,20 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'unique_players',
         'titles',
         'top4_finishes',
-        'top_cut_finishes',
         'avg_placement',
-        'meta_share_percent',
-        'top_cut_conversion_percent'
+        'meta_share_percent'
     ],
     v_deck_stats: [
         'deck',
         'entries',
         'titles',
         'top4_total',
-        'top8_total',
-        'top_cut_total',
         'avg_placement',
         'performance_rank',
         'best_finish',
         'worst_finish',
         'title_rate_percent',
         'top4_rate_percent',
-        'top_cut_conversion_percent',
         'ranking_points'
     ],
     v_meta_by_month: [
@@ -170,8 +164,6 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'ranking_points',
         'titles',
         'top4_total',
-        'top8_total',
-        'top_cut_total',
         'appearances'
     ],
     v_player_ranking: PLAYER_RANKING_TABLE_COLUMNS,
@@ -181,8 +173,6 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'player',
         'titles',
         'top4_total',
-        'top8_total',
-        'top_cut_total',
         'entries',
         'store_title_share_percent',
         'ranking_points'
@@ -1912,14 +1902,9 @@ function prettifyStatisticsColumn(column, viewName = '') {
             overall_rank: currentStatisticsMonthFilter ? 'Rank Mensal' : 'Rank Geral',
             titles: 'Títulos',
             top4_total: 'Top4',
-            top8_total: 'Top8',
-            top_cut_total: 'Top16',
-            top16_total: 'Top16',
-            top_cut_finishes: 'Top16',
             entries: 'Aparições',
             unique_decks_used: 'Decks Únicos',
             title_rate_percent: 'Taxa de Títulos',
-            top_cut_rate_percent: 'Taxa Top16',
             ranking_points: 'Pontuação total',
             points: 'Pontuação total'
         };
@@ -1935,12 +1920,7 @@ function prettifyStatisticsColumn(column, viewName = '') {
         store_rank: 'Rank Loja',
         performance_rank: 'Rank Performance',
         format_rank: 'Rank',
-        top_cut_total: 'Top16',
-        top_cut_finishes: 'Top16',
-        top_cut_conversion_percent: 'Conversão Top16 (%)',
-        top_cut_rate_percent: 'Taxa Top16 (%)',
         top4_total: 'Top4',
-        top8_total: 'Top8',
         meta_share_percent: 'Meta Share (%)',
         title_rate_percent: 'Taxa de Títulos (%)',
         unique_players: 'Players Únicos',
@@ -1960,10 +1940,9 @@ function prettifyStatisticsColumn(column, viewName = '') {
 
 function getStatisticsDisplayColumns(viewName, columns) {
     let list = Array.isArray(columns) ? [...columns] : [];
+    list = list.filter((column) => !STATISTICS_REMOVED_COLUMNS.has(String(column || '').trim()));
     if (viewName === 'v_meta_by_month') {
-        list = list.filter(
-            (column) => column !== 'meta_share_percent' && column !== 'top_cut_conversion_percent'
-        );
+        list = list.filter((column) => column !== 'meta_share_percent');
     }
     const preferred = STATISTICS_VIEW_COLUMN_ORDER[viewName];
     if (!Array.isArray(preferred) || !preferred.length) return list;
@@ -1990,11 +1969,6 @@ function normalizePlayerRankingRows(rows, options = {}) {
         const allTimeRow = allTimeByPlayer.get(playerKey) || null;
         const entriesValue = normalizeStatNumber(source.entries);
         const titlesValue = normalizeStatNumber(source.titles);
-        const topCutRateValue = normalizeStatNumber(source.top_cut_rate_percent);
-        const inferredTopCutFromRate =
-            Number.isFinite(entriesValue) && Number.isFinite(topCutRateValue)
-                ? Math.round((entriesValue * topCutRateValue) / 100)
-                : null;
         const inferredTitleRate =
             Number.isFinite(entriesValue) && entriesValue > 0 && Number.isFinite(titlesValue)
                 ? (titlesValue / entriesValue) * 100
@@ -2005,17 +1979,11 @@ function normalizePlayerRankingRows(rows, options = {}) {
             overall_rank: normalizeStatNumber(source.overall_rank ?? source.monthly_rank ?? source.rank),
             titles: titlesValue,
             top4_total: normalizeStatNumber(source.top4_total ?? source.top4),
-            top8_total: normalizeStatNumber(source.top8_total ?? source.top8),
-            top_cut_total: normalizeStatNumber(
-                source.top_cut_total ?? source.top16_total ?? source.top_cut_finishes ?? source.top16
-            )
-                ?? inferredTopCutFromRate,
             entries: entriesValue,
             unique_decks_used:
                 normalizeStatNumber(source.unique_decks_used) ??
                 normalizeStatNumber(allTimeRow?.unique_decks_used),
             title_rate_percent: normalizeStatNumber(source.title_rate_percent) ?? inferredTitleRate,
-            top_cut_rate_percent: topCutRateValue,
             ranking_points: normalizeStatNumber(source.ranking_points ?? source.points)
         };
 
@@ -2447,8 +2415,6 @@ function getStatisticsFormulaHintHtml(viewName) {
             <span class="points-pill silver">2º +10pts</span>
             <span class="points-pill bronze">3º +7pts</span>
             <span class="points-pill top4">4º +5pts</span>
-            <span class="points-pill top8">Top8 +3pts</span>
-            <span class="points-pill top16">Top16 +1pt</span>
         </div>
     `;
 }

@@ -7332,18 +7332,6 @@ body.template-preview-page .post-toast {
     color: #29458b;
 }
 
-.points-pill.top8 {
-    background: #eaf7ee;
-    border-color: #c4e7d1;
-    color: #24553b;
-}
-
-.points-pill.top16 {
-    background: #f4f6fb;
-    border-color: #d9e0ef;
-    color: #485b85;
-}
-
 .statistics-status {
     color: #334155;
     font-size: 0.9rem;
