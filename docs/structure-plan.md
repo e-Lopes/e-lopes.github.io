@@ -30,7 +30,6 @@ pages/
   players/
   decks/
   tournaments/
-  legacy/
 
 assets/
   icons/

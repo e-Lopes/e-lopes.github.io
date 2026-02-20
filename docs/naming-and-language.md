@@ -4,7 +4,7 @@
 
 - Prefer English names for new folders/files.
 - Use `kebab-case` for folders/files.
-- Keep existing legacy routes stable until migration is complete.
+- Keep PT and EN routes aligned while both are in use.
 
 ## Code Naming
 

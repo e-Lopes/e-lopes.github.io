@@ -49,6 +49,17 @@
                         </span>
                         <span>Players</span>
                     </button>
+                    <button type="button" id="btnShowStatisticsNav" class="nav-button">
+                        <span class="nav-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 20h18"></path>
+                                <path d="M7 16V9"></path>
+                                <path d="M12 16V5"></path>
+                                <path d="M17 16v-3"></path>
+                            </svg>
+                        </span>
+                        <span>Statistics</span>
+                    </button>
                 </div>
             </header>
 
@@ -263,6 +274,7 @@
             <div id="calendarTournamentDetails" class="calendar-tournament-details is-hidden"></div>
             <div id="decksDynamicContainer" class="is-hidden"></div>
             <div id="playersDynamicContainer" class="is-hidden"></div>
+            <div id="statisticsDynamicContainer" class="is-hidden"></div>
 
             <template id="decksContainerTemplate">
                 <div class="decks-container">
@@ -403,6 +415,96 @@
 
                     <div id="emptyState" class="empty-state u-hidden">
                         <p>No players found.</p>
+                    </div>
+                </div>
+            </template>
+
+            <template id="statisticsContainerTemplate">
+                <div class="statistics-container-embedded">
+                    <div class="page-header statistics-header">
+                        <div class="statistics-controls">
+                            <div class="statistics-primary-controls">
+                                <label for="statisticsViewSelect" class="statistics-select-label"
+                                    >Estat&iacute;stica:</label
+                                >
+                                <div class="statistics-main-selects">
+                                    <select
+                                        id="statisticsViewSelect"
+                                        class="statistics-select"
+                                        title="Statistics view"
+                                        aria-label="Statistics view"
+                                    >
+                                        <option value="v_deck_representation">
+                                            Representa&ccedil;&atilde;o de Decks</option>
+                                        <option value="v_deck_stats" selected>Estat&iacute;sticas de Decks</option>
+                                        <option value="v_meta_by_month">Meta por Formato</option>
+                                        <option value="v_player_ranking">Ranking de Players</option>
+                                        <option value="v_store_champions">Ranking por Loja</option>
+                                    </select>
+                                    <select
+                                        id="statisticsFilterStore"
+                                        class="statistics-select is-hidden"
+                                        title="Filtrar por loja"
+                                        aria-label="Filtrar por loja"
+                                    >
+                                        <option value="">Todas as lojas</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="statistics-secondary-controls">
+                                <select
+                                    id="statisticsFilterFormat"
+                                    class="statistics-select is-hidden"
+                                    title="Filtrar por formato"
+                                    aria-label="Filtrar por formato"
+                                >
+                                    <option value="">Todos os formatos</option>
+                                </select>
+                                <select
+                                    id="statisticsFilterMonth"
+                                    class="statistics-select is-hidden"
+                                    title="Filtrar por mes"
+                                    aria-label="Filtrar por mes"
+                                >
+                                    <option value="">Todos os meses</option>
+                                </select>
+                                <select
+                                    id="statisticsFilterDate"
+                                    class="statistics-select is-hidden"
+                                    title="Filtrar por data"
+                                    aria-label="Filtrar por data"
+                                >
+                                    <option value="">Todas as datas</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    id="statisticsPlayerSearch"
+                                    class="statistics-player-search is-hidden"
+                                    placeholder="Buscar player..."
+                                    aria-label="Buscar player no Store Champions"
+                                    autocomplete="off"
+                                />
+                                <button
+                                    type="button"
+                                    id="btnToggleStoreCards"
+                                    class="btn-secondary statistics-toggle-stores is-hidden"
+                                >
+                                    Expandir lojas
+                                </button>
+                            </div>
+                            <p id="statisticsFormulaHint" class="statistics-formula-hint"></p>
+                        </div>
+                    </div>
+                    <div class="statistics-data-card">
+                        <p id="statisticsStatus" class="statistics-status">
+                            Select a view to load data.
+                        </p>
+                    </div>
+                    <div class="statistics-table-wrapper">
+                        <table id="statisticsTable" class="statistics-table">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
                 </div>
             </template>
@@ -553,3 +655,6 @@
         <script src="torneios/edit-tournament/modal.js"></script>
     </body>
 </html>
+
+
+

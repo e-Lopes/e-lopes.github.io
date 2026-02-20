@@ -1,4 +1,4 @@
--- Phase 2 cleanup: keep only tournament.format_id and remove legacy text column.
+-- Phase 2 cleanup: keep only tournament.format_id and remove deprecated text column.
 -- Run only after frontend is using format_id as primary source.
 
 BEGIN;

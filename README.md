@@ -1,47 +1,48 @@
 # DigiStats Dashboard
 
-Dashboard web para gestão de torneios de Digimon TCG, com frontend em HTML/CSS/JS e backend via Supabase.
+Dashboard web para gestao de torneios de Digimon TCG, com frontend em HTML/CSS/JS e backend no Supabase.
 
 ## Objetivo
 
-Centralizar operações de:
+Centralizar operacoes de:
 
 - cadastro e listagem de torneios
-- gestão de jogadores
-- gestão de decks
-- visualizações de pódio e calendário
+- gestao de jogadores
+- gestao de decks
+- visualizacoes de podio e calendario
 
 ## Stack
 
 - HTML, CSS e JavaScript (vanilla)
-- Supabase (REST API/Postgres)
+- Supabase (Postgres + REST)
 - Service Worker + Manifest (PWA)
-- Node.js (lint, testes e automações)
+- Node.js (lint, testes e automacoes)
 
 ## Estrutura do Projeto
 
 - `index.html`: dashboard principal
-- `script.js`: lógica principal da home
-- `styles.css`: estilos globais consolidados
-- `players/`: módulo de jogadores
-- `decks/`: módulo de decks
-- `torneios/`: fluxo principal de torneios (criar, listar, editar)
-- `tournaments/`: rotas alias em inglês
-- `config/`: configuração e utilitários compartilhados
-- `database/`: documentação e snapshots SQL
+- `script.js`: logica principal da home
+- `styles.css`: estilos globais
+- `styles/`: estilos por componentes e paginas
+- `config/`: configuracoes e utilitarios compartilhados
+- `players/`: modulo de jogadores
+- `decks/`: modulo de decks
+- `torneios/`: fluxo principal de torneios (criar, listar, editar, decklist)
+- `tournaments/`: rotas em ingles equivalentes ao modulo `torneios/`
+- `post-preview/`: editor de post e preview
+- `database/`: schema, migracoes e snapshots SQL
+- `docs/`: guias de estrutura, nomenclatura e seguranca
 - `tests/`: testes automatizados
-- `post-preview/`: editor de posts e preview
-- `legacy/`: area legada para compatibilidade
 
 ## Setup Local
 
-### 1. Pré-requisitos
+### 1. Pre-requisitos
 
-- Node.js 20+ (recomendado)
+- Node.js 20+
 - npm
-- Docker Desktop (necessário para `db:snapshot`)
+- Docker Desktop (necessario para `db:snapshot`)
 
-### 2. Instalar dependências
+### 2. Instalar dependencias
 
 ```bash
 npm install
@@ -54,81 +55,72 @@ npm run lint
 npm run test
 ```
 
-## Comandos Disponíveis
+## Scripts
 
 - `npm run lint`: valida JavaScript com ESLint
 - `npm run test`: executa testes Node (`node --test`)
 - `npm run format`: formata arquivos com Prettier
 - `npm run db:snapshot`: exporta snapshot de schema/roles do Supabase
 
-## Rastreio de Banco (Supabase)
+## Banco de Dados (Supabase)
 
-Este projeto versiona estado de banco para auditoria e rollback.
-
-### Configuração
-
-Defina a URL de conexão:
+Defina a conexao antes de gerar snapshots:
 
 ```powershell
 $env:SUPABASE_DB_URL = "postgresql://postgres:<password>@<host>:5432/postgres"
 ```
 
-### Executar snapshot
+Execute:
 
 ```bash
 npm run db:snapshot
 ```
 
-Saídas esperadas:
+Saidas esperadas:
 
 - `database/snapshots/schema-YYYYMMDD-HHMMSS.sql`
 - `database/snapshots/roles-YYYYMMDD-HHMMSS.sql`
 - `database/schema.latest.sql`
 - `database/roles.latest.sql`
 
-Mais detalhes: `database/README.md`
+Detalhes adicionais em `database/README.md`.
 
-## Fluxo de Trabalho no Git
+## Estado Atual do Frontend
 
-### Branching sugerido
+Backlog imediato em `TODO.md`:
 
-- `main`: estável
-- `feat/<tema>`: novas features
-- `fix/<tema>`: correções
-- `chore/<tema>`: manutenção técnica
+- criar telas para as views:
+- `v_deck_representation`
+- `v_deck_stats`
+- `v_meta_by_month`
+- `v_montly_ranking`
+- `v_player_ranking`
+- `v_store_champions`
 
-### Passos antes de commit
+## Fluxo de Trabalho
 
 1. Rodar `npm run lint`
 2. Rodar `npm run test`
-3. Se houver mudança de banco, rodar `npm run db:snapshot`
+3. Se houver mudanca de banco, rodar `npm run db:snapshot`
 4. Revisar `git diff`
 5. Commit com mensagem clara
 
-Exemplo de commit:
+Exemplo:
 
 ```bash
-git commit -m "feat(players): improve pagination layout and cleanup styles comments"
+git commit -m "feat(players): improve pagination layout"
 ```
 
-## Padrões de Qualidade
+## Documentacao Complementar
 
-- Evitar lógica duplicada entre páginas
-- Reutilizar helpers de `config/`
-- Manter nomenclatura consistente
-- Evitar estilos inline em HTML
-- Priorizar correções com impacto em UX e dados
+- `TODO.md`
+- `docs/structure-plan.md`
+- `docs/naming-and-language.md`
+- `docs/security-rls.md`
+- `post-preview/README.md`
 
-## Documentação Complementar
+## Seguranca
 
-- `TODO.md`: backlog atual
-- `docs/structure-plan.md`: plano de organização
-- `docs/naming-and-language.md`: convenções de nomenclatura/idioma
-- `docs/security-rls.md`: segurança e RLS
-- `docs/legacy-deprecation.md`: plano de depreciação de legado
-
-## Observações de Segurança
-
-- Não commitar segredos (`.env`, connection strings, chaves privadas)
-- Rotacionar credenciais se forem expostas
-- Revisar permissões e políticas no Supabase (RLS)
+- nao commitar segredos (`.env`, connection strings, chaves privadas)
+- rotacionar credenciais se forem expostas
+- revisar permissoes e politicas de RLS no Supabase

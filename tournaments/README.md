@@ -1,6 +1,6 @@
 # tournaments (Alias)
 
-English-path aliases for legacy `torneios/` routes.
+English-path aliases for `torneios/` routes.
 
 Purpose:
 

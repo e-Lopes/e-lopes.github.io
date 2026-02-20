@@ -23,6 +23,7 @@ const SORT_STORAGE_KEY = 'tournamentsSort';
 const PER_PAGE_STORAGE_KEY = 'tournamentsPerPage';
 const VIEW_STORAGE_KEY = 'tournamentsViewMode';
 const DASHBOARD_VIEW_STORAGE_KEY = 'dashboardActiveView';
+const STATS_VIEW_STORAGE_KEY = 'dashboardStatisticsView';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
 const SORTABLE_FIELDS = ['tournament_date', 'total_players'];
@@ -41,7 +42,152 @@ const MONTH_NAMES_PT = [
     'November',
     'December'
 ];
-
+const DEFAULT_STATISTICS_VIEW = 'v_deck_stats';
+const STATISTICS_VIEWS = [
+    { value: 'v_deck_representation', label: 'Representação de Decks' },
+    { value: 'v_deck_stats', label: 'Estatísticas de Decks' },
+    { value: 'v_meta_by_month', label: 'Meta por Formato' },
+    { value: 'v_player_ranking', label: 'Ranking de Players' },
+    { value: 'v_store_champions', label: 'Ranking por Loja' }
+];
+const STATISTICS_COLUMN_HELP_PTBR = {
+    common: {
+        deck: 'Nome do deck arquétipo.',
+        player: 'Nome do jogador.',
+        store: 'Nome da loja onde o torneio aconteceu.',
+        month: 'Mês de referência da estatística.',
+        appearances: 'Quantidade total de aparições no recorte.',
+        entries: 'Total de aparições/resultados registrados.',
+        titles: 'Quantidade de títulos (1º lugar).',
+        top4_total: 'Quantidade de vezes no Top 4.',
+        top8_total: 'Quantidade de vezes no Top 8.',
+        ranking_points: 'Pontuação acumulada conforme o sistema de pontos da view.',
+        avg_placement: 'Média de colocação (quanto menor, melhor).',
+        meta_share_percent:
+            'Meta Share (%): (aparições do deck no recorte / total de aparições no mesmo recorte) x 100.',
+        top_cut_conversion_percent:
+            'Conversão Top16 (%): (resultados no Top16 / total de entradas no recorte) x 100.',
+        top_cut_rate_percent: 'Taxa Top16 (%): (resultados no Top16 / total de entradas) x 100.',
+        title_rate_percent: 'Taxa de Títulos (%): (títulos / total de entradas) x 100.',
+        top4_rate_percent: 'Taxa Top4 (%): (resultados no Top4 / total de entradas) x 100.',
+        format_code: 'Código do formato do torneio (ex.: BT24, EX11).',
+        tournament_date: 'Data do torneio.',
+        tournament_name: 'Nome do torneio.',
+        placement: 'Colocação final no torneio.',
+        total_players: 'Quantidade total de jogadores no torneio.',
+        image_url: 'URL da imagem principal do deck.',
+        instagram_link: 'Link do post no Instagram do evento.',
+        decklist: 'Decklist registrada para o resultado.'
+    },
+    v_deck_representation: {
+        tournaments_played: 'Quantidade de torneios distintos em que o deck apareceu.',
+        unique_players: 'Quantidade de jogadores únicos usando o deck.',
+        top4_finishes: 'Quantidade de resultados no Top 4.',
+        top_cut_finishes: 'Quantidade de resultados no Top16.',
+        avg_placement: 'Média de colocação do deck em todos os resultados.'
+    },
+    v_deck_stats: {
+        top_cut_total: 'Total de resultados em Top16.',
+        best_finish: 'Melhor colocação já alcançada pelo deck.',
+        worst_finish: 'Pior colocação já registrada para o deck.',
+        performance_rank: 'Ranking geral de desempenho do deck.'
+    },
+    v_meta_by_month: {
+        month: 'Mês analisado para o metagame.',
+        meta_share_percent:
+            'Meta Share (%): (aparições do deck no mês e formato selecionados / total de aparições no mesmo mês e formato) x 100.',
+        top4_total: 'Total de resultados Top 4 no mês.',
+        titles: 'Total de títulos no mês.'
+    },
+    v_player_ranking: {
+        unique_decks_used: 'Quantidade de decks diferentes usados pelo jogador.',
+        last_event_date: 'Data mais recente em que o jogador apareceu.',
+        overall_rank: 'Posição geral do jogador no ranking acumulado.'
+    },
+    v_store_champions: {
+        store_title_share_percent:
+            'Share de Títulos da Loja (%): (títulos do player na loja / total de títulos da loja) x 100.',
+        store_rank: 'Posição do jogador no ranking interno da loja.'
+    }
+};
+const STATISTICS_HIDDEN_COLUMNS = new Set([
+    'id',
+    'store_id',
+    'tournament_id',
+    'player_id',
+    'deck_id',
+    'format_id',
+    'created_at',
+    'updated_at'
+]);
+const PLAYER_RANKING_TABLE_COLUMNS = [
+    'player',
+    'overall_rank',
+    'ranking_points',
+    'titles',
+    'top4_total',
+    'top8_total',
+    'top_cut_total',
+    'entries',
+    'unique_decks_used',
+    'title_rate_percent',
+    'top_cut_rate_percent'
+];
+const STATISTICS_VIEW_COLUMN_ORDER = {
+    v_deck_representation: [
+        'deck',
+        'appearances',
+        'tournaments_played',
+        'unique_players',
+        'titles',
+        'top4_finishes',
+        'top_cut_finishes',
+        'avg_placement',
+        'meta_share_percent',
+        'top_cut_conversion_percent'
+    ],
+    v_deck_stats: [
+        'deck',
+        'entries',
+        'titles',
+        'top4_total',
+        'top8_total',
+        'top_cut_total',
+        'avg_placement',
+        'performance_rank',
+        'best_finish',
+        'worst_finish',
+        'title_rate_percent',
+        'top4_rate_percent',
+        'top_cut_conversion_percent',
+        'ranking_points'
+    ],
+    v_meta_by_month: [
+        'month',
+        'format_code',
+        'deck',
+        'format_rank',
+        'ranking_points',
+        'titles',
+        'top4_total',
+        'top8_total',
+        'top_cut_total',
+        'appearances'
+    ],
+    v_player_ranking: PLAYER_RANKING_TABLE_COLUMNS,
+    v_store_champions: [
+        'store',
+        'store_rank',
+        'player',
+        'titles',
+        'top4_total',
+        'top8_total',
+        'top_cut_total',
+        'entries',
+        'store_title_share_percent',
+        'ranking_points'
+    ]
+};
 function getTodayInSaoPaulo() {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
@@ -60,10 +206,21 @@ let selectedTournamentId = null;
 let currentViewMode = getSavedViewMode();
 let calendarMonthKey = '';
 let currentDashboardView = 'tournaments';
+let currentStatisticsView = getSavedStatisticsView();
 let decksViewMounted = false;
 let decksScriptsPromise = null;
 let playersViewMounted = false;
 let playersScriptsPromise = null;
+let statisticsViewMounted = false;
+let statisticsViewData = [];
+let statisticsMonthlyRankingData = [];
+let currentStatisticsSort = { column: '', direction: 'asc' };
+let currentStatisticsMonthFilter = '';
+let currentStatisticsStoreFilter = '';
+let currentStatisticsFormatFilter = '';
+let currentStatisticsDateFilter = '';
+let currentStoreChampionsPlayerQuery = '';
+let areStoreChampionsCardsCollapsed = true;
 let tournamentFormatIdSupported = true;
 const FALLBACK_FORMAT_OPTIONS = [
     { id: null, code: 'BT23', isDefault: false },
@@ -121,11 +278,23 @@ function saveViewMode() {
 
 function getSavedDashboardView() {
     const saved = localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
-    return saved === 'decks' || saved === 'players' ? saved : 'tournaments';
+    return saved === 'decks' || saved === 'players' || saved === 'statistics'
+        ? saved
+        : 'tournaments';
 }
 
 function saveDashboardViewPreference() {
     localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, currentDashboardView);
+}
+
+function getSavedStatisticsView() {
+    const saved = localStorage.getItem(STATS_VIEW_STORAGE_KEY);
+    return STATISTICS_VIEWS.some((item) => item.value === saved) ? saved : DEFAULT_STATISTICS_VIEW;
+}
+
+function saveStatisticsViewPreference(value) {
+    if (!STATISTICS_VIEWS.some((item) => item.value === value)) return;
+    localStorage.setItem(STATS_VIEW_STORAGE_KEY, value);
 }
 
 function formatDate(dateString) {
@@ -160,9 +329,9 @@ function readTournamentFormatValue(inputId) {
         return { formatId: null, formatCode: '' };
     }
 
-    if (rawFormatId.startsWith('legacy:')) {
-        const legacyCode = normalizeFormatCode(rawFormatId.replace(/^legacy:/, ''));
-        return { formatId: null, formatCode: legacyCode };
+    if (rawFormatId.startsWith('code:')) {
+        const fallbackCode = normalizeFormatCode(rawFormatId.replace(/^code:/, ''));
+        return { formatId: null, formatCode: fallbackCode };
     }
 
     const formatId = Number(rawFormatId);
@@ -281,7 +450,7 @@ function populateTournamentFormatSelect(selectId, options = {}) {
         optionItems.push({
             id: null,
             code: selectedValue,
-            label: `${selectedValue} (legacy)`
+            label: `${selectedValue} (code only)`
         });
     }
 
@@ -296,7 +465,7 @@ function populateTournamentFormatSelect(selectId, options = {}) {
     const sortedItems = optionItems.sort((a, b) => b.code.localeCompare(a.code));
     sortedItems.forEach((item) => {
         const option = document.createElement('option');
-        option.value = item.id ? String(item.id) : `legacy:${item.code}`;
+        option.value = item.id ? String(item.id) : `code:${item.code}`;
         option.dataset.formatCode = item.code;
         option.textContent = item.label;
         select.appendChild(option);
@@ -317,7 +486,7 @@ function populateTournamentFormatSelect(selectId, options = {}) {
             return;
         }
         if (codeMatch && !codeMatch.id) {
-            select.value = `legacy:${codeMatch.code}`;
+            select.value = `code:${codeMatch.code}`;
             return;
         }
     }
@@ -328,9 +497,9 @@ function populateTournamentFormatSelect(selectId, options = {}) {
         select.value = String(defaultItem.id);
         return;
     }
-    const defaultLegacyItem = sortedItems.find((item) => item.code === defaultCode && !item.id);
-    if (defaultLegacyItem) {
-        select.value = `legacy:${defaultLegacyItem.code}`;
+    const defaultCodeOnlyItem = sortedItems.find((item) => item.code === defaultCode && !item.id);
+    if (defaultCodeOnlyItem) {
+        select.value = `code:${defaultCodeOnlyItem.code}`;
         return;
     }
 
@@ -796,8 +965,10 @@ function setupDashboardViewSwitching() {
     const btnShowTournamentsNav = document.getElementById('btnShowTournamentsNav');
     const btnManageDecksNav = document.getElementById('btnManageDecksNav');
     const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
+    const btnShowStatisticsNav = document.getElementById('btnShowStatisticsNav');
 
-    if (!btnShowTournamentsNav && !btnManageDecksNav && !btnManagePlayersNav) return;
+    if (!btnShowTournamentsNav && !btnManageDecksNav && !btnManagePlayersNav && !btnShowStatisticsNav)
+        return;
 
     if (btnShowTournamentsNav) {
         btnShowTournamentsNav.addEventListener('click', () => {
@@ -817,6 +988,12 @@ function setupDashboardViewSwitching() {
         });
     }
 
+    if (btnShowStatisticsNav) {
+        btnShowStatisticsNav.addEventListener('click', () => {
+            switchDashboardView('statistics');
+        });
+    }
+
     updateDashboardViewUi();
     const savedDashboardView = getSavedDashboardView();
     if (savedDashboardView !== currentDashboardView) {
@@ -825,7 +1002,8 @@ function setupDashboardViewSwitching() {
 }
 
 async function switchDashboardView(view) {
-    if (view !== 'tournaments' && view !== 'decks' && view !== 'players') return;
+    if (view !== 'tournaments' && view !== 'decks' && view !== 'players' && view !== 'statistics')
+        return;
     if (currentDashboardView === view) return;
 
     currentDashboardView = view;
@@ -861,23 +1039,41 @@ async function switchDashboardView(view) {
             saveDashboardViewPreference();
             updateDashboardViewUi();
         }
+        return;
+    }
+
+    if (view === 'statistics') {
+        try {
+            await ensureStatisticsViewReady();
+            await loadAndRenderStatistics(currentStatisticsView);
+        } catch (error) {
+            console.error(error);
+            alert('Unable to load statistics view right now.');
+            currentDashboardView = 'tournaments';
+            saveDashboardViewPreference();
+            updateDashboardViewUi();
+        }
     }
 }
 
 function updateDashboardViewUi() {
     const isDecks = currentDashboardView === 'decks';
     const isPlayers = currentDashboardView === 'players';
-    const isTournaments = !isDecks && !isPlayers;
+    const isStatistics = currentDashboardView === 'statistics';
+    const isTournaments = !isDecks && !isPlayers && !isStatistics;
     const filtersRow = document.querySelector('.filters-row');
     const decksContainer = document.getElementById('decksDynamicContainer');
     const playersContainer = document.getElementById('playersDynamicContainer');
+    const statisticsContainer = document.getElementById('statisticsDynamicContainer');
     const btnShowTournamentsNav = document.getElementById('btnShowTournamentsNav');
     const btnManageDecksNav = document.getElementById('btnManageDecksNav');
     const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
+    const btnShowStatisticsNav = document.getElementById('btnShowStatisticsNav');
 
-    if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers);
+    if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers || isStatistics);
     if (decksContainer) decksContainer.classList.toggle('is-hidden', !isDecks);
     if (playersContainer) playersContainer.classList.toggle('is-hidden', !isPlayers);
+    if (statisticsContainer) statisticsContainer.classList.toggle('is-hidden', !isStatistics);
 
     if (btnShowTournamentsNav) {
         btnShowTournamentsNav.classList.toggle('is-active', isTournaments);
@@ -894,8 +1090,13 @@ function updateDashboardViewUi() {
         btnManagePlayersNav.disabled = isPlayers;
         btnManagePlayersNav.setAttribute('aria-pressed', String(isPlayers));
     }
+    if (btnShowStatisticsNav) {
+        btnShowStatisticsNav.classList.toggle('is-active', isStatistics);
+        btnShowStatisticsNav.disabled = isStatistics;
+        btnShowStatisticsNav.setAttribute('aria-pressed', String(isStatistics));
+    }
 
-    if (!isDecks && !isPlayers) {
+    if (!isDecks && !isPlayers && !isStatistics) {
         renderCurrentView();
         return;
     }
@@ -910,6 +1111,7 @@ function updateDashboardViewUi() {
 
 async function ensureDecksViewReady() {
     unmountPlayersContainer();
+    unmountStatisticsContainer();
     await mountDecksContainer();
     await loadDecksAssets();
 }
@@ -999,8 +1201,15 @@ function loadScriptOnce(src) {
 
 async function ensurePlayersViewReady() {
     unmountDecksContainer();
+    unmountStatisticsContainer();
     await mountPlayersContainer();
     await loadPlayersAssets();
+}
+
+async function ensureStatisticsViewReady() {
+    unmountDecksContainer();
+    unmountPlayersContainer();
+    await mountStatisticsContainer();
 }
 
 async function mountPlayersContainer() {
@@ -1055,6 +1264,1200 @@ async function loadPlayersAssets() {
     const prefix = getAssetPrefix();
     playersScriptsPromise = loadScriptOnce(`${prefix}players/script.js`);
     return playersScriptsPromise;
+}
+
+async function mountStatisticsContainer() {
+    if (statisticsViewMounted) return;
+
+    const host = document.getElementById('statisticsDynamicContainer');
+    if (!host) return;
+
+    const template = document.getElementById('statisticsContainerTemplate');
+    if (!template?.content?.firstElementChild) {
+        throw new Error('Statistics template not found in index.html');
+    }
+
+    const embedded = template.content.firstElementChild.cloneNode(true);
+    host.innerHTML = '';
+    host.appendChild(embedded);
+
+    const select = host.querySelector('#statisticsViewSelect');
+
+    if (select) {
+        select.value = currentStatisticsView;
+        select.addEventListener('change', async () => {
+            const nextView = String(select.value || '');
+            currentStatisticsView = nextView;
+            currentStatisticsSort = { column: '', direction: 'asc' };
+            currentStatisticsMonthFilter = '';
+            currentStatisticsStoreFilter = '';
+            currentStatisticsFormatFilter = '';
+            currentStatisticsDateFilter = '';
+            currentStoreChampionsPlayerQuery = '';
+            areStoreChampionsCardsCollapsed = true;
+            saveStatisticsViewPreference(nextView);
+            await loadAndRenderStatistics(nextView);
+        });
+    }
+
+    const monthSelect = host.querySelector('#statisticsFilterMonth');
+    if (monthSelect) {
+        monthSelect.addEventListener('change', () => {
+            currentStatisticsMonthFilter = String(monthSelect.value || '');
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    const storeFilterSelect = host.querySelector('#statisticsFilterStore');
+    if (storeFilterSelect) {
+        storeFilterSelect.addEventListener('change', () => {
+            currentStatisticsStoreFilter = String(storeFilterSelect.value || '');
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    const formatFilterSelect = host.querySelector('#statisticsFilterFormat');
+    if (formatFilterSelect) {
+        formatFilterSelect.addEventListener('change', () => {
+            currentStatisticsFormatFilter = String(formatFilterSelect.value || '');
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    const dateFilterSelect = host.querySelector('#statisticsFilterDate');
+    if (dateFilterSelect) {
+        dateFilterSelect.addEventListener('change', () => {
+            currentStatisticsDateFilter = String(dateFilterSelect.value || '');
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
+    if (playerSearchInput) {
+        playerSearchInput.addEventListener('input', () => {
+            currentStoreChampionsPlayerQuery = String(playerSearchInput.value || '').trim();
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
+    if (toggleStoreCardsButton) {
+        toggleStoreCardsButton.addEventListener('click', () => {
+            areStoreChampionsCardsCollapsed = !areStoreChampionsCardsCollapsed;
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    window.addEventListener('resize', handleStatisticsViewportChange);
+
+    statisticsViewMounted = true;
+}
+
+function unmountStatisticsContainer() {
+    const host = document.getElementById('statisticsDynamicContainer');
+    if (host && host.innerHTML) {
+        host.innerHTML = '';
+    }
+    statisticsViewMounted = false;
+    statisticsViewData = [];
+    statisticsMonthlyRankingData = [];
+    currentStatisticsSort = { column: '', direction: 'asc' };
+    currentStatisticsMonthFilter = '';
+    currentStatisticsStoreFilter = '';
+    currentStatisticsFormatFilter = '';
+    currentStatisticsDateFilter = '';
+    currentStoreChampionsPlayerQuery = '';
+    areStoreChampionsCardsCollapsed = true;
+    window.removeEventListener('resize', handleStatisticsViewportChange);
+}
+
+async function loadAndRenderStatistics(viewName) {
+    const host = document.getElementById('statisticsDynamicContainer');
+    if (!host) return;
+
+    const status = host.querySelector('#statisticsStatus');
+    if (status) status.textContent = '';
+
+    try {
+        if (viewName === 'v_player_ranking') {
+            const allTimeEndpoint = '/rest/v1/v_player_ranking?select=*&limit=1000';
+            const monthlyEndpoint = '/rest/v1/v_monthly_ranking?select=*&limit=1000';
+            const [allTimeResponse, monthlyResponse] = await Promise.all([
+                window.supabaseApi
+                    ? window.supabaseApi.get(allTimeEndpoint)
+                    : fetch(`${SUPABASE_URL}${allTimeEndpoint}`, { headers }),
+                window.supabaseApi
+                    ? window.supabaseApi.get(monthlyEndpoint)
+                    : fetch(`${SUPABASE_URL}${monthlyEndpoint}`, { headers })
+            ]);
+
+            if (!allTimeResponse.ok) {
+                throw new Error(`Failed to load v_player_ranking (${allTimeResponse.status})`);
+            }
+            if (!monthlyResponse.ok) {
+                throw new Error(`Failed to load v_monthly_ranking (${monthlyResponse.status})`);
+            }
+
+            const [allTimeRows, monthlyRows] = await Promise.all([
+                allTimeResponse.json(),
+                monthlyResponse.json()
+            ]);
+            statisticsViewData = normalizePlayerRankingRows(
+                Array.isArray(allTimeRows) ? allTimeRows : [],
+                { isMonthly: false }
+            );
+            const playerAllTimeMap = new Map(
+                statisticsViewData.map((row) => [String(row?.player || '').trim().toLowerCase(), row])
+            );
+            statisticsMonthlyRankingData = normalizePlayerRankingRows(
+                Array.isArray(monthlyRows) ? monthlyRows : [],
+                { isMonthly: true, allTimeByPlayer: playerAllTimeMap }
+            );
+        } else {
+            const endpoint = `/rest/v1/${viewName}?select=*&limit=1000`;
+            const response = window.supabaseApi
+                ? await window.supabaseApi.get(endpoint)
+                : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load ${viewName} (${response.status})`);
+            }
+
+            const rows = await response.json();
+            statisticsViewData = Array.isArray(rows) ? rows : [];
+            statisticsMonthlyRankingData = [];
+        }
+        renderStatisticsTable(statisticsViewData, viewName);
+    } catch (error) {
+        console.error(error);
+        statisticsViewData = [];
+        statisticsMonthlyRankingData = [];
+        renderStatisticsTable([], viewName, error.message || 'Unexpected error');
+    }
+}
+
+function renderStatisticsTable(rows, viewName, errorMessage = '') {
+    const host = document.getElementById('statisticsDynamicContainer');
+    if (!host) return;
+
+    const status = host.querySelector('#statisticsStatus');
+    const formulaHint = host.querySelector('#statisticsFormulaHint');
+    const rowCount = host.querySelector('#statisticsRowCount');
+    const dataCard = host.querySelector('.statistics-data-card');
+    const tableWrapper = host.querySelector('.statistics-table-wrapper');
+    const primaryControls = host.querySelector('.statistics-primary-controls');
+    const mainSelects = host.querySelector('.statistics-main-selects');
+    const secondaryControls = host.querySelector('.statistics-secondary-controls');
+    const storeFilterSelect = host.querySelector('#statisticsFilterStore');
+    const formatFilterSelect = host.querySelector('#statisticsFilterFormat');
+    const monthFilterSelect = host.querySelector('#statisticsFilterMonth');
+    const dateFilterSelect = host.querySelector('#statisticsFilterDate');
+    const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
+    const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
+    const previousBoard = host.querySelector('.store-champions-board');
+    if (previousBoard) previousBoard.remove();
+    const previousHighlights = host.querySelector('.statistics-highlights');
+    if (previousHighlights) previousHighlights.remove();
+    const head = host.querySelector('#statisticsTable thead');
+    const body = host.querySelector('#statisticsTable tbody');
+    if (!head || !body) return;
+
+    head.innerHTML = '';
+    body.innerHTML = '';
+    if (status) {
+        status.textContent = '';
+        status.classList.add('is-hidden');
+    }
+    if (rowCount) rowCount.textContent = String(rows.length || 0);
+    if (dataCard) dataCard.classList.add('is-hidden');
+    if (tableWrapper) tableWrapper.classList.remove('is-hidden');
+    if (tableWrapper) {
+        tableWrapper.classList.toggle(
+            'is-wide-table',
+            viewName === 'v_player_ranking' ||
+                viewName === 'v_deck_stats' ||
+                viewName === 'v_deck_representation'
+        );
+    }
+    if (formulaHint) {
+        const formulaHtml = getStatisticsFormulaHintHtml(viewName);
+        formulaHint.innerHTML = formulaHtml;
+        formulaHint.classList.toggle('is-hidden', !formulaHtml);
+    }
+    if (storeFilterSelect) {
+        storeFilterSelect.classList.add('is-hidden');
+        storeFilterSelect.innerHTML = '<option value="">Todas as lojas</option>';
+        if (mainSelects && storeFilterSelect.parentElement !== mainSelects) {
+            mainSelects.appendChild(storeFilterSelect);
+        }
+    }
+    if (monthFilterSelect) {
+        monthFilterSelect.classList.add('is-hidden');
+        monthFilterSelect.innerHTML = '<option value="">Todos os meses</option>';
+    }
+    if (formatFilterSelect) {
+        formatFilterSelect.classList.add('is-hidden');
+        formatFilterSelect.innerHTML = '<option value="">Todos os formatos</option>';
+    }
+    if (dateFilterSelect) {
+        dateFilterSelect.classList.add('is-hidden');
+        dateFilterSelect.innerHTML = '<option value="">Todas as datas</option>';
+    }
+    if (playerSearchInput) {
+        playerSearchInput.classList.add('is-hidden');
+        playerSearchInput.value = '';
+    }
+    if (toggleStoreCardsButton) {
+        toggleStoreCardsButton.classList.add('is-hidden');
+    }
+    if (secondaryControls) {
+        secondaryControls.classList.add('is-hidden');
+        secondaryControls.classList.remove('is-store-champions-row');
+    }
+    if (primaryControls) {
+        primaryControls.classList.remove('is-store-champions-layout');
+    }
+
+    if (errorMessage) {
+        if (status) {
+            status.textContent = `Unable to load ${viewName}: ${errorMessage}`;
+            status.classList.remove('is-hidden');
+        }
+        if (dataCard) dataCard.classList.remove('is-hidden');
+        return;
+    }
+
+    const playerMonthlyRows =
+        viewName === 'v_player_ranking' && Array.isArray(statisticsMonthlyRankingData)
+            ? statisticsMonthlyRankingData
+            : [];
+    const hasBaseRows = Array.isArray(rows) && rows.length > 0;
+    const hasPlayerMonthlyRows = viewName === 'v_player_ranking' && playerMonthlyRows.length > 0;
+
+    if (!hasBaseRows && !hasPlayerMonthlyRows) {
+        if (status) {
+            status.textContent = `No rows returned for ${viewName}.`;
+            status.classList.remove('is-hidden');
+        }
+        if (dataCard) dataCard.classList.remove('is-hidden');
+        return;
+    }
+    const playerMonthlyColumns = Object.keys(playerMonthlyRows[0] || {});
+
+    const sourceColumns = Object.keys(rows[0] || {});
+    const storeColumn = sourceColumns.includes('store') ? 'store' : '';
+    const formatColumn = sourceColumns.includes('format_code')
+        ? 'format_code'
+        : sourceColumns.includes('format')
+          ? 'format'
+          : '';
+    const monthColumn =
+        sourceColumns.includes('month')
+            ? 'month'
+            : viewName === 'v_player_ranking' && playerMonthlyColumns.includes('month')
+              ? 'month'
+              : '';
+    const dateColumn =
+        viewName === 'v_player_ranking'
+            ? ''
+            : sourceColumns.includes('tournament_date')
+        ? 'tournament_date'
+        : sourceColumns.find((column) => /(^|_)date$/i.test(column)) || '';
+
+    if (storeFilterSelect && storeColumn) {
+        storeFilterSelect.classList.remove('is-hidden');
+        populateStatisticsValueSelect(
+            storeFilterSelect,
+            rows.map((row) => row?.[storeColumn]),
+            currentStatisticsStoreFilter,
+            'Todas as lojas'
+        );
+        currentStatisticsStoreFilter = String(storeFilterSelect.value || '');
+    } else {
+        currentStatisticsStoreFilter = '';
+    }
+
+    if (formatFilterSelect && formatColumn) {
+        formatFilterSelect.classList.remove('is-hidden');
+        populateStatisticsValueSelect(
+            formatFilterSelect,
+            rows.map((row) => row?.[formatColumn]),
+            currentStatisticsFormatFilter,
+            'Todos os formatos'
+        );
+        if (viewName === 'v_meta_by_month' && !currentStatisticsFormatFilter) {
+            const latestFormat = getLatestStatisticsFormat(rows, formatColumn, monthColumn);
+            if (latestFormat) {
+                currentStatisticsFormatFilter = latestFormat;
+                formatFilterSelect.value = latestFormat;
+            }
+        }
+        currentStatisticsFormatFilter = String(formatFilterSelect.value || '');
+    } else {
+        currentStatisticsFormatFilter = '';
+    }
+
+    if (monthFilterSelect && monthColumn) {
+        const monthSourceRows =
+            viewName === 'v_meta_by_month' && formatColumn && currentStatisticsFormatFilter
+                ? rows.filter(
+                      (row) =>
+                          String(row?.[formatColumn] || '').trim() === currentStatisticsFormatFilter
+                  )
+                : rows;
+        populateStatisticsMonthSelect(
+            monthFilterSelect,
+            viewName === 'v_player_ranking'
+                ? playerMonthlyRows.map((row) => row?.[monthColumn])
+                : monthSourceRows.map((row) => row?.[monthColumn]),
+            currentStatisticsMonthFilter
+        );
+        if (viewName === 'v_player_ranking') {
+            monthFilterSelect.classList.add('is-hidden');
+        } else {
+            monthFilterSelect.classList.remove('is-hidden');
+        }
+        currentStatisticsMonthFilter = String(monthFilterSelect.value || '');
+    } else {
+        currentStatisticsMonthFilter = '';
+    }
+
+    if (dateFilterSelect && dateColumn) {
+        dateFilterSelect.classList.remove('is-hidden');
+        populateStatisticsDateSelect(
+            dateFilterSelect,
+            rows.map((row) => row?.[dateColumn]),
+            currentStatisticsDateFilter
+        );
+        currentStatisticsDateFilter = String(dateFilterSelect.value || '');
+    } else {
+        currentStatisticsDateFilter = '';
+    }
+
+    let filteredRows = rows;
+    if (storeColumn && currentStatisticsStoreFilter) {
+        filteredRows = filteredRows.filter(
+            (row) => String(row?.[storeColumn] || '').trim() === currentStatisticsStoreFilter
+        );
+    }
+    if (formatColumn && currentStatisticsFormatFilter) {
+        filteredRows = filteredRows.filter(
+            (row) => String(row?.[formatColumn] || '').trim() === currentStatisticsFormatFilter
+        );
+    }
+    if (monthColumn && currentStatisticsMonthFilter) {
+        if (viewName === 'v_player_ranking') {
+            filteredRows = playerMonthlyRows.filter(
+                (row) =>
+                    normalizeStatisticsMonthKey(row?.[monthColumn]) === currentStatisticsMonthFilter
+            );
+        } else {
+            filteredRows = filteredRows.filter(
+                (row) =>
+                    normalizeStatisticsMonthKey(row?.[monthColumn]) === currentStatisticsMonthFilter
+            );
+        }
+    }
+    if (dateColumn && currentStatisticsDateFilter) {
+        filteredRows = filteredRows.filter(
+            (row) => normalizeStatisticsDateKey(row?.[dateColumn]) === currentStatisticsDateFilter
+        );
+    }
+
+    if (viewName === 'v_store_champions') {
+        if (primaryControls) {
+            primaryControls.classList.add('is-store-champions-layout');
+        }
+        if (secondaryControls && storeFilterSelect && storeFilterSelect.parentElement !== secondaryControls) {
+            secondaryControls.prepend(storeFilterSelect);
+        }
+        if (secondaryControls) {
+            secondaryControls.classList.add('is-store-champions-row');
+        }
+        if (playerSearchInput) {
+            playerSearchInput.classList.remove('is-hidden');
+            playerSearchInput.value = currentStoreChampionsPlayerQuery;
+        }
+        const isMobile = isStatisticsMobileViewport();
+        if (toggleStoreCardsButton) {
+            if (isMobile) {
+                toggleStoreCardsButton.classList.remove('is-hidden');
+                toggleStoreCardsButton.textContent = areStoreChampionsCardsCollapsed
+                    ? 'Expandir lojas'
+                    : 'Recolher lojas';
+            } else {
+                areStoreChampionsCardsCollapsed = false;
+                toggleStoreCardsButton.classList.add('is-hidden');
+            }
+        }
+        filteredRows = filterStoreChampionsRowsByPlayer(filteredRows, currentStoreChampionsPlayerQuery);
+    }
+
+    if (secondaryControls) {
+        const hasVisibleSecondaryControl =
+            (storeFilterSelect && !storeFilterSelect.classList.contains('is-hidden')) ||
+            (formatFilterSelect && !formatFilterSelect.classList.contains('is-hidden')) ||
+            (monthFilterSelect && !monthFilterSelect.classList.contains('is-hidden')) ||
+            (dateFilterSelect && !dateFilterSelect.classList.contains('is-hidden')) ||
+            (playerSearchInput && !playerSearchInput.classList.contains('is-hidden')) ||
+            (toggleStoreCardsButton && !toggleStoreCardsButton.classList.contains('is-hidden'));
+        secondaryControls.classList.toggle('is-hidden', !hasVisibleSecondaryControl);
+    }
+
+    if (!filteredRows.length) {
+        if (status) {
+            if (viewName === 'v_store_champions' && currentStoreChampionsPlayerQuery) {
+                status.textContent = 'Nenhum player encontrado com esse filtro.';
+            } else if (storeColumn && currentStatisticsStoreFilter) {
+                status.textContent = 'Nenhum dado para a loja selecionada.';
+            } else if (formatColumn && currentStatisticsFormatFilter) {
+                status.textContent = 'Sem dados para o formato selecionado.';
+            } else if (monthColumn && currentStatisticsMonthFilter) {
+                status.textContent = 'Sem dados para o mes selecionado.';
+            } else if (dateColumn && currentStatisticsDateFilter) {
+                status.textContent = 'Sem dados para a data selecionada.';
+            } else {
+                status.textContent = `No rows returned for ${viewName}.`;
+            }
+            status.classList.remove('is-hidden');
+        }
+        if (dataCard) dataCard.classList.remove('is-hidden');
+        return;
+    }
+    if (rowCount) rowCount.textContent = String(filteredRows.length || 0);
+
+    if (viewName === 'v_store_champions') {
+        const columns = getStatisticsDisplayColumns(
+            viewName,
+            Object.keys(filteredRows[0] || {}).filter((column) => !isInternalStatisticsColumn(column))
+        );
+        renderStatisticsHighlights(host, viewName, filteredRows, columns, {
+            showInlineMonthSelect: false,
+            monthValues: [],
+            selectedMonth: ''
+        });
+        if (tableWrapper) tableWrapper.classList.add('is-hidden');
+        if (dataCard) dataCard.classList.add('is-hidden');
+        renderStoreChampionsBoard(host, filteredRows, {
+            isMobile: isStatisticsMobileViewport(),
+            collapsedByDefault: areStoreChampionsCardsCollapsed
+        });
+        if (status) status.textContent = '';
+        return;
+    }
+
+    const columns = getStatisticsDisplayColumns(
+        viewName,
+        Object.keys(filteredRows[0] || {}).filter((column) => !isInternalStatisticsColumn(column))
+    );
+    if (!columns.length) {
+        if (status) status.textContent = `No user-facing columns available for ${viewName}.`;
+        return;
+    }
+    if (currentStatisticsSort.column && !columns.includes(currentStatisticsSort.column)) {
+        currentStatisticsSort = { column: '', direction: 'asc' };
+    }
+
+    renderStatisticsHighlights(host, viewName, filteredRows, columns, {
+        showInlineMonthSelect: viewName === 'v_player_ranking' && Boolean(monthColumn),
+        monthValues:
+            viewName === 'v_player_ranking'
+                ? playerMonthlyRows.map((row) => row?.[monthColumn])
+                : [],
+        selectedMonth: currentStatisticsMonthFilter
+    });
+
+    const sortedRows = sortStatisticsRows(filteredRows, currentStatisticsSort);
+    const headerRow = document.createElement('tr');
+    columns.forEach((column) => {
+        const th = document.createElement('th');
+        const description = getStatisticsColumnDescription(viewName, column);
+        const columnLabel = prettifyStatisticsColumn(column, viewName);
+        th.title = description;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'stats-sort-button';
+        button.dataset.statsSortColumn = column;
+        button.title = description;
+        button.setAttribute('aria-label', `${columnLabel}: ${description}`);
+        button.innerHTML = `
+            ${columnLabel}
+            <span class="sort-indicator" data-stats-sort-indicator="${column}">\u21C5</span>
+        `;
+        th.appendChild(button);
+        headerRow.appendChild(th);
+    });
+    head.appendChild(headerRow);
+
+    sortedRows.forEach((row) => {
+        const tr = document.createElement('tr');
+        columns.forEach((column) => {
+            const td = document.createElement('td');
+            td.innerHTML = formatStatisticsCellValue(row[column], column);
+            tr.appendChild(td);
+        });
+        body.appendChild(tr);
+    });
+
+    const sortButtons = head.querySelectorAll('.stats-sort-button[data-stats-sort-column]');
+    sortButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const column = button.dataset.statsSortColumn || '';
+            if (!column) return;
+            toggleStatisticsSort(column);
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    });
+    updateStatisticsSortIndicators(head);
+
+    if (status) status.textContent = '';
+}
+
+function renderStoreChampionsBoard(host, rows, options = {}) {
+    const isMobile = options.isMobile === true;
+    const collapsedByDefault = isMobile && options.collapsedByDefault === true;
+    const grouped = new Map();
+    rows.forEach((row) => {
+        const store = String(row?.store || '').trim() || 'Unknown Store';
+        if (!grouped.has(store)) grouped.set(store, []);
+        grouped.get(store).push(row);
+    });
+
+    const board = document.createElement('div');
+    board.className = 'store-champions-board';
+    if (grouped.size === 1) {
+        board.classList.add('is-single-store');
+    }
+
+    Array.from(grouped.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .forEach(([storeName, storeRows]) => {
+            const sorted = [...storeRows].sort((a, b) => {
+                const rankDiff = (Number(a.store_rank) || 999) - (Number(b.store_rank) || 999);
+                if (rankDiff !== 0) return rankDiff;
+                const titleDiff = (Number(b.titles) || 0) - (Number(a.titles) || 0);
+                if (titleDiff !== 0) return titleDiff;
+                return (Number(b.ranking_points) || 0) - (Number(a.ranking_points) || 0);
+            });
+
+            const card = document.createElement('article');
+            card.className = 'store-podium-card';
+            if (collapsedByDefault) card.classList.add('is-collapsed');
+
+            const iconSrc = resolveStoreIcon(storeName);
+            const listHtml = sorted
+                .map((item, index) => {
+                    const rank = Number(item.store_rank) || index + 1;
+                    const medalClass =
+                        rank === 1
+                            ? 'gold'
+                            : rank === 2
+                              ? 'silver'
+                              : rank === 3
+                                ? 'bronze'
+                                : 'regular';
+                    return `
+                        <li class="store-podium-item ${medalClass}">
+                            <span class="store-podium-rank">#${rank}</span>
+                            <div class="store-podium-main">
+                                <strong>${escapeHtml(item.player || '-')}</strong>
+                                <small>
+                                    Titulos: ${Number(item.titles) || 0}
+                                    • Pontos: ${Number(item.ranking_points) || 0}
+                                </small>
+                            </div>
+                        </li>
+                    `;
+                })
+                .join('');
+
+            card.innerHTML = `
+                <header class="store-podium-header">
+                    <div class="store-podium-title-wrap">
+                        <img src="${escapeHtml(iconSrc)}" alt="${escapeHtml(storeName)}" class="store-podium-icon" loading="lazy" />
+                        <h3>${escapeHtml(storeName)}</h3>
+                    </div>
+                    ${
+                        isMobile
+                            ? `<button type="button" class="store-podium-toggle">${collapsedByDefault ? 'Expandir' : 'Recolher'}</button>`
+                            : ''
+                    }
+                </header>
+                <ol class="store-podium-list">
+                    ${listHtml || '<li class="store-podium-item regular"><div class="store-podium-main">Sem dados</div></li>'}
+                </ol>
+            `;
+
+            board.appendChild(card);
+        });
+
+    host.appendChild(board);
+
+    board.querySelectorAll('.store-podium-toggle').forEach((button) => {
+        button.addEventListener('click', () => {
+            const card = button.closest('.store-podium-card');
+            if (!card) return;
+            const nextCollapsed = !card.classList.contains('is-collapsed');
+            card.classList.toggle('is-collapsed', nextCollapsed);
+            button.textContent = nextCollapsed ? 'Expandir' : 'Recolher';
+        });
+    });
+}
+
+function prettifyStatisticsColumn(column, viewName = '') {
+    const normalized = String(column || '').trim().toLowerCase();
+    if (viewName === 'v_player_ranking') {
+        const playerRankingLabels = {
+            player: 'Jogador',
+            overall_rank: currentStatisticsMonthFilter ? 'Rank Mensal' : 'Rank Geral',
+            titles: 'Títulos',
+            top4_total: 'Top4',
+            top8_total: 'Top8',
+            top_cut_total: 'Top16',
+            top16_total: 'Top16',
+            top_cut_finishes: 'Top16',
+            entries: 'Aparições',
+            unique_decks_used: 'Decks Únicos',
+            title_rate_percent: 'Taxa de Títulos',
+            top_cut_rate_percent: 'Taxa Top16',
+            ranking_points: 'Pontuação total',
+            points: 'Pontuação total'
+        };
+        if (playerRankingLabels[normalized]) return playerRankingLabels[normalized];
+    }
+
+    const labels = {
+        ranking_points: 'Pontuação total',
+        points: 'Pontuação total',
+        avg_placement: 'Média',
+        monthly_rank: 'Rank Mensal',
+        overall_rank: 'Rank Geral',
+        store_rank: 'Rank Loja',
+        performance_rank: 'Rank Performance',
+        format_rank: 'Rank',
+        top_cut_total: 'Top16',
+        top_cut_finishes: 'Top16',
+        top_cut_conversion_percent: 'Conversão Top16 (%)',
+        top_cut_rate_percent: 'Taxa Top16 (%)',
+        top4_total: 'Top4',
+        top8_total: 'Top8',
+        meta_share_percent: 'Meta Share (%)',
+        title_rate_percent: 'Taxa de Títulos (%)',
+        unique_players: 'Players Únicos',
+        unique_decks_used: 'Decks Únicos',
+        tournaments_played: 'Torneios',
+        store_title_share_percent: 'Share de Títulos Loja (%)',
+        month: 'Mês',
+        appearances: 'Aparições',
+        entries: 'Aparições',
+        titles: 'Títulos'
+    };
+    if (labels[normalized]) return labels[normalized];
+    return String(column || '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getStatisticsDisplayColumns(viewName, columns) {
+    let list = Array.isArray(columns) ? [...columns] : [];
+    if (viewName === 'v_meta_by_month') {
+        list = list.filter(
+            (column) => column !== 'meta_share_percent' && column !== 'top_cut_conversion_percent'
+        );
+    }
+    const preferred = STATISTICS_VIEW_COLUMN_ORDER[viewName];
+    if (!Array.isArray(preferred) || !preferred.length) return list;
+
+    const ordered = preferred.filter((column) => list.includes(column));
+    if (viewName === 'v_player_ranking') {
+        return ordered;
+    }
+    const remaining = list.filter((column) => !ordered.includes(column));
+    return [...ordered, ...remaining];
+}
+
+function normalizePlayerRankingRows(rows, options = {}) {
+    const isMonthly = options?.isMonthly === true;
+    const allTimeByPlayer =
+        options?.allTimeByPlayer instanceof Map ? options.allTimeByPlayer : new Map();
+    if (!Array.isArray(rows)) return [];
+
+    return rows.map((row) => {
+        const source = row || {};
+        const playerKey = String(source.player || '')
+            .trim()
+            .toLowerCase();
+        const allTimeRow = allTimeByPlayer.get(playerKey) || null;
+        const entriesValue = normalizeStatNumber(source.entries);
+        const titlesValue = normalizeStatNumber(source.titles);
+        const topCutRateValue = normalizeStatNumber(source.top_cut_rate_percent);
+        const inferredTopCutFromRate =
+            Number.isFinite(entriesValue) && Number.isFinite(topCutRateValue)
+                ? Math.round((entriesValue * topCutRateValue) / 100)
+                : null;
+        const inferredTitleRate =
+            Number.isFinite(entriesValue) && entriesValue > 0 && Number.isFinite(titlesValue)
+                ? (titlesValue / entriesValue) * 100
+                : null;
+        const normalized = {
+            ...source,
+            player: String(source.player || '').trim(),
+            overall_rank: normalizeStatNumber(source.overall_rank ?? source.monthly_rank ?? source.rank),
+            titles: titlesValue,
+            top4_total: normalizeStatNumber(source.top4_total ?? source.top4),
+            top8_total: normalizeStatNumber(source.top8_total ?? source.top8),
+            top_cut_total: normalizeStatNumber(
+                source.top_cut_total ?? source.top16_total ?? source.top_cut_finishes ?? source.top16
+            )
+                ?? inferredTopCutFromRate,
+            entries: entriesValue,
+            unique_decks_used:
+                normalizeStatNumber(source.unique_decks_used) ??
+                normalizeStatNumber(allTimeRow?.unique_decks_used),
+            title_rate_percent: normalizeStatNumber(source.title_rate_percent) ?? inferredTitleRate,
+            top_cut_rate_percent: topCutRateValue,
+            ranking_points: normalizeStatNumber(source.ranking_points ?? source.points)
+        };
+
+        if (isMonthly) {
+            normalized.month = source.month || normalized.month || '';
+        }
+        return normalized;
+    });
+}
+
+function normalizeStatNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+function formatStatisticsCellValue(value, column = '') {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'object') return escapeHtml(JSON.stringify(value));
+
+    const text = String(value).trim();
+    if (!text) return '-';
+
+    const normalizedColumn = String(column || '').toLowerCase();
+    const numeric = Number(text);
+    const isNumeric = Number.isFinite(numeric) && /^-?\d+(\.\d+)?$/.test(text);
+    const isPercentColumn = normalizedColumn.includes('percent');
+    const isAverageColumn = normalizedColumn.includes('avg');
+    const isRankColumn =
+        normalizedColumn === 'rank' ||
+        normalizedColumn.endsWith('_rank') ||
+        normalizedColumn === 'placement' ||
+        normalizedColumn.endsWith('_placement');
+
+    if (isRankColumn && isNumeric) {
+        return `<span class="stats-pill stats-pill-rank">#${Math.trunc(numeric)}</span>`;
+    }
+    if (isPercentColumn && isNumeric) {
+        return `<span class="stats-pill stats-pill-percent">${numeric.toFixed(2)}%</span>`;
+    }
+    if (isAverageColumn && isNumeric) {
+        return numeric.toFixed(2);
+    }
+    if (isNumeric) {
+        return numeric.toLocaleString('pt-BR');
+    }
+    return escapeHtml(text);
+}
+
+function renderStatisticsHighlights(host, viewName, rows, columns, options = {}) {
+    if (!host || !Array.isArray(rows) || !rows.length || !Array.isArray(columns) || !columns.length) {
+        return;
+    }
+    const tableWrapper = host.querySelector('.statistics-table-wrapper');
+    if (!tableWrapper) return;
+
+    const highlights = buildStatisticsHighlights(viewName, rows, columns).slice(0, 4);
+    if (!highlights.length) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'statistics-highlights';
+    const highlightCardsHtml = highlights
+        .map(
+            (item) => `
+                <article class="statistics-highlight-card">
+                    <span class="statistics-highlight-label">${escapeHtml(item.label)}</span>
+                    <strong class="statistics-highlight-value">${escapeHtml(item.value)}</strong>
+                </article>
+            `
+        )
+        .join('');
+    const monthOptions = getStatisticsMonthOptions(
+        options.showInlineMonthSelect ? options.monthValues : [],
+        options.selectedMonth || ''
+    );
+    const monthSelectHtml =
+        options.showInlineMonthSelect && monthOptions.length
+            ? `
+                <article class="statistics-highlight-card is-month-select">
+                    <span class="statistics-highlight-label">Seleção de mês</span>
+                    <select id="statisticsInlineMonthSelect" class="statistics-inline-month-select" aria-label="Selecionar mês no ranking de players">
+                        <option value="">Todos os meses</option>
+                        ${monthOptions
+                            .map(
+                                (item) =>
+                                    `<option value="${escapeHtml(item.value)}"${item.selected ? ' selected' : ''}>${escapeHtml(item.label)}</option>`
+                            )
+                            .join('')}
+                    </select>
+                </article>
+            `
+            : '';
+    wrapper.innerHTML = highlightCardsHtml + monthSelectHtml;
+
+    tableWrapper.insertAdjacentElement('beforebegin', wrapper);
+
+    const inlineMonthSelect = wrapper.querySelector('#statisticsInlineMonthSelect');
+    if (inlineMonthSelect) {
+        inlineMonthSelect.addEventListener('change', () => {
+            currentStatisticsMonthFilter = String(inlineMonthSelect.value || '');
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+}
+
+function buildStatisticsHighlights(viewName, rows, columns) {
+    const list = [];
+    const hasColumn = (key) => columns.includes(key);
+    const valuesFor = (key) => rows.map((row) => row?.[key]);
+    const countUnique = (key) =>
+        new Set(
+            valuesFor(key)
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+        ).size;
+    const sumNumeric = (key) =>
+        valuesFor(key).reduce((total, value) => {
+            const n = Number(value);
+            return Number.isFinite(n) ? total + n : total;
+        }, 0);
+    const averageNumeric = (key) => {
+        const nums = valuesFor(key)
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value));
+        if (!nums.length) return null;
+        return nums.reduce((a, b) => a + b, 0) / nums.length;
+    };
+
+    if (viewName === 'v_deck_representation') {
+        if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
+        
+    } else if (viewName === 'v_deck_stats') {
+        if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
+        if (hasColumn('titles')) {
+            list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
+        }
+    } else if (viewName === 'v_meta_by_month') {
+        if (hasColumn('month')) list.push({ label: 'Meses', value: String(countUnique('month')) });
+        if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
+        if (hasColumn('titles')) {
+            list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
+        }
+    } else if (viewName === 'v_player_ranking') {
+        if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
+        if (hasColumn('titles')) {
+            list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
+        }
+    } else if (viewName === 'v_store_champions') {
+        if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
+        if (hasColumn('titles')) {
+            list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
+        }
+    } else {
+        if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
+        if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
+        if (hasColumn('store')) list.push({ label: 'Lojas', value: String(countUnique('store')) });
+        if (hasColumn('month')) list.push({ label: 'Meses', value: String(countUnique('month')) });
+    }
+
+    const dedup = [];
+    const seen = new Set();
+    list.forEach((item) => {
+        const key = `${item.label}|${item.value}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        dedup.push(item);
+    });
+    return dedup;
+}
+
+function getStatisticsColumnDescription(viewName, column) {
+    const scoped = STATISTICS_COLUMN_HELP_PTBR[viewName] || {};
+    const common = STATISTICS_COLUMN_HELP_PTBR.common || {};
+    const message = scoped[column] || common[column];
+    if (message) return message;
+    return `Indicador: ${prettifyStatisticsColumn(column)}.`;
+}
+
+function isInternalStatisticsColumn(column) {
+    const normalized = String(column || '').trim().toLowerCase();
+    if (!normalized) return true;
+    if (STATISTICS_HIDDEN_COLUMNS.has(normalized)) return true;
+    if (normalized.endsWith('_id')) return true;
+    if (normalized.includes('url')) return true;
+    if (normalized.endsWith('_link')) return true;
+    if (normalized === 'format_code' || normalized === 'format') return true;
+    if (normalized === 'store') return true;
+    if (normalized === 'month') return true;
+    if (normalized.endsWith('_date') || normalized === 'date') return true;
+    return false;
+}
+
+function toggleStatisticsSort(column) {
+    if (currentStatisticsSort.column === column) {
+        currentStatisticsSort.direction = currentStatisticsSort.direction === 'asc' ? 'desc' : 'asc';
+        return;
+    }
+    currentStatisticsSort.column = column;
+    currentStatisticsSort.direction = 'asc';
+}
+
+function sortStatisticsRows(rows, sortState) {
+    const sorted = [...rows];
+    const column = String(sortState?.column || '');
+    if (!column) return sorted;
+
+    const direction = sortState.direction === 'desc' ? -1 : 1;
+    sorted.sort((a, b) => {
+        const left = getStatisticsComparableValue(a?.[column]);
+        const right = getStatisticsComparableValue(b?.[column]);
+
+        if (left < right) return -1 * direction;
+        if (left > right) return 1 * direction;
+        return 0;
+    });
+    return sorted;
+}
+
+function getStatisticsComparableValue(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'number') return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+    if (typeof value === 'boolean') return value ? 1 : 0;
+
+    const text = String(value).trim();
+    if (!text) return '';
+
+    const numeric = Number(text);
+    if (!Number.isNaN(numeric) && /^-?\d+(\.\d+)?$/.test(text)) {
+        return numeric;
+    }
+
+    const dateValue = Date.parse(text);
+    if (!Number.isNaN(dateValue) && /^\d{4}-\d{2}-\d{2}/.test(text)) {
+        return dateValue;
+    }
+
+    return text.toLowerCase();
+}
+
+function updateStatisticsSortIndicators(head) {
+    if (!head) return;
+    const indicators = head.querySelectorAll('[data-stats-sort-indicator]');
+    indicators.forEach((el) => {
+        const field = el.dataset.statsSortIndicator;
+        if (field === currentStatisticsSort.column) {
+            el.textContent = currentStatisticsSort.direction === 'asc' ? '\u25B2' : '\u25BC';
+            el.classList.add('is-active');
+        } else {
+            el.textContent = '\u21C5';
+            el.classList.remove('is-active');
+        }
+    });
+}
+
+function populateStatisticsMonthSelect(select, values, selectedValue) {
+    const monthKeys = getStatisticsMonthOptions(values, selectedValue).map((item) => item.value);
+
+    select.innerHTML =
+        '<option value="">Todos os meses</option>' +
+        monthKeys
+            .map((monthKey) => `<option value="${monthKey}">${formatStatisticsMonthLabel(monthKey)}</option>`)
+            .join('');
+
+    if (selectedValue && monthKeys.includes(selectedValue)) {
+        select.value = selectedValue;
+    } else {
+        select.value = '';
+    }
+}
+
+function getStatisticsMonthOptions(values, selectedValue) {
+    const monthKeys = Array.from(
+        new Set(
+            (Array.isArray(values) ? values : [])
+                .map((value) => normalizeStatisticsMonthKey(value))
+                .filter(Boolean)
+        )
+    ).sort((a, b) => b.localeCompare(a));
+
+    return monthKeys.map((monthKey) => ({
+        value: monthKey,
+        label: formatStatisticsMonthLabel(monthKey),
+        selected: selectedValue === monthKey
+    }));
+}
+
+function normalizeStatisticsMonthKey(value) {
+    if (!value) return '';
+    const text = String(value).trim();
+    if (!text) return '';
+
+    const fullDateMatch = text.match(/^(\d{4})-(\d{2})-\d{2}/);
+    if (fullDateMatch) return `${fullDateMatch[1]}-${fullDateMatch[2]}`;
+    const directMonthMatch = text.match(/^(\d{4})-(\d{2})$/);
+    if (directMonthMatch) return `${directMonthMatch[1]}-${directMonthMatch[2]}`;
+
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+        const year = parsed.getUTCFullYear();
+        const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+        return `${year}-${month}`;
+    }
+    return '';
+}
+
+function formatStatisticsMonthLabel(monthKey) {
+    const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return monthKey;
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
+    return new Intl.DateTimeFormat('pt-BR', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC'
+    }).format(date);
+}
+
+function filterStoreChampionsRowsByPlayer(rows, query) {
+    const text = String(query || '')
+        .trim()
+        .toLowerCase();
+    if (!text) return rows;
+
+    return rows.filter((row) => String(row?.player || '').toLowerCase().includes(text));
+}
+
+function populateStatisticsValueSelect(select, values, selectedValue, defaultLabel) {
+    const options = Array.from(
+        new Set(
+            values
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+        )
+    ).sort((a, b) => a.localeCompare(b));
+
+    select.innerHTML =
+        `<option value="">${escapeHtml(defaultLabel || 'Todos')}</option>` +
+        options.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+
+    if (selectedValue && options.includes(selectedValue)) {
+        select.value = selectedValue;
+    } else {
+        select.value = '';
+    }
+}
+
+function getLatestStatisticsFormat(rows, formatColumn, monthColumn) {
+    if (!Array.isArray(rows) || !rows.length || !formatColumn) return '';
+
+    const byFormat = new Map();
+    rows.forEach((row) => {
+        const formatValue = String(row?.[formatColumn] || '').trim();
+        if (!formatValue) return;
+        const monthKey = monthColumn ? normalizeStatisticsMonthKey(row?.[monthColumn]) : '';
+        const current = byFormat.get(formatValue) || '';
+        if (monthKey && (!current || monthKey > current)) {
+            byFormat.set(formatValue, monthKey);
+            return;
+        }
+        if (!byFormat.has(formatValue)) {
+            byFormat.set(formatValue, current);
+        }
+    });
+
+    let bestFormat = '';
+    let bestMonth = '';
+    Array.from(byFormat.entries()).forEach(([formatValue, latestMonth]) => {
+        const monthKey = String(latestMonth || '');
+        if (monthKey > bestMonth) {
+            bestMonth = monthKey;
+            bestFormat = formatValue;
+            return;
+        }
+        if (monthKey === bestMonth && formatValue.localeCompare(bestFormat) > 0) {
+            bestFormat = formatValue;
+        }
+    });
+
+    return bestFormat;
+}
+
+function normalizeStatisticsDateKey(value) {
+    if (!value) return '';
+    const text = String(value).trim();
+    if (!text) return '';
+    const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+        const year = parsed.getUTCFullYear();
+        const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    return '';
+}
+
+function populateStatisticsDateSelect(select, values, selectedValue) {
+    const dateKeys = Array.from(
+        new Set(values.map((value) => normalizeStatisticsDateKey(value)).filter(Boolean))
+    ).sort((a, b) => b.localeCompare(a));
+
+    select.innerHTML =
+        '<option value="">Todas as datas</option>' +
+        dateKeys
+            .map((key) => `<option value="${key}">${formatDate(key)}</option>`)
+            .join('');
+
+    if (selectedValue && dateKeys.includes(selectedValue)) {
+        select.value = selectedValue;
+    } else {
+        select.value = '';
+    }
+}
+
+function isStatisticsMobileViewport() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function getStatisticsFormulaHintHtml(viewName) {
+    const shouldShowPointsLegend =
+        viewName === 'v_deck_stats' ||
+        viewName === 'v_player_ranking' ||
+        viewName === 'v_store_champions' ||
+        viewName === 'v_meta_by_month';
+    if (!shouldShowPointsLegend) return '';
+
+    return `
+        <div class="statistics-points-legend" aria-label="Sistema de pontuação">
+            <span class="points-pill gold">1º +15pts</span>
+            <span class="points-pill silver">2º +10pts</span>
+            <span class="points-pill bronze">3º +7pts</span>
+            <span class="points-pill top4">4º +5pts</span>
+            <span class="points-pill top8">Top8 +3pts</span>
+            <span class="points-pill top16">Top16 +1pt</span>
+        </div>
+    `;
+}
+
+function handleStatisticsViewportChange() {
+    if (!statisticsViewMounted) return;
+    if (currentDashboardView !== 'statistics') return;
+    if (currentStatisticsView !== 'v_store_champions') return;
+    renderStatisticsTable(statisticsViewData, currentStatisticsView);
 }
 
 function renderCalendarView() {
