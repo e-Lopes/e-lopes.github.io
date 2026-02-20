@@ -3,9 +3,9 @@
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
     const BLANK_MIDDLE_FALLBACK_BG = '../../icons/backgrounds/EX11.png';
-    const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}$/;
+    const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}$/;
     const RAW_DECK_CODE_WITH_SUFFIX_PATTERN =
-        /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
+        /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
     const MAX_COPIES_PER_CARD = 4;
     const MAX_TOTAL_CARDS = 55;
     const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
@@ -698,7 +698,7 @@
             if (/^\/\/\s*/.test(raw)) return;
 
             const patternA = raw.match(
-                /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i
+                /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i
             );
             if (patternA) {
                 const qty = Number(patternA[1]);
@@ -709,7 +709,7 @@
             }
 
             const patternB = raw.match(
-                /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i
+                /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i
             );
             if (patternB) {
                 const qty = Number(patternB[1]);
@@ -720,7 +720,7 @@
             }
 
             const single = raw.match(
-                /^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i
+                /^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i
             );
             if (single) {
                 const code = normalizeDeckCode(single[1]);

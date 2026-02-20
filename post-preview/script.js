@@ -3078,7 +3078,7 @@ function parseDecklistEntriesForBlankMiddle(rawText) {
     const map = new Map();
     const lines = text.split(/\r?\n/);
     const linePattern =
-        /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i;
+        /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i;
 
     lines.forEach((line) => {
         const raw = String(line || '').trim();
@@ -3088,7 +3088,7 @@ function parseDecklistEntriesForBlankMiddle(rawText) {
         if (!m) return;
         const count = Math.max(1, Math.min(4, Number(m[1]) || 1));
         const code = normalizeDeckCodeForBlankMiddle(m[2]);
-        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}$/.test(code)) return;
+        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}$/.test(code)) return;
 
         if (!map.has(code)) {
             const entry = { code, count: 0 };
