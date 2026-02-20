@@ -1,5 +1,8 @@
 (function decklistBuilderPage() {
     const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+    const DIGISTATS_LOGO_URL = '../../icons/logo.png';
+    const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
+    const BLANK_MIDDLE_FALLBACK_BG = '../../icons/backgrounds/EX11.png';
     const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}$/;
     const RAW_DECK_CODE_WITH_SUFFIX_PATTERN =
         /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
@@ -11,7 +14,7 @@
         : { 'Content-Type': 'application/json' };
 
     let entries = [];
-    let context = { resultId: '' };
+    let context = { resultId: '', deck: '', player: '', store: '', date: '' };
 
     document.addEventListener('DOMContentLoaded', async () => {
         bindActions();
@@ -22,6 +25,7 @@
     function bindActions() {
         const importButton = document.getElementById('btnDecklistBuilderImport');
         const exportButton = document.getElementById('btnDecklistBuilderExport');
+        const exportImageButton = document.getElementById('btnDecklistBuilderExportImage');
         const addButton = document.getElementById('btnDecklistBuilderAdd');
         const saveButton = document.getElementById('btnDecklistBuilderSave');
         const manualInput = document.getElementById('decklistBuilderManualCode');
@@ -35,6 +39,9 @@
         }
         if (exportButton) {
             exportButton.addEventListener('click', () => exportDecklist());
+        }
+        if (exportImageButton) {
+            exportImageButton.addEventListener('click', () => exportDeckAsImage());
         }
         if (addButton) {
             addButton.addEventListener('click', () => addManualCode());
@@ -83,6 +90,10 @@
         const resultId = String(params.get('resultId') || params.get('result_id') || '').trim();
 
         context.resultId = resultId;
+        context.deck = deck;
+        context.player = player;
+        context.store = store;
+        context.date = date;
         if (!context.resultId) {
             setSaveStatus('Selecione um resultado na tela Full Results para salvar no banco.', 'warn');
         }
@@ -101,7 +112,7 @@
             { label: 'Deck', value: meta.deck || '-' },
             { label: 'Player', value: meta.player || '-' },
             { label: 'Store', value: meta.store || '-' },
-            { label: 'Date', value: formattedDate || '-' }
+            { label: 'Data', value: formattedDate || '-' }
         ];
 
         metaRoot.innerHTML = items
@@ -171,6 +182,376 @@
             setSaveStatus('Nao foi possivel copiar automaticamente.', 'warn');
             window.prompt('Copie manualmente a decklist abaixo:', decklistText);
         }
+    }
+
+    async function exportDeckAsImage() {
+        if (entries.length === 0) {
+            render(['Nao ha cartas para exportar como imagem.']);
+            return;
+        }
+
+        const exportImageButton = document.getElementById('btnDecklistBuilderExportImage');
+        if (exportImageButton) exportImageButton.disabled = true;
+        setSaveStatus('Gerando imagem da decklist...', 'info');
+
+        try {
+            const canvas = await buildDeckImageCanvas(entries);
+            const filename = buildDeckImageFilename();
+            const blob = await canvasToBlob(canvas);
+            if (!blob) throw new Error('Falha ao gerar blob da imagem.');
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            setSaveStatus('Imagem exportada com sucesso.', 'ok');
+        } catch (error) {
+            setSaveStatus('Erro ao exportar imagem.', 'error');
+            render([error?.message || 'Falha ao exportar imagem da decklist.']);
+        } finally {
+            if (exportImageButton) exportImageButton.disabled = false;
+        }
+    }
+
+    async function buildDeckImageCanvas(sourceEntries) {
+        const width = 1080;
+        const height = 1080;
+        const frameX = 22;
+        const frameY = 16;
+        const frameWidth = width - 44;
+        const frameHeight = height - 32;
+        const safePaddingX = 28;
+        const safePaddingY = 18;
+        const headerHeight = 124;
+        const footerHeight = 220;
+        const cardRatio = 88 / 63;
+        const availableWidth = frameWidth - safePaddingX * 2;
+        const availableHeight = frameHeight - headerHeight - footerHeight - safePaddingY * 2;
+        const layout = chooseBestDeckImageGrid({
+            count: sourceEntries.length,
+            minCols: 4,
+            maxCols: 8,
+            availableWidth,
+            availableHeight,
+            cardRatio
+        });
+
+        const cardsPerRow = layout.cardsPerRow;
+        const rows = layout.rows;
+        const cardWidth = layout.cardWidth;
+        const cardHeight = layout.cardHeight;
+        const gapX = layout.gapX;
+        const gapY = layout.gapY;
+        const boardWidth = layout.boardWidth;
+        const boardHeight = layout.boardHeight;
+        const boardAreaX = frameX + safePaddingX;
+        const boardAreaY = frameY + headerHeight + safePaddingY + 16;
+        const boardX = boardAreaX + Math.max(0, Math.round((availableWidth - boardWidth) / 2));
+        const boardY = boardAreaY + Math.max(0, Math.round((availableHeight - boardHeight) / 2));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Nao foi possivel criar o canvas.');
+
+        await drawDeckImageBackground(ctx, width, height);
+
+        const deckTitle = context.deck || 'Deck Builder';
+        const titleSize = Math.max(38, Math.min(56, Math.round(700 / Math.max(9, deckTitle.length))));
+        const headerBoxY = frameY + 10;
+        const titleY = headerBoxY + 54;
+        const playerY = headerBoxY + 88;
+        const storeY = headerBoxY + 116;
+        const storeAndDate = buildDeckImageStoreDateLine();
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillStyle = '#0f172a';
+        ctx.font = `800 ${titleSize}px "Segoe UI", Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(deckTitle, width / 2, titleY);
+
+        ctx.fillStyle = '#253248';
+        ctx.font = '700 28px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(context.player || '-', width / 2, playerY);
+
+        ctx.fillStyle = '#445470';
+        ctx.font = '600 19px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(storeAndDate, width / 2, storeY);
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        const imagePromises = sourceEntries.map((entry) => loadCardImage(entry.code));
+        const [images, brandLogo] = await Promise.all([
+            Promise.all(imagePromises),
+            loadBrandLogoImage()
+        ]);
+
+        sourceEntries.forEach((entry, index) => {
+            const row = Math.floor(index / cardsPerRow);
+            const col = index % cardsPerRow;
+            const x = boardX + col * (cardWidth + gapX);
+            const y = boardY + row * (cardHeight + gapY);
+            const image = images[index];
+
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#c9d2ff';
+            ctx.lineWidth = 2;
+            roundRect(ctx, x - 2, y - 2, cardWidth + 4, cardHeight + 4, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            if (image) {
+                ctx.drawImage(image, x, y, cardWidth, cardHeight);
+            } else {
+                ctx.fillStyle = '#e6ebff';
+                ctx.fillRect(x, y, cardWidth, cardHeight);
+                ctx.fillStyle = '#31437f';
+                ctx.font = '700 20px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(entry.code, x + cardWidth / 2, y + cardHeight / 2);
+            }
+
+            const badgeSize = Math.max(26, Math.min(40, Math.round(cardWidth * 0.28)));
+            const badgeX = x + cardWidth - Math.round(cardWidth * 0.04) - badgeSize;
+            const badgeY = y + Math.round(cardHeight * 0.12);
+            const badgeRadius = badgeSize / 2;
+            const centerX = badgeX + badgeRadius;
+            const centerY = badgeY + badgeRadius;
+
+            ctx.fillStyle = 'rgba(26, 31, 58, 0.9)';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, badgeRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `700 ${Math.max(16, Math.round(badgeSize * 0.58))}px "Segoe UI", Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(entry.count), centerX, centerY + 1);
+            ctx.textBaseline = 'alphabetic';
+        });
+
+        const footerY = frameY + frameHeight - footerHeight + 8;
+        const footerX = frameX + 18;
+        const footerWidth = frameWidth - 36;
+        const createdText = 'Criado com DigiStats';
+        const logoSize = brandLogo ? 192 : 0;
+        const logoX = footerX + footerWidth - logoSize - 4;
+        const logoY = footerY + Math.round((footerHeight - logoSize) / 2) - 10;
+        const textLeftX = footerX + 8;
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#1f2f59';
+        ctx.font = '700 24px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(createdText, textLeftX, footerY + footerHeight - 26);
+
+        if (brandLogo) {
+            ctx.drawImage(brandLogo, logoX, logoY, logoSize, logoSize);
+        }
+
+        return canvas;
+    }
+
+    function chooseBestDeckImageGrid(options) {
+        const count = Math.max(1, Number(options?.count) || 1);
+        const minCols = Math.max(1, Number(options?.minCols) || 4);
+        const maxCols = Math.max(minCols, Number(options?.maxCols) || 8);
+        const availableWidth = Math.max(1, Number(options?.availableWidth) || 1);
+        const availableHeight = Math.max(1, Number(options?.availableHeight) || 1);
+        const cardRatio = Math.max(1, Number(options?.cardRatio) || 1.39);
+        let best = null;
+
+        for (let cols = minCols; cols <= maxCols; cols += 1) {
+            const rows = Math.max(1, Math.ceil(count / cols));
+            const gapX = Math.max(10, Math.min(20, Math.round(availableWidth * 0.016)));
+            const gapY = Math.max(12, Math.min(22, Math.round(gapX * 1.12)));
+            const byWidth = (availableWidth - (cols - 1) * gapX) / cols;
+            const byHeight = ((availableHeight - (rows - 1) * gapY) / rows) / cardRatio;
+            const cardWidth = Math.floor(Math.min(byWidth, byHeight));
+            if (cardWidth < 60) continue;
+
+            const cardHeight = Math.round(cardWidth * cardRatio);
+            const boardWidth = cols * cardWidth + (cols - 1) * gapX;
+            const boardHeight = rows * cardHeight + (rows - 1) * gapY;
+            const areaScore = boardWidth * boardHeight;
+            const candidate = {
+                cardsPerRow: cols,
+                rows,
+                cardWidth,
+                cardHeight,
+                gapX,
+                gapY,
+                boardWidth,
+                boardHeight,
+                areaScore
+            };
+
+            if (!best) {
+                best = candidate;
+                continue;
+            }
+
+            if (candidate.areaScore > best.areaScore) {
+                best = candidate;
+                continue;
+            }
+
+            if (candidate.areaScore === best.areaScore && candidate.cardWidth > best.cardWidth) {
+                best = candidate;
+            }
+        }
+
+        if (best) return best;
+
+        const fallbackCardWidth = 120;
+        const fallbackCardHeight = Math.round(fallbackCardWidth * cardRatio);
+        const fallbackCols = Math.min(maxCols, Math.max(minCols, 7));
+        const fallbackRows = Math.max(1, Math.ceil(count / fallbackCols));
+        const fallbackGapX = 16;
+        const fallbackGapY = 18;
+        return {
+            cardsPerRow: fallbackCols,
+            rows: fallbackRows,
+            cardWidth: fallbackCardWidth,
+            cardHeight: fallbackCardHeight,
+            gapX: fallbackGapX,
+            gapY: fallbackGapY,
+            boardWidth: fallbackCols * fallbackCardWidth + (fallbackCols - 1) * fallbackGapX,
+            boardHeight: fallbackRows * fallbackCardHeight + (fallbackRows - 1) * fallbackGapY,
+            areaScore: 0
+        };
+    }
+
+    async function drawDeckImageBackground(ctx, width, height) {
+        const backgroundPath = getBlankMiddleTemplateBackgroundPath();
+        const backgroundImage = await loadBackgroundImage(backgroundPath);
+        if (backgroundImage) {
+            drawImageCover(ctx, backgroundImage, 0, 0, width, height);
+        } else {
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        roundRect(ctx, 22, 16, width - 44, height - 32, 22);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(160, 170, 205, 0.32)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    function roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + width, y, x + width, y + height, radius);
+        ctx.arcTo(x + width, y + height, x, y + height, radius);
+        ctx.arcTo(x, y + height, x, y, radius);
+        ctx.arcTo(x, y, x + width, y, radius);
+        ctx.closePath();
+    }
+
+    function buildDeckImageStoreDateLine() {
+        const formattedDate = context.date ? formatContextDate(context.date) : '';
+        const store = String(context.store || '').trim();
+        if (store && formattedDate) return `${store}, ${formattedDate}`;
+        if (store) return store;
+        if (formattedDate) return formattedDate;
+        return '-';
+    }
+
+    async function loadCardImage(code) {
+        return new Promise((resolve) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = `${IMAGE_BASE_URL}${code}.webp`;
+        });
+    }
+
+    async function loadBrandLogoImage() {
+        return new Promise((resolve) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = DIGISTATS_LOGO_URL;
+        });
+    }
+
+    async function loadBackgroundImage(path) {
+        const safePath = String(path || '').trim() || BLANK_MIDDLE_FALLBACK_BG;
+        return new Promise((resolve) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = safePath;
+        });
+    }
+
+    function drawImageCover(ctx, image, dx, dy, dWidth, dHeight) {
+        if (!ctx || !image) return;
+        const sw = image.width || 1;
+        const sh = image.height || 1;
+        const srcRatio = sw / sh;
+        const dstRatio = dWidth / dHeight;
+        let sx = 0;
+        let sy = 0;
+        let sWidth = sw;
+        let sHeight = sh;
+
+        if (srcRatio > dstRatio) {
+            sWidth = sh * dstRatio;
+            sx = (sw - sWidth) / 2;
+        } else {
+            sHeight = sw / dstRatio;
+            sy = (sh - sHeight) / 2;
+        }
+
+        ctx.drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+    }
+
+    function getBlankMiddleTemplateBackgroundPath() {
+        try {
+            const raw = localStorage.getItem(TEMPLATE_EDITOR_STATE_KEY);
+            if (!raw) return BLANK_MIDDLE_FALLBACK_BG;
+            const state = JSON.parse(raw);
+            const isBlankMiddle = String(state?.selectedPostType || '') === 'blank_middle';
+            const selectedPath = String(state?.selectedBackgroundPath || '').trim();
+            if (isBlankMiddle && selectedPath) return selectedPath;
+            return BLANK_MIDDLE_FALLBACK_BG;
+        } catch {
+            return BLANK_MIDDLE_FALLBACK_BG;
+        }
+    }
+
+    function canvasToBlob(canvas) {
+        return new Promise((resolve) => {
+            canvas.toBlob((blob) => resolve(blob), 'image/png');
+        });
+    }
+
+    function buildDeckImageFilename() {
+        const baseName = String(context.deck || 'decklist')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 40);
+        const dateSuffix = new Date().toISOString().slice(0, 10);
+        return `${baseName || 'decklist'}-${dateSuffix}.png`;
     }
 
     function addManualCode() {
@@ -543,3 +924,4 @@
         });
     }
 })();
+

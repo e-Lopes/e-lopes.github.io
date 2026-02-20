@@ -12,6 +12,7 @@ let currentStore = '';
 let currentDate = '';
 let tournamentDataForCanvas = null;
 let selectedBackgroundPath = '';
+const BLANK_MIDDLE_DECKLIST_CACHE = new Map();
 
 const TOP_LEFT_LOGO_CANDIDATES = ['../icons/digimon-card-game.png', '../icons/logo.png'];
 const TROPHY_ICON_CANDIDATES = [
@@ -118,6 +119,9 @@ const INSTAGRAM_DEFAULT_LAYOUT = {
         resultsCard: { x: 0, y: 0 },
         pie: { x: 0, y: 0, radius: 0 },
         results: { x: 0, y: 0, width: 0, columnSize: 12 }
+    },
+    blankMiddle: {
+        decklist: { x: 0, y: 0, w: 0, h: 0, padding: 10 }
     }
 };
 const DEFAULT_POST_LAYOUT = INSTAGRAM_DEFAULT_LAYOUT;
@@ -221,7 +225,7 @@ function isTopFourPostType() {
 
 function getPostTypeLabel(typeValue) {
     if (typeValue === 'distribution_results') return 'Deck Distribution + Full Results';
-    if (typeValue === 'blank_middle') return 'Blank Middle';
+    if (typeValue === 'blank_middle') return 'Decklist';
     return 'Top 4';
 }
 
@@ -1917,7 +1921,7 @@ async function drawPostCanvas() {
         await drawDistributionAndResultsContent(ctx, width, height, tournamentDataForCanvas, layout);
     } else if (selectedPostType === 'blank_middle') {
         lastDistributionPieRenderState = null;
-        drawBlankMiddleContent(ctx, width, height, layout);
+        await drawBlankMiddleContent(ctx, width, height, layout);
     } else {
         lastDistributionPieRenderState = null;
         const rows = (tournamentDataForCanvas.topFour || []).slice(0, 4);
@@ -2934,9 +2938,186 @@ async function drawDistributionAndResultsContent(ctx, width, height, data, layou
     });
 }
 
-function drawBlankMiddleContent(ctx, width, height, layout) {
+async function drawBlankMiddleContent(ctx, width, height, layout) {
     if (!ctx || !layout || width <= 0 || height <= 0) return;
-    // Keep this mode visually clean so the middle area stays transparent over the background.
+
+    const entries = await getFirstPlaceDecklistEntries();
+    if (!entries.length) return;
+
+    const rect = getBlankMiddleDecklistRect(layout, width, height);
+    const contentPadding = rect.padding;
+    const contentX = rect.x;
+    const contentY = rect.y;
+    const contentW = rect.w;
+    const contentH = rect.h;
+
+    const cardGapX = 10;
+    const cardGapY = 18;
+    const cols = Math.max(1, Math.min(8, Math.ceil(Math.sqrt(entries.length * 1.8))));
+    const gridW = contentW - contentPadding * 2;
+    const gridH = contentH - contentPadding * 2;
+    const cardW = Math.floor((gridW - cardGapX * (cols - 1)) / cols);
+    const cardH = Math.floor((cardW * 88) / 63);
+    const rows = Math.max(1, Math.ceil(entries.length / cols));
+    const maxRowsByHeight = Math.max(1, Math.floor((gridH + cardGapY) / (cardH + cardGapY)));
+    const allowedRows = Math.min(rows, maxRowsByHeight);
+    const maxCards = allowedRows * cols;
+
+    const visibleEntries = entries.slice(0, maxCards);
+    const images = await Promise.all(visibleEntries.map((entry) => loadDeckCardImage(entry.code)));
+
+    visibleEntries.forEach((entry, index) => {
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        const x = contentX + contentPadding + col * (cardW + cardGapX);
+        const y = contentY + contentPadding + row * (cardH + cardGapY);
+        const image = images[index];
+
+        drawRoundedRect(ctx, x - 1, y - 1, cardW + 2, cardH + 2, 6, '#fff', '#1f2d60', 1);
+
+        if (image) {
+            ctx.drawImage(image, x, y, cardW, cardH);
+        } else {
+            ctx.fillStyle = '#d7e1ff';
+            ctx.fillRect(x, y, cardW, cardH);
+            ctx.fillStyle = '#30448f';
+            ctx.font = '700 12px Segoe UI, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(entry.code, x + cardW / 2, y + cardH / 2);
+        }
+
+        const badgeSize = Math.max(26, Math.min(40, Math.round(cardW * 0.28)));
+        const badgeX = x + cardW - Math.round(cardW * 0.04) - badgeSize;
+        const badgeY = y + Math.round(cardH * 0.12);
+        const centerX = badgeX + badgeSize / 2;
+        const centerY = badgeY + badgeSize / 2;
+
+        ctx.fillStyle = 'rgba(26, 31, 58, 0.9)';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, badgeSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = `700 ${Math.max(16, Math.round(badgeSize * 0.58))}px Segoe UI, Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(entry.count), centerX, centerY + 1);
+        ctx.textBaseline = 'alphabetic';
+    });
+}
+
+function ensureBlankMiddleDecklistLayout(layout) {
+    layout.blankMiddle ||= {};
+    layout.blankMiddle.decklist ||= { x: 0, y: 0, w: 0, h: 0, padding: 10 };
+    return layout.blankMiddle.decklist;
+}
+
+function getBlankMiddleDecklistRect(layout, width = 1080, height = 1350) {
+    const cfg = ensureBlankMiddleDecklistLayout(layout);
+    const baseX = layout.rows.x + 6;
+    const baseY = layout.rows.startY + 8;
+    const baseW = Math.max(120, layout.rows.w - 12);
+    const baseH = Math.max(120, layout.store.y - baseY - 18);
+
+    let x = Math.round(baseX + (Number(cfg.x) || 0));
+    let y = Math.round(baseY + (Number(cfg.y) || 0));
+    let w = Math.round(baseW + (Number(cfg.w) || 0));
+    let h = Math.round(baseH + (Number(cfg.h) || 0));
+    const padding = Math.max(4, Math.min(24, Math.round(Number(cfg.padding) || 10)));
+
+    w = Math.max(120, w);
+    h = Math.max(120, h);
+    x = Math.max(0, Math.min(width - 120, x));
+    y = Math.max(0, Math.min(height - 120, y));
+    w = Math.max(120, Math.min(w, width - x));
+    h = Math.max(120, Math.min(h, height - y));
+
+    return { x, y, w, h, padding, baseX, baseY };
+}
+
+async function getFirstPlaceDecklistEntries() {
+    const topFour = Array.isArray(tournamentDataForCanvas?.topFour) ? tournamentDataForCanvas.topFour : [];
+    const firstPlace = topFour.find((row) => Number(row?.placement) === 1) || topFour[0] || null;
+    const resultId = String(firstPlace?.result_id || '').trim();
+    if (!resultId) return [];
+
+    if (BLANK_MIDDLE_DECKLIST_CACHE.has(resultId)) {
+        return BLANK_MIDDLE_DECKLIST_CACHE.get(resultId);
+    }
+
+    const decklistText = await fetchDecklistTextByResultId(resultId);
+    const parsed = parseDecklistEntriesForBlankMiddle(decklistText);
+    BLANK_MIDDLE_DECKLIST_CACHE.set(resultId, parsed);
+    return parsed;
+}
+
+async function fetchDecklistTextByResultId(resultId) {
+    const columns = ['decklist', 'decklist_link'];
+    for (const column of columns) {
+        try {
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament_results?id=eq.${encodeURIComponent(resultId)}&select=${column}`,
+                { headers }
+            );
+            if (!res.ok) continue;
+            const rows = await res.json();
+            const rawText = String(rows?.[0]?.[column] || '').trim();
+            if (rawText) return rawText;
+        } catch (_) {
+            continue;
+        }
+    }
+    return '';
+}
+
+function parseDecklistEntriesForBlankMiddle(rawText) {
+    const text = String(rawText || '').trim();
+    if (!text) return [];
+
+    const ordered = [];
+    const map = new Map();
+    const lines = text.split(/\r?\n/);
+    const linePattern =
+        /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i;
+
+    lines.forEach((line) => {
+        const raw = String(line || '').trim();
+        if (!raw || /^\/\/\s*/.test(raw) || /^decklist$/i.test(raw)) return;
+
+        const m = raw.match(linePattern);
+        if (!m) return;
+        const count = Math.max(1, Math.min(4, Number(m[1]) || 1));
+        const code = normalizeDeckCodeForBlankMiddle(m[2]);
+        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|P)-\d{1,3}$/.test(code)) return;
+
+        if (!map.has(code)) {
+            const entry = { code, count: 0 };
+            map.set(code, entry);
+            ordered.push(entry);
+        }
+        map.get(code).count = Math.min(4, map.get(code).count + count);
+    });
+
+    return ordered;
+}
+
+function normalizeDeckCodeForBlankMiddle(value) {
+    return String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/^["'\[\(]+/, '')
+        .replace(/["'\]\),;:.]+$/, '')
+        .replace(/_.+$/, '');
+}
+
+async function loadDeckCardImage(code) {
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`;
+    });
 }
 
 function setPostTemplateEditorActive(active) {
@@ -3067,6 +3248,7 @@ function getTemplateEditorHandles() {
     }
 
     if (selectedPostType === 'blank_middle') {
+        const decklistRect = getBlankMiddleDecklistRect(postLayout, 1080, 1350);
         return [
             {
                 key: 'logo',
@@ -3083,6 +3265,14 @@ function getTemplateEditorHandles() {
                 y: postLayout.title.y,
                 w: postLayout.title.w,
                 h: postLayout.title.h
+            },
+            {
+                key: 'decklist',
+                label: 'Decklist',
+                x: decklistRect.x,
+                y: decklistRect.y,
+                w: decklistRect.w,
+                h: decklistRect.h
             },
             {
                 key: 'store',
@@ -3266,6 +3456,24 @@ function getHandleOrigin(key) {
         }
     }
 
+    if (selectedPostType === 'blank_middle') {
+        const decklistRect = getBlankMiddleDecklistRect(postLayout, 1080, 1350);
+        switch (key) {
+            case 'logo':
+                return { x: postLayout.logo.x, y: postLayout.logo.y };
+            case 'title':
+                return { x: postLayout.title.x, y: postLayout.title.y };
+            case 'decklist':
+                return { x: decklistRect.x, y: decklistRect.y };
+            case 'store':
+                return { x: postLayout.store.x, y: postLayout.store.y };
+            case 'handle':
+                return { x: postLayout.handle.x - 280, y: postLayout.handle.y - 52 };
+            default:
+                return { x: 0, y: 0 };
+        }
+    }
+
     const rowX = postLayout.rows.x;
     const rowY = postLayout.rows.startY;
     const rowW = postLayout.rows.w;
@@ -3360,6 +3568,36 @@ function updateHandleOrigin(key, x, y) {
         }
     }
 
+    if (selectedPostType === 'blank_middle') {
+        switch (key) {
+            case 'logo':
+                postLayout.logo.x = x;
+                postLayout.logo.y = y;
+                return;
+            case 'title':
+                postLayout.title.x = x;
+                postLayout.title.y = y;
+                return;
+            case 'decklist': {
+                const cfg = ensureBlankMiddleDecklistLayout(postLayout);
+                const current = getBlankMiddleDecklistRect(postLayout, 1080, 1350);
+                cfg.x = Math.round((Number(cfg.x) || 0) + (x - current.x));
+                cfg.y = Math.round((Number(cfg.y) || 0) + (y - current.y));
+                return;
+            }
+            case 'store':
+                postLayout.store.x = x;
+                postLayout.store.y = y;
+                return;
+            case 'handle':
+                postLayout.handle.x = x + 280;
+                postLayout.handle.y = y + 52;
+                return;
+            default:
+                return;
+        }
+    }
+
     const rowX = postLayout.rows.x;
     const rowY = postLayout.rows.startY;
     const rowW = postLayout.rows.w;
@@ -3439,6 +3677,24 @@ function getTemplateHandleRect(key) {
                     w: geometry.pie.radius * 2,
                     h: geometry.pie.radius * 2
                 };
+            case 'store':
+                return { x: postLayout.store.x, y: postLayout.store.y, w: postLayout.store.w, h: postLayout.store.h };
+            case 'handle':
+                return { x: postLayout.handle.x - 280, y: postLayout.handle.y - 52, w: 280, h: 62 };
+            default:
+                return { x: 0, y: 0, w: 0, h: 0 };
+        }
+    }
+
+    if (selectedPostType === 'blank_middle') {
+        const decklistRect = getBlankMiddleDecklistRect(postLayout, 1080, 1350);
+        switch (key) {
+            case 'logo':
+                return { x: postLayout.logo.x, y: postLayout.logo.y, w: postLayout.logo.w, h: postLayout.logo.h };
+            case 'title':
+                return { x: postLayout.title.x, y: postLayout.title.y, w: postLayout.title.w, h: postLayout.title.h };
+            case 'decklist':
+                return { x: decklistRect.x, y: decklistRect.y, w: decklistRect.w, h: decklistRect.h };
             case 'store':
                 return { x: postLayout.store.x, y: postLayout.store.y, w: postLayout.store.w, h: postLayout.store.h };
             case 'handle':
@@ -3586,6 +3842,37 @@ function resizeTemplateHandle(key, delta) {
                     20,
                     postLayout.typography.handleSize + Math.round(delta / 2)
                 );
+                break;
+            default:
+                break;
+        }
+        postEditorGuides = [];
+        renderTemplateEditorOverlay();
+        return;
+    }
+
+    if (selectedPostType === 'blank_middle') {
+        switch (key) {
+            case 'logo':
+                postLayout.logo.w = Math.max(120, postLayout.logo.w + delta);
+                postLayout.logo.h = Math.max(60, postLayout.logo.h + delta);
+                break;
+            case 'title':
+                postLayout.title.w = Math.max(180, postLayout.title.w + delta);
+                postLayout.title.h = Math.max(90, postLayout.title.h + delta);
+                break;
+            case 'decklist': {
+                const cfg = ensureBlankMiddleDecklistLayout(postLayout);
+                cfg.w = Math.max(-420, Math.min(420, (Number(cfg.w) || 0) + delta));
+                cfg.h = Math.max(-480, Math.min(480, (Number(cfg.h) || 0) + Math.round(delta / 2)));
+                break;
+            }
+            case 'store':
+                postLayout.store.w = Math.max(120, postLayout.store.w + delta);
+                postLayout.store.h = Math.max(60, postLayout.store.h + Math.round(delta / 2));
+                break;
+            case 'handle':
+                postLayout.typography.handleSize = Math.max(20, postLayout.typography.handleSize + Math.round(delta / 2));
                 break;
             default:
                 break;
