@@ -1806,6 +1806,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                                 code: extractDeckCodeFromImageUrl(item.image_url || ''),
                                 store: tournament.store?.name || '',
                                 date: tournament.tournament_date || '',
+                                format: getTournamentFormatCode(tournament) || '',
                                 tournamentName: tournament.tournament_name || ''
                             })
                         );
@@ -1903,6 +1904,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 if (payload.code) params.set('code', payload.code);
                 if (payload.store) params.set('store', payload.store);
                 if (payload.date) params.set('date', payload.date);
+                if (payload.format) params.set('format', payload.format);
                 if (payload.tournamentName) params.set('tournamentName', payload.tournamentName);
                 if (payload.resultId) params.set('resultId', payload.resultId);
 

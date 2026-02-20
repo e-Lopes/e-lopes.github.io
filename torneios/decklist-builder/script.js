@@ -14,7 +14,7 @@
         : { 'Content-Type': 'application/json' };
 
     let entries = [];
-    let context = { resultId: '', deck: '', player: '', store: '', date: '' };
+    let context = { resultId: '', deck: '', player: '', store: '', date: '', format: '' };
 
     document.addEventListener('DOMContentLoaded', async () => {
         bindActions();
@@ -87,6 +87,7 @@
         const player = params.get('player') || '';
         const store = params.get('store') || '';
         const date = params.get('date') || '';
+        const format = params.get('format') || '';
         const resultId = String(params.get('resultId') || params.get('result_id') || '').trim();
 
         context.resultId = resultId;
@@ -94,11 +95,12 @@
         context.player = player;
         context.store = store;
         context.date = date;
+        context.format = format;
         if (!context.resultId) {
             setSaveStatus('Selecione um resultado na tela Full Results para salvar no banco.', 'warn');
         }
 
-        renderContextMeta({ deck, player, store, date });
+        renderContextMeta({ deck, player, store, date, format });
 
         await loadExistingDecklist();
     }
@@ -112,7 +114,8 @@
             { label: 'Deck', value: meta.deck || '-' },
             { label: 'Player', value: meta.player || '-' },
             { label: 'Store', value: meta.store || '-' },
-            { label: 'Data', value: formattedDate || '-' }
+            { label: 'Data', value: formattedDate || '-' },
+            { label: 'Format', value: meta.format || '-' }
         ];
 
         metaRoot.innerHTML = items
@@ -226,7 +229,7 @@
         const frameHeight = height - 32;
         const safePaddingX = 28;
         const safePaddingY = 18;
-        const headerHeight = 124;
+        const headerHeight = 170;
         const footerHeight = 220;
         const cardRatio = 88 / 63;
         const availableWidth = frameWidth - safePaddingX * 2;
@@ -249,7 +252,7 @@
         const boardWidth = layout.boardWidth;
         const boardHeight = layout.boardHeight;
         const boardAreaX = frameX + safePaddingX;
-        const boardAreaY = frameY + headerHeight + safePaddingY + 16;
+        const boardAreaY = frameY + headerHeight + safePaddingY + 6;
         const boardX = boardAreaX + Math.max(0, Math.round((availableWidth - boardWidth) / 2));
         const boardY = boardAreaY + Math.max(0, Math.round((availableHeight - boardHeight) / 2));
 
@@ -264,9 +267,9 @@
         const deckTitle = context.deck || 'Deck Builder';
         const titleSize = Math.max(38, Math.min(56, Math.round(700 / Math.max(9, deckTitle.length))));
         const headerBoxY = frameY + 10;
-        const titleY = headerBoxY + 54;
-        const playerY = headerBoxY + 88;
-        const storeY = headerBoxY + 116;
+        const titleY = headerBoxY + 42;
+        const playerY = titleY + 60;
+        const storeY = playerY + 48;
         const storeAndDate = buildDeckImageStoreDateLine();
 
         ctx.shadowColor = 'transparent';
@@ -282,7 +285,7 @@
         ctx.fillText(context.player || '-', width / 2, playerY);
 
         ctx.fillStyle = '#445470';
-        ctx.font = '600 19px "Segoe UI", Arial, sans-serif';
+        ctx.font = '700 28px "Segoe UI", Arial, sans-serif';
         ctx.fillText(storeAndDate, width / 2, storeY);
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
@@ -465,9 +468,14 @@
     function buildDeckImageStoreDateLine() {
         const formattedDate = context.date ? formatContextDateForImage(context.date) : '';
         const store = String(context.store || '').trim();
+        const format = String(context.format || '').trim();
+        if (store && formattedDate && format) return `${store}, ${formattedDate} - ${format}`;
         if (store && formattedDate) return `${store}, ${formattedDate}`;
+        if (store && format) return `${store} - ${format}`;
+        if (formattedDate && format) return `${formattedDate} - ${format}`;
         if (store) return store;
         if (formattedDate) return formattedDate;
+        if (format) return format;
         return '-';
     }
 
