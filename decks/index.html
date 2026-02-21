@@ -62,13 +62,31 @@
                         </select>
                     </div>
 
-                    <button
-                        type="button"
-                        id="viewToggleBtn"
-                        class="btn-view-toggle"
-                        title="Change view"
-                        aria-label="Change view"
-                    ></button>
+                    <div class="decks-list-controls">
+                        <select
+                            id="deckRankFormatSelect"
+                            class="deck-format-select"
+                            title="Filtrar por formato"
+                            aria-label="Filtrar por formato"
+                        >
+                            <option value="">All formats</option>
+                        </select>
+                        <select
+                            id="deckRankMonthSelect"
+                            class="deck-month-select"
+                            title="Filtrar por mês"
+                            aria-label="Filtrar por mês"
+                        >
+                            <option value="">Latest month</option>
+                        </select>
+                        <button
+                            type="button"
+                            id="viewToggleBtn"
+                            class="btn-view-toggle"
+                            title="Change view"
+                            aria-label="Change view"
+                        ></button>
+                    </div>
                 </div>
 
                 <section class="decklist-mvp-panel" aria-labelledby="decklistMvpTitle">
