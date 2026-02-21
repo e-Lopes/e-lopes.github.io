@@ -18,11 +18,20 @@ const MOBILE_VIEW_BREAKPOINT = 768;
 let currentPage = 1;
 const PAGE_SIZE_STORAGE_KEY = 'decksPageSize';
 const PAGE_SIZE_OPTIONS = [4, 8, 12, 24, 40, 80];
+const DECK_RANK_MONTH_STORAGE_KEY = 'decksRankMonth';
+const DECK_RANK_FORMAT_STORAGE_KEY = 'decksRankFormat';
+const DECK_TABLE_SORT_STORAGE_KEY = 'decksTableSort';
 let pageSize = getInitialPageSize();
 let currentSearchTerm = '';
 let decksPageInitialized = false;
 let decklistMvpEntries = [];
 const DECK_CODE_PATTERN = /^[A-Z]{1,3}\d{0,2}-\d{1,3}$/;
+let deckRankRows = [];
+let deckRankLookup = new Map();
+let deckRankMonths = [];
+let selectedDeckRankMonth = getInitialDeckRankMonth();
+let selectedDeckRankFormat = getInitialDeckRankFormat();
+let deckTableSort = getInitialDeckTableSort();
 
 function getDeckNameForDisplay(name) {
     const text = String(name || '');
@@ -330,6 +339,17 @@ function setupDeckActions() {
     if (!container) return;
 
     container.addEventListener('click', (event) => {
+        const sortButton = event.target.closest('[data-decks-sort-field]');
+        if (sortButton) {
+            const field = String(sortButton.dataset.decksSortField || '');
+            if (field) {
+                toggleDeckTableSort(field);
+                currentPage = 1;
+                renderDecksList();
+            }
+            return;
+        }
+
         const editButton = event.target.closest('[data-action="edit-deck"]');
         if (editButton) {
             editDeck(
@@ -350,6 +370,42 @@ function setupDeckActions() {
 function getInitialPageSize() {
     const saved = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
     return PAGE_SIZE_OPTIONS.includes(saved) ? saved : 8;
+}
+
+function getInitialDeckRankMonth() {
+    return String(localStorage.getItem(DECK_RANK_MONTH_STORAGE_KEY) || '').trim();
+}
+
+function getInitialDeckRankFormat() {
+    return String(localStorage.getItem(DECK_RANK_FORMAT_STORAGE_KEY) || '').trim().toLowerCase();
+}
+
+function getInitialDeckTableSort() {
+    const fallback = { field: 'deck', direction: 'asc' };
+    try {
+        const raw = localStorage.getItem(DECK_TABLE_SORT_STORAGE_KEY);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        const field = String(parsed?.field || '').trim();
+        const direction = parsed?.direction === 'desc' ? 'desc' : 'asc';
+        if (!field) return fallback;
+        return { field, direction };
+    } catch {
+        return fallback;
+    }
+}
+
+function saveDeckTableSort() {
+    localStorage.setItem(DECK_TABLE_SORT_STORAGE_KEY, JSON.stringify(deckTableSort));
+}
+
+function toggleDeckTableSort(field) {
+    if (deckTableSort.field === field) {
+        deckTableSort.direction = deckTableSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        deckTableSort = { field, direction: field === 'deck' ? 'asc' : 'desc' };
+    }
+    saveDeckTableSort();
 }
 
 function isMobileDeckViewport() {
@@ -378,6 +434,7 @@ function setupViewToggle() {
     applyViewMode();
 
     if (btn) {
+        btn.style.display = '';
         btn.addEventListener('click', () => {
             const available = getAvailableViewModes();
             const currentIndex = available.indexOf(currentView);
@@ -385,12 +442,14 @@ function setupViewToggle() {
             currentView = available[nextIndex];
             localStorage.setItem('decksViewMode', currentView);
             applyViewMode();
+            renderDecksList();
         });
     }
 
     window.addEventListener('resize', () => {
         ensureValidViewMode();
         applyViewMode();
+        renderDecksList();
     });
 }
 
@@ -462,33 +521,61 @@ function setupSearch() {
 
 function setupPaginationControls() {
     const pageSizeSelect = document.getElementById('pageSizeSelect');
-    if (!pageSizeSelect) return;
-    pageSizeSelect.value = String(pageSize);
-    pageSizeSelect.addEventListener('change', () => {
-        const selected = parseInt(pageSizeSelect.value, 10);
-        pageSize =
-            Number.isInteger(selected) && PAGE_SIZE_OPTIONS.includes(selected) ? selected : 8;
-        localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
-        currentPage = 1;
-        renderDecksList();
-    });
+    const monthSelect = document.getElementById('deckRankMonthSelect');
+    const formatSelect = document.getElementById('deckRankFormatSelect');
+    if (pageSizeSelect) {
+        pageSizeSelect.value = String(pageSize);
+        pageSizeSelect.addEventListener('change', () => {
+            const selected = parseInt(pageSizeSelect.value, 10);
+            pageSize =
+                Number.isInteger(selected) && PAGE_SIZE_OPTIONS.includes(selected) ? selected : 8;
+            localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
+            currentPage = 1;
+            renderDecksList();
+        });
+    }
+
+    if (monthSelect) {
+        monthSelect.addEventListener('change', () => {
+            selectedDeckRankMonth = String(monthSelect.value || '');
+            localStorage.setItem(DECK_RANK_MONTH_STORAGE_KEY, selectedDeckRankMonth);
+            currentPage = 1;
+            renderDecksList();
+        });
+    }
+
+    if (formatSelect) {
+        formatSelect.addEventListener('change', () => {
+            selectedDeckRankFormat = String(formatSelect.value || '').trim().toLowerCase();
+            localStorage.setItem(DECK_RANK_FORMAT_STORAGE_KEY, selectedDeckRankFormat);
+            currentPage = 1;
+            renderDecksList();
+        });
+    }
 }
 
 function filterDecks(searchTerm) {
-    if (!searchTerm) return [...allDecks];
-    return allDecks.filter((deck) => deck.name.toLowerCase().includes(searchTerm));
+    const normalizedSearch = String(searchTerm || '').toLowerCase().trim();
+    return allDecks.filter((deck) => {
+        const matchesSearch = !normalizedSearch || deck.name.toLowerCase().includes(normalizedSearch);
+        if (!matchesSearch) return false;
+        if (!selectedDeckRankFormat) return true;
+        return getDeckFormatTag(deck) === selectedDeckRankFormat;
+    });
 }
 
 function renderDecksList() {
     const filtered = filterDecks(currentSearchTerm);
-    const totalItems = filtered.length;
+    const merged = filtered.map((deck) => buildDeckTableRow(deck));
+    const sorted = sortDeckTableRows(merged);
+    const totalItems = sorted.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
     if (currentPage > totalPages) currentPage = totalPages;
 
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    const pagedDecks = filtered.slice(start, end);
+    const pagedDecks = sorted.slice(start, end);
 
     if (totalItems === 0) {
         const container = document.getElementById('decksList');
@@ -592,6 +679,9 @@ async function loadDecks() {
             });
         }
 
+        await loadDeckRankRows();
+        populateDeckRankFormatSelect();
+        populateDeckRankMonthSelect();
         renderDecksList();
         showLoading(false);
     } catch (error) {
@@ -599,6 +689,218 @@ async function loadDecks() {
         showError('Error loading decks. Try again.');
         showLoading(false);
     }
+}
+
+async function loadDeckRankRows() {
+    deckRankRows = [];
+    deckRankLookup = new Map();
+    deckRankMonths = [];
+
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/v_deck_rank?select=*&order=month.desc,performance_rank.asc`,
+            { headers }
+        );
+        if (!res.ok) return;
+        const rows = await res.json();
+        deckRankRows = Array.isArray(rows) ? rows : [];
+    } catch {
+        deckRankRows = [];
+    }
+
+    const monthSet = new Set();
+    deckRankRows.forEach((row) => {
+        const month = normalizeDeckRankMonthKey(row?.month);
+        const deckName = String(row?.deck || '')
+            .trim()
+            .toLowerCase();
+        if (!month || !deckName) return;
+        monthSet.add(month);
+        deckRankLookup.set(`${month}|${deckName}`, row);
+    });
+
+    deckRankMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+    if (!selectedDeckRankMonth || !deckRankMonths.includes(selectedDeckRankMonth)) {
+        selectedDeckRankMonth = deckRankMonths[0] || '';
+        localStorage.setItem(DECK_RANK_MONTH_STORAGE_KEY, selectedDeckRankMonth);
+    }
+}
+
+function normalizeDeckRankMonthKey(value) {
+    if (!value) return '';
+    const text = String(value).trim();
+    const match = text.match(/^(\d{4})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}`;
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) return '';
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+}
+
+function formatDeckRankMonthLabel(monthKey) {
+    const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return monthKey || 'Latest';
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
+    return new Intl.DateTimeFormat('pt-BR', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC'
+    }).format(date);
+}
+
+function normalizeDeckRankFormat(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase();
+}
+
+function formatDeckRankFormatLabel(formatKey) {
+    const text = String(formatKey || '').trim();
+    if (!text) return 'All formats';
+    return text.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function populateDeckRankMonthSelect() {
+    const select = document.getElementById('deckRankMonthSelect');
+    if (!select) return;
+    select.innerHTML =
+        '<option value="">Latest month</option>' +
+        deckRankMonths
+            .map(
+                (month) =>
+                    `<option value="${month}">${escapeHtmlAttribute(formatDeckRankMonthLabel(month))}</option>`
+            )
+            .join('');
+
+    if (selectedDeckRankMonth && deckRankMonths.includes(selectedDeckRankMonth)) {
+        select.value = selectedDeckRankMonth;
+    } else {
+        select.value = '';
+    }
+}
+
+function populateDeckRankFormatSelect() {
+    const select = document.getElementById('deckRankFormatSelect');
+    if (!select) return;
+    const formatSet = new Set();
+    allDecks.forEach((deck) => {
+        const format = getDeckFormatTag(deck);
+        if (format) formatSet.add(format);
+    });
+    const formatOptions = Array.from(formatSet).sort((a, b) => a.localeCompare(b));
+
+    select.innerHTML =
+        '<option value="">All formats</option>' +
+        formatOptions
+            .map(
+                (format) =>
+                    `<option value="${escapeHtmlAttribute(format)}">${escapeHtmlAttribute(formatDeckRankFormatLabel(format))}</option>`
+            )
+            .join('');
+    if (selectedDeckRankFormat && !formatOptions.includes(selectedDeckRankFormat)) {
+        selectedDeckRankFormat = '';
+        localStorage.setItem(DECK_RANK_FORMAT_STORAGE_KEY, selectedDeckRankFormat);
+    }
+    select.value = selectedDeckRankFormat || '';
+}
+
+function getDeckRankMetrics(deckName) {
+    const monthKey = selectedDeckRankMonth || deckRankMonths[0];
+    if (!monthKey) return null;
+    return (
+        deckRankLookup.get(
+            `${monthKey}|${String(deckName || '')
+                .trim()
+                .toLowerCase()}`
+        ) || null
+    );
+}
+
+function getDeckFormatTag(deck) {
+    if (!deck) return '';
+    const imageUrl = imagesMap[deck.id] || '';
+    const codeFromImage = extractCodeFromUrl(imageUrl);
+    const imageMatch = String(codeFromImage || '')
+        .toUpperCase()
+        .match(/^([A-Z]{1,3}\d{1,2})-/);
+    if (imageMatch) return imageMatch[1];
+
+    const nameMatch = String(deck.name || '')
+        .toUpperCase()
+        .match(/\b([A-Z]{1,3}\d{1,2})(?=-|\b)/);
+    return nameMatch ? nameMatch[1] : '';
+}
+
+function buildDeckTableRow(deck) {
+    const stats = getDeckRankMetrics(deck.name);
+    return {
+        deck,
+        stats
+    };
+}
+
+function getDeckMetricValue(row, field) {
+    if (field === 'deck') return String(row?.deck?.name || '').toLowerCase();
+    const stats = row?.stats;
+    if (!stats) return null;
+    const value = stats[field];
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
+function sortDeckTableRows(rows) {
+    const direction = deckTableSort.direction === 'desc' ? -1 : 1;
+    const field = deckTableSort.field || 'deck';
+    return [...rows].sort((a, b) => {
+        const left = getDeckMetricValue(a, field);
+        const right = getDeckMetricValue(b, field);
+        const leftMissing = left === null || left === undefined || left === '';
+        const rightMissing = right === null || right === undefined || right === '';
+
+        if (leftMissing && !rightMissing) return 1;
+        if (!leftMissing && rightMissing) return -1;
+        if (leftMissing && rightMissing) {
+            const aDeck = String(a?.deck?.name || '').toLowerCase();
+            const bDeck = String(b?.deck?.name || '').toLowerCase();
+            return aDeck.localeCompare(bDeck);
+        }
+
+        if (left < right) return -1 * direction;
+        if (left > right) return 1 * direction;
+        const aDeck = String(a?.deck?.name || '').toLowerCase();
+        const bDeck = String(b?.deck?.name || '').toLowerCase();
+        return aDeck.localeCompare(bDeck);
+    });
+}
+
+function getDeckAssetPrefix() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    return path.includes('/decks/') ? '../' : '';
+}
+
+function formatOrdinal(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    const int = Math.trunc(n);
+    const abs = Math.abs(int);
+    const mod100 = abs % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${int}th`;
+    const mod10 = abs % 10;
+    if (mod10 === 1) return `${int}st`;
+    if (mod10 === 2) return `${int}nd`;
+    if (mod10 === 3) return `${int}rd`;
+    return `${int}th`;
+}
+
+function getPlacementBadgeClass(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 'decks-rank-default';
+    if (n === 1) return 'decks-rank-first';
+    if (n === 2) return 'decks-rank-second';
+    if (n === 3) return 'decks-rank-third';
+    if (n === 4) return 'decks-rank-fourth';
+    return 'decks-rank-default';
 }
 
 function displayDecks(decks, imagesMap, isFiltered = false) {
@@ -620,77 +922,213 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
     }
 
     container.innerHTML = '';
-    container.style.display = 'grid';
+    container.style.display = 'block';
     emptyState.style.display = 'none';
     noResults.style.display = 'none';
+    if (currentView !== 'list') {
+        container.innerHTML = '';
+        container.style.display = 'grid';
+        decks.forEach((row) => {
+            const deck = row.deck;
+            const imageUrl = imagesMap[deck.id];
+            const fallback =
+                'https://via.placeholder.com/300x220/667eea/ffffff?text=' +
+                encodeURIComponent(deck.name.substring(0, 12));
+            const deckCode = extractCodeFromUrl(imageUrl);
+            const deckNameDisplay = getDeckNameForDisplay(deck.name);
 
-    decks.forEach((deck) => {
-        const imageUrl = imagesMap[deck.id];
-        const fallback =
-            'https://via.placeholder.com/300x220/667eea/ffffff?text=' +
-            encodeURIComponent(deck.name.substring(0, 12));
-        const deckCode = extractCodeFromUrl(imageUrl);
-        const deckNameDisplay = getDeckNameForDisplay(deck.name);
+            const deckCard = document.createElement('div');
+            deckCard.className = 'deck-row';
+            deckCard.innerHTML = `
+                <div class="deck-thumb-wrapper">
+                    <img src="${imageUrl || fallback}" alt="${deck.name}" class="deck-thumb-image">
+                </div>
+                <div class="deck-info">
+                    <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
+                    ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
+                </div>
+                <div class="deck-actions">
+                    <button
+                        class="btn-secondary btn-icon"
+                        type="button"
+                        title="Edit deck"
+                        aria-label="Edit deck"
+                        data-action="edit-deck"
+                        data-deck-id="${deck.id}"
+                        data-deck-name="${escapeHtmlAttribute(deck.name)}"
+                        data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                        </svg>
+                    </button>
+                    <button
+                        class="btn-secondary btn-danger btn-icon"
+                        type="button"
+                        title="Delete deck"
+                        aria-label="Delete deck"
+                        data-action="delete-deck"
+                        data-deck-id="${deck.id}"
+                        data-deck-name="${escapeHtmlAttribute(deck.name)}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M8 6V4h8v2"/>
+                            <path d="M19 6l-1 14H6L5 6"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
 
-        const deckCard = document.createElement('div');
-        deckCard.className = 'deck-row';
-        deckCard.innerHTML = `
-                    <div class="deck-thumb-wrapper">
-                        <img src="${imageUrl || fallback}" 
-                             alt="${deck.name}" 
-                             class="deck-thumb-image">
-                    </div>
-                    <div class="deck-info">
-                        <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
-                        ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
-                    </div>
-                    <div class="deck-actions">
-                        <button
-                            class="btn-secondary btn-icon"
-                            type="button"
-                            title="Edit deck"
-                            aria-label="Edit deck"
-                            data-action="edit-deck"
-                            data-deck-id="${deck.id}"
-                            data-deck-name="${escapeHtmlAttribute(deck.name)}"
-                            data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path d="M12 20h9"/>
-                                <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                            </svg>
-                        </button>
-                        <button
-                            class="btn-secondary btn-danger btn-icon"
-                            type="button"
-                            title="Delete deck"
-                            aria-label="Delete deck"
-                            data-action="delete-deck"
-                            data-deck-id="${deck.id}"
-                            data-deck-name="${escapeHtmlAttribute(deck.name)}">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M8 6V4h8v2"/>
-                                <path d="M19 6l-1 14H6L5 6"/>
-                                <line x1="10" y1="11" x2="10" y2="17"/>
-                                <line x1="14" y1="11" x2="14" y2="17"/>
-                            </svg>
-                        </button>
-                    </div>
-                `;
+            const image = deckCard.querySelector('.deck-thumb-image');
+            if (image) {
+                image.addEventListener(
+                    'error',
+                    () => {
+                        image.src = fallback;
+                    },
+                    { once: true }
+                );
+            }
 
-        const image = deckCard.querySelector('.deck-thumb-image');
-        if (image) {
-            image.addEventListener(
-                'error',
-                () => {
-                    image.src = fallback;
-                },
-                { once: true }
-            );
-        }
+            container.appendChild(deckCard);
+        });
+        applyViewMode();
+        return;
+    }
 
-        container.appendChild(deckCard);
-    });
+    const indicator = (field) => {
+        if (deckTableSort.field !== field) return '\u21C5';
+        return deckTableSort.direction === 'asc' ? '\u25B2' : '\u25BC';
+    };
+    const deckIconSrc = `${getDeckAssetPrefix()}icons/digivice.svg`;
+    const sortableHeader = (field, title, iconHtml, label) =>
+        `<th><div class="decks-header-content" title="${escapeHtmlAttribute(title)}">${iconHtml}<span>${label}</span><button type="button" class="decks-sort-arrow" data-decks-sort-field="${field}" aria-label="Ordenar por ${escapeHtmlAttribute(label)}">${indicator(field)}</button></div></th>`;
+    const metricText = (stats, field, fractionDigits = 0) => {
+        if (!stats || stats[field] === null || stats[field] === undefined) return '-';
+        const num = Number(stats[field]);
+        if (!Number.isFinite(num)) return '-';
+        return fractionDigits > 0 ? num.toFixed(fractionDigits) : String(Math.trunc(num));
+    };
+    const numericSquare = (stats, field, fractionDigits = 0) =>
+        `<span class="decks-num-rank-box">${metricText(stats, field, fractionDigits)}</span>`;
+    const rankBadge = (stats) => {
+        const value = metricText(stats, 'performance_rank');
+        const n = Number(value);
+        const rankClass = getPlacementBadgeClass(n);
+        return `<span class="details-rank-badge decks-rank-badge ${rankClass}">${Number.isFinite(n) ? formatOrdinal(n) : '-'}</span>`;
+    };
+    const averageBadge = (stats) => {
+        const value = metricText(stats, 'avg_placement');
+        const n = Number(value);
+        const rankClass = getPlacementBadgeClass(n);
+        return `<span class="details-rank-badge decks-rank-badge decks-average-badge ${rankClass}">${Number.isFinite(n) ? formatOrdinal(n) : '-'}</span>`;
+    };
+    const placementBadge = (stats, field) => {
+        const value = metricText(stats, field);
+        const n = Number(value);
+        const rankClass = getPlacementBadgeClass(n);
+        return `<span class="details-rank-badge decks-rank-badge ${rankClass}">${Number.isFinite(n) ? formatOrdinal(n) : '-'}</span>`;
+    };
+
+    const rowsHtml = decks
+        .map((row) => {
+            const deck = row.deck;
+            const stats = row.stats;
+            const imageUrl = imagesMap[deck.id];
+            const fallback =
+                'https://via.placeholder.com/80x80/667eea/ffffff?text=' +
+                encodeURIComponent(deck.name.substring(0, 2));
+            return `
+                <tr>
+                    <td class="decks-col-name">
+                        <span class="decks-col-name-wrap">
+                            <span class="decks-col-thumb-wrapper">
+                                <img
+                                    src="${escapeHtmlAttribute(imageUrl || fallback)}"
+                                    alt="${escapeHtmlAttribute(deck.name)}"
+                                    class="decks-col-thumb-image"
+                                    loading="lazy"
+                                    onerror="this.onerror=null;this.src='${escapeHtmlAttribute(fallback)}';"
+                                />
+                            </span>
+                            <strong>${escapeHtmlAttribute(deck.name)}</strong>
+                        </span>
+                    </td>
+                    <td class="decks-num-cell">${numericSquare(stats, 'monthly_appearances')}</td>
+                    <td class="decks-num-cell">${numericSquare(stats, 'tournament_appearances')}</td>
+                    <td class="decks-num-cell">${numericSquare(stats, 'unique_players')}</td>
+                    <td class="decks-num-cell">${numericSquare(stats, 'titles')}</td>
+                    <td class="decks-num-cell">${numericSquare(stats, 'top4_total')}</td>
+                    <td class="decks-rank-cell">${averageBadge(stats)}</td>
+                    <td class="decks-rank-cell">${placementBadge(stats, 'best_finish')}</td>
+                    <td class="decks-rank-cell">${placementBadge(stats, 'worst_finish')}</td>
+                    <td class="decks-num-cell">${numericSquare(stats, 'ranking_points', 2)}</td>
+                    <td class="decks-rank-cell">${rankBadge(stats)}</td>
+                    <td class="decks-actions-col">
+                        <div class="decks-table-actions">
+                            <button
+                                class="btn-secondary btn-icon"
+                                type="button"
+                                title="Edit deck"
+                                aria-label="Edit deck"
+                                data-action="edit-deck"
+                                data-deck-id="${deck.id}"
+                                data-deck-name="${escapeHtmlAttribute(deck.name)}"
+                                data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                                </svg>
+                            </button>
+                            <button
+                                class="btn-secondary btn-danger btn-icon"
+                                type="button"
+                                title="Delete deck"
+                                aria-label="Delete deck"
+                                data-action="delete-deck"
+                                data-deck-id="${deck.id}"
+                                data-deck-name="${escapeHtmlAttribute(deck.name)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M8 6V4h8v2"/>
+                                    <path d="M19 6l-1 14H6L5 6"/>
+                                    <line x1="10" y1="11" x2="10" y2="17"/>
+                                    <line x1="14" y1="11" x2="14" y2="17"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        })
+        .join('');
+
+    container.innerHTML = `
+        <div class="decks-table-wrapper">
+            <table class="decks-table">
+                <thead>
+                    <tr>
+                        ${sortableHeader('deck', 'Nome do deck.', `<span class="nav-icon decks-th-nav-icon" aria-hidden="true"><img src="${deckIconSrc}" alt="" class="nav-icon-digivice decks-th-digivice-img" /></span>`, 'Deck')}
+                        ${sortableHeader('monthly_appearances', 'Quantidade de aparições no mês selecionado.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>`, 'Monthly')}
+                        ${sortableHeader('tournament_appearances', 'Quantidade de torneios distintos em que o deck apareceu no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>`, 'Events')}
+                        ${sortableHeader('unique_players', 'Quantidade de jogadores únicos que usaram o deck no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5"/><circle cx="17" cy="10" r="2"/><path d="M15 20c.2-2 1.6-3.5 3.5-4"/></svg>`, 'Players')}
+                        ${sortableHeader('titles', 'Quantidade de títulos (Top 1) no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v3a5 5 0 0 1-10 0z"/><path d="M5 7H3a3 3 0 0 0 3 3"/><path d="M19 7h2a3 3 0 0 1-3 3"/></svg>`, 'Titles')}
+                        ${sortableHeader('top4_total', 'Quantidade de resultados em Top 4 no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V10h3v10"/><path d="M11 20V6h3v14"/><path d="M16 20v-8h3v8"/><path d="M4 20h16"/></svg>`, 'Top4')}
+                        ${sortableHeader('avg_placement', 'Posicionamento médio no mês (quanto menor, melhor).', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M7 15l3-3 3 2 4-5"/></svg>`, 'Average')}
+                        ${sortableHeader('best_finish', 'Melhor posicionamento alcançado no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M6 11l6-6 6 6"/></svg>`, 'Best')}
+                        ${sortableHeader('worst_finish', 'Pior posicionamento registrado no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M6 13l6 6 6-6"/></svg>`, 'Worst')}
+                        ${sortableHeader('ranking_points', 'Pontuação base:&#10;1º=4, 2º=3, 3º=2, 4º=1&#10;&#10;Multiplicador:&#10;1-8 jogadores = 100%&#10;9-16 jogadores = 120%&#10;17+ com 4 rodadas = 100%&#10;17+ com 5+ rodadas = 150%', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 3 14.9 9 21.5 9.8 16.7 14.2 18 21 12 17.7 6 21 7.3 14.2 2.5 9.8 9.1 9"/></svg>`, 'Points')}
+                        ${sortableHeader('performance_rank', 'Posição do deck no ranking mensal.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V8h4v12"/><path d="M10 20V4h4v16"/><path d="M16 20v-7h4v7"/></svg>`, 'Rank')}
+                        <th title="Ações de editar e excluir deck." class="decks-actions-head"><svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.2c-.6 0-1.2.4-1.4 1z"/></svg><span>Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    `;
+    applyViewMode();
 }
 
 function escapeHtmlAttribute(value) {

@@ -17,6 +17,8 @@ const PAGE_SIZE_STORAGE_KEY = 'playersPageSize';
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
 let itemsPerPage = getInitialPageSize();
 let playersPageInitialized = false;
+let expandedPlayerId = null;
+const playerHistoryCache = new Map();
 
 function initPlayersPage() {
     if (playersPageInitialized) return;
@@ -91,6 +93,12 @@ function setupEventListeners() {
     const playersList = document.getElementById('playersList');
     if (playersList) {
         playersList.addEventListener('click', (event) => {
+            const toggleButton = event.target.closest('[data-action="toggle-player-history"]');
+            if (toggleButton) {
+                togglePlayerHistory(toggleButton.dataset.playerId);
+                return;
+            }
+
             const editButton = event.target.closest('[data-action="edit-player"]');
             if (editButton) {
                 editPlayer(editButton.dataset.playerId, editButton.dataset.playerName || '');
@@ -101,6 +109,14 @@ function setupEventListeners() {
             if (deleteButton) {
                 deletePlayer(deleteButton.dataset.playerId, deleteButton.dataset.playerName || '');
             }
+        });
+
+        playersList.addEventListener('keydown', (event) => {
+            const toggleButton = event.target.closest('[data-action="toggle-player-history"]');
+            if (!toggleButton) return;
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            togglePlayerHistory(toggleButton.dataset.playerId);
         });
     }
 
@@ -162,34 +178,157 @@ function renderPaginatedList() {
     }
 
     document.getElementById('emptyState').style.display = 'none';
+    const rowsHtml = paginatedItems
+        .map((p) => {
+            const isExpanded = String(expandedPlayerId || '') === String(p.id);
+            const historyRows = playerHistoryCache.get(String(p.id));
+            return `
+                <tr class="players-table-row ${isExpanded ? 'is-expanded' : ''}">
+                    <td class="players-cell-name">
+                        <button
+                            class="player-main-toggle"
+                            type="button"
+                            data-action="toggle-player-history"
+                            data-player-id="${p.id}"
+                            aria-expanded="${isExpanded ? 'true' : 'false'}"
+                        >
+                            <span class="player-main-name"><strong>${escapeHtml(p.name)}</strong></span>
+                            <span class="player-main-hint">${isExpanded ? 'Hide history' : 'Show history'}</span>
+                        </button>
+                    </td>
+                    <td class="players-cell-actions">
+                        <div class="player-actions">
+                            <button class="btn-action btn-icon-only" type="button" title="Edit player" aria-label="Edit player" data-action="edit-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                                </svg>
+                            </button>
+                            <button class="btn-action btn-danger btn-icon-only" type="button" title="Delete player" aria-label="Delete player" data-action="delete-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M8 6V4h8v2"/>
+                                    <path d="M19 6l-1 14H6L5 6"/>
+                                    <line x1="10" y1="11" x2="10" y2="17"/>
+                                    <line x1="14" y1="11" x2="14" y2="17"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="players-details-row ${isExpanded ? '' : 'u-hidden'}" data-player-history-row="${p.id}">
+                    <td colspan="2">
+                        <div class="player-history" data-player-history="${p.id}">
+                            ${isExpanded ? renderPlayerHistory(historyRows, p.id) : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        })
+        .join('');
 
-    paginatedItems.forEach((p) => {
-        const item = document.createElement('div');
-        item.className = 'player-item';
-        item.innerHTML = `
-            <span><strong>${p.name}</strong></span>
-            <div class="player-actions">
-                <button class="btn-action btn-icon-only" type="button" title="Edit player" aria-label="Edit player" data-action="edit-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M12 20h9"/>
-                        <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                    </svg>
-                </button>
-                <button class="btn-action btn-danger btn-icon-only" type="button" title="Delete player" aria-label="Delete player" data-action="delete-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M8 6V4h8v2"/>
-                        <path d="M19 6l-1 14H6L5 6"/>
-                        <line x1="10" y1="11" x2="10" y2="17"/>
-                        <line x1="14" y1="11" x2="14" y2="17"/>
-                    </svg>
-                </button>
-            </div>
-        `;
-        list.appendChild(item);
-    });
+    list.innerHTML = `
+        <table class="players-table" aria-label="Players table">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
 
     renderPagination(totalPages);
+}
+
+function togglePlayerHistory(playerId) {
+    const id = String(playerId || '').trim();
+    if (!id) return;
+    expandedPlayerId = expandedPlayerId === id ? null : id;
+    renderPaginatedList();
+
+    if (expandedPlayerId && !playerHistoryCache.has(expandedPlayerId)) {
+        loadPlayerHistory(expandedPlayerId);
+    }
+}
+
+async function loadPlayerHistory(playerId) {
+    const id = String(playerId || '').trim();
+    if (!id || playerHistoryCache.has(id)) return;
+
+    const endpoint =
+        `/rest/v1/tournament_results?player_id=eq.${encodeURIComponent(id)}` +
+        '&select=placement,tournament_date,store:stores(name),deck:decks(name)&order=tournament_date.desc,placement.asc&limit=200';
+
+    try {
+        const res = window.supabaseApi
+            ? await window.supabaseApi.get(endpoint)
+            : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
+        if (!res.ok) {
+            throw new Error(`Failed to load player history (${res.status})`);
+        }
+        const rows = await res.json();
+        playerHistoryCache.set(
+            id,
+            (Array.isArray(rows) ? rows : []).map((row) => ({
+                placement: Number(row?.placement) || 0,
+                tournamentDate: String(row?.tournament_date || ''),
+                storeName: String(row?.store?.name || ''),
+                deckName: String(row?.deck?.name || '-')
+            }))
+        );
+    } catch (error) {
+        console.error(error);
+        playerHistoryCache.set(id, []);
+        showToast('Error loading player history', 'error');
+    }
+
+    if (expandedPlayerId === id) {
+        renderPaginatedList();
+    }
+}
+
+function renderPlayerHistory(historyRows, playerId) {
+    if (!Array.isArray(historyRows)) {
+        return '<div class="player-history-loading">Loading history...</div>';
+    }
+    if (historyRows.length === 0) {
+        return '<div class="player-history-empty">No history found.</div>';
+    }
+
+    return historyRows
+        .map((item) => {
+            const placement = Number(item.placement) || 0;
+            const placementClass =
+                placement === 1
+                    ? 'first-place'
+                    : placement === 2
+                      ? 'second-place'
+                      : placement === 3
+                        ? 'third-place'
+                        : placement === 4
+                          ? 'fourth-place'
+                          : 'other-place';
+
+            const storeName = item.storeName || 'Store';
+            return `
+                <div class="player-history-item ${placementClass}">
+                    <img
+                        src="${resolveStoreIcon(storeName)}"
+                        alt="${escapeHtmlAttribute(storeName)}"
+                        class="player-history-store-logo"
+                        loading="lazy"
+                    />
+                    <span class="results-mini-rank">${formatOrdinal(placement)}</span>
+                    <div class="player-history-main">
+                        <strong>${escapeHtml(item.deckName || '-')}</strong>
+                        <span>${escapeHtml(storeName)} - ${formatDate(item.tournamentDate)}</span>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
 }
 
 function renderPagination(totalPages) {
@@ -322,5 +461,57 @@ function escapeHtmlAttribute(value) {
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatDate(dateString) {
+    const text = String(dateString || '').trim();
+    if (!text) return '-';
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : text;
+}
+
+function formatOrdinal(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    const int = Math.trunc(n);
+    const abs = Math.abs(int);
+    const mod100 = abs % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${int}th`;
+    const mod10 = abs % 10;
+    if (mod10 === 1) return `${int}st`;
+    if (mod10 === 2) return `${int}nd`;
+    if (mod10 === 3) return `${int}rd`;
+    return `${int}th`;
+}
+
+function getAssetPrefix() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    return path.includes('/players/') ? '../' : '';
+}
+
+function normalizeStoreName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function resolveStoreIcon(storeName) {
+    const base = `${getAssetPrefix()}icons/stores/`;
+    const normalized = normalizeStoreName(storeName);
+    if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
+    if (normalized.includes('meruru')) return `${base}Meruru.svg`;
+    if (normalized.includes('taverna')) return `${base}Taverna.png`;
+    if (normalized.includes('tcgbr') || normalized.includes('tcg br')) return `${base}TCGBR.png`;
+    return `${base}images.png`;
 }
 }
