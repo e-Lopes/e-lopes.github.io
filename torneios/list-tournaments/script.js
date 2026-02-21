@@ -317,6 +317,16 @@ function formatOrdinal(value) {
     return `${int}th`;
 }
 
+function getRankMetalClass(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 'is-default';
+    const rank = Math.trunc(Math.abs(n));
+    if (rank === 1) return 'is-gold';
+    if (rank === 2) return 'is-silver';
+    if (rank === 3) return 'is-bronze';
+    return 'is-default';
+}
+
 function readTournamentFormatValue(inputId) {
     const input = document.getElementById(inputId);
     if (!input) {
@@ -1858,7 +1868,7 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
                                 : 'regular';
                     return `
                         <li class="store-podium-item ${medalClass}">
-                            <span class="store-podium-rank">#${rank}</span>
+                            <span class="store-podium-rank ${getRankMetalClass(rank)}">${formatOrdinal(rank)}</span>
                             <div class="store-podium-main">
                                 <strong>${escapeHtml(item.player || '-')}</strong>
                                 <small>
@@ -2050,7 +2060,8 @@ function formatStatisticsCellValue(value, column = '') {
         normalizedColumn.endsWith('_placement');
 
     if (isRankColumn && isNumeric) {
-        return `<span class="stats-pill stats-pill-rank">#${Math.trunc(numeric)}</span>`;
+        const rank = Math.trunc(numeric);
+        return `<span class="stats-pill stats-pill-rank ${getRankMetalClass(rank)}">${formatOrdinal(rank)}</span>`;
     }
     if (isPercentColumn && isNumeric) {
         return `<span class="stats-pill stats-pill-percent">${numeric.toFixed(2)}%</span>`;

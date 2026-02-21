@@ -7600,7 +7600,7 @@ body.template-preview-page .post-toast {
 }
 
 .store-podium-card {
-    border: 1px solid #d6e0ff;
+    border: 1px solid #e5e7ef;
     border-radius: 14px;
     padding: 12px;
     background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
@@ -7623,7 +7623,7 @@ body.template-preview-page .post-toast {
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 10px;
-    border-bottom: 1px solid #e8eeff;
+    border-bottom: 1px solid #e5e7ef;
     padding-bottom: 8px;
 }
 
@@ -7637,7 +7637,7 @@ body.template-preview-page .post-toast {
 .store-podium-header h3 {
     margin: 0;
     font-size: 1rem;
-    color: #26366d;
+    color: #333;
 }
 
 .store-podium-icon {
@@ -7670,18 +7670,21 @@ body.template-preview-page .post-toast {
 }
 
 .store-podium-rank {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-weight: 900;
-    color: #30437f;
-    font-size: 0.85rem;
-    min-width: 34px;
-    background: #eef3ff;
-    border: 1px solid #d4defa;
+    font-weight: 700;
+    color: #1f2430;
+    font-size: 0.78rem;
+    min-width: 32px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: linear-gradient(150deg, #f7f9ff 0%, #b9c6f5 46%, #8da2ea 100%);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.8),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .store-podium-main {
@@ -7705,9 +7708,9 @@ body.template-preview-page .post-toast {
 }
 
 .store-podium-item.gold .store-podium-rank {
-    background: #ffe8a8;
-    border-color: #e8c66a;
-    color: #6e4f00;
+    color: #4a3900;
+    border-color: rgba(144, 102, 0, 0.5);
+    background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%);
 }
 
 .store-podium-item.silver {
@@ -7716,9 +7719,9 @@ body.template-preview-page .post-toast {
 }
 
 .store-podium-item.silver .store-podium-rank {
-    background: #edf1f7;
-    border-color: #c7ceda;
-    color: #4a596f;
+    color: #2f333a;
+    border-color: rgba(84, 90, 102, 0.45);
+    background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%);
 }
 
 .store-podium-item.bronze {
@@ -7727,9 +7730,15 @@ body.template-preview-page .post-toast {
 }
 
 .store-podium-item.bronze .store-podium-rank {
-    background: #f7d9c6;
-    border-color: #ddb28c;
-    color: #6e3f1e;
+    color: #fff;
+    border-color: rgba(97, 52, 21, 0.55);
+    background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%);
+}
+
+.store-podium-item.regular .store-podium-rank {
+    color: #132157;
+    border-color: rgba(48, 67, 145, 0.52);
+    background: linear-gradient(150deg, #eef2ff 0%, #9fb5ff 46%, #5f7fe8 100%);
 }
 
 .store-podium-toggle {
@@ -7861,3 +7870,137 @@ body.template-preview-page .post-toast {
 }
 
 
+
+/* ============================================================
+   STATISTICS - ALIGN VISUAL STYLE WITH TOURNAMENTS/DECKS
+============================================================ */
+.statistics-container-embedded .statistics-controls {
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fff;
+    box-shadow: none;
+    gap: 10px;
+}
+
+.statistics-container-embedded .statistics-data-card,
+.statistics-container-embedded .statistics-highlights {
+    border: 1px solid #e5e7ef;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.statistics-container-embedded .statistics-data-card {
+    padding: 12px;
+}
+
+.statistics-container-embedded .statistics-highlight-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.statistics-container-embedded .statistics-table-wrapper {
+    border: 1px solid #e5e7ef;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.statistics-container-embedded .statistics-select-label {
+    color: #333;
+}
+
+.statistics-container-embedded #statisticsViewSelect,
+.statistics-container-embedded #statisticsFilterStore,
+.statistics-container-embedded #statisticsFilterFormat,
+.statistics-container-embedded #statisticsFilterMonth,
+.statistics-container-embedded #statisticsFilterDate,
+.statistics-container-embedded .statistics-inline-month-select,
+.statistics-container-embedded .statistics-player-search {
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    border: 2px solid #ced4da !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: #333 !important;
+    box-shadow: none !important;
+}
+
+.statistics-container-embedded #statisticsViewSelect,
+.statistics-container-embedded #statisticsFilterStore,
+.statistics-container-embedded #statisticsFilterFormat,
+.statistics-container-embedded #statisticsFilterMonth,
+.statistics-container-embedded #statisticsFilterDate,
+.statistics-container-embedded .statistics-inline-month-select {
+    padding: 0 34px 0 12px !important;
+}
+
+.statistics-container-embedded .statistics-player-search {
+    padding: 0 12px !important;
+}
+
+.statistics-container-embedded #statisticsViewSelect:focus,
+.statistics-container-embedded #statisticsFilterStore:focus,
+.statistics-container-embedded #statisticsFilterFormat:focus,
+.statistics-container-embedded #statisticsFilterMonth:focus,
+.statistics-container-embedded #statisticsFilterDate:focus,
+.statistics-container-embedded .statistics-inline-month-select:focus,
+.statistics-container-embedded .statistics-player-search:focus {
+    outline: none;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
+}
+
+.statistics-container-embedded .stats-pill-rank,
+.statistics-container-embedded .store-podium-rank {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: linear-gradient(150deg, #f7f9ff 0%, #b9c6f5 46%, #8da2ea 100%);
+    color: #1f2430;
+    text-shadow: none;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.8),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.statistics-container-embedded .stats-pill-rank {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.statistics-container-embedded .stats-pill-rank.is-gold,
+.statistics-container-embedded .store-podium-rank.is-gold {
+    background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%);
+    color: #4a3900;
+    border-color: rgba(144, 102, 0, 0.5);
+}
+
+.statistics-container-embedded .stats-pill-rank.is-silver,
+.statistics-container-embedded .store-podium-rank.is-silver {
+    background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%);
+    color: #2f333a;
+    border-color: rgba(84, 90, 102, 0.45);
+}
+
+.statistics-container-embedded .stats-pill-rank.is-bronze,
+.statistics-container-embedded .store-podium-rank.is-bronze {
+    background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%);
+    color: #fff;
+    border-color: rgba(97, 52, 21, 0.55);
+}
+
+.statistics-container-embedded .stats-pill-rank.is-default,
+.statistics-container-embedded .store-podium-rank.is-default {
+    background: linear-gradient(150deg, #eef2ff 0%, #9fb5ff 46%, #5f7fe8 100%);
+    color: #132157;
+    border-color: rgba(48, 67, 145, 0.52);
+}
