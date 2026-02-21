@@ -20,3 +20,148 @@
 .search-container {
     margin-bottom: 14px !important;
 }
+
+.player-item {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    align-items: center !important;
+}
+
+.player-item-main {
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.player-item-name {
+    min-width: 0;
+}
+
+.player-item-expand {
+    color: #5b6a95;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.player-history {
+    grid-column: 1 / -1;
+    border-top: 1px solid #e5e7ef;
+    padding-top: 10px;
+    margin-top: 2px;
+    display: grid;
+    gap: 7px;
+    max-height: 520px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+}
+
+.player-history-item {
+    display: grid;
+    grid-template-columns: 30px 32px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #dce2f2;
+    background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%);
+}
+
+.player-history-store-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid #dbe5ff;
+    padding: 2px;
+}
+
+.player-history-main {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    line-height: 1.1;
+}
+
+.player-history-main strong {
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
+.player-history-main span {
+    font-size: 0.78rem;
+    color: #4f5f8f;
+    overflow-wrap: anywhere;
+}
+
+.player-history-loading,
+.player-history-empty {
+    font-size: 0.82rem;
+    color: #5f6f9f;
+    padding: 2px 0;
+}
+
+.player-history-item.first-place {
+    border-color: rgba(198, 141, 0, 0.45);
+    background: linear-gradient(135deg, #fff8d4 0%, #ffe58a 100%);
+}
+
+.player-history-item.second-place {
+    border-color: rgba(141, 153, 171, 0.45);
+    background: linear-gradient(135deg, #f8fafc 0%, #d4dbe6 100%);
+}
+
+.player-history-item.third-place {
+    border-color: rgba(134, 71, 31, 0.48);
+    background: linear-gradient(135deg, #f7d9c2 0%, #d29a72 100%);
+}
+
+.player-history-item.fourth-place {
+    border-color: rgba(27, 107, 95, 0.45);
+    background: linear-gradient(135deg, #d7f3ee 0%, #8ad2c4 100%);
+}
+
+.player-history-item.other-place {
+    border-color: rgba(67, 87, 176, 0.45);
+    background: linear-gradient(135deg, #eef2ff 0%, #cdd8ff 100%);
+}
+
+.player-history-item.first-place .results-mini-rank {
+    color: #4a3900;
+    border-color: rgba(144, 102, 0, 0.5);
+    background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%);
+}
+
+.player-history-item.second-place .results-mini-rank {
+    color: #2f333a;
+    border-color: rgba(84, 90, 102, 0.45);
+    background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%);
+}
+
+.player-history-item.third-place .results-mini-rank {
+    color: #fff;
+    border-color: rgba(97, 52, 21, 0.55);
+    background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%);
+}
+
+.player-history-item.fourth-place .results-mini-rank {
+    color: #fff;
+    border-color: rgba(18, 82, 72, 0.55);
+    background: linear-gradient(150deg, #bfeee6 0%, #3da996 45%, #1b6b5f 100%);
+}
+
+.player-history-item.other-place .results-mini-rank {
+    color: #132157;
+    border-color: rgba(48, 67, 145, 0.52);
+    background: linear-gradient(150deg, #eef2ff 0%, #9fb5ff 46%, #5f7fe8 100%);
+}

@@ -12,11 +12,14 @@ const headers = window.createSupabaseHeaders
 let allPlayers = [];
 let filteredPlayers = [];
 let editingPlayerId = null;
-let currentPage = 1;
+let currentPage = getInitialPage();
 const PAGE_SIZE_STORAGE_KEY = 'playersPageSize';
+const PAGE_STORAGE_KEY = 'playersCurrentPage';
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
 let itemsPerPage = getInitialPageSize();
 let playersPageInitialized = false;
+let expandedPlayerId = null;
+const playerHistoryCache = new Map();
 
 function initPlayersPage() {
     if (playersPageInitialized) return;
@@ -41,6 +44,15 @@ if (document.readyState === 'loading') {
 function getInitialPageSize() {
     const saved = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
     return PAGE_SIZE_OPTIONS.includes(saved) ? saved : 10;
+}
+
+function getInitialPage() {
+    const saved = Number(localStorage.getItem(PAGE_STORAGE_KEY));
+    return Number.isInteger(saved) && saved > 0 ? saved : 1;
+}
+
+function saveCurrentPage() {
+    localStorage.setItem(PAGE_STORAGE_KEY, String(currentPage));
 }
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -91,6 +103,12 @@ function setupEventListeners() {
     const playersList = document.getElementById('playersList');
     if (playersList) {
         playersList.addEventListener('click', (event) => {
+            const toggleButton = event.target.closest('[data-action="toggle-player-history"]');
+            if (toggleButton) {
+                togglePlayerHistory(toggleButton.dataset.playerId || '');
+                return;
+            }
+
             const editButton = event.target.closest('[data-action="edit-player"]');
             if (editButton) {
                 editPlayer(editButton.dataset.playerId, editButton.dataset.playerName || '');
@@ -101,6 +119,14 @@ function setupEventListeners() {
             if (deleteButton) {
                 deletePlayer(deleteButton.dataset.playerId, deleteButton.dataset.playerName || '');
             }
+        });
+
+        playersList.addEventListener('keydown', (event) => {
+            const toggleButton = event.target.closest('[data-action="toggle-player-history"]');
+            if (!toggleButton) return;
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            togglePlayerHistory(toggleButton.dataset.playerId || '');
         });
     }
 
@@ -157,6 +183,8 @@ function renderPaginatedList() {
 
     if (filteredPlayers.length === 0) {
         document.getElementById('emptyState').style.display = 'block';
+        currentPage = 1;
+        saveCurrentPage();
         renderPagination(0);
         return;
     }
@@ -165,9 +193,29 @@ function renderPaginatedList() {
 
     paginatedItems.forEach((p) => {
         const item = document.createElement('div');
-        item.className = 'player-item';
+        const isExpanded = String(expandedPlayerId || '') === String(p.id);
+        item.className = `player-item${isExpanded ? ' is-expanded' : ''}`;
+        item.dataset.playerId = String(p.id);
+
+        const historyRows = playerHistoryCache.get(String(p.id));
+        const hasHistoryLoaded = Array.isArray(historyRows);
+        const historyHtml = isExpanded
+            ? hasHistoryLoaded
+                ? renderPlayerHistory(historyRows)
+                : '<div class="player-history-loading">Loading history...</div>'
+            : '';
+
         item.innerHTML = `
-            <span><strong>${p.name}</strong></span>
+            <button
+                type="button"
+                class="player-item-main"
+                data-action="toggle-player-history"
+                data-player-id="${p.id}"
+                aria-expanded="${isExpanded ? 'true' : 'false'}"
+            >
+                <span class="player-item-name"><strong>${escapeHtml(p.name)}</strong></span>
+                <span class="player-item-expand">${isExpanded ? 'Hide history' : 'Show history'}</span>
+            </button>
             <div class="player-actions">
                 <button class="btn-action btn-icon-only" type="button" title="Edit player" aria-label="Edit player" data-action="edit-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -185,11 +233,19 @@ function renderPaginatedList() {
                     </svg>
                 </button>
             </div>
+            <div class="player-history${isExpanded ? '' : ' is-hidden'}" data-player-history="${p.id}">
+                ${historyHtml}
+            </div>
         `;
         list.appendChild(item);
     });
 
     renderPagination(totalPages);
+    saveCurrentPage();
+
+    if (expandedPlayerId && !playerHistoryCache.has(String(expandedPlayerId))) {
+        loadPlayerHistory(expandedPlayerId);
+    }
 }
 
 function renderPagination(totalPages) {
@@ -200,6 +256,7 @@ function renderPagination(totalPages) {
     if (totalPages <= 1) return;
 
     if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
 
     const prevButton = document.createElement('button');
     prevButton.type = 'button';
@@ -245,6 +302,131 @@ function renderPagination(totalPages) {
         renderPaginatedList();
     });
     pagination.appendChild(nextButton);
+}
+
+function togglePlayerHistory(playerId) {
+    const normalized = String(playerId || '');
+    if (!normalized) return;
+    expandedPlayerId = expandedPlayerId === normalized ? null : normalized;
+    renderPaginatedList();
+}
+
+async function loadPlayerHistory(playerId) {
+    const normalized = String(playerId || '');
+    if (!normalized || playerHistoryCache.has(normalized)) return;
+
+    const query =
+        `/rest/v1/tournament_results?player_id=eq.${encodeURIComponent(normalized)}` +
+        '&select=placement,tournament_date,store:stores(name),deck:decks(name)' +
+        '&order=tournament_date.desc,placement.asc&limit=200';
+
+    try {
+        const res = window.supabaseApi
+            ? await window.supabaseApi.get(query)
+            : await fetch(`${SUPABASE_URL}${query}`, { headers });
+        if (!res.ok) {
+            throw new Error(`Failed to load player history (${res.status})`);
+        }
+        const rows = await res.json();
+        playerHistoryCache.set(
+            normalized,
+            (Array.isArray(rows) ? rows : []).map((row) => ({
+                placement: Number(row?.placement) || 0,
+                tournamentDate: String(row?.tournament_date || ''),
+                storeName: String(row?.store?.name || ''),
+                deckName: String(row?.deck?.name || '-')
+            }))
+        );
+    } catch (error) {
+        console.error(error);
+        playerHistoryCache.set(normalized, []);
+        showToast('Error loading player history', 'error');
+    }
+
+    if (String(expandedPlayerId || '') === normalized) {
+        renderPaginatedList();
+    }
+}
+
+function renderPlayerHistory(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return '<div class="player-history-empty">No tournament history for this player.</div>';
+    }
+
+    return rows
+        .map((row) => {
+            const placement = Number(row.placement) || 0;
+            const placementClass = getPlacementClass(placement);
+            const storeName = row.storeName || 'Store';
+            return `
+                <div class="player-history-item ${placementClass}">
+                    <img
+                        src="${resolveStoreIcon(storeName)}"
+                        alt="${escapeHtmlAttribute(storeName)}"
+                        class="player-history-store-icon"
+                        loading="lazy"
+                    />
+                    <span class="results-mini-rank">${formatOrdinal(placement)}</span>
+                    <div class="player-history-main">
+                        <strong>${escapeHtml(row.deckName || '-')}</strong>
+                        <span>${escapeHtml(storeName)} - ${formatDate(row.tournamentDate)}</span>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+function getPlacementClass(placement) {
+    if (placement === 1) return 'first-place';
+    if (placement === 2) return 'second-place';
+    if (placement === 3) return 'third-place';
+    if (placement === 4) return 'fourth-place';
+    return 'other-place';
+}
+
+function formatOrdinal(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    const int = Math.trunc(n);
+    const abs = Math.abs(int);
+    const mod100 = abs % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${int}th`;
+    const mod10 = abs % 10;
+    if (mod10 === 1) return `${int}st`;
+    if (mod10 === 2) return `${int}nd`;
+    if (mod10 === 3) return `${int}rd`;
+    return `${int}th`;
+}
+
+function formatDate(dateString) {
+    const text = String(dateString || '').trim();
+    if (!text) return '-';
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    return text;
+}
+
+function getAssetPrefix() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    return path.includes('/players/') ? '../' : '';
+}
+
+function normalizeStoreName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function resolveStoreIcon(storeName) {
+    const base = `${getAssetPrefix()}icons/stores/`;
+    const normalized = normalizeStoreName(storeName);
+    if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
+    if (normalized.includes('meruru')) return `${base}Meruru.svg`;
+    if (normalized.includes('taverna')) return `${base}Taverna.png`;
+    if (normalized.includes('tcgbr') || normalized.includes('tcg br')) return `${base}TCGBR.png`;
+    return `${base}images.png`;
 }
 
 async function handleSubmit() {
@@ -322,5 +504,14 @@ function escapeHtmlAttribute(value) {
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 }
