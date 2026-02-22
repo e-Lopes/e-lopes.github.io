@@ -1,5 +1,15 @@
 (function () {
     const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+    const COLOR_OPTIONS = [
+        { code: 'r', label: 'Red', className: 'is-red' },
+        { code: 'u', label: 'Blue', className: 'is-blue' },
+        { code: 'b', label: 'Black', className: 'is-black' },
+        { code: 'w', label: 'White', className: 'is-white' },
+        { code: 'g', label: 'Green', className: 'is-green' },
+        { code: 'y', label: 'Yellow', className: 'is-yellow' },
+        { code: 'p', label: 'Purple', className: 'is-purple' }
+    ];
+    const COLOR_ORDER = COLOR_OPTIONS.map((item) => item.code);
     const MODAL_TEMPLATE = `
 <div id="createDeckModal" class="modal-overlay" aria-hidden="true" inert>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="createDeckTitle">
@@ -23,6 +33,10 @@
                         <img id="createDeckPreviewImage" class="deck-thumb-image" alt="Deck preview">
                     </div>
                 </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Deck Colors</label>
+                <div id="createDeckColors" class="deck-colors-picker" role="group" aria-label="Deck colors"></div>
             </div>
             <div class="modal-actions">
                 <button type="button" id="btnCloseCreateDeckModal" class="btn-modal-cancel">Cancel</button>
@@ -53,6 +67,10 @@
         return pattern.test(code);
     }
 
+    function buildColorsCsv(selectedColors) {
+        return COLOR_ORDER.filter((token) => selectedColors.has(token)).join(',');
+    }
+
     async function checkDuplicateDeckName(supabaseUrl, headers, deckName) {
         const res = await fetch(
             `${supabaseUrl}/rest/v1/decks?name=eq.${encodeURIComponent(deckName)}&select=id`,
@@ -63,7 +81,7 @@
         return rows.length > 0;
     }
 
-    async function createDeck(supabaseUrl, headers, deckName, deckCode) {
+    async function createDeck(supabaseUrl, headers, deckName, deckCode, deckColorsCsv) {
         const imageUrl = IMAGE_BASE_URL + deckCode + '.webp';
 
         const deckRes = await fetch(`${supabaseUrl}/rest/v1/decks`, {
@@ -72,7 +90,7 @@
                 ...headers,
                 Prefer: 'return=representation'
             },
-            body: JSON.stringify([{ name: deckName }])
+            body: JSON.stringify([{ name: deckName, colors: deckColorsCsv }])
         });
 
         if (!deckRes.ok) {
@@ -110,8 +128,26 @@
         const codeExamples = document.querySelectorAll('.code-example');
         const preview = document.getElementById('createDeckPreview');
         const previewImage = document.getElementById('createDeckPreviewImage');
+        const colorsContainer = document.getElementById('createDeckColors');
 
         let lastFocused = null;
+        const selectedColors = new Set();
+
+        const renderColorButtons = () => {
+            if (!colorsContainer) return;
+            colorsContainer.innerHTML = COLOR_OPTIONS.map(
+                (option) => `
+                    <button
+                        type="button"
+                        class="deck-color-dot ${option.className}${selectedColors.has(option.code) ? ' is-selected' : ''}"
+                        data-color-code="${option.code}"
+                        aria-label="${option.label}"
+                        aria-pressed="${selectedColors.has(option.code) ? 'true' : 'false'}"
+                        title="${option.label}"
+                    ></button>
+                `
+            ).join('');
+        };
 
         const updatePreview = () => {
             if (!codeInput || !preview || !previewImage) return;
@@ -146,6 +182,8 @@
                 lastFocused = document.activeElement;
                 if (nameInput) nameInput.value = '';
                 if (codeInput) codeInput.value = '';
+                selectedColors.clear();
+                renderColorButtons();
                 if (preview) preview.style.display = 'none';
                 if (previewImage) previewImage.removeAttribute('src');
                 modal.classList.add('active');
@@ -193,12 +231,26 @@
             });
         }
 
+        if (colorsContainer) {
+            colorsContainer.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-color-code]');
+                if (!button) return;
+                const code = String(button.getAttribute('data-color-code') || '').toLowerCase();
+                if (!COLOR_ORDER.includes(code)) return;
+                if (selectedColors.has(code)) selectedColors.delete(code);
+                else selectedColors.add(code);
+                renderColorButtons();
+            });
+            renderColorButtons();
+        }
+
         if (form) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
                 const deckName = (nameInput?.value || '').trim();
                 const deckCode = (codeInput?.value || '').trim().toUpperCase();
+                const deckColorsCsv = buildColorsCsv(selectedColors);
 
                 if (!deckName || !deckCode) {
                     alert('Please fill in all required fields.');
@@ -217,7 +269,7 @@
                 }
 
                 try {
-                    await createDeck(supabaseUrl, headers, deckName, deckCode);
+                    await createDeck(supabaseUrl, headers, deckName, deckCode, deckColorsCsv);
                     closeModal();
                     if (typeof onCreated === 'function') await onCreated();
                 } catch (err) {
