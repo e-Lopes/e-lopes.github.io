@@ -5346,6 +5346,18 @@ body {
     line-height: 1.3;
 }
 
+.deck-name-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.deck-name-line .deck-name {
+    margin-bottom: 0;
+}
+
 .deck-code {
     font-size: 0.85em;
     color: #667eea;
@@ -5357,6 +5369,80 @@ body {
     font-family: 'Courier New', monospace;
     font-weight: 600;
     letter-spacing: 0.5px;
+}
+
+.deck-colors-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 8px;
+}
+
+.deck-colors-row-card,
+.deck-colors-row-card-inline {
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.deck-colors-row-card .deck-color-chip,
+.deck-colors-row-card-inline .deck-color-chip {
+    width: 15px;
+    height: 15px;
+}
+
+.deck-colors-row-card-below {
+    display: none;
+}
+
+.deck-colors-row-card-below .deck-color-chip {
+    width: 15px;
+    height: 15px;
+}
+
+.deck-colors-row-table {
+    margin: 4px 0 0;
+    gap: 4px;
+}
+
+.deck-colors-row-table .deck-color-chip {
+    width: 9px;
+    height: 9px;
+}
+
+.deck-color-chip {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    display: inline-block;
+}
+
+.deck-color-chip.is-r {
+    background: #d94a4a;
+}
+
+.deck-color-chip.is-u {
+    background: #2f73d9;
+}
+
+.deck-color-chip.is-b {
+    background: #2f2f35;
+}
+
+.deck-color-chip.is-w {
+    background: #f4f4f6;
+}
+
+.deck-color-chip.is-g {
+    background: #3ba65d;
+}
+
+.deck-color-chip.is-y {
+    background: #e2be2f;
+}
+
+.deck-color-chip.is-p {
+    background: #8e49c7;
 }
 
 .deck-actions {
@@ -6061,6 +6147,16 @@ body {
     align-items: center;
 }
 
+#decksList.view-grid .deck-colors-row-card-inline {
+    display: none;
+}
+
+#decksList.view-grid .deck-colors-row-card-below {
+    display: flex;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
 #decksList.view-grid .deck-thumb-wrapper {
     grid-area: thumb;
     width: 140px;
@@ -6084,6 +6180,10 @@ body {
     max-width: 100%;
     overflow-wrap: normal;
     word-break: keep-all;
+}
+
+#decksList.view-grid .deck-name-line {
+    margin-bottom: 4px;
 }
 
 #decksList.view-grid .deck-actions {
@@ -6284,6 +6384,63 @@ body {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+#decksList.view-compact .deck-colors-row-card-below {
+    display: none;
+}
+
+.deck-colors-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.deck-color-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 2px solid #c9cfdb;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.deck-color-dot:hover {
+    transform: translateY(-1px);
+}
+
+.deck-color-dot.is-selected {
+    border-color: #2f3f73;
+    box-shadow: 0 0 0 2px rgba(47, 63, 115, 0.18);
+}
+
+.deck-color-dot.is-red {
+    background: #d94a4a;
+}
+
+.deck-color-dot.is-blue {
+    background: #2f73d9;
+}
+
+.deck-color-dot.is-black {
+    background: #2f2f35;
+}
+
+.deck-color-dot.is-white {
+    background: #f4f4f6;
+}
+
+.deck-color-dot.is-green {
+    background: #3ba65d;
+}
+
+.deck-color-dot.is-yellow {
+    background: #e2be2f;
+}
+
+.deck-color-dot.is-purple {
+    background: #8e49c7;
 }
 
 .modal-actions {
@@ -7305,6 +7462,19 @@ body.template-preview-page .post-toast {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+}
+
+.decks-col-name-text {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+#decksList.view-compact .deck-name-line {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 6px;
 }
 
 .decks-col-thumb-wrapper {
