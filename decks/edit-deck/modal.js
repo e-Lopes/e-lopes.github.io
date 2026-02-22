@@ -1,5 +1,15 @@
 (function () {
     const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+    const COLOR_OPTIONS = [
+        { code: 'r', label: 'Red', className: 'is-red' },
+        { code: 'u', label: 'Blue', className: 'is-blue' },
+        { code: 'b', label: 'Black', className: 'is-black' },
+        { code: 'w', label: 'White', className: 'is-white' },
+        { code: 'g', label: 'Green', className: 'is-green' },
+        { code: 'y', label: 'Yellow', className: 'is-yellow' },
+        { code: 'p', label: 'Purple', className: 'is-purple' }
+    ];
+    const COLOR_ORDER = COLOR_OPTIONS.map((item) => item.code);
     const MODAL_TEMPLATE = `
 <div id="editDeckModal" class="modal-overlay" aria-hidden="true" inert>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editDeckTitle">
@@ -24,6 +34,10 @@
                         <img id="editDeckPreviewImage" class="deck-thumb-image" alt="Deck preview">
                     </div>
                 </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Deck Colors</label>
+                <div id="editDeckColors" class="deck-colors-picker" role="group" aria-label="Deck colors"></div>
             </div>
             <div class="modal-actions">
                 <button type="button" id="btnCloseEditDeckModal" class="btn-modal-cancel">Cancel</button>
@@ -60,6 +74,20 @@
         return match ? match[1] : '';
     }
 
+    function normalizeColorsCsv(value) {
+        const set = new Set(
+            String(value || '')
+                .split(',')
+                .map((token) => token.trim().toLowerCase())
+                .filter((token) => COLOR_ORDER.includes(token))
+        );
+        return COLOR_ORDER.filter((token) => set.has(token));
+    }
+
+    function buildColorsCsv(selectedColors) {
+        return COLOR_ORDER.filter((token) => selectedColors.has(token)).join(',');
+    }
+
     async function checkDuplicateDeckName(supabaseUrl, headers, deckName, excludeDeckId) {
         const res = await fetch(
             `${supabaseUrl}/rest/v1/decks?name=eq.${encodeURIComponent(deckName)}&select=id`,
@@ -70,7 +98,7 @@
         return rows.some((r) => String(r.id) !== String(excludeDeckId));
     }
 
-    async function updateDeck(supabaseUrl, headers, deckId, deckName, deckCode) {
+    async function updateDeck(supabaseUrl, headers, deckId, deckName, deckCode, deckColorsCsv) {
         const imageUrl = IMAGE_BASE_URL + deckCode + '.webp';
 
         const deckRes = await fetch(
@@ -78,7 +106,7 @@
             {
                 method: 'PATCH',
                 headers,
-                body: JSON.stringify({ name: deckName })
+                body: JSON.stringify({ name: deckName, colors: deckColorsCsv })
             }
         );
         if (!deckRes.ok) throw new Error('Error updating deck');
@@ -125,8 +153,32 @@
         const codeExamples = document.querySelectorAll('#editDeckModal .code-example');
         const preview = document.getElementById('editDeckPreview');
         const previewImage = document.getElementById('editDeckPreviewImage');
+        const colorsContainer = document.getElementById('editDeckColors');
 
         let lastFocused = null;
+        const selectedColors = new Set();
+
+        const renderColorButtons = () => {
+            if (!colorsContainer) return;
+            colorsContainer.innerHTML = COLOR_OPTIONS.map(
+                (option) => `
+                    <button
+                        type="button"
+                        class="deck-color-dot ${option.className}${selectedColors.has(option.code) ? ' is-selected' : ''}"
+                        data-color-code="${option.code}"
+                        aria-label="${option.label}"
+                        aria-pressed="${selectedColors.has(option.code) ? 'true' : 'false'}"
+                        title="${option.label}"
+                    ></button>
+                `
+            ).join('');
+        };
+
+        const setSelectedColorsFromCsv = (csvValue) => {
+            selectedColors.clear();
+            normalizeColorsCsv(csvValue).forEach((code) => selectedColors.add(code));
+            renderColorButtons();
+        };
 
         const closeModal = () => {
             const active = document.activeElement;
@@ -189,12 +241,26 @@
             });
         }
 
+        if (colorsContainer) {
+            colorsContainer.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-color-code]');
+                if (!button) return;
+                const code = String(button.getAttribute('data-color-code') || '').toLowerCase();
+                if (!COLOR_ORDER.includes(code)) return;
+                if (selectedColors.has(code)) selectedColors.delete(code);
+                else selectedColors.add(code);
+                renderColorButtons();
+            });
+            renderColorButtons();
+        }
+
         if (form) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const deckId = idInput?.value || '';
                 const deckName = (nameInput?.value || '').trim();
                 const deckCode = (codeInput?.value || '').trim().toUpperCase();
+                const deckColorsCsv = buildColorsCsv(selectedColors);
 
                 if (!deckId || !deckName || !deckCode) {
                     alert('Please fill in all required fields.');
@@ -218,7 +284,7 @@
                 }
 
                 try {
-                    await updateDeck(supabaseUrl, headers, deckId, deckName, deckCode);
+                    await updateDeck(supabaseUrl, headers, deckId, deckName, deckCode, deckColorsCsv);
                     closeModal();
                     if (typeof onUpdated === 'function') await onUpdated();
                 } catch (err) {
@@ -228,11 +294,12 @@
             });
         }
 
-        window.openEditDeckModal = function openEditDeckModal(deckId, deckName, imageUrl) {
+        window.openEditDeckModal = function openEditDeckModal(deckId, deckName, imageUrl, deckColors) {
             lastFocused = document.activeElement;
             if (idInput) idInput.value = deckId || '';
             if (nameInput) nameInput.value = deckName || '';
             if (codeInput) codeInput.value = extractCodeFromUrl(imageUrl || '');
+            setSelectedColorsFromCsv(deckColors || '');
             updatePreview();
             modal.classList.add('active');
             modal.setAttribute('aria-hidden', 'false');

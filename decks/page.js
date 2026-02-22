@@ -355,7 +355,8 @@ function setupDeckActions() {
             editDeck(
                 editButton.dataset.deckId,
                 editButton.dataset.deckName || '',
-                editButton.dataset.imageUrl || ''
+                editButton.dataset.imageUrl || '',
+                editButton.dataset.deckColors || ''
             );
             return;
         }
@@ -903,6 +904,37 @@ function getPlacementBadgeClass(value) {
     return 'decks-rank-default';
 }
 
+function parseDeckColorsCsv(value) {
+    const allowed = ['r', 'u', 'b', 'w', 'g', 'y', 'p'];
+    const set = new Set(
+        String(value || '')
+            .split(',')
+            .map((token) => token.trim().toLowerCase())
+            .filter((token) => allowed.includes(token))
+    );
+    return allowed.filter((token) => set.has(token));
+}
+
+function renderDeckColorsInline(colorsCsv, variant = 'card') {
+    const colors = parseDeckColorsCsv(colorsCsv);
+    if (!colors.length) return '';
+    const labelMap = {
+        r: 'Red',
+        u: 'Blue',
+        b: 'Black',
+        w: 'White',
+        g: 'Green',
+        y: 'Yellow',
+        p: 'Purple'
+    };
+    return `<div class="deck-colors-row deck-colors-row-${variant}">${colors
+        .map(
+            (color) =>
+                `<span class="deck-color-chip is-${color}" title="${labelMap[color] || color.toUpperCase()}" aria-label="${labelMap[color] || color.toUpperCase()}"></span>`
+        )
+        .join('')}</div>`;
+}
+
 function displayDecks(decks, imagesMap, isFiltered = false) {
     const container = document.getElementById('decksList');
     const emptyState = document.getElementById('emptyState');
@@ -944,8 +976,12 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                     <img src="${imageUrl || fallback}" alt="${deck.name}" class="deck-thumb-image">
                 </div>
                 <div class="deck-info">
-                    <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
+                    <div class="deck-name-line">
+                        <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
+                        ${renderDeckColorsInline(deck.colors, 'card-inline')}
+                    </div>
                     ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
+                    ${renderDeckColorsInline(deck.colors, 'card-below')}
                 </div>
                 <div class="deck-actions">
                     <button
@@ -956,6 +992,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                         data-action="edit-deck"
                         data-deck-id="${deck.id}"
                         data-deck-name="${escapeHtmlAttribute(deck.name)}"
+                        data-deck-colors="${escapeHtmlAttribute(deck.colors || '')}"
                         data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M12 20h9"/>
@@ -1053,7 +1090,10 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                                     onerror="this.onerror=null;this.src='${escapeHtmlAttribute(fallback)}';"
                                 />
                             </span>
-                            <strong>${escapeHtmlAttribute(deck.name)}</strong>
+                            <span class="decks-col-name-text">
+                                <strong>${escapeHtmlAttribute(deck.name)}</strong>
+                                ${renderDeckColorsInline(deck.colors, 'table')}
+                            </span>
                         </span>
                     </td>
                     <td class="decks-num-cell">${numericSquare(stats, 'monthly_appearances')}</td>
@@ -1076,6 +1116,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                                 data-action="edit-deck"
                                 data-deck-id="${deck.id}"
                                 data-deck-name="${escapeHtmlAttribute(deck.name)}"
+                                data-deck-colors="${escapeHtmlAttribute(deck.colors || '')}"
                                 data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path d="M12 20h9"/>
@@ -1201,9 +1242,9 @@ async function deleteDeck(deckId, deckName) {
     }
 }
 
-function editDeck(deckId, deckName, imageUrl) {
+function editDeck(deckId, deckName, imageUrl, deckColors) {
     if (typeof openEditDeckModal === 'function') {
-        openEditDeckModal(deckId, deckName || '', imageUrl || '');
+        openEditDeckModal(deckId, deckName || '', imageUrl || '', deckColors || '');
         return;
     }
 }
