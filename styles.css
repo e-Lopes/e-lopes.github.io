@@ -8357,3 +8357,1209 @@ body.template-preview-page .post-toast {
 }
 
 
+/* ============================================================
+   THEME TOGGLE + DARK MODE
+============================================================ */
+.theme-toggle-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 9999;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(102, 126, 234, 0.35);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #2f3e66;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+    transform: translateY(-1px);
+}
+
+.theme-toggle-btn:active {
+    transform: translateY(0);
+}
+
+.theme-toggle-btn:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+.theme-toggle-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-toggle-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.theme-toggle-icon-moon {
+    display: none;
+}
+
+body[data-theme='dark'] .theme-toggle-btn {
+    background: rgba(20, 27, 41, 0.95);
+    color: #d5def0;
+    border-color: #3f4b68;
+}
+
+body[data-theme='dark'] .theme-toggle-icon-sun {
+    display: none;
+}
+
+body[data-theme='dark'] .theme-toggle-icon-moon {
+    display: inline-flex;
+}
+
+body[data-theme='dark'] {
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%) !important;
+    color: #d5def0;
+}
+
+body[data-theme='dark'] .container {
+    background: #121a2a !important;
+    color: #d5def0;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+body[data-theme='dark'] header {
+    border-bottom-color: #3f4b68 !important;
+}
+
+body[data-theme='dark'] :is(h1, h2, h3, h4, h5, h6) {
+    color: #dce5f5 !important;
+}
+
+body[data-theme='dark'] :is(
+    p,
+    span,
+    label,
+    small,
+    li,
+    td,
+    th,
+    .subtitle,
+    .total-number,
+    .position-rank,
+    .position-deck,
+    .position-player,
+    .deck-name,
+    .player-name
+) {
+    color: #c7d1e4 !important;
+}
+
+body[data-theme='dark'] :is(
+    .filters,
+    .filter-group select,
+    .filter-group input,
+    .form-group input,
+    .form-group select,
+    .form-group textarea,
+    .search-input,
+    .page-size-select,
+    .players-name-input,
+    .decks-total,
+    .total-players,
+    .position-item,
+    .registration-box,
+    .placements-section,
+    .placements-empty,
+    .empty-state,
+    .modal-content,
+    .decklist-mvp-panel,
+    .decklist-mvp-board,
+    .stats-counter,
+    .statistics-card,
+    .store-podium-card,
+    .store-podium-item,
+    .store-champions-card,
+    .champion-mini-list,
+    .champion-mini-item,
+    table,
+    thead,
+    tbody tr,
+    .podium-card,
+    .deck-card-footer,
+    .card-image-wrapper
+) {
+    background: #1a2336 !important;
+    border-color: #3f4b68 !important;
+    color: #d5def0 !important;
+}
+
+body[data-theme='dark'] input::placeholder,
+body[data-theme='dark'] textarea::placeholder {
+    color: #8f9bb4 !important;
+}
+
+body[data-theme='dark'] .top-nav .nav-button,
+body[data-theme='dark'] .nav-button,
+body[data-theme='dark'] .btn-primary,
+body[data-theme='dark'] .btn-save,
+body[data-theme='dark'] .btn-create,
+body[data-theme='dark'] .btn-create-filter,
+body[data-theme='dark'] .generate-post-btn {
+    color: #eef3ff !important;
+}
+
+body[data-theme='dark'] .nav-icon-digivice {
+    filter: brightness(0) invert(1);
+}
+
+@media (max-width: 768px) {
+    .theme-toggle-btn {
+        top: 10px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
+    }
+}
+/* ============================================================
+   DARK MODE - TABLES/CALENDAR/DECKS EXTENSIONS
+============================================================ */
+body[data-theme='dark'] :is(
+    table,
+    #tournamentsTable,
+    #tournamentsTable th,
+    #tournamentsTable td,
+    .players-table,
+    .players-table thead th,
+    .players-table-row td,
+    .statistics-table,
+    .statistics-table th,
+    .statistics-table td,
+    .decks-table-wrapper,
+    .decks-table,
+    .decks-table th,
+    .decks-table td
+) {
+    background: #162033 !important;
+    color: #d5def0 !important;
+    border-color: #35435f !important;
+}
+
+body[data-theme='dark'] :is(
+    #tournamentsTable th,
+    .players-table thead th,
+    .statistics-table th,
+    .decks-table th
+) {
+    background: #1b2740 !important;
+    color: #e2e9f8 !important;
+}
+
+body[data-theme='dark'] :is(
+    #tournamentsTable tbody tr:nth-child(even),
+    .statistics-table tbody tr:nth-child(even),
+    .decks-table tbody tr:nth-child(even)
+) {
+    background: #141f31 !important;
+}
+
+body[data-theme='dark'] :is(
+    #tournamentsTable tbody tr:hover,
+    .players-table-row:hover td,
+    .statistics-table tbody tr:hover,
+    .decks-table tbody tr:hover
+) {
+    background: #20304b !important;
+}
+
+body[data-theme='dark'] :is(
+    .clickable-row:hover,
+    .clickable-row.is-active,
+    #tournamentsTable .details-row .details-row-cell
+) {
+    background: #1a2740 !important;
+}
+
+body[data-theme='dark'] :is(
+    .table-date-value,
+    .table-store-name,
+    .table-tournament-name,
+    .table-players-value,
+    .table-mobile-store-tournament,
+    .table-mobile-players-line,
+    .sort-button,
+    .sort-indicator,
+    .th-with-icon,
+    .pagination-nav-status
+) {
+    color: #c9d4ea !important;
+}
+
+body[data-theme='dark'] .sort-indicator.is-active {
+    color: #9fb5ff !important;
+}
+
+body[data-theme='dark'] :is(.btn-toggle-view, .btn-clear-filters) {
+    background: #1a2740 !important;
+    color: #d7e1f4 !important;
+    border-color: #3f4f71 !important;
+}
+
+body[data-theme='dark'] .btn-toggle-view:hover,
+body[data-theme='dark'] .btn-clear-filters:hover {
+    background: #20304d !important;
+    box-shadow: 0 0 0 3px rgba(90, 115, 173, 0.24) !important;
+}
+
+body[data-theme='dark'] .btn-toggle-view.is-calendar-active {
+    background: #3e5fa8 !important;
+    border-color: #3e5fa8 !important;
+    color: #eef3ff !important;
+}
+
+body[data-theme='dark'] :is(
+    .btn-edit,
+    .btn-edit.btn-icon-only,
+    .btn-action.btn-icon-only,
+    .deck-actions .btn-secondary,
+    .decks-table-actions .btn-secondary.btn-icon,
+    .modal-actions .btn-modal-cancel,
+    .filter-actions .btn-cancel
+) {
+    background: #1a2740 !important;
+    color: #d6e0f3 !important;
+    border-color: #405074 !important;
+}
+
+body[data-theme='dark'] :is(
+    .btn-edit:hover,
+    .btn-action.btn-icon-only:hover,
+    .deck-actions .btn-secondary:hover,
+    .decks-table-actions .btn-secondary.btn-icon:hover,
+    .modal-actions .btn-modal-cancel:hover
+) {
+    background: #223452 !important;
+    border-color: #5670a8 !important;
+}
+
+body[data-theme='dark'] :is(
+    .calendar-panel,
+    .calendar-toolbar,
+    .calendar-year-nav,
+    .calendar-weekdays,
+    .calendar-grid,
+    .calendar-day,
+    .calendar-event,
+    .calendar-empty-state,
+    .calendar-tournament-details
+) {
+    background: #162033 !important;
+    color: #d4def1 !important;
+    border-color: #374663 !important;
+}
+
+body[data-theme='dark'] .calendar-weekdays div,
+body[data-theme='dark'] .calendar-year,
+body[data-theme='dark'] .calendar-year-nav-label {
+    color: #aab8d4 !important;
+}
+
+body[data-theme='dark'] .calendar-title,
+body[data-theme='dark'] .calendar-day-number,
+body[data-theme='dark'] .calendar-event-store,
+body[data-theme='dark'] .calendar-event-tournament {
+    color: #e2e9f8 !important;
+}
+
+body[data-theme='dark'] .calendar-day.is-empty {
+    background: #131d2e !important;
+}
+
+body[data-theme='dark'] .calendar-event {
+    background: #223452 !important;
+    border-color: #4a5f88 !important;
+}
+
+body[data-theme='dark'] .calendar-event:hover,
+body[data-theme='dark'] .calendar-day.is-clickable:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+    background: #2a3f62 !important;
+}
+
+body[data-theme='dark'] .calendar-nav-btn {
+    background: #1e2d48 !important;
+    color: #d9e3f7 !important;
+    border-color: #43567f !important;
+}
+
+body[data-theme='dark'] .calendar-nav-btn:disabled {
+    opacity: 0.5 !important;
+}
+
+body[data-theme='dark'] :is(
+    .decks-grid,
+    .deck-row,
+    .deck-info,
+    .deck-name,
+    .deck-name-line,
+    .deck-code,
+    .deck-colors-row,
+    .decks-total,
+    .decks-list-controls,
+    .deck-format-select,
+    .deck-month-select,
+    .search-box,
+    .search-box .search-input,
+    .search-box .page-size-select,
+    .details-block,
+    .details-pie-panel,
+    .details-podium-card,
+    .details-deck-card-footer,
+    .details-card-image-wrapper,
+    .results-mini-item,
+    .results-mini-main,
+    .decks-num-rank-box,
+    .decks-col-thumb-wrapper
+) {
+    background: #162033 !important;
+    color: #d5def0 !important;
+    border-color: #374663 !important;
+}
+
+body[data-theme='dark'] :is(
+    .deck-name,
+    .deck-code,
+    .decks-col-name strong,
+    .decks-col-name-text,
+    .results-mini-main strong,
+    .results-mini-main span,
+    .details-player-name,
+    .details-deck-name,
+    .decks-num-rank-box
+) {
+    color: #d8e2f6 !important;
+}
+
+body[data-theme='dark'] .deck-code {
+    background: #223452 !important;
+    color: #cfe0ff !important;
+}
+
+body[data-theme='dark'] .decks-th-digivice-img {
+    filter: brightness(0) invert(1) !important;
+}
+/* ============================================================
+   DARK MODE - FINE TUNING REQUESTED
+============================================================ */
+body[data-theme='dark'] .btn-view-toggle {
+    background: #1a2740 !important;
+    color: #d7e1f4 !important;
+    border-color: #3f4f71 !important;
+}
+
+body[data-theme='dark'] .btn-view-toggle:hover {
+    background: #233654 !important;
+    border-color: #5b74a7 !important;
+}
+
+body[data-theme='dark'] .deck-thumb-image {
+    border: 2px solid #4a5f88 !important;
+    border-radius: 50% !important;
+}
+
+body[data-theme='dark'] .details-rank-badge {
+    color: #e1e9f8 !important;
+    border-color: #5872a6 !important;
+    background: linear-gradient(150deg, #253755 0%, #1d2c45 55%, #162236 100%) !important;
+    text-shadow: none !important;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.08),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.35),
+        0 3px 8px rgba(0, 0, 0, 0.28) !important;
+}
+
+body[data-theme='dark'] :is(
+    .player-history,
+    .player-history-item,
+    .player-history-loading,
+    .player-history-empty,
+    .players-details-row td,
+    .player-main-hint,
+    .player-history-main span
+) {
+    background: #162033 !important;
+    color: #cfdaef !important;
+    border-color: #374663 !important;
+}
+
+body[data-theme='dark'] .player-history-item {
+    background: linear-gradient(135deg, #1a2740 0%, #20314e 100%) !important;
+}
+
+body[data-theme='dark'] .player-history-store-logo {
+    background: #1b2740 !important;
+    border-color: #44577d !important;
+}
+
+body[data-theme='dark'] :is(.statistics-main-selects, .statistics-highlights) {
+    background: #162033 !important;
+    border-color: #3b4b6a !important;
+}
+
+body[data-theme='dark'] .statistics-main-selects :is(select, input, .statistics-player-search) {
+    background: #1a2740 !important;
+    color: #d5def0 !important;
+    border-color: #44577d !important;
+}
+
+body[data-theme='dark'] .statistics-highlight-card {
+    background: #1b2740 !important;
+    border-color: #44577d !important;
+}
+/* ============================================================
+   DARK MODE - FINAL TUNING V2
+============================================================ */
+/* Keep rank badge original palette even in dark mode */
+body[data-theme='dark'] .details-rank-badge,
+body[data-theme='dark'] .details-rank-badge span {
+    color: #1f2430 !important;
+    border-color: rgba(0, 0, 0, 0.16) !important;
+    background: linear-gradient(150deg, #f7f9ff 0%, #b9c6f5 46%, #8da2ea 100%) !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.first-place .details-rank-badge,
+body[data-theme='dark'] .details-podium-card.first-place .details-rank-badge span {
+    color: #4a3900 !important;
+    border-color: rgba(144, 102, 0, 0.5) !important;
+    background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.second-place .details-rank-badge,
+body[data-theme='dark'] .details-podium-card.second-place .details-rank-badge span {
+    color: #2f333a !important;
+    border-color: rgba(84, 90, 102, 0.45) !important;
+    background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.third-place .details-rank-badge,
+body[data-theme='dark'] .details-podium-card.third-place .details-rank-badge span,
+body[data-theme='dark'] .details-podium-card.fourth-place .details-rank-badge,
+body[data-theme='dark'] .details-podium-card.fourth-place .details-rank-badge span {
+    color: #fff !important;
+}
+
+body[data-theme='dark'] .details-podium-card.third-place .details-rank-badge {
+    border-color: rgba(97, 52, 21, 0.55) !important;
+    background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.fourth-place .details-rank-badge {
+    border-color: rgba(18, 82, 72, 0.55) !important;
+    background: linear-gradient(150deg, #bfeee6 0%, #3da996 45%, #1b6b5f 100%) !important;
+}
+
+/* Darker color across toggle controls in dark mode */
+body[data-theme='dark'] :is(.theme-toggle-btn, .btn-toggle-view, .btn-view-toggle) {
+    color: #a8b7d2 !important;
+}
+
+body[data-theme='dark'] .deck-thumb-image {
+    border: 2px solid #2f3f5e !important;
+    border-radius: 50% !important;
+}
+
+/* Modal helper chips */
+body[data-theme='dark'] .modal-tips {
+    background: #1a2740 !important;
+    border-color: #415274 !important;
+}
+
+body[data-theme='dark'] .modal-tips :is(h4, ul, li) {
+    color: #cfd9ee !important;
+}
+
+body[data-theme='dark'] .code-example {
+    background: #243552 !important;
+    color: #cfdcff !important;
+    border-color: #4d6594 !important;
+}
+
+body[data-theme='dark'] .code-example:hover {
+    background: #2d4467 !important;
+    border-color: #6f88bf !important;
+}
+
+/* Keep remove actions in original red palette */
+body[data-theme='dark'] :is(.btn-danger, .btn-remove-result) {
+    background: #ffebee !important;
+    color: #c62828 !important;
+    border: 1px solid #ffcdd2 !important;
+}
+
+body[data-theme='dark'] :is(.btn-danger:hover, .btn-remove-result:hover) {
+    background: #ffcdd2 !important;
+    color: #b71c1c !important;
+    border-color: #ef9a9a !important;
+}
+
+/* Keep player history item original colors */
+body[data-theme='dark'] .player-history-item {
+    border-color: #dce2f2 !important;
+    background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%) !important;
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .player-history-item :is(strong, span, .results-mini-rank) {
+    color: inherit !important;
+}
+
+body[data-theme='dark'] .player-history-main span {
+    color: #4f5f8f !important;
+}
+
+/* Statistics containers */
+body[data-theme='dark'] .statistics-controls {
+    background: linear-gradient(180deg, #162133 0%, #1a2740 100%) !important;
+    border-color: #3d4f72 !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
+}
+
+body[data-theme='dark'] .statistics-table-wrapper {
+    background: #121d2f !important;
+    border: 1px solid #354760 !important;
+    border-radius: 12px !important;
+}
+/* ============================================================
+   DARK MODE - RESTORE ORIGINAL PODIUM/FULL RESULTS/HISTORY
+============================================================ */
+/* Main podium (home/post pages) */
+body[data-theme='dark'] .podium-card.first-place {
+    border-left: 12px solid #ffd700 !important;
+    background: linear-gradient(90deg, #fff 70%, #fff9e6) !important;
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.35) !important;
+}
+
+body[data-theme='dark'] .podium-card.second-place {
+    border-left: 12px solid #c0c0c0 !important;
+    background: linear-gradient(90deg, #fff 70%, #f3f3f3) !important;
+}
+
+body[data-theme='dark'] .podium-card.third-place {
+    border-left: 12px solid #cd7f32 !important;
+    background: linear-gradient(90deg, #fff 70%, #fff4ed) !important;
+}
+
+body[data-theme='dark'] .podium-card.fourth-place {
+    border-left: 12px solid #268d7c !important;
+    background: linear-gradient(90deg, #fff 70%, #e8f5f3) !important;
+}
+
+/* Tournament details podium */
+body[data-theme='dark'] .details-podium-card.first-place {
+    border-left: 12px solid #ffd700 !important;
+    background: linear-gradient(90deg, #fff 70%, #fff9e6) !important;
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.35) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.second-place {
+    border-left: 12px solid #c0c0c0 !important;
+    background: linear-gradient(90deg, #fff 70%, #f3f3f3) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.third-place {
+    border-left: 12px solid #cd7f32 !important;
+    background: linear-gradient(90deg, #fff 70%, #fff4ed) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.fourth-place {
+    border-left: 12px solid #268d7c !important;
+    background: linear-gradient(90deg, #fff 70%, #e8f5f3) !important;
+}
+
+/* Full results (original placement palette) */
+body[data-theme='dark'] .results-mini-item.first-place {
+    border-color: rgba(198, 141, 0, 0.45) !important;
+    background: linear-gradient(135deg, #fff8d4 0%, #ffe58a 100%) !important;
+}
+
+body[data-theme='dark'] .results-mini-item.second-place {
+    border-color: rgba(141, 153, 171, 0.45) !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #d4dbe6 100%) !important;
+}
+
+body[data-theme='dark'] .results-mini-item.third-place {
+    border-color: rgba(134, 71, 31, 0.48) !important;
+    background: linear-gradient(135deg, #f7d9c2 0%, #d29a72 100%) !important;
+}
+
+body[data-theme='dark'] .results-mini-item.fourth-place {
+    border-color: rgba(27, 107, 95, 0.45) !important;
+    background: linear-gradient(135deg, #d7f3ee 0%, #8ad2c4 100%) !important;
+}
+
+body[data-theme='dark'] .results-mini-item.other-place {
+    border-color: rgba(67, 87, 176, 0.45) !important;
+    background: linear-gradient(135deg, #eef2ff 0%, #cdd8ff 100%) !important;
+}
+
+/* Player history (same original colors as full results) */
+body[data-theme='dark'] .player-history-item.first-place {
+    border-color: rgba(198, 141, 0, 0.45) !important;
+    background: linear-gradient(135deg, #fff8d4 0%, #ffe58a 100%) !important;
+}
+
+body[data-theme='dark'] .player-history-item.second-place {
+    border-color: rgba(141, 153, 171, 0.45) !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #d4dbe6 100%) !important;
+}
+
+body[data-theme='dark'] .player-history-item.third-place {
+    border-color: rgba(134, 71, 31, 0.48) !important;
+    background: linear-gradient(135deg, #f7d9c2 0%, #d29a72 100%) !important;
+}
+
+body[data-theme='dark'] .player-history-item.fourth-place {
+    border-color: rgba(27, 107, 95, 0.45) !important;
+    background: linear-gradient(135deg, #d7f3ee 0%, #8ad2c4 100%) !important;
+}
+
+body[data-theme='dark'] .player-history-item.other-place {
+    border-color: rgba(67, 87, 176, 0.45) !important;
+    background: linear-gradient(135deg, #eef2ff 0%, #cdd8ff 100%) !important;
+}
+
+/* Decks table rank badge keeps original style in dark mode */
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge {
+    color: #1f2430 !important;
+    border-color: rgba(0, 0, 0, 0.16) !important;
+    background: linear-gradient(150deg, #f7f9ff 0%, #b9c6f5 46%, #8da2ea 100%) !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+/* ============================================================
+   DARK MODE - DETAILS PODIUM BLUE BACKGROUND FIX
+============================================================ */
+body[data-theme='dark'] .details-podium-card.first-place {
+    border-left: 12px solid #ffd700 !important;
+    background: linear-gradient(90deg, #1a2740 70%, #2a3654 100%) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.second-place {
+    border-left: 12px solid #c0c0c0 !important;
+    background: linear-gradient(90deg, #1a2740 70%, #27344f 100%) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.third-place {
+    border-left: 12px solid #cd7f32 !important;
+    background: linear-gradient(90deg, #1a2740 70%, #2d3550 100%) !important;
+}
+
+body[data-theme='dark'] .details-podium-card.fourth-place {
+    border-left: 12px solid #268d7c !important;
+    background: linear-gradient(90deg, #1a2740 70%, #243b4a 100%) !important;
+}
+/* ============================================================
+   DARK MODE - DETAILS FOOTER + RESULTS TEXT COLOR
+============================================================ */
+body[data-theme='dark'] .details-podium-card .details-deck-card-footer {
+    background: transparent !important;
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .details-podium-card .details-deck-name {
+    color: #333 !important;
+}
+
+body[data-theme='dark'] .details-podium-card .details-player-name {
+    color: #666 !important;
+}
+
+body[data-theme='dark'] .results-mini-main {
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .results-mini-main strong {
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .results-mini-main span {
+    color: #4f5f8f !important;
+}
+/* ============================================================
+   DARK MODE - DETAILS TEXT + RESULTS MAIN INHERIT
+============================================================ */
+body[data-theme='dark'] .details-podium-card .details-player-name {
+    color: #c7d3ea !important;
+}
+
+body[data-theme='dark'] .details-podium-card .details-deck-name {
+    color: #e4ebf8 !important;
+}
+
+body[data-theme='dark'] .results-mini-main,
+body[data-theme='dark'] .results-mini-main strong,
+body[data-theme='dark'] .results-mini-main span {
+    color: inherit !important;
+}
+/* ============================================================
+   DARK MODE - RESULTS MINI MAIN NO BLUE BACKGROUND
+============================================================ */
+body[data-theme='dark'] .results-mini-main {
+    background: transparent !important;
+    border: none !important;
+    color: inherit !important;
+}
+
+body[data-theme='dark'] .results-mini-main strong,
+body[data-theme='dark'] .results-mini-main span {
+    background: transparent !important;
+    color: inherit !important;
+}
+/* ============================================================
+   DARK MODE - FORCE LIGHT PALETTE ON FULL RESULTS ROWS
+============================================================ */
+body[data-theme='dark'] .results-mini-item {
+    border-color: #dce2f2 !important;
+    background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%) !important;
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .results-mini-main,
+body[data-theme='dark'] .results-mini-main strong,
+body[data-theme='dark'] .results-mini-main span {
+    background: transparent !important;
+    border: none !important;
+    color: inherit !important;
+}
+/* ============================================================
+   DARK MODE - RESULTS MAIN MATCH ITEM BACKGROUND
+============================================================ */
+body[data-theme='dark'] .results-mini-item .results-mini-main,
+body[data-theme='dark'] .results-mini-item .results-mini-main strong,
+body[data-theme='dark'] .results-mini-item .results-mini-main span {
+    background: inherit !important;
+    color: inherit !important;
+    border: none !important;
+}
+/* ============================================================
+   DARK MODE - RESULTS TEXT DARKER (DECK + PLAYER)
+============================================================ */
+body[data-theme='dark'] .results-mini-item .results-mini-main strong {
+    color: #1e2a45 !important;
+}
+
+body[data-theme='dark'] .results-mini-item .results-mini-main span {
+    color: #334b7a !important;
+}
+/* ============================================================
+   DARK MODE - DETAILS PIE + HEADER META
+============================================================ */
+body[data-theme='dark'] .details-pie-slice {
+    filter: brightness(0.55) saturate(0.9) !important;
+}
+
+body[data-theme='dark'] .details-header-meta,
+body[data-theme='dark'] .details-header-meta :is(strong, span, p, small) {
+    color: #dbe5f6 !important;
+}
+/* ============================================================
+   DARK MODE - DETAILS PIE ORIGINAL + DARK BORDER
+============================================================ */
+body[data-theme='dark'] .details-pie-slice {
+    filter: none !important;
+}
+
+body[data-theme='dark'] .details-pie-container {
+    border-color: #233552 !important;
+}
+/* ============================================================
+   DARK MODE - DECKS RANK BADGE PODIUM PALETTE RESTORE
+============================================================ */
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-first {
+    color: #4a3900 !important;
+    border-color: rgba(144, 102, 0, 0.5) !important;
+    background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%) !important;
+}
+
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-second {
+    color: #2f333a !important;
+    border-color: rgba(84, 90, 102, 0.45) !important;
+    background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%) !important;
+}
+
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-third {
+    color: #fff !important;
+    border-color: rgba(97, 52, 21, 0.55) !important;
+    background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%) !important;
+}
+
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-fourth {
+    color: #fff !important;
+    border-color: rgba(18, 82, 72, 0.55) !important;
+    background: linear-gradient(150deg, #bfeee6 0%, #3da996 45%, #1b6b5f 100%) !important;
+}
+
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-default,
+body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-average-badge {
+    color: #132157 !important;
+    border-color: rgba(48, 67, 145, 0.52) !important;
+    background: linear-gradient(150deg, #eef2ff 0%, #9fb5ff 46%, #5f7fe8 100%) !important;
+}
+/* ============================================================
+   DARK MODE - DECK THUMB WRAPPER COLOR
+============================================================ */
+body[data-theme='dark'] .deck-thumb-wrapper {
+    background: linear-gradient(135deg, #1f2f49 0%, #2b3f62 100%) !important;
+    border-color: #2f3f5e !important;
+}
+/* ============================================================
+   DECKS - REMOVE BUTTON MATCH .btn-remove-result
+============================================================ */
+.decks-container .btn-danger,
+#decksList .deck-actions .btn-danger,
+.decks-table-actions .btn-danger {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+.decks-container .btn-danger:hover,
+#decksList .deck-actions .btn-danger:hover,
+.decks-table-actions .btn-danger:hover {
+    background: #c82333 !important;
+    color: #fff !important;
+    border: none !important;
+}
+/* ============================================================
+   DECKS - REMOVE BUTTON MATCH .btn-remove-result (DARK MODE)
+============================================================ */
+body[data-theme='dark'] .decks-container .btn-danger,
+body[data-theme='dark'] #decksList .deck-actions .btn-danger,
+body[data-theme='dark'] .decks-table-actions .btn-danger {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+body[data-theme='dark'] .decks-container .btn-danger:hover,
+body[data-theme='dark'] #decksList .deck-actions .btn-danger:hover,
+body[data-theme='dark'] .decks-table-actions .btn-danger:hover {
+    background: #c82333 !important;
+    color: #fff !important;
+    border: none !important;
+}
+/* ============================================================
+   DECKS TABLE - DELETE BUTTON EXACT RED IN DARK MODE
+============================================================ */
+body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon,
+body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon:hover,
+body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:hover,
+body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon:focus,
+body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:focus,
+body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon:active,
+body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:active {
+    background: #c82333 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon svg,
+body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon svg {
+    stroke: currentColor !important;
+}
+/* ============================================================
+   DARK MODE - HISTORY META + PODIUM/STORE/DATE DARKER TEXT
+============================================================ */
+body[data-theme='dark'] .player-history-main {
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .player-history-main span {
+    color: inherit !important;
+}
+
+body[data-theme='dark'] .details-podium-card .details-deck-name {
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .details-podium-card .details-player-name {
+    color: #2f446d !important;
+}
+
+body[data-theme='dark'] .details-header-meta,
+body[data-theme='dark'] .details-header-meta :is(strong, span, p, small),
+body[data-theme='dark'] .table-store-name,
+body[data-theme='dark'] .table-date-value,
+body[data-theme='dark'] .table-mobile-store-tournament {
+    color: #2a4068 !important;
+}
+/* ============================================================
+   DARK MODE - PLAYER HISTORY SPAN BG + RANK TEXT COLOR
+============================================================ */
+body[data-theme='dark'] .player-history-main span {
+    background: transparent !important;
+    color: inherit !important;
+}
+
+body[data-theme='dark'] .results-mini-rank {
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] :is(
+    .results-mini-item.third-place .results-mini-rank,
+    .results-mini-item.fourth-place .results-mini-rank,
+    .player-history-item.third-place .results-mini-rank,
+    .player-history-item.fourth-place .results-mini-rank
+) {
+    color: #ffffff !important;
+}
+/* ============================================================
+   PLAYERS - DELETE BUTTON MATCH .btn-remove-result
+============================================================ */
+.player-actions .btn-action.btn-danger.btn-icon-only {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+.player-actions .btn-action.btn-danger.btn-icon-only:hover,
+.player-actions .btn-action.btn-danger.btn-icon-only:focus,
+.player-actions .btn-action.btn-danger.btn-icon-only:active {
+    background: #c82333 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:hover,
+body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:focus,
+body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:active {
+    background: #c82333 !important;
+    color: #fff !important;
+    border: none !important;
+}
+/* ============================================================
+   RESULTS MINI RANK - DARKER TEXT
+============================================================ */
+.results-mini-rank {
+    color: #17233e !important;
+}
+
+body[data-theme='dark'] .results-mini-rank {
+    color: #17233e !important;
+}
+/* ============================================================
+   RESULTS MINI RANK - FORCE DARK TEXT (ALL VARIANTS)
+============================================================ */
+.results-mini-rank,
+.results-mini-item.first-place .results-mini-rank,
+.results-mini-item.second-place .results-mini-rank,
+.results-mini-item.third-place .results-mini-rank,
+.results-mini-item.fourth-place .results-mini-rank,
+.results-mini-item.other-place .results-mini-rank,
+.player-history-item.first-place .results-mini-rank,
+.player-history-item.second-place .results-mini-rank,
+.player-history-item.third-place .results-mini-rank,
+.player-history-item.fourth-place .results-mini-rank,
+.player-history-item.other-place .results-mini-rank,
+body[data-theme='dark'] .results-mini-rank,
+body[data-theme='dark'] .results-mini-item.first-place .results-mini-rank,
+body[data-theme='dark'] .results-mini-item.second-place .results-mini-rank,
+body[data-theme='dark'] .results-mini-item.third-place .results-mini-rank,
+body[data-theme='dark'] .results-mini-item.fourth-place .results-mini-rank,
+body[data-theme='dark'] .results-mini-item.other-place .results-mini-rank,
+body[data-theme='dark'] .player-history-item.first-place .results-mini-rank,
+body[data-theme='dark'] .player-history-item.second-place .results-mini-rank,
+body[data-theme='dark'] .player-history-item.third-place .results-mini-rank,
+body[data-theme='dark'] .player-history-item.fourth-place .results-mini-rank,
+body[data-theme='dark'] .player-history-item.other-place .results-mini-rank {
+    color: #17233e !important;
+}
+/* ============================================================
+   STATISTICS FILTERS + POINTS PILL COLOR UPDATE
+============================================================ */
+#statisticsViewSelect,
+#statisticsFilterFormat,
+#statisticsFilterMonth {
+    background: #eef3ff !important;
+    color: #22345d !important;
+    border-color: #bcc9f0 !important;
+}
+
+.points-pill {
+    border-width: 1px;
+}
+
+.points-pill.gold {
+    background: #ffe9ad !important;
+    border-color: #e1ba56 !important;
+    color: #5b3f00 !important;
+}
+
+.points-pill.silver {
+    background: #e7edf6 !important;
+    border-color: #b6c2d6 !important;
+    color: #39485f !important;
+}
+
+.points-pill.bronze {
+    background: #f7dfcf !important;
+    border-color: #cb9d7d !important;
+    color: #5b3117 !important;
+}
+
+.points-pill.top4 {
+    background: #dce8ff !important;
+    border-color: #9fb8ef !important;
+    color: #1f3f7c !important;
+}
+
+body[data-theme='dark'] :is(#statisticsViewSelect, #statisticsFilterFormat, #statisticsFilterMonth) {
+    background: #243552 !important;
+    color: #d7e4fa !important;
+    border-color: #4d6594 !important;
+}
+
+body[data-theme='dark'] .points-pill.gold {
+    background: #5b4618 !important;
+    border-color: #c49d3c !important;
+    color: #ffe9ae !important;
+}
+
+body[data-theme='dark'] .points-pill.silver {
+    background: #354356 !important;
+    border-color: #7e8ea8 !important;
+    color: #e5edf8 !important;
+}
+
+body[data-theme='dark'] .points-pill.bronze {
+    background: #5a3a2a !important;
+    border-color: #bc815f !important;
+    color: #ffd9c6 !important;
+}
+
+body[data-theme='dark'] .points-pill.top4 {
+    background: #2a3f66 !important;
+    border-color: #6d8fca !important;
+    color: #d9e7ff !important;
+}
+/* ============================================================
+   DARK MODE - STATISTICS STORE/SEARCH/RANK/PERCENT COLORS
+============================================================ */
+body[data-theme='dark'] #statisticsFilterStore,
+body[data-theme='dark'] .statistics-player-search {
+    background: #243552 !important;
+    color: #d7e4fa !important;
+    border-color: #4d6594 !important;
+}
+
+body[data-theme='dark'] .stats-pill-rank {
+    background: #2c426b !important;
+    color: #e0ebff !important;
+    border-color: #6a88c2 !important;
+}
+
+body[data-theme='dark'] .stats-pill-percent {
+    background: #304b76 !important;
+    color: #e3edff !important;
+    border-color: #7696d1 !important;
+}
+/* ============================================================
+   DARK MODE - INLINE MONTH + STORE PODIUM TEXT COLORS
+============================================================ */
+body[data-theme='dark'] .statistics-inline-month-select {
+    background: #243552 !important;
+    color: #d7e4fa !important;
+    border-color: #4d6594 !important;
+}
+
+body[data-theme='dark'] .store-podium-rank {
+    color: #1c2a47 !important;
+}
+
+body[data-theme='dark'] .store-podium-main,
+body[data-theme='dark'] .store-podium-main strong,
+body[data-theme='dark'] .store-podium-main small {
+    color: #d7e4fa !important;
+}
+/* ============================================================
+   DARK MODE - STATISTICS HIGHLIGHT VALUE LIGHTER
+============================================================ */
+body[data-theme='dark'] .statistics-highlight-value {
+    color: #e8f0ff !important;
+}
+/* ============================================================
+   TABLE STORE/DATE TEXT COLOR UPDATE
+============================================================ */
+.table-store-name,
+.table-date-value,
+.table-data-value {
+    color: #2a4068 !important;
+}
+
+body[data-theme='dark'] .table-store-name,
+body[data-theme='dark'] .table-date-value,
+body[data-theme='dark'] .table-data-value {
+    color: #d7e4fa !important;
+}
+/* ============================================================
+   DETAILS HEADER/PLAYER/DECK TEXT COLOR UPDATE
+============================================================ */
+.details-header-meta,
+.details-header-meta :is(strong, span, p, small) {
+    color: #2a4068 !important;
+}
+
+.details-player-name {
+    color: #4a5d86 !important;
+}
+
+.details-deck-name {
+    color: #1f2947 !important;
+}
+
+body[data-theme='dark'] .details-header-meta,
+body[data-theme='dark'] .details-header-meta :is(strong, span, p, small) {
+    color: #d7e4fa !important;
+}
+
+body[data-theme='dark'] .details-player-name {
+    color: #b9c8e4 !important;
+}
+
+body[data-theme='dark'] .details-deck-name {
+    color: #e6eefc !important;
+}
+/* ============================================================
+   DARK MODE - FORCE LIGHTER DETAILS PLAYER/DECK TEXT
+============================================================ */
+body[data-theme='dark'] .details-podium-card .details-player-name,
+body[data-theme='dark'] .details-player-name {
+    color: #c7d6ef !important;
+}
+
+body[data-theme='dark'] .details-podium-card .details-deck-name,
+body[data-theme='dark'] .details-deck-name {
+    color: #eef3ff !important;
+}
