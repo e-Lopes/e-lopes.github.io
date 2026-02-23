@@ -414,7 +414,7 @@ function isMobileDeckViewport() {
 }
 
 function getAvailableViewModes() {
-    return isMobileDeckViewport() ? ['list'] : ['list', 'compact', 'grid'];
+    return isMobileDeckViewport() ? ['compact'] : ['list', 'compact', 'grid'];
 }
 
 function ensureValidViewMode() {
