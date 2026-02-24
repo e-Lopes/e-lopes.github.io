@@ -3,6 +3,7 @@
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com//card_images/digimon/';
     const LEGACY_IMAGE_CODES = new Set(['BT6-084', 'BT23-077', 'BT7-083', 'ST12-13']);
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
+    const DIGIMON_GET_ALL_CARDS_API_URL = 'https://digimoncard.io/api-public/getAllCards';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
     const BLANK_MIDDLE_FALLBACK_BG = '../../icons/backgrounds/EX11.png';
@@ -14,7 +15,63 @@
     const MAX_DIGI_EGG_CARDS = 5;
     const CARD_SEARCH_LIMIT = 40;
     const CARD_SEARCH_PAGE_SIZE = 6;
+    const CARD_SEARCH_MAX_RESULTS = 240;
+    const ALL_CARDS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
     const CARD_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+    const BANNED_CODES = new Set(['BT2-090', 'BT5-109', 'EX5-065']);
+    const RESTRICTED_CODES = new Set([
+        'BT1-090',
+        'BT10-009',
+        'BT11-033',
+        'BT11-064',
+        'BT13-012',
+        'BT13-110',
+        'BT14-002',
+        'BT14-084',
+        'BT15-057',
+        'BT15-102',
+        'BT16-011',
+        'BT17-069',
+        'BT19-040',
+        'BT2-047',
+        'BT3-054',
+        'BT3-103',
+        'BT4-104',
+        'BT4-111',
+        'BT6-100',
+        'BT6-104',
+        'BT7-038',
+        'BT7-064',
+        'BT7-069',
+        'BT7-072',
+        'BT7-107',
+        'BT9-098',
+        'BT9-099',
+        'EX1-021',
+        'EX1-068',
+        'EX2-039',
+        'EX2-070',
+        'EX3-057',
+        'EX4-006',
+        'EX4-019',
+        'EX4-030',
+        'EX5-015',
+        'EX5-018',
+        'EX5-062',
+        'P-008',
+        'P-025',
+        'P-029',
+        'P-030',
+        'P-123',
+        'P-130',
+        'ST2-13',
+        'ST9-09'
+    ]);
+    const CHOICE_RESTRICTION_GROUPS = [
+        ['BT20-037', 'EX8-037'],
+        ['BT20-037', 'BT17-035'],
+        ['EX7-064', 'EX2-007']
+    ];
     const DECKLISTS_TABLE = 'decklists';
     const DECKLIST_CARDS_TABLE = 'decklist_cards';
     const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
@@ -26,8 +83,12 @@
     let context = { resultId: '', deck: '', player: '', store: '', date: '', format: '' };
     let cardSearchResults = [];
     let cardSearchPage = 1;
+    let cardSearchStatusAutoHideTimer = null;
+    let allCardsIndexCache = null;
+    let allCardsIndexCacheAt = 0;
     const cardDetailsByCode = new Map();
     let cardHydrationToken = 0;
+    let deckErrorAutoHideTimer = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
         bindActions();
@@ -794,12 +855,32 @@
     }
 
     async function loadCardImage(code) {
+        const normalized = normalizeDeckCode(code || '');
+        const candidates = getExportCardImageUrls(normalized);
+        for (let i = 0; i < candidates.length; i += 1) {
+            const image = await loadImageWithCors(candidates[i]);
+            if (image) return image;
+        }
+        return null;
+    }
+
+    function getExportCardImageUrls(code) {
+        const normalized = normalizeDeckCode(code || '');
+        if (!normalized) return [];
+        const legacyUrl = `${LEGACY_IMAGE_BASE_URL}${normalized}.webp`;
+        const primaryUrl = `${IMAGE_BASE_URL}${normalized}.webp`;
+        return [legacyUrl, primaryUrl];
+    }
+
+    async function loadImageWithCors(url) {
+        const safeUrl = String(url || '').trim();
+        if (!safeUrl) return null;
         return new Promise((resolve) => {
             const image = new Image();
             image.crossOrigin = 'anonymous';
             image.onload = () => resolve(image);
             image.onerror = () => resolve(null);
-            image.src = getCardImageUrl(code);
+            image.src = safeUrl;
         });
     }
 
@@ -909,7 +990,7 @@
             type: String(document.getElementById('cardSearchType')?.value || '').trim(),
             level: String(document.getElementById('cardSearchLevel')?.value || '').trim(),
             playcost: normalizedPlayCost,
-            rarity: String(document.getElementById('cardSearchRarity')?.value || '').trim()
+            card: String(document.getElementById('cardSearchCode')?.value || '').trim().toUpperCase()
         };
     }
 
@@ -921,8 +1002,145 @@
                     filters.type ||
                     filters.level ||
                     filters.playcost ||
-                    filters.rarity)
+                    filters.card)
         );
+    }
+
+    async function fetchCardSearchRows(filters) {
+        const allRows = [];
+        let offset = 0;
+        let previousSignature = '';
+
+        while (allRows.length < CARD_SEARCH_MAX_RESULTS) {
+            const params = new URLSearchParams();
+            if (filters.n) params.set('n', filters.n);
+            if (filters.color) params.set('color', filters.color);
+            if (filters.type) params.set('type', filters.type);
+            if (filters.level) params.set('level', filters.level);
+            if (filters.playcost) params.set('playcost', filters.playcost);
+            if (filters.card) params.set('card', filters.card);
+            params.set('sort', 'new');
+            params.set('sortdirection', 'desc');
+            params.set('limit', String(CARD_SEARCH_LIMIT));
+            params.set('offset', String(offset));
+
+            const response = await fetch(`${DIGIMON_CARD_API_URL}?${params.toString()}`);
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                const apiError = String(payload?.error || `Search failed (${response.status}).`);
+                throw new Error(apiError);
+            }
+
+            const rows = Array.isArray(payload) ? payload : [];
+            if (rows.length === 0) break;
+
+            allRows.push(...rows);
+
+            const currentSignature = rows
+                .slice(0, 5)
+                .map((row) => normalizeDeckCode(row?.id || row?.card || ''))
+                .join('|');
+            if (currentSignature && currentSignature === previousSignature) {
+                break;
+            }
+            previousSignature = currentSignature;
+
+            if (rows.length < CARD_SEARCH_LIMIT) break;
+            offset += rows.length;
+        }
+
+        return allRows.slice(0, CARD_SEARCH_MAX_RESULTS);
+    }
+
+    function getSetPrefixCardFilter(filters) {
+        const raw = String(filters?.card || '')
+            .trim()
+            .toUpperCase();
+        if (!raw || raw.includes(',')) return '';
+        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)$/.test(raw)) return '';
+        return raw;
+    }
+
+    async function fetchAllCardsIndex() {
+        const now = Date.now();
+        if (
+            Array.isArray(allCardsIndexCache) &&
+            allCardsIndexCache.length > 0 &&
+            now - allCardsIndexCacheAt < ALL_CARDS_CACHE_TTL_MS
+        ) {
+            return allCardsIndexCache;
+        }
+
+        const params = new URLSearchParams({
+            series: 'Digimon Card Game',
+            sort: 'card_number',
+            sortdirection: 'asc'
+        });
+        const response = await fetch(`${DIGIMON_GET_ALL_CARDS_API_URL}?${params.toString()}`);
+        if (!response.ok) {
+            throw new Error(`Failed to load all cards index (${response.status}).`);
+        }
+        const payload = await response.json();
+        const rows = Array.isArray(payload) ? payload : [];
+        allCardsIndexCache = rows;
+        allCardsIndexCacheAt = now;
+        return rows;
+    }
+
+    function applyLocalCardSearchFilters(rows, filters) {
+        const source = Array.isArray(rows) ? rows : [];
+        const normalizedName = String(filters?.n || '')
+            .trim()
+            .toLowerCase();
+        const normalizedColor = String(filters?.color || '')
+            .trim()
+            .toLowerCase();
+        const normalizedType = String(filters?.type || '')
+            .trim()
+            .toLowerCase();
+        const normalizedLevel = String(filters?.level || '').trim();
+        const normalizedPlayCost = String(filters?.playcost || '').trim();
+
+        return source.filter((row) => {
+            const cardName = String(row?.name || '').trim().toLowerCase();
+            const cardColor = String(row?.color || '').trim().toLowerCase();
+            const cardType = String(row?.type || '').trim().toLowerCase();
+            const rowLevel = String(row?.level ?? row?.card_payload?.level ?? '').trim();
+            const rowPlayCost = String(row?.play_cost ?? row?.card_payload?.play_cost ?? row?.card_payload?.playcost ?? '').trim();
+
+            if (normalizedName && !cardName.includes(normalizedName)) return false;
+            if (normalizedColor && !cardColor.includes(normalizedColor)) return false;
+            if (normalizedType && cardType !== normalizedType) return false;
+            if (normalizedLevel && rowLevel !== normalizedLevel) return false;
+            if (normalizedPlayCost && rowPlayCost !== normalizedPlayCost) return false;
+            return true;
+        });
+    }
+
+    async function fetchCardSearchRowsBySetPrefix(filters, setPrefix) {
+        const indexRows = await fetchAllCardsIndex();
+        const prefix = `${String(setPrefix || '').toUpperCase()}-`;
+        const codes = [];
+        const usedCodes = new Set();
+
+        (Array.isArray(indexRows) ? indexRows : []).forEach((row) => {
+            const rawCode = String(row?.cardnumber || row?.card_number || row?.id || '').trim();
+            const code = normalizeDeckCode(rawCode);
+            if (!code || !code.startsWith(prefix)) return;
+            if (usedCodes.has(code)) return;
+            usedCodes.add(code);
+            codes.push(code);
+        });
+
+        if (codes.length === 0) return [];
+        const detailedRows = await fetchCardsFromDigimonApi(codes);
+        return applyLocalCardSearchFilters(detailedRows, filters);
     }
 
     async function performCardSearch() {
@@ -939,38 +1157,28 @@
         setCardSearchStatus('Searching cards...', 'info');
 
         try {
-            const params = new URLSearchParams();
-            if (filters.n) params.set('n', filters.n);
-            if (filters.color) params.set('color', filters.color);
-            if (filters.type) params.set('type', filters.type);
-            if (filters.level) params.set('level', filters.level);
-            if (filters.playcost) params.set('playcost', filters.playcost);
-            if (filters.rarity) params.set('rarity', filters.rarity);
-            params.set('sort', 'name');
-            params.set('sortdirection', 'asc');
-            params.set('limit', String(CARD_SEARCH_LIMIT));
-
-            const response = await fetch(`${DIGIMON_CARD_API_URL}?${params.toString()}`);
-            let payload = null;
-            try {
-                payload = await response.json();
-            } catch {
-                payload = null;
+            const setPrefixFilter = getSetPrefixCardFilter(filters);
+            let rows = [];
+            if (setPrefixFilter) {
+                try {
+                    rows = await fetchCardSearchRowsBySetPrefix(filters, setPrefixFilter);
+                } catch {
+                    rows = [];
+                }
             }
-
-            if (!response.ok) {
-                const apiError = String(payload?.error || `Search failed (${response.status}).`);
-                throw new Error(apiError);
+            if (!Array.isArray(rows) || rows.length === 0) {
+                rows = await fetchCardSearchRows(filters);
             }
-
-            const rows = Array.isArray(payload) ? payload : [];
             const normalized = [];
             const usedCodes = new Set();
             const nowIso = new Date().toISOString();
 
+            const codePrefix = String(filters.card || '').trim().toUpperCase();
+
             rows.forEach((row) => {
                 const code = normalizeDeckCode(row?.id || row?.card || '');
                 if (!isValidDeckCode(code)) return;
+                if (codePrefix && !code.startsWith(codePrefix)) return;
                 if (usedCodes.has(code)) return;
                 usedCodes.add(code);
                 const mapped = {
@@ -1001,7 +1209,13 @@
             cardSearchResults = [];
             cardSearchPage = 1;
             renderCardSearchResults();
-            setCardSearchStatus(error?.message || 'Error while searching cards.', 'error');
+            const rawMessage = String(error?.message || '').trim();
+            const isFetchFailure = /failed to fetch/i.test(rawMessage);
+            if (isFetchFailure) {
+                setCardSearchStatus('No results found for this filter.', 'warn', { autoClearMs: 3000 });
+            } else {
+                setCardSearchStatus(rawMessage || 'Error while searching cards.', 'error');
+            }
         } finally {
             if (searchButton) searchButton.disabled = false;
         }
@@ -1014,7 +1228,7 @@
             'cardSearchType',
             'cardSearchLevel',
             'cardSearchPlayCost',
-            'cardSearchRarity'
+            'cardSearchCode'
         ];
         controls.forEach((id) => {
             const input = document.getElementById(id);
@@ -1103,10 +1317,16 @@
                 ${pageItems
             .map((card) => {
                 const code = normalizeDeckCode(card.card_code || card.id || '');
+                const restrictionBadge = getCardRestrictionBadge(code);
+                const badgeCountSlotClass = restrictionBadge?.type === 'restricted' ? 'is-in-count-slot' : '';
+                const restrictionBadgeHtml = restrictionBadge
+                    ? `<div class="decklist-card-restriction-badge is-in-search ${badgeCountSlotClass} is-${escapeHtml(restrictionBadge.type)}" title="${escapeHtml(restrictionBadge.title)}">${escapeHtml(restrictionBadge.label)}</div>`
+                    : '';
 
                 return `
                     <article class="decklist-search-card" data-code="${escapeHtml(code)}">
                         <img src="${getCardImageUrl(code)}" alt="${escapeHtml(card.name || code)}" />
+                        ${restrictionBadgeHtml}
                         <div class="decklist-search-card-code">${escapeHtml(code)}</div>
                     </article>
                 `;
@@ -1135,12 +1355,24 @@
         });
     }
 
-    function setCardSearchStatus(message, type = '') {
+    function setCardSearchStatus(message, type = '', options = {}) {
         const node = document.getElementById('cardSearchStatus');
         if (!node) return;
+        if (cardSearchStatusAutoHideTimer) {
+            clearTimeout(cardSearchStatusAutoHideTimer);
+            cardSearchStatusAutoHideTimer = null;
+        }
         node.textContent = message;
         node.className = 'decklist-search-status';
         if (type) node.classList.add(`is-${type}`);
+        const autoClearMs = Math.max(0, Number(options?.autoClearMs) || 0);
+        if (autoClearMs > 0 && message) {
+            cardSearchStatusAutoHideTimer = setTimeout(() => {
+                node.textContent = '';
+                node.className = 'decklist-search-status';
+                cardSearchStatusAutoHideTimer = null;
+            }, autoClearMs);
+        }
     }
 
     function addManualCode() {
@@ -1198,10 +1430,16 @@
     }
 
     function tryUpsertEntry(code, qty, meta = null) {
+        if (BANNED_CODES.has(code)) {
+            return { error: `${code} is banned and cannot be added.` };
+        }
         const existing = entries.find((item) => item.code === code);
         const currentQty = Number(existing?.count) || 0;
         if (currentQty + qty > MAX_COPIES_PER_CARD) {
             return { error: `Max ${MAX_COPIES_PER_CARD} copies for ${code}.` };
+        }
+        if (RESTRICTED_CODES.has(code) && currentQty + qty > 1) {
+            return { error: `${code} is restricted to 1 copy.` };
         }
 
         const nextEntries = entries.map((item) => ({ ...item }));
@@ -1219,6 +1457,10 @@
         }
         if (candidateBucket !== 'egg' && counts.mainDeck > MAX_MAIN_DECK_CARDS) {
             return { error: `Main deck limit reached (${MAX_MAIN_DECK_CARDS}).` };
+        }
+        const restrictionErrors = validateRestrictionRules(nextEntries);
+        if (restrictionErrors.length > 0) {
+            return { error: restrictionErrors[0] };
         }
 
         if (existing) {
@@ -1349,7 +1591,55 @@
 
     function validateAggregatedEntries(sourceEntries, baseErrors = []) {
         const errors = [...(baseErrors || [])];
+        errors.push(...validateRestrictionRules(sourceEntries));
         return { entries: sourceEntries, errors };
+    }
+
+    function validateRestrictionRules(sourceEntries) {
+        const errors = [];
+        const countsByCode = new Map();
+        (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((item) => {
+            const code = normalizeDeckCode(item?.code || '');
+            if (!isValidDeckCode(code)) return;
+            const qty = Math.max(0, Number(item?.count) || 0);
+            countsByCode.set(code, (countsByCode.get(code) || 0) + qty);
+        });
+
+        countsByCode.forEach((qty, code) => {
+            if (qty <= 0) return;
+            if (BANNED_CODES.has(code)) {
+                errors.push(`${code} is banned and invalidates the deck.`);
+            }
+            if (RESTRICTED_CODES.has(code) && qty > 1) {
+                errors.push(`${code} is restricted to 1 copy (current: ${qty}).`);
+            }
+        });
+
+        CHOICE_RESTRICTION_GROUPS.forEach((group) => {
+            if (!Array.isArray(group) || group.length < 2) return;
+            const present = group.filter((code) => (countsByCode.get(code) || 0) > 0);
+            if (present.length >= 2) {
+                errors.push(`Choice restriction violated: ${group.join(' / ')} cannot be used together.`);
+            }
+        });
+
+        return errors;
+    }
+
+    function getCardRestrictionBadge(code) {
+        const normalized = normalizeDeckCode(code || '');
+        if (!isValidDeckCode(normalized)) return null;
+        if (BANNED_CODES.has(normalized)) {
+            return { label: 'X', type: 'banned', title: 'Banned card' };
+        }
+        if (RESTRICTED_CODES.has(normalized)) {
+            return { label: '1', type: 'restricted', title: 'Restricted to 1 copy' };
+        }
+        const inChoiceRestriction = CHOICE_RESTRICTION_GROUPS.some((group) => group.includes(normalized));
+        if (inChoiceRestriction) {
+            return { label: 'C', type: 'choice', title: 'Choice Restriction' };
+        }
+        return null;
     }
 
     function enforceDeckLimits(sourceEntries) {
@@ -1710,11 +2000,9 @@
         }
 
         if (errors.length > 0) {
-            errorBox.style.display = 'block';
-            errorBox.textContent = errors.join(' | ');
+            renderDeckErrors(errorBox, errors);
         } else {
-            errorBox.style.display = 'none';
-            errorBox.textContent = '';
+            clearDeckErrors(errorBox);
         }
 
         if (entries.length === 0) {
@@ -1724,16 +2012,31 @@
 
         board.innerHTML = entries
             .map(
-                (entry) => `
+                (entry) => {
+                    const restrictionBadge = getCardRestrictionBadge(entry.code);
+                    const hideCountBecauseRestrictedSingle =
+                        restrictionBadge?.type === 'restricted' && Number(entry.count) === 1;
+                    const badgeDeckPositionClass = hideCountBecauseRestrictedSingle
+                        ? 'is-in-deck is-in-count-slot'
+                        : 'is-in-deck';
+                    const restrictionBadgeHtml = restrictionBadge
+                        ? `<div class="decklist-card-restriction-badge ${badgeDeckPositionClass} is-${escapeHtml(restrictionBadge.type)}" title="${escapeHtml(restrictionBadge.title)}">${escapeHtml(restrictionBadge.label)}</div>`
+                        : '';
+                    const countHtml = hideCountBecauseRestrictedSingle
+                        ? ''
+                        : `<div class="decklist-builder-count">${entry.count}</div>`;
+                    return `
                 <article class="decklist-builder-card" data-code="${escapeHtml(entry.code)}">
-                    <div class="decklist-builder-count">${entry.count}</div>
+                    ${countHtml}
                     <img src="${getCardImageUrl(entry.code)}" alt="${escapeHtml(entry.code)}" />
+                    ${restrictionBadgeHtml}
                     <div class="decklist-builder-hover-controls">
                         <button type="button" class="decklist-builder-stepper-btn is-increase" data-action="increase" data-code="${escapeHtml(entry.code)}" aria-label="Increase ${escapeHtml(entry.code)}">+</button>
                         <button type="button" class="decklist-builder-stepper-btn is-decrease" data-action="decrease" data-code="${escapeHtml(entry.code)}" aria-label="Decrease ${escapeHtml(entry.code)}">-</button>
                     </div>
                 </article>
-            `
+            `;
+                }
             )
             .join('');
 
@@ -1772,6 +2075,45 @@
         });
 
         void hydrateCardMetadata(entries);
+    }
+
+    function renderDeckErrors(errorBox, errors) {
+        if (!errorBox) return;
+        if (deckErrorAutoHideTimer) {
+            clearTimeout(deckErrorAutoHideTimer);
+            deckErrorAutoHideTimer = null;
+        }
+        const message = (Array.isArray(errors) ? errors : [])
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+            .join(' | ');
+        if (!message) {
+            clearDeckErrors(errorBox);
+            return;
+        }
+        errorBox.style.display = 'flex';
+        errorBox.innerHTML = `
+            <span class="decklist-builder-errors-text">${escapeHtml(message)}</span>
+            <button type="button" class="decklist-builder-errors-close" aria-label="Dismiss error">&times;</button>
+        `;
+        const closeButton = errorBox.querySelector('.decklist-builder-errors-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => clearDeckErrors(errorBox));
+        }
+        deckErrorAutoHideTimer = setTimeout(() => {
+            clearDeckErrors(errorBox);
+        }, 6000);
+    }
+
+    function clearDeckErrors(errorBox) {
+        const target = errorBox || document.getElementById('decklistBuilderErrors');
+        if (!target) return;
+        if (deckErrorAutoHideTimer) {
+            clearTimeout(deckErrorAutoHideTimer);
+            deckErrorAutoHideTimer = null;
+        }
+        target.style.display = 'none';
+        target.textContent = '';
     }
 
     function getCardTitle(code) {
