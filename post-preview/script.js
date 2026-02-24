@@ -1895,13 +1895,19 @@ async function drawPostCanvas() {
         tournamentDataForCanvas.tournamentName || 'SEMANAL'
     ).toUpperCase();
     ctx.fillStyle = '#184fae';
-    ctx.font = `italic 900 ${postLayout.typography.titleSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    let titleFontSize = postLayout.typography.titleSize;
+    const titleMaxWidth = Math.max(160, titleBoxW - 16);
+    ctx.font = `italic 900 ${titleFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    while (ctx.measureText(tournamentTitle).width > titleMaxWidth && titleFontSize > 38) {
+        titleFontSize -= 2;
+        ctx.font = `italic 900 ${titleFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    }
     ctx.textAlign = 'center';
     ctx.lineWidth = 4;
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
     const titleY = titleBoxY + layout.title.titleOffsetY;
-    ctx.strokeText(tournamentTitle.slice(0, 14), titleCenterX, titleY);
-    ctx.fillText(tournamentTitle.slice(0, 14), titleCenterX, titleY);
+    ctx.strokeText(tournamentTitle, titleCenterX, titleY);
+    ctx.fillText(tournamentTitle, titleCenterX, titleY);
 
     ctx.fillStyle = '#ff3959';
     const dateLabel = tournamentDataForCanvas.dateStr || '--/--/--';
@@ -3804,6 +3810,8 @@ function nudgeTemplateHandle(key, dx, dy) {
 }
 
 function resizeTemplateHandle(key, delta) {
+    const fontDelta = Math.round(delta / 2);
+    let typographyUpdated = false;
     if (selectedPostType === 'distribution_results') {
         const layoutDist = (postLayout.distribution ||= {
             panel: { inset: 16 },
@@ -3821,6 +3829,9 @@ function resizeTemplateHandle(key, delta) {
             case 'title':
                 postLayout.title.w = Math.max(180, postLayout.title.w + delta);
                 postLayout.title.h = Math.max(90, postLayout.title.h + delta);
+                postLayout.typography.titleSize = Math.max(20, postLayout.typography.titleSize + fontDelta);
+                postLayout.typography.dateSize = Math.max(20, postLayout.typography.dateSize + fontDelta);
+                typographyUpdated = true;
                 break;
             case 'distDeckCard': {
                 const current = Number(layoutDist.cards.leftRatio) || 0.54;
@@ -3847,6 +3858,7 @@ function resizeTemplateHandle(key, delta) {
                 break;
         }
         postEditorGuides = [];
+        if (typographyUpdated) syncTypographyControls();
         renderTemplateEditorOverlay();
         return;
     }
@@ -3860,6 +3872,9 @@ function resizeTemplateHandle(key, delta) {
             case 'title':
                 postLayout.title.w = Math.max(180, postLayout.title.w + delta);
                 postLayout.title.h = Math.max(90, postLayout.title.h + delta);
+                postLayout.typography.titleSize = Math.max(20, postLayout.typography.titleSize + fontDelta);
+                postLayout.typography.dateSize = Math.max(20, postLayout.typography.dateSize + fontDelta);
+                typographyUpdated = true;
                 break;
             case 'decklist': {
                 const cfg = ensureBlankMiddleDecklistLayout(postLayout);
@@ -3878,6 +3893,7 @@ function resizeTemplateHandle(key, delta) {
                 break;
         }
         postEditorGuides = [];
+        if (typographyUpdated) syncTypographyControls();
         renderTemplateEditorOverlay();
         return;
     }
@@ -3890,6 +3906,9 @@ function resizeTemplateHandle(key, delta) {
         case 'title':
             postLayout.title.w = Math.max(180, postLayout.title.w + delta);
             postLayout.title.h = Math.max(90, postLayout.title.h + delta);
+            postLayout.typography.titleSize = Math.max(20, postLayout.typography.titleSize + fontDelta);
+            postLayout.typography.dateSize = Math.max(20, postLayout.typography.dateSize + fontDelta);
+            typographyUpdated = true;
             break;
         case 'rows':
             postLayout.rowBorder.w = Math.max(500, postLayout.rowBorder.w + delta);
@@ -3935,6 +3954,7 @@ function resizeTemplateHandle(key, delta) {
             break;
     }
     postEditorGuides = [];
+    if (typographyUpdated) syncTypographyControls();
     renderTemplateEditorOverlay();
 }
 
