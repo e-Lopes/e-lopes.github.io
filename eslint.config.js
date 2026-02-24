@@ -12,7 +12,10 @@ module.exports = [
                 module: 'readonly',
                 process: 'readonly',
                 console: 'readonly',
-                URL: 'readonly'
+                URL: 'readonly',
+                URLSearchParams: 'readonly',
+                fetch: 'readonly',
+                setTimeout: 'readonly'
             }
         },
         rules: {
