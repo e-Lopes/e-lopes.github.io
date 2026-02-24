@@ -7,7 +7,9 @@
         "test": "node --test",
         "lint": "eslint \"**/*.js\"",
         "format": "prettier --write \"**/*.{js,css,html,md,json}\"",
-        "db:snapshot": "powershell -ExecutionPolicy Bypass -File scripts/export-supabase-schema.ps1"
+        "db:snapshot": "powershell -ExecutionPolicy Bypass -File scripts/export-supabase-schema.ps1",
+        "cards:sync-metadata": "node scripts/sync-card-metadata.js",
+        "cards:sync-metadata:apply": "node scripts/sync-card-metadata.js --update-decklist-cards"
     },
     "devDependencies": {
         "eslint": "^9.20.1",

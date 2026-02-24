@@ -1,5 +1,8 @@
 (function decklistBuilderPage() {
-    const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+    const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
+    const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com//card_images/digimon/';
+    const LEGACY_IMAGE_CODES = new Set(['BT6-084', 'BT23-077', 'BT7-083', 'ST12-13']);
+    const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
     const BLANK_MIDDLE_FALLBACK_BG = '../../icons/backgrounds/EX11.png';
@@ -7,7 +10,13 @@
     const RAW_DECK_CODE_WITH_SUFFIX_PATTERN =
         /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
     const MAX_COPIES_PER_CARD = 4;
-    const MAX_TOTAL_CARDS = 55;
+    const MAX_MAIN_DECK_CARDS = 50;
+    const MAX_DIGI_EGG_CARDS = 5;
+    const CARD_SEARCH_LIMIT = 40;
+    const CARD_SEARCH_PAGE_SIZE = 6;
+    const CARD_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+    const DECKLISTS_TABLE = 'decklists';
+    const DECKLIST_CARDS_TABLE = 'decklist_cards';
     const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
     const headers = window.createSupabaseHeaders
         ? window.createSupabaseHeaders()
@@ -15,10 +24,15 @@
 
     let entries = [];
     let context = { resultId: '', deck: '', player: '', store: '', date: '', format: '' };
+    let cardSearchResults = [];
+    let cardSearchPage = 1;
+    const cardDetailsByCode = new Map();
+    let cardHydrationToken = 0;
 
     document.addEventListener('DOMContentLoaded', async () => {
         bindActions();
         render([]);
+        renderCardSearchResults();
         await applyContextFromQuery();
     });
 
@@ -28,11 +42,19 @@
         const exportImageButton = document.getElementById('btnDecklistBuilderExportImage');
         const addButton = document.getElementById('btnDecklistBuilderAdd');
         const saveButton = document.getElementById('btnDecklistBuilderSave');
+        const sortCardsButton = document.getElementById('btnDecklistBuilderSortCards');
         const manualInput = document.getElementById('decklistBuilderManualCode');
         const importCancelButton = document.getElementById('btnDecklistImportCancel');
         const importConfirmButton = document.getElementById('btnDecklistImportConfirm');
         const importCloseButton = document.getElementById('btnDecklistImportClose');
         const importModal = document.getElementById('decklistImportModal');
+        const zoomModal = document.getElementById('deckCardZoomModal');
+        const zoomCloseButton = document.getElementById('btnDeckCardZoomClose');
+        const zoomImage = document.getElementById('deckCardZoomImage');
+        const cardSearchButton = document.getElementById('btnCardSearch');
+        const cardSearchResetButton = document.getElementById('btnCardSearchReset');
+        const cardSearchNameInput = document.getElementById('cardSearchName');
+        const cardSearchCostInput = document.getElementById('cardSearchPlayCost');
 
         if (importButton) {
             importButton.addEventListener('click', () => openImportModal());
@@ -49,6 +71,11 @@
         if (saveButton) {
             saveButton.addEventListener('click', () => saveDecklist());
         }
+        if (sortCardsButton) {
+            sortCardsButton.addEventListener('click', () => {
+                void sortDeckCards();
+            });
+        }
         if (importCancelButton) {
             importCancelButton.addEventListener('click', () => closeImportModal());
         }
@@ -61,6 +88,49 @@
         if (importModal) {
             importModal.addEventListener('click', (event) => {
                 if (event.target === importModal) closeImportModal();
+            });
+        }
+        if (zoomModal) {
+            zoomModal.addEventListener('click', (event) => {
+                if (event.target === zoomModal) closeCardZoomModal();
+            });
+        }
+        if (zoomCloseButton) {
+            zoomCloseButton.addEventListener('click', () => closeCardZoomModal());
+        }
+        if (zoomImage) {
+            zoomImage.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                closeCardZoomModal();
+            });
+        }
+        if (cardSearchButton) {
+            cardSearchButton.addEventListener('click', () => {
+                void performCardSearch();
+            });
+        }
+        if (cardSearchResetButton) {
+            cardSearchResetButton.addEventListener('click', () => {
+                resetCardSearch();
+            });
+        }
+        if (cardSearchNameInput) {
+            cardSearchNameInput.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                void performCardSearch();
+            });
+        }
+        if (cardSearchCostInput) {
+            cardSearchCostInput.addEventListener('input', () => {
+                const raw = String(cardSearchCostInput.value || '').replace(/\D+/g, '');
+                const twoDigits = raw.slice(0, 2);
+                if (!twoDigits) {
+                    cardSearchCostInput.value = '';
+                    return;
+                }
+                const clamped = Math.max(0, Math.min(20, Number(twoDigits)));
+                cardSearchCostInput.value = String(clamped);
             });
         }
 
@@ -77,8 +147,44 @@
         }
 
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') closeImportModal();
+            if (event.key === 'Escape') {
+                closeImportModal();
+                closeCardZoomModal();
+            }
         });
+
+        const searchResultsRoot = document.getElementById('cardSearchResults');
+        if (searchResultsRoot) {
+            searchResultsRoot.addEventListener('click', (event) => {
+                const pageControl = event.target.closest('[data-search-page]');
+                if (pageControl) {
+                    const direction = String(pageControl.getAttribute('data-search-page') || '');
+                    const totalPages = Math.max(
+                        1,
+                        Math.ceil((Array.isArray(cardSearchResults) ? cardSearchResults.length : 0) / CARD_SEARCH_PAGE_SIZE)
+                    );
+                    if (direction === 'prev') cardSearchPage = Math.max(1, cardSearchPage - 1);
+                    if (direction === 'next') cardSearchPage = Math.min(totalPages, cardSearchPage + 1);
+                    renderCardSearchResults();
+                    return;
+                }
+                const card = event.target.closest('.decklist-search-card[data-code]');
+                if (!card) return;
+                const code = normalizeDeckCode(card.getAttribute('data-code') || '');
+                if (!isValidDeckCode(code)) {
+                    setCardSearchStatus('Invalid card code returned by search.', 'warn');
+                    return;
+                }
+                const changed = tryUpsertEntry(code, 1, buildEntryMetaFromCard(cardSearchResults.find((item) => normalizeDeckCode(item?.card_code || item?.id || '') === code)));
+                if (changed.error) {
+                    render([changed.error]);
+                    return;
+                }
+                setSaveStatus('');
+                render([]);
+                setCardSearchStatus(`${code} added to decklist.`, 'ok');
+            });
+        }
     }
 
     async function applyContextFromQuery() {
@@ -97,7 +203,7 @@
         context.date = date;
         context.format = format;
         if (!context.resultId) {
-            setSaveStatus('Selecione um resultado na tela Full Results para salvar no banco.', 'warn');
+            setSaveStatus('Select a result in Full Results to save this decklist.', 'warn');
         }
 
         renderContextMeta({ deck, player, store, date, format });
@@ -114,7 +220,7 @@
             { label: 'Deck', value: meta.deck || '-' },
             { label: 'Player', value: meta.player || '-' },
             { label: 'Store', value: meta.store || '-' },
-            { label: 'Data', value: formattedDate || '-' },
+            { label: 'Date', value: formattedDate || '-' },
             { label: 'Format', value: meta.format || '-' }
         ];
 
@@ -154,12 +260,208 @@
         modal.setAttribute('aria-hidden', 'true');
     }
 
+    async function openCardZoomModal(code) {
+        const modal = document.getElementById('deckCardZoomModal');
+        const image = document.getElementById('deckCardZoomImage');
+        const metaTitle = document.getElementById('deckCardZoomMetaTitle');
+        const metaBody = document.getElementById('deckCardZoomMetaBody');
+        if (!modal || !image) return;
+        const normalized = normalizeDeckCode(code || '');
+        if (!isValidDeckCode(normalized)) return;
+        image.src = getCardZoomImageUrl(normalized);
+        image.alt = `Card preview ${normalized}`;
+        if (metaTitle) metaTitle.textContent = normalized;
+        if (metaBody) metaBody.innerHTML = '<div class="deck-card-zoom-meta-loading">Loading metadata...</div>';
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+
+        const details = await ensureCardDetailsForZoom(normalized);
+        if (metaTitle) {
+            const cardName = String(details?.name || normalized).trim();
+            metaTitle.textContent = `${cardName} (${normalized})`;
+        }
+        if (metaBody) {
+            metaBody.innerHTML = buildCardZoomMetadataHtml(normalized, details);
+        }
+    }
+
+    function closeCardZoomModal() {
+        const modal = document.getElementById('deckCardZoomModal');
+        const image = document.getElementById('deckCardZoomImage');
+        const metaTitle = document.getElementById('deckCardZoomMetaTitle');
+        const metaBody = document.getElementById('deckCardZoomMetaBody');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        if (image) image.src = '';
+        if (metaTitle) metaTitle.textContent = '';
+        if (metaBody) metaBody.innerHTML = '';
+    }
+
+    async function ensureCardDetailsForZoom(code) {
+        const normalized = normalizeDeckCode(code || '');
+        const cached = cardDetailsByCode.get(normalized);
+        const cachedPayload =
+            cached?.card_payload && typeof cached.card_payload === 'object' ? cached.card_payload : null;
+        if (cached && hasRichApiPayload(cachedPayload)) {
+            return cached;
+        }
+        const rows = await fetchCardsFromDigimonApi([normalized]);
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return cached || { card_code: normalized, name: normalized, card_payload: {} };
+        }
+        const row = rows[0];
+        const nowIso = new Date().toISOString();
+        const merged = {
+            ...(cached || {}),
+            ...row,
+            card_code: normalized,
+            updated_at: nowIso
+        };
+        cardDetailsByCode.set(normalized, merged);
+        return merged;
+    }
+
+    function hasRichApiPayload(payload) {
+        if (!payload || typeof payload !== 'object') return false;
+        const meaningfulKeys = [
+            'id',
+            'name',
+            'play_cost',
+            'evolution_cost',
+            'evolution_color',
+            'main_effect',
+            'source_effect',
+            'alt_effect',
+            'rarity',
+            'series',
+            'set_name',
+            'tcgplayer_id'
+        ];
+        return meaningfulKeys.some((key) => {
+            const value = payload[key];
+            if (value === null || value === undefined) return false;
+            if (Array.isArray(value)) return value.length > 0;
+            return String(value).trim() !== '';
+        });
+    }
+
+    function buildCardZoomMetadataHtml(code, details) {
+        const payload = details?.card_payload && typeof details.card_payload === 'object' ? details.card_payload : {};
+        const firstPresent = (...values) =>
+            values.find((value) => value !== null && value !== undefined && String(value).trim() !== '');
+        const joinUniqueSlash = (...values) => {
+            const seen = new Set();
+            const parts = [];
+            values.forEach((value) => {
+                const text = String(value ?? '').trim();
+                if (!text) return;
+                const key = text.toLowerCase();
+                if (seen.has(key)) return;
+                seen.add(key);
+                parts.push(text);
+            });
+            return parts.join(' / ');
+        };
+        const normalizeEffectText = (value) =>
+            String(value || '')
+                .replace(/Security Effect\s*\[Security\]/gi, '[Security]')
+                .trim();
+        const normalizedType = normalizeCardType(firstPresent(details?.type, payload?.type));
+        const showLevel = normalizedType !== 'tamer' && normalizedType !== 'option';
+        const playCostLabel = normalizedType === 'option' ? 'Use Cost' : 'Play Cost';
+        const mergedColor = joinUniqueSlash(firstPresent(details?.color, payload?.color), payload?.color2);
+        const mergedTrait = joinUniqueSlash(
+            firstPresent(payload?.digi_type, payload?.digitype),
+            payload?.digi_type2,
+            payload?.digi_type3,
+            payload?.digi_type4
+        );
+
+        const items = [
+            { label: 'Card Type', value: firstPresent(details?.type, payload?.type) },
+            { label: 'Color', value: mergedColor },
+            { label: 'Digivolve Color', value: firstPresent(payload?.evo_color, payload?.digivolve_color, payload?.evocolor, payload?.evolution_color) },
+            { label: 'Digivolve Level', value: firstPresent(payload?.evolution_level) },
+            { label: 'Digivolve From', value: firstPresent(payload?.digivolve_from, payload?.evolution_from) },
+            { label: playCostLabel, value: firstPresent(details?.play_cost, payload?.play_cost, payload?.playcost) },
+            { label: 'Digivolve Cost', value: firstPresent(payload?.evo_cost, payload?.evolution_cost, payload?.evocost) },
+            { label: 'Level', value: showLevel ? firstPresent(details?.level, payload?.level) : null },
+            { label: 'Power', value: firstPresent(payload?.dp, payload?.power) },
+            { label: 'Trait', value: mergedTrait },
+            { label: 'Form', value: firstPresent(payload?.form) },
+            { label: 'Attribute', value: firstPresent(payload?.attribute) },
+            { label: 'Stage Level', value: firstPresent(payload?.stage) },
+            { label: 'Rarity', value: firstPresent(details?.rarity, payload?.rarity) },
+            { label: 'Artist', value: firstPresent(payload?.artist) },
+            { label: 'Pack', value: firstPresent(details?.pack, payload?.pack) }
+        ].filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== '');
+
+        const textBlocks = [
+            { label: 'Effect', value: normalizeEffectText(firstPresent(payload?.main_effect, payload?.effect)) },
+            { label: 'Inherited Effect', value: normalizeEffectText(firstPresent(payload?.source_effect, payload?.inherited_effect)) },
+            { label: 'Security Effect', value: normalizeEffectText(firstPresent(payload?.security_effect)) },
+            { label: 'Alt Effect', value: normalizeEffectText(firstPresent(payload?.alt_effect)) },
+            { label: 'Source', value: firstPresent(payload?.pack, details?.pack) },
+            { label: 'Notes', value: firstPresent(payload?.notes) }
+        ].filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== '');
+
+        if (items.length === 0 && textBlocks.length === 0) {
+            return '<div class="deck-card-zoom-meta-loading">No metadata found.</div>';
+        }
+
+        const rowsHtml = `
+            <div class="deck-card-zoom-meta-grid">
+                ${items
+                    .map(
+                        (item) => `
+                            <div class="deck-card-zoom-meta-cell">
+                                <span class="deck-card-zoom-meta-label">${escapeHtml(item.label)}</span>
+                                <strong class="deck-card-zoom-meta-value">${escapeHtml(item.value)}</strong>
+                            </div>
+                        `
+                    )
+                    .join('')}
+            </div>
+        `;
+        const textHtml = textBlocks
+            .map(
+                (item) => `
+                    <div class="deck-card-zoom-meta-block">
+                        <div class="deck-card-zoom-meta-block-title">${escapeHtml(item.label)}</div>
+                        <div class="deck-card-zoom-meta-block-text">${escapeHtml(item.value)}</div>
+                    </div>
+                `
+            )
+            .join('');
+
+        return `${rowsHtml}${textHtml}`;
+    }
+
+    function formatApiRawValue(value) {
+        if (value === null) return 'null';
+        if (value === undefined) return 'undefined';
+        if (Array.isArray(value)) {
+            if (value.length === 0) return '[]';
+            return value.map((item) => (item === null ? 'null' : String(item))).join('\n');
+        }
+        if (typeof value === 'object') {
+            try {
+                return JSON.stringify(value, null, 2);
+            } catch {
+                return String(value);
+            }
+        }
+        if (value === '') return '""';
+        return String(value);
+    }
+
     function importDecklistFromModal() {
         const textarea = document.getElementById('decklistImportTextarea');
         if (!textarea) return;
 
         const pasted = textarea.value || '';
-        const result = parseDecklistText(pasted);
+        const result = parseDecklistText(pasted, { enforceLimits: true });
         entries = result.entries;
         setSaveStatus('');
         render(result.errors);
@@ -173,35 +475,35 @@
             return;
         }
         if (entries.length === 0) {
-            render(['Nao ha cartas para exportar.']);
+            render(['No cards to export.']);
             return;
         }
 
         const decklistText = serializeDecklist(entries);
         try {
             await navigator.clipboard.writeText(decklistText);
-            setSaveStatus('Decklist copiada para a area de transferencia.', 'ok');
+            setSaveStatus('Decklist copied to clipboard.', 'ok');
         } catch {
-            setSaveStatus('Nao foi possivel copiar automaticamente.', 'warn');
-            window.prompt('Copie manualmente a decklist abaixo:', decklistText);
+            setSaveStatus('Could not copy automatically.', 'warn');
+            window.prompt('Copy this decklist manually:', decklistText);
         }
     }
 
     async function exportDeckAsImage() {
         if (entries.length === 0) {
-            render(['Nao ha cartas para exportar como imagem.']);
+            render(['No cards to export as an image.']);
             return;
         }
 
         const exportImageButton = document.getElementById('btnDecklistBuilderExportImage');
         if (exportImageButton) exportImageButton.disabled = true;
-        setSaveStatus('Gerando imagem da decklist...', 'info');
+        setSaveStatus('Generating decklist image...', 'info');
 
         try {
             const canvas = await buildDeckImageCanvas(entries);
             const filename = buildDeckImageFilename();
             const blob = await canvasToBlob(canvas);
-            if (!blob) throw new Error('Falha ao gerar blob da imagem.');
+            if (!blob) throw new Error('Failed to generate image blob.');
 
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -211,10 +513,10 @@
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            setSaveStatus('Imagem exportada com sucesso.', 'ok');
+            setSaveStatus('Image exported successfully.', 'ok');
         } catch (error) {
-            setSaveStatus('Erro ao exportar imagem.', 'error');
-            render([error?.message || 'Falha ao exportar imagem da decklist.']);
+            setSaveStatus('Failed to export image.', 'error');
+            render([error?.message || 'Failed to export decklist image.']);
         } finally {
             if (exportImageButton) exportImageButton.disabled = false;
         }
@@ -260,7 +562,7 @@
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Nao foi possivel criar o canvas.');
+        if (!ctx) throw new Error('Could not create canvas.');
 
         await drawDeckImageBackground(ctx, width, height);
 
@@ -497,8 +799,21 @@
             image.crossOrigin = 'anonymous';
             image.onload = () => resolve(image);
             image.onerror = () => resolve(null);
-            image.src = `${IMAGE_BASE_URL}${code}.webp`;
+            image.src = getCardImageUrl(code);
         });
+    }
+
+    function getCardImageUrl(rawCode) {
+        const code = normalizeDeckCode(rawCode || '');
+        if (LEGACY_IMAGE_CODES.has(code)) {
+            return `${LEGACY_IMAGE_BASE_URL}${code}.webp`;
+        }
+        return `${IMAGE_BASE_URL}${code}.webp`;
+    }
+
+    function getCardZoomImageUrl(rawCode) {
+        const code = normalizeDeckCode(rawCode || '');
+        return `${LEGACY_IMAGE_BASE_URL}${code}.webp`;
     }
 
     async function loadBrandLogoImage() {
@@ -574,6 +889,260 @@
         return `${baseName || 'decklist'}-${dateSuffix}.png`;
     }
 
+    function getCardSearchFilters() {
+        const rawPlayCost = String(document.getElementById('cardSearchPlayCost')?.value || '').trim();
+        let normalizedPlayCost = '';
+        if (rawPlayCost) {
+            const numericCost = Number(rawPlayCost);
+            if (Number.isFinite(numericCost)) {
+                const clamped = Math.max(0, Math.min(20, Math.trunc(numericCost)));
+                normalizedPlayCost = String(clamped);
+            }
+        }
+        const playCostInput = document.getElementById('cardSearchPlayCost');
+        if (playCostInput && rawPlayCost !== normalizedPlayCost && normalizedPlayCost) {
+            playCostInput.value = normalizedPlayCost;
+        }
+        return {
+            n: String(document.getElementById('cardSearchName')?.value || '').trim(),
+            color: String(document.getElementById('cardSearchColor')?.value || '').trim(),
+            type: String(document.getElementById('cardSearchType')?.value || '').trim(),
+            level: String(document.getElementById('cardSearchLevel')?.value || '').trim(),
+            playcost: normalizedPlayCost,
+            rarity: String(document.getElementById('cardSearchRarity')?.value || '').trim()
+        };
+    }
+
+    function hasAnySearchFilter(filters) {
+        return Boolean(
+            filters &&
+                (filters.n ||
+                    filters.color ||
+                    filters.type ||
+                    filters.level ||
+                    filters.playcost ||
+                    filters.rarity)
+        );
+    }
+
+    async function performCardSearch() {
+        const filters = getCardSearchFilters();
+        if (!hasAnySearchFilter(filters)) {
+            setCardSearchStatus('Provide at least one filter before searching.', 'warn');
+            cardSearchResults = [];
+            renderCardSearchResults();
+            return;
+        }
+
+        const searchButton = document.getElementById('btnCardSearch');
+        if (searchButton) searchButton.disabled = true;
+        setCardSearchStatus('Searching cards...', 'info');
+
+        try {
+            const params = new URLSearchParams();
+            if (filters.n) params.set('n', filters.n);
+            if (filters.color) params.set('color', filters.color);
+            if (filters.type) params.set('type', filters.type);
+            if (filters.level) params.set('level', filters.level);
+            if (filters.playcost) params.set('playcost', filters.playcost);
+            if (filters.rarity) params.set('rarity', filters.rarity);
+            params.set('sort', 'name');
+            params.set('sortdirection', 'asc');
+            params.set('limit', String(CARD_SEARCH_LIMIT));
+
+            const response = await fetch(`${DIGIMON_CARD_API_URL}?${params.toString()}`);
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                const apiError = String(payload?.error || `Search failed (${response.status}).`);
+                throw new Error(apiError);
+            }
+
+            const rows = Array.isArray(payload) ? payload : [];
+            const normalized = [];
+            const usedCodes = new Set();
+            const nowIso = new Date().toISOString();
+
+            rows.forEach((row) => {
+                const code = normalizeDeckCode(row?.id || row?.card || '');
+                if (!isValidDeckCode(code)) return;
+                if (usedCodes.has(code)) return;
+                usedCodes.add(code);
+                const mapped = {
+                    card_code: code,
+                    id: row?.id || code,
+                    name: row?.name || code,
+                    pack: row?.pack || '',
+                    color: row?.color || '',
+                    type: row?.type || '',
+                    level: row?.level ?? '',
+                    play_cost: row?.play_cost ?? null,
+                    rarity: row?.rarity || '',
+                    card_payload: row || {}
+                };
+                normalized.push(mapped);
+                cardDetailsByCode.set(code, { ...mapped, updated_at: nowIso });
+            });
+
+            cardSearchResults = normalized;
+            cardSearchPage = 1;
+            renderCardSearchResults();
+            if (cardSearchResults.length === 0) {
+                setCardSearchStatus('No cards found for the current filters.', 'warn');
+            } else {
+                setCardSearchStatus(`${cardSearchResults.length} cards found. Click a card to include in the deck.`, 'ok');
+            }
+        } catch (error) {
+            cardSearchResults = [];
+            cardSearchPage = 1;
+            renderCardSearchResults();
+            setCardSearchStatus(error?.message || 'Error while searching cards.', 'error');
+        } finally {
+            if (searchButton) searchButton.disabled = false;
+        }
+    }
+
+    function resetCardSearch() {
+        const controls = [
+            'cardSearchName',
+            'cardSearchColor',
+            'cardSearchType',
+            'cardSearchLevel',
+            'cardSearchPlayCost',
+            'cardSearchRarity'
+        ];
+        controls.forEach((id) => {
+            const input = document.getElementById(id);
+            if (!input) return;
+            input.value = '';
+        });
+        cardSearchResults = [];
+        cardSearchPage = 1;
+        renderCardSearchResults();
+        setCardSearchStatus('');
+    }
+
+    async function sortDeckCards() {
+        if (!Array.isArray(entries) || entries.length <= 1) {
+            setSaveStatus('Not enough cards to sort.', 'warn');
+            return;
+        }
+
+        const button = document.getElementById('btnDecklistBuilderSortCards');
+        if (button) button.disabled = true;
+        setSaveStatus('Sorting cards...', 'info');
+
+        try {
+            await hydrateCardMetadata(entries, { allowRerender: false });
+            const previousOrder = entries.map((entry) => entry.code).join('|');
+            const sorted = [...entries].sort(compareDeckEntries);
+            const nextOrder = sorted.map((entry) => entry.code).join('|');
+            if (previousOrder === nextOrder) {
+                setSaveStatus('Decklist is already sorted.', 'ok');
+                return;
+            }
+            entries = sorted;
+            render([]);
+            setSaveStatus('Cards sorted successfully.', 'ok');
+        } catch (error) {
+            setSaveStatus(error?.message || 'Failed to sort cards.', 'error');
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    function buildEntryMetaFromCard(card) {
+        if (!card || typeof card !== 'object') return null;
+        const type = normalizeCardType(card?.type || card?.card_payload?.type);
+        const levelRaw = card?.level ?? card?.card_payload?.level;
+        const level = Number(levelRaw);
+        return {
+            cardType: mapTypeToDbLabel(type),
+            cardLevel: Number.isFinite(level) ? Math.trunc(level) : null,
+            isDigiEgg: type === 'digi-egg'
+        };
+    }
+
+    function renderCardSearchResults() {
+        const root = document.getElementById('cardSearchResults');
+        if (!root) return;
+        if (!Array.isArray(cardSearchResults) || cardSearchResults.length === 0) {
+            root.innerHTML = '<div class="decklist-search-empty">No search results yet.</div>';
+            return;
+        }
+
+        const totalPages = Math.max(1, Math.ceil(cardSearchResults.length / CARD_SEARCH_PAGE_SIZE));
+        cardSearchPage = Math.max(1, Math.min(totalPages, cardSearchPage));
+        const startIndex = (cardSearchPage - 1) * CARD_SEARCH_PAGE_SIZE;
+        const endIndex = startIndex + CARD_SEARCH_PAGE_SIZE;
+        const pageItems = cardSearchResults.slice(startIndex, endIndex);
+
+        const pagerHtml =
+            totalPages > 1
+                ? `
+                    <div class="decklist-search-pagination" aria-label="Search results pagination">
+                        <button type="button" class="decklist-search-page-btn" data-search-page="prev" ${
+                            cardSearchPage <= 1 ? 'disabled' : ''
+                        } aria-label="Previous page">&lt;</button>
+                        <span class="decklist-search-page-indicator">${cardSearchPage}/${totalPages}</span>
+                        <button type="button" class="decklist-search-page-btn" data-search-page="next" ${
+                            cardSearchPage >= totalPages ? 'disabled' : ''
+                        } aria-label="Next page">&gt;</button>
+                    </div>
+                `
+                : '';
+
+        root.innerHTML = `
+            ${pagerHtml}
+            <div class="decklist-search-results-grid">
+                ${pageItems
+            .map((card) => {
+                const code = normalizeDeckCode(card.card_code || card.id || '');
+
+                return `
+                    <article class="decklist-search-card" data-code="${escapeHtml(code)}">
+                        <img src="${getCardImageUrl(code)}" alt="${escapeHtml(card.name || code)}" />
+                        <div class="decklist-search-card-code">${escapeHtml(code)}</div>
+                    </article>
+                `;
+            })
+            .join('')}
+            </div>
+        `;
+
+        root.querySelectorAll('.decklist-search-card img').forEach((img) => {
+            img.addEventListener(
+                'error',
+                () => {
+                    const code = img.closest('.decklist-search-card')?.dataset.code || 'CODE';
+                    img.src = `https://via.placeholder.com/220x308/667eea/ffffff?text=${encodeURIComponent(code)}`;
+                },
+                { once: true }
+            );
+        });
+
+        root.querySelectorAll('.decklist-search-card[data-code]').forEach((card) => {
+            card.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                const code = String(card.getAttribute('data-code') || '');
+                void openCardZoomModal(code);
+            });
+        });
+    }
+
+    function setCardSearchStatus(message, type = '') {
+        const node = document.getElementById('cardSearchStatus');
+        if (!node) return;
+        node.textContent = message;
+        node.className = 'decklist-search-status';
+        if (type) node.classList.add(`is-${type}`);
+    }
+
     function addManualCode() {
         const codeInput = document.getElementById('decklistBuilderManualCode');
         if (!codeInput) return;
@@ -597,10 +1166,10 @@
 
     function changeCardQuantity(code, delta) {
         const normalizedCode = normalizeDeckCode(code);
-        if (!isValidDeckCode(normalizedCode)) return { error: 'Codigo de carta invalido.' };
+        if (!isValidDeckCode(normalizedCode)) return { error: 'Invalid card code.' };
 
         const existing = entries.find((item) => item.code === normalizedCode);
-        if (!existing) return { error: `Carta ${normalizedCode} nao encontrada.` };
+        if (!existing) return { error: `Card ${normalizedCode} not found.` };
 
         if (delta > 0) {
             return tryUpsertEntry(normalizedCode, 1);
@@ -628,47 +1197,72 @@
             .replace(/_.+$/, '');
     }
 
-    function tryUpsertEntry(code, qty) {
+    function tryUpsertEntry(code, qty, meta = null) {
         const existing = entries.find((item) => item.code === code);
         const currentQty = Number(existing?.count) || 0;
         if (currentQty + qty > MAX_COPIES_PER_CARD) {
-            return { error: '' };
+            return { error: `Max ${MAX_COPIES_PER_CARD} copies for ${code}.` };
         }
 
-        const totalCards = getTotalCards(entries);
-        if (totalCards + qty > MAX_TOTAL_CARDS) {
-            return { error: '' };
+        const nextEntries = entries.map((item) => ({ ...item }));
+        const existingIndex = nextEntries.findIndex((item) => item.code === code);
+        if (existingIndex >= 0) {
+            nextEntries[existingIndex].count += qty;
+        } else {
+            nextEntries.push(meta ? { code, count: qty, meta } : { code, count: qty });
+        }
+
+        const counts = getDeckCounts(nextEntries);
+        const candidateBucket = getEntryDeckBucket({ code, count: 1 });
+        if (candidateBucket === 'egg' && counts.digiEgg > MAX_DIGI_EGG_CARDS) {
+            return { error: `Digi-Egg limit reached (${MAX_DIGI_EGG_CARDS}).` };
+        }
+        if (candidateBucket !== 'egg' && counts.mainDeck > MAX_MAIN_DECK_CARDS) {
+            return { error: `Main deck limit reached (${MAX_MAIN_DECK_CARDS}).` };
         }
 
         if (existing) {
             existing.count += qty;
+            if (meta && (!existing.meta || typeof existing.meta !== 'object')) {
+                existing.meta = meta;
+            }
             return { error: '' };
         }
 
-        entries.push({ code, count: qty });
+        entries.push(meta ? { code, count: qty, meta } : { code, count: qty });
         return { error: '' };
     }
 
-    function parseDecklistText(rawText) {
+    function parseDecklistText(rawText, options = {}) {
+        const enforceLimits = options?.enforceLimits !== false;
         const text = String(rawText || '').trim();
         if (!text) return { entries: [], errors: [] };
 
         const jsonParsed = tryParseJsonArray(text);
         if (jsonParsed.length > 0) {
             const validated = validateAggregatedEntries(aggregateCodes(jsonParsed));
-            return { entries: enforceDeckLimits(validated.entries), errors: validated.errors };
+            return {
+                entries: enforceLimits ? enforceDeckLimits(validated.entries) : validated.entries,
+                errors: validated.errors
+            };
         }
 
         const lineParsed = parseByLines(text);
         if (lineParsed.entries.length > 0) {
             const validated = validateAggregatedEntries(lineParsed.entries, lineParsed.errors);
-            return { entries: enforceDeckLimits(validated.entries), errors: validated.errors };
+            return {
+                entries: enforceLimits ? enforceDeckLimits(validated.entries) : validated.entries,
+                errors: validated.errors
+            };
         }
 
         const repeated = parseRepeatedCodes(text);
         if (repeated.length > 0) {
             const validated = validateAggregatedEntries(aggregateCodes(repeated));
-            return { entries: enforceDeckLimits(validated.entries), errors: validated.errors };
+            return {
+                entries: enforceLimits ? enforceDeckLimits(validated.entries) : validated.entries,
+                errors: validated.errors
+            };
         }
 
         return { entries: [], errors: ['No valid deck codes found in the provided text.'] };
@@ -760,15 +1354,18 @@
 
     function enforceDeckLimits(sourceEntries) {
         const limited = [];
-        let runningTotal = 0;
+        let runningMainDeck = 0;
+        let runningDigiEgg = 0;
         sourceEntries.forEach((item) => {
-            if (runningTotal >= MAX_TOTAL_CARDS) return;
             const normalizedQty = Math.max(0, Math.min(MAX_COPIES_PER_CARD, Number(item.count) || 0));
             if (normalizedQty <= 0) return;
-            const allowedQty = Math.min(normalizedQty, MAX_TOTAL_CARDS - runningTotal);
+            const bucket = getEntryDeckBucket(item);
+            const remaining = bucket === 'egg' ? MAX_DIGI_EGG_CARDS - runningDigiEgg : MAX_MAIN_DECK_CARDS - runningMainDeck;
+            const allowedQty = Math.min(normalizedQty, Math.max(0, remaining));
             if (allowedQty <= 0) return;
             limited.push({ code: item.code, count: allowedQty });
-            runningTotal += allowedQty;
+            if (bucket === 'egg') runningDigiEgg += allowedQty;
+            else runningMainDeck += allowedQty;
         });
         return limited;
     }
@@ -777,18 +1374,92 @@
         return sourceEntries.reduce((acc, item) => acc + (Number(item.count) || 0), 0);
     }
 
+    function getDeckCounts(sourceEntries) {
+        let digiEgg = 0;
+        let mainDeck = 0;
+        (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((item) => {
+            const qty = Number(item?.count) || 0;
+            if (qty <= 0) return;
+            if (getEntryDeckBucket(item) === 'egg') digiEgg += qty;
+            else mainDeck += qty;
+        });
+        return { digiEgg, mainDeck, total: digiEgg + mainDeck };
+    }
+
     async function loadExistingDecklist() {
         if (!context.resultId || !SUPABASE_URL) return false;
-        const fetched = await fetchDecklistFromResult(context.resultId);
+        const structured = await fetchDecklistFromStructured(context.resultId);
+        if (structured) {
+            entries = structured.entries;
+            seedEntriesMetadataInMemory(entries);
+            await hydrateCardMetadata(entries, { allowRerender: false });
+            render([]);
+            return true;
+        }
+
+        const fetched = await fetchDecklistFromLegacyColumn(context.resultId);
         if (!fetched || !fetched.decklistText) return false;
 
-        const parsed = parseDecklistText(fetched.decklistText);
+        const parsed = parseDecklistText(fetched.decklistText, { enforceLimits: false });
         entries = parsed.entries;
+        await hydrateCardMetadata(entries, { allowRerender: false });
         render(parsed.errors);
         return true;
     }
 
-    async function fetchDecklistFromResult(resultId) {
+    async function fetchDecklistFromStructured(resultId) {
+        try {
+            const decklistRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/${DECKLISTS_TABLE}?tournament_result_id=eq.${encodeURIComponent(resultId)}&select=id&limit=1`,
+                { headers }
+            );
+            if (!decklistRes.ok) return null;
+            const decklists = await decklistRes.json();
+            const decklistId = Number(decklists?.[0]?.id);
+            if (!Number.isFinite(decklistId) || decklistId <= 0) return null;
+
+            const baseQuery = `${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}?decklist_id=eq.${decklistId}&select=position,card_code,qty,card_type,card_level,is_digi_egg&order=position.asc`;
+            const cardsRes = await fetch(baseQuery, { headers });
+            if (!cardsRes.ok) return null;
+            const rows = await cardsRes.json();
+
+            const nowIso = new Date().toISOString();
+            (Array.isArray(rows) ? rows : []).forEach((row) => {
+                const code = normalizeDeckCode(row?.card_code || '');
+                if (!isValidDeckCode(code)) return;
+                cardDetailsByCode.set(code, {
+                    ...(cardDetailsByCode.get(code) || {}),
+                    card_code: code,
+                    id: code,
+                    name: row?.name || code,
+                    pack: row?.pack || '',
+                    color: row?.color || '',
+                    type: row?.card_type || '',
+                    level: normalizeCardLevel(row?.card_level),
+                    card_payload: row?.card_payload || {},
+                    is_digi_egg: normalizeBoolean(row?.is_digi_egg),
+                    updated_at: nowIso
+                });
+            });
+
+            const parsedEntries = (Array.isArray(rows) ? rows : [])
+                .map((row) => ({
+                    code: normalizeDeckCode(row?.card_code || ''),
+                    count: Math.max(1, Math.min(MAX_COPIES_PER_CARD, Number(row?.qty) || 1)),
+                    meta: {
+                        cardType: String(row?.card_type || '').trim(),
+                        cardLevel: normalizeCardLevel(row?.card_level),
+                        isDigiEgg: normalizeBoolean(row?.is_digi_egg)
+                    }
+                }))
+                .filter((item) => isValidDeckCode(item.code));
+            return { entries: parsedEntries };
+        } catch {
+            return null;
+        }
+    }
+
+    async function fetchDecklistFromLegacyColumn(resultId) {
         const columns = ['decklist', 'decklist_link'];
         for (const columnName of columns) {
             try {
@@ -809,11 +1480,11 @@
 
     async function saveDecklist() {
         if (!context.resultId) {
-            render(['Este registro nao tem result_id para salvar.']);
+            render(['This record has no result_id to save.']);
             return;
         }
         if (!SUPABASE_URL) {
-            render(['Supabase nao configurado para salvar decklist.']);
+            render(['Supabase is not configured for decklist saving.']);
             return;
         }
 
@@ -825,24 +1496,177 @@
 
         const saveButton = document.getElementById('btnDecklistBuilderSave');
         if (saveButton) saveButton.disabled = true;
-        setSaveStatus('Salvando decklist...', 'info');
+        setSaveStatus('Saving decklist...', 'info');
 
         try {
             const decklistText = serializeDecklist(entries);
-            const saved = await patchDecklist(context.resultId, decklistText);
+            const saved = await saveDecklistStructured(context.resultId, entries);
             if (!saved) {
-                throw new Error('Falha ao salvar decklist nas colunas decklist/decklist_link.');
+                throw new Error('Failed to save normalized decklist.');
             }
-            setSaveStatus('Decklist salva com sucesso.', 'ok');
+            await patchDecklistLegacy(context.resultId, decklistText);
+            render([]);
+            setSaveStatus('Decklist saved successfully.', 'ok');
         } catch (error) {
-            setSaveStatus('Erro ao salvar decklist.', 'error');
-            render([error?.message || 'Falha ao salvar decklist.']);
+            setSaveStatus('Failed to save decklist.', 'error');
+            render([error?.message || 'Failed to save decklist.']);
         } finally {
             if (saveButton) saveButton.disabled = false;
         }
     }
 
-    async function patchDecklist(resultId, decklistText) {
+    async function saveDecklistStructured(resultId, sourceEntries) {
+        try {
+            const decklistId = await ensureDecklistRow(resultId);
+            if (!decklistId) return false;
+
+            const deleteRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}?decklist_id=eq.${decklistId}`,
+                {
+                    method: 'DELETE',
+                    headers
+                }
+            );
+            if (!deleteRes.ok) return false;
+
+            const rows = (Array.isArray(sourceEntries) ? sourceEntries : []).map((entry, index) => {
+                const metadata = getDecklistCardMetadata(entry);
+                return {
+                    decklist_id: decklistId,
+                    position: index + 1,
+                    card_code: normalizeDeckCode(entry.code),
+                    qty: Math.max(1, Math.min(MAX_COPIES_PER_CARD, Number(entry.count) || 1)),
+                    card_type: metadata.cardType,
+                    card_level: metadata.cardLevel,
+                    is_digi_egg: metadata.isDigiEgg
+                };
+            });
+            if (rows.length === 0) return true;
+
+            const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(rows)
+            });
+            return insertRes.ok;
+        } catch {
+            return false;
+        }
+    }
+
+    async function ensureDecklistRow(resultId) {
+        const existingRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/${DECKLISTS_TABLE}?tournament_result_id=eq.${encodeURIComponent(resultId)}&select=id&limit=1`,
+            { headers }
+        );
+        if (!existingRes.ok) return null;
+        const existingRows = await existingRes.json();
+        const existingId = Number(existingRows?.[0]?.id);
+        if (Number.isFinite(existingId) && existingId > 0) return existingId;
+
+        const createRes = await fetch(`${SUPABASE_URL}/rest/v1/${DECKLISTS_TABLE}`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify({ tournament_result_id: resultId, source: 'builder' })
+        });
+        if (!createRes.ok) return null;
+        const created = await createRes.json();
+        const createdId = Number(created?.[0]?.id);
+        return Number.isFinite(createdId) && createdId > 0 ? createdId : null;
+    }
+
+    function extractLevelFromGroupKey(groupKey) {
+        const raw = String(groupKey || '');
+        const match = raw.match(/^digimon-lv-(\d+)$/);
+        if (!match) return null;
+        const level = Number(match[1]);
+        return Number.isFinite(level) ? level : null;
+    }
+
+    function normalizeBoolean(value) {
+        if (value === true || value === false) return value;
+        const normalized = String(value || '')
+            .trim()
+            .toLowerCase();
+        if (!normalized) return false;
+        return normalized === 'true' || normalized === 't' || normalized === '1' || normalized === 'yes';
+    }
+
+    function normalizeCardLevel(value) {
+        const level = Number(value);
+        return Number.isFinite(level) ? level : null;
+    }
+
+    function getEntryMetadata(entry) {
+        const meta = entry?.meta;
+        if (!meta || typeof meta !== 'object') return {};
+        return meta;
+    }
+
+    function resolveEntryTypeAndLevel(entry) {
+        const code = normalizeDeckCode(entry?.code || '');
+        const entryMeta = getEntryMetadata(entry);
+        const details = cardDetailsByCode.get(code) || {};
+        const payload = details?.card_payload || {};
+        const isDigiEgg =
+            normalizeBoolean(entryMeta?.isDigiEgg) ||
+            normalizeBoolean(details?.is_digi_egg) ||
+            normalizeBoolean(payload?.is_digi_egg);
+        const normalizedType = normalizeCardType(
+            entryMeta?.cardType || details?.type || payload?.type
+        );
+        const type = isDigiEgg ? 'digi-egg' : normalizedType;
+        const level = normalizeCardLevel(entryMeta?.cardLevel ?? details?.level ?? payload?.level);
+        return { type, level, isDigiEgg };
+    }
+
+    function mapTypeToDbLabel(type) {
+        if (type === 'digi-egg') return 'Digi-Egg';
+        if (type === 'digimon') return 'Digimon';
+        if (type === 'tamer') return 'Tamer';
+        if (type === 'option') return 'Option';
+        return null;
+    }
+
+    function getDecklistCardMetadata(entry) {
+        const resolved = resolveEntryTypeAndLevel(entry);
+        return {
+            cardType: mapTypeToDbLabel(resolved.type),
+            cardLevel: Number.isFinite(resolved.level) ? resolved.level : null,
+            isDigiEgg: resolved.type === 'digi-egg'
+        };
+    }
+
+    function seedEntriesMetadataInMemory(sourceEntries) {
+        (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry) => {
+            const code = normalizeDeckCode(entry?.code || '');
+            if (!isValidDeckCode(code)) return;
+            const resolved = resolveEntryTypeAndLevel(entry);
+            if (!resolved.type && !Number.isFinite(resolved.level)) return;
+
+            const current = cardDetailsByCode.get(code) || {};
+            const currentPayload =
+                current?.card_payload && typeof current.card_payload === 'object' ? current.card_payload : {};
+            const nextPayload = { ...currentPayload };
+            if (resolved.type) nextPayload.type = mapTypeToDbLabel(resolved.type) || resolved.type;
+            if (Number.isFinite(resolved.level)) nextPayload.level = resolved.level;
+            if (resolved.type === 'digi-egg') nextPayload.is_digi_egg = true;
+            const nowIso = new Date().toISOString();
+
+            cardDetailsByCode.set(code, {
+                ...current,
+                card_code: code,
+                id: current?.id || code,
+                name: current?.name || code,
+                type: mapTypeToDbLabel(resolved.type) || current?.type || '',
+                level: Number.isFinite(resolved.level) ? resolved.level : current?.level ?? '',
+                card_payload: nextPayload,
+                updated_at: nowIso
+            });
+        });
+    }
+
+    async function patchDecklistLegacy(resultId, decklistText) {
         const candidates = ['decklist', 'decklist_link'];
         for (const columnName of candidates) {
             const res = await fetch(
@@ -855,7 +1679,7 @@
             );
             if (res.ok) return true;
         }
-        return false;
+        return true;
     }
 
     function serializeDecklist(sourceEntries) {
@@ -875,11 +1699,15 @@
     function render(errors) {
         const board = document.getElementById('decklistBuilderBoard');
         const stats = document.getElementById('decklistBuilderStats');
+        const breakdown = document.getElementById('decklistBuilderBreakdown');
         const errorBox = document.getElementById('decklistBuilderErrors');
         if (!board || !stats || !errorBox) return;
 
-        const totalCards = getTotalCards(entries);
-        stats.textContent = `Card count: ${totalCards} cards`;
+        const counts = getDeckCounts(entries);
+        stats.textContent = `Card count: ${counts.total} (${counts.mainDeck}+${counts.digiEgg}) cards`;
+        if (breakdown) {
+            breakdown.innerHTML = buildDeckGroupBreakdownHtml(entries);
+        }
 
         if (errors.length > 0) {
             errorBox.style.display = 'block';
@@ -899,11 +1727,10 @@
                 (entry) => `
                 <article class="decklist-builder-card" data-code="${escapeHtml(entry.code)}">
                     <div class="decklist-builder-count">${entry.count}</div>
-                    <img src="${IMAGE_BASE_URL}${entry.code}.webp" alt="${escapeHtml(entry.code)}" />
-                    <div class="decklist-builder-code-controls">
-                        <button type="button" class="decklist-builder-stepper-btn" data-action="decrease" data-code="${escapeHtml(entry.code)}" aria-label="Decrease ${escapeHtml(entry.code)}">-</button>
-                        <div class="decklist-builder-code">${entry.code}</div>
-                        <button type="button" class="decklist-builder-stepper-btn" data-action="increase" data-code="${escapeHtml(entry.code)}" aria-label="Increase ${escapeHtml(entry.code)}">+</button>
+                    <img src="${getCardImageUrl(entry.code)}" alt="${escapeHtml(entry.code)}" />
+                    <div class="decklist-builder-hover-controls">
+                        <button type="button" class="decklist-builder-stepper-btn is-increase" data-action="increase" data-code="${escapeHtml(entry.code)}" aria-label="Increase ${escapeHtml(entry.code)}">+</button>
+                        <button type="button" class="decklist-builder-stepper-btn is-decrease" data-action="decrease" data-code="${escapeHtml(entry.code)}" aria-label="Decrease ${escapeHtml(entry.code)}">-</button>
                     </div>
                 </article>
             `
@@ -935,6 +1762,361 @@
                 render([]);
             });
         });
+
+        board.querySelectorAll('.decklist-builder-card[data-code]').forEach((card) => {
+            card.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                const code = String(card.getAttribute('data-code') || '');
+                void openCardZoomModal(code);
+            });
+        });
+
+        void hydrateCardMetadata(entries);
+    }
+
+    function getCardTitle(code) {
+        const cached = cardDetailsByCode.get(String(code || '').toUpperCase());
+        if (!cached) return 'Loading card data...';
+        return cached.name || String(code || '').toUpperCase();
+    }
+
+    function getEntryGroupInfo(entry) {
+        const resolved = resolveEntryTypeAndLevel(entry);
+        const type = resolved.type;
+        const level = resolved.level;
+
+        if (type === 'digi-egg') return { key: 'digi-egg', label: 'Digi-Egg' };
+        if (type === 'digimon') {
+            if (Number.isFinite(level) && level >= 0) return { key: `digimon-lv-${level}`, label: `Digimon Lv${level}` };
+            return { key: 'digimon', label: 'Digimon' };
+        }
+        if (type === 'tamer') return { key: 'tamer', label: 'Tamers' };
+        if (type === 'option') return { key: 'option', label: 'Options' };
+        return { key: 'other', label: 'Other' };
+    }
+
+    function getEntryDeckBucket(entry) {
+        const info = getEntryGroupInfo(entry);
+        return info.key === 'digi-egg' ? 'egg' : 'main';
+    }
+
+    function summarizeDeckGroups(sourceEntries) {
+        const map = new Map();
+        (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry, index) => {
+            const info = getEntryGroupInfo(entry);
+            const current = map.get(info.key) || { key: info.key, label: info.label, count: 0, firstIndex: index };
+            current.count += Number(entry?.count) || 0;
+            if (index < current.firstIndex) current.firstIndex = index;
+            map.set(info.key, current);
+        });
+        return map;
+    }
+
+    function getDeckBreakdownMetrics(sourceEntries) {
+        const metrics = {
+            digiEgg: 0,
+            digimon: 0,
+            tamer: 0,
+            option: 0,
+            lv2: 0,
+            lv3: 0,
+            lv4: 0,
+            lv5: 0,
+            lv6: 0,
+            lv7p: 0
+        };
+
+        (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry) => {
+            const qty = Number(entry?.count) || 0;
+            if (qty <= 0) return;
+            const info = getEntryGroupInfo(entry);
+
+            if (info.key === 'digi-egg') {
+                metrics.digiEgg += qty;
+                return;
+            }
+            if (info.key === 'tamer') {
+                metrics.tamer += qty;
+                return;
+            }
+            if (info.key === 'option') {
+                metrics.option += qty;
+                return;
+            }
+            if (info.key.startsWith('digimon')) {
+                metrics.digimon += qty;
+                const level = extractLevelFromGroupKey(info.key);
+                if (level === 2) metrics.lv2 += qty;
+                else if (level === 3) metrics.lv3 += qty;
+                else if (level === 4) metrics.lv4 += qty;
+                else if (level === 5) metrics.lv5 += qty;
+                else if (level === 6) metrics.lv6 += qty;
+                else if (Number.isFinite(level) && level >= 7) metrics.lv7p += qty;
+            }
+        });
+
+        metrics.lv2 = metrics.digiEgg;
+        return metrics;
+    }
+
+    function buildBreakdownBarItem(item, maxValue) {
+        const value = Number(item?.value) || 0;
+        const ratio = maxValue > 0 ? value / maxValue : 0;
+        const height = Math.max(8, Math.round(8 + ratio * 30));
+        return `
+            <div class="decklist-builder-breakdown-bar" data-key="${escapeHtmlAttribute(item.key)}" title="${escapeHtml(item.label)}: ${value}">
+                <div class="decklist-builder-breakdown-bar-fill" style="height:${height}px"></div>
+                <div class="decklist-builder-breakdown-bar-value">${value}</div>
+                <div class="decklist-builder-breakdown-bar-label">${escapeHtml(item.label)}</div>
+            </div>
+        `;
+    }
+
+    function buildDeckGroupBreakdownHtml(sourceEntries) {
+        const m = getDeckBreakdownMetrics(sourceEntries);
+        const typeItems = [
+            { key: 'digi-egg', label: 'DigiEgg', value: m.digiEgg },
+            { key: 'digimon', label: 'Digimon', value: m.digimon },
+            { key: 'tamer', label: 'Tamer', value: m.tamer },
+            { key: 'option', label: 'Option', value: m.option }
+        ];
+        const levelItems = [
+            { key: 'lv2', label: 'Lv2', value: m.lv2 },
+            { key: 'lv3', label: 'Lv3', value: m.lv3 },
+            { key: 'lv4', label: 'Lv4', value: m.lv4 },
+            { key: 'lv5', label: 'Lv5', value: m.lv5 },
+            { key: 'lv6', label: 'Lv6', value: m.lv6 },
+            { key: 'lv7p', label: 'Lv7', value: m.lv7p }
+        ];
+        const maxValue = Math.max(
+            1,
+            ...typeItems.map((item) => item.value),
+            ...levelItems.map((item) => item.value)
+        );
+        return `
+            <div class="decklist-builder-breakdown-chart">
+                <div class="decklist-builder-breakdown-group">
+                    ${typeItems.map((item) => buildBreakdownBarItem(item, maxValue)).join('')}
+                </div>
+                <div class="decklist-builder-breakdown-divider" aria-hidden="true"></div>
+                <div class="decklist-builder-breakdown-group">
+                    ${levelItems.map((item) => buildBreakdownBarItem(item, maxValue)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    function isCacheFresh(item) {
+        if (!item) return false;
+        const timestamp = Date.parse(String(item.updated_at || ''));
+        if (Number.isNaN(timestamp)) return false;
+        return Date.now() - timestamp <= CARD_CACHE_TTL_MS;
+    }
+
+    function refreshRenderedCardTitles() {
+        const board = document.getElementById('decklistBuilderBoard');
+        if (!board) return;
+        board.querySelectorAll('.decklist-builder-card[data-code] img').forEach((img) => {
+            const code = String(img.closest('.decklist-builder-card')?.getAttribute('data-code') || '').toUpperCase();
+            const title = getCardTitle(code);
+            if (title && title !== 'Loading card data...') {
+                img.alt = `${title} (${code})`;
+            }
+        });
+    }
+
+    async function hydrateCardMetadata(sourceEntries, options = {}) {
+        const allowRerender = options?.allowRerender !== false;
+        const token = ++cardHydrationToken;
+        const initialBreakdownSignature = buildDeckGroupBreakdownHtml(entries);
+        const uniqueCodes = Array.from(
+            new Set(
+                sourceEntries
+                    .map((item) => normalizeDeckCode(item.code))
+                    .filter((code) => isValidDeckCode(code))
+            )
+        );
+        if (uniqueCodes.length === 0) return;
+
+        refreshRenderedCardTitles();
+
+        const staleOrMissing = uniqueCodes.filter((code) => !isCacheFresh(cardDetailsByCode.get(code)));
+        if (staleOrMissing.length === 0) return;
+
+        const apiRows = await fetchCardsFromDigimonApi(staleOrMissing);
+        if (token !== cardHydrationToken) return;
+
+        if (apiRows.length > 0) {
+            const nowIso = new Date().toISOString();
+            apiRows.forEach((row) => {
+                cardDetailsByCode.set(row.card_code, { ...row, updated_at: nowIso });
+            });
+            refreshRenderedCardTitles();
+            if (allowRerender && buildDeckGroupBreakdownHtml(entries) !== initialBreakdownSignature) {
+                render([]);
+                return;
+            }
+        }
+    }
+
+    function compareDeckEntries(leftEntry, rightEntry) {
+        const left = getEntrySortDescriptor(leftEntry);
+        const right = getEntrySortDescriptor(rightEntry);
+        if (left.group !== right.group) return left.group - right.group;
+        if (left.level !== right.level) return left.level - right.level;
+        if ((left.group === 1 || left.group === 2) && left.name !== right.name) {
+            return left.name.localeCompare(right.name);
+        }
+        const setCompare = compareSetSort(left.setSort, right.setSort);
+        if (setCompare !== 0) return setCompare;
+        if (left.serial !== right.serial) return left.serial - right.serial;
+        if (left.name !== right.name) return left.name.localeCompare(right.name);
+        return left.code.localeCompare(right.code);
+    }
+
+    function getEntrySortDescriptor(entry) {
+        const code = normalizeDeckCode(entry?.code || '');
+        const details = cardDetailsByCode.get(code) || null;
+        const resolved = resolveEntryTypeAndLevel(entry);
+        const type = resolved.type;
+        const rawLevel = resolved.level;
+        const digimonLevelSort = getDigimonLevelSort(rawLevel);
+        let group = 4;
+
+        if (type === 'digi-egg') {
+            group = 0;
+        } else if (type === 'digimon') {
+            group = 1;
+        } else if (type === 'tamer') {
+            group = 2;
+        } else if (type === 'option') {
+            group = 3;
+        }
+
+        return {
+            group,
+            level: group === 1 ? digimonLevelSort : 0,
+            setSort: parseCardSetSort(code),
+            serial: parseCardSerialNumber(code),
+            name: String(details?.name || '').trim().toLowerCase(),
+            code
+        };
+    }
+
+    function normalizeCardType(value) {
+        const normalized = String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/_/g, '-')
+            .replace(/\s+/g, '-');
+        if (normalized === 'digi-egg' || normalized === 'digitama') return 'digi-egg';
+        if (normalized === 'digimon') return 'digimon';
+        if (normalized === 'tamer') return 'tamer';
+        if (normalized === 'option') return 'option';
+        return '';
+    }
+
+    function getDigimonLevelSort(rawLevel) {
+        const level = Number(rawLevel);
+        if (!Number.isFinite(level)) return 99;
+        const explicitOrder = {
+            3: 0,
+            4: 1,
+            5: 2,
+            6: 3,
+            7: 4
+        };
+        if (Object.prototype.hasOwnProperty.call(explicitOrder, level)) {
+            return explicitOrder[level];
+        }
+        return 50 + Math.max(0, Math.trunc(level));
+    }
+
+    function parseCardSetSort(code) {
+        const normalized = String(code || '').trim().toUpperCase();
+        const prefix = normalized.split('-')[0] || '';
+        const match = prefix.match(/^([A-Z]+)(\d+)?$/);
+        if (!match) {
+            return { raw: prefix, family: prefix, familyRank: -1, setNumber: -1 };
+        }
+        const family = match[1] || prefix;
+        const number = Number(match[2] || '');
+        const familyRankMap = {
+            BT: 5,
+            EX: 4,
+            ST: 3,
+            P: 2,
+            LM: 1
+        };
+        return {
+            raw: prefix,
+            family,
+            familyRank: familyRankMap[family] ?? 0,
+            setNumber: Number.isFinite(number) ? number : -1
+        };
+    }
+
+    function compareSetSort(left, right) {
+        if ((left?.familyRank ?? 0) !== (right?.familyRank ?? 0)) {
+            return (right?.familyRank ?? 0) - (left?.familyRank ?? 0);
+        }
+        if ((left?.family || '') !== (right?.family || '')) {
+            return String(right?.family || '').localeCompare(String(left?.family || ''));
+        }
+        if ((left?.setNumber ?? -1) !== (right?.setNumber ?? -1)) {
+            return (right?.setNumber ?? -1) - (left?.setNumber ?? -1);
+        }
+        return String(right?.raw || '').localeCompare(String(left?.raw || ''));
+    }
+
+    function parseCardSerialNumber(code) {
+        const normalized = String(code || '').trim().toUpperCase();
+        const match = normalized.match(/-(\d{1,4})$/);
+        if (!match) return 9999;
+        const value = Number(match[1]);
+        return Number.isFinite(value) ? value : 9999;
+    }
+
+    async function fetchCardsFromDigimonApi(codes) {
+        const chunks = chunkArray(codes, 20);
+        const result = [];
+        const usedCodes = new Set();
+        for (const chunk of chunks) {
+            try {
+                const query = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length) });
+                const res = await fetch(`${DIGIMON_CARD_API_URL}?${query.toString()}`);
+                if (!res.ok) continue;
+                const rows = await res.json();
+                if (!Array.isArray(rows)) continue;
+                rows.forEach((row) => {
+                    const code = normalizeDeckCode(row?.id || row?.card || '');
+                    if (!code) return;
+                    if (usedCodes.has(code)) return;
+                    usedCodes.add(code);
+                    result.push({
+                        card_code: code,
+                        id: row?.id || code,
+                        name: row?.name || code,
+                        pack: row?.pack || '',
+                        color: row?.color || '',
+                        type: row?.type || '',
+                        card_payload: row || {}
+                    });
+                });
+            } catch {
+                continue;
+            }
+        }
+        return result;
+    }
+
+    function chunkArray(items, size) {
+        const source = Array.isArray(items) ? items : [];
+        const result = [];
+        for (let i = 0; i < source.length; i += size) {
+            result.push(source.slice(i, i + size));
+        }
+        return result;
     }
 
     function escapeHtml(value) {
@@ -942,5 +2124,9 @@
             const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
             return map[char] || char;
         });
+    }
+
+    function escapeHtmlAttribute(value) {
+        return escapeHtml(value).replace(/`/g, '&#96;');
     }
 })();

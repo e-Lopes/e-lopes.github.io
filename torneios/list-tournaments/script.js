@@ -213,9 +213,9 @@ let currentStoreChampionsPlayerQuery = '';
 let areStoreChampionsCardsCollapsed = true;
 let tournamentFormatIdSupported = true;
 const FALLBACK_FORMAT_OPTIONS = [
-    { id: null, code: 'BT23', isDefault: false },
-    { id: null, code: 'BT24', isDefault: false },
-    { id: null, code: 'EX11', isDefault: true }
+    { id: 1, code: 'BT23', isDefault: false },
+    { id: 2, code: 'BT24', isDefault: false },
+    { id: 3, code: 'EX11', isDefault: true }
 ];
 let tournamentFormats = [];
 let tournamentFormatsLoaded = false;
@@ -363,7 +363,21 @@ function getDefaultTournamentFormatCode() {
 }
 
 function getTournamentFormatCode(tournament) {
-    return normalizeFormatCode(tournament?.format_ref?.code || '');
+    const relation = tournament?.format_ref;
+    const relationCode = Array.isArray(relation) ? relation?.[0]?.code : relation?.code;
+    const fromRelation = normalizeFormatCode(relationCode || '');
+    if (fromRelation) return fromRelation;
+
+    const fromDirect = normalizeFormatCode(tournament?.format_code || tournament?.format || '');
+    if (fromDirect) return fromDirect;
+
+    const formatId = Number(tournament?.format_id ?? tournament?.formar_id);
+    if (Number.isFinite(formatId) && formatId > 0) {
+        const byId = tournamentFormats.find((item) => Number(item?.id) === formatId);
+        if (byId?.code) return normalizeFormatCode(byId.code);
+    }
+
+    return '';
 }
 
 async function loadTournamentFormats() {
@@ -596,6 +610,8 @@ async function loadTournaments() {
             'id,store_id,tournament_date,store:stores(name),tournament_name,total_players,instagram_link';
         const selectWithFormatAndId = `${baseSelect},format_id,format_ref:formats!tournament_format_id_fkey(code)`;
         const selectWithFormatId = `${baseSelect},format_id`;
+        const selectWithLegacyFormatId = `${baseSelect},formar_id`;
+        let usedLegacyFormatId = false;
         let res = await fetch(
             `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithFormatAndId)}&order=tournament_date.desc`,
             { headers }
@@ -608,6 +624,15 @@ async function loadTournaments() {
         }
         if (!res.ok) {
             res = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(selectWithLegacyFormatId)}&order=tournament_date.desc`,
+                { headers }
+            );
+            if (res.ok) {
+                usedLegacyFormatId = true;
+            }
+        }
+        if (!res.ok) {
+            res = await fetch(
                 `${SUPABASE_URL}/rest/v1/tournament?select=${encodeURIComponent(baseSelect)}&order=tournament_date.desc`,
                 { headers }
             );
@@ -616,7 +641,14 @@ async function loadTournaments() {
             tournamentFormatIdSupported = true;
         }
         if (!res.ok) throw new Error('Erro ao carregar torneios.');
-        tournaments = await res.json();
+        const rows = await res.json();
+        tournaments = (Array.isArray(rows) ? rows : []).map((row) => ({
+            ...row,
+            format_id: row?.format_id ?? row?.formar_id ?? null
+        }));
+        if (usedLegacyFormatId) {
+            tournamentFormatIdSupported = false;
+        }
         populateFilterOptions();
     } catch (err) {
         console.error(err);
@@ -2463,15 +2495,20 @@ function openCalendarTournamentDetails(eventData) {
     container.classList.remove('is-hidden');
     container.innerHTML = `<div class="details-block">Loading details...</div>`;
 
-    const tournament = {
+    const fallbackTournament = {
         id: eventData.id || '',
         store_id: eventData.storeId || '',
         tournament_date: eventData.tournamentDate || '',
         tournament_name: eventData.tournamentName || 'Tournament',
         total_players: eventData.totalPlayers || '',
+        format_id: eventData.formatId || null,
+        format: eventData.format || eventData.formatCode || '',
         store: { name: eventData.storeName || 'Store' }
     };
-    renderTournamentDetails(tournament, container);
+    const matchedTournament = tournaments.find(
+        (item) => String(item?.id || '') === String(eventData.id || '')
+    );
+    renderTournamentDetails(matchedTournament || fallbackTournament, container);
 }
 
 function setupPerPageSelector() {

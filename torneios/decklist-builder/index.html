@@ -11,20 +11,27 @@
     </head>
     <body>
         <div class="container">
-            <div>
-                <a href="../../index.html" class="nav-button">
-                    <span>&larr; Back to Dashboard</span>
-                </a>
-            </div>
-
             <header class="decklist-builder-header">
-                <h1>Deck Builder</h1>
+                <div class="decklist-builder-header-main">
+                    <a href="../../index.html" class="nav-button decklist-builder-back-nav">
+                        <span>&larr; Back to Dashboard</span>
+                    </a>
+                    <h1>Deck Builder</h1>
+                </div>
                 <div id="decklistBuilderMeta" class="decklist-builder-meta" aria-live="polite"></div>
             </header>
 
             <section class="decklist-builder-panel">
                 <div class="decklist-builder-top">
-                    <div id="decklistBuilderStats" class="decklist-builder-stats">0 cards</div>
+                    <div class="decklist-builder-stats-wrap">
+                        <div class="decklist-builder-stats-row">
+                            <div id="decklistBuilderStats" class="decklist-builder-stats">0 cards</div>
+                            <button type="button" id="btnDecklistBuilderSortCards" class="btn-secondary">
+                                Sort by Level
+                            </button>
+                        </div>
+                        <div id="decklistBuilderBreakdown" class="decklist-builder-breakdown" aria-live="polite"></div>
+                    </div>
                     <div class="decklist-builder-top-actions">
                         <button type="button" id="btnDecklistBuilderImport" class="btn-secondary">
                             Import decklist
@@ -41,25 +48,68 @@
                     </div>
                 </div>
                 <div id="decklistBuilderSaveStatus" class="decklist-builder-save-status" aria-live="polite"></div>
-
-                <div class="decklist-builder-manual">
-                    <label for="decklistBuilderManualCode">Add by code</label>
-                    <div class="decklist-builder-manual-row">
-                        <input
-                            type="text"
-                            id="decklistBuilderManualCode"
-                            class="form-input"
-                            placeholder="BT22-001"
-                            autocomplete="off"
-                        />
-                        <button type="button" id="btnDecklistBuilderAdd" class="btn-primary">
-                            Add
-                        </button>
+                <div class="decklist-builder-zoom-hint">Tip: right-click a card to preview full art or close the preview.</div>
+                <div class="decklist-builder-workspace">
+                    <div class="decklist-builder-main">
+                        <div id="decklistBuilderErrors" class="decklist-builder-errors" role="status"></div>
+                        <div id="decklistBuilderBoard" class="decklist-builder-board" aria-live="polite"></div>
                     </div>
-                </div>
 
-                <div id="decklistBuilderErrors" class="decklist-builder-errors" role="status"></div>
-                <div id="decklistBuilderBoard" class="decklist-builder-board" aria-live="polite"></div>
+                    <aside class="decklist-builder-side">
+                        <section class="decklist-search-panel" aria-labelledby="decklistSearchTitle">
+                            <div class="decklist-search-header">
+                                <h2 id="decklistSearchTitle">Card Search</h2>
+                            </div>
+                            <div class="decklist-search-filters">
+                                <input type="text" id="cardSearchName" class="form-input" placeholder="Name (ex: Agumon)" />
+                                <select id="cardSearchColor" class="form-input">
+                                    <option value="">Color: All</option>
+                                    <option value="Colorless">-</option>
+                                    <option value="Red">R</option>
+                                    <option value="Blue">U</option>
+                                    <option value="Yellow">Y</option>
+                                    <option value="Green">G</option>
+                                    <option value="White">W</option>
+                                    <option value="Black">B</option>
+                                    <option value="Purple">P</option>
+                                </select>
+                                <select id="cardSearchType" class="form-input">
+                                    <option value="">Type: All</option>
+                                    <option value="Digimon">Digimon</option>
+                                    <option value="Digi-Egg">DigiEgg</option>
+                                    <option value="Tamer">Tamer</option>
+                                    <option value="Option">Option</option>
+                                </select>
+                                <select id="cardSearchLevel" class="form-input">
+                                    <option value="">Level: All</option>
+                                    <option value="0">0</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                </select>
+                                <input
+                                    type="number"
+                                    id="cardSearchPlayCost"
+                                    class="form-input"
+                                    placeholder="Cost (0-20)"
+                                    min="0"
+                                    max="20"
+                                    step="1"
+                                />
+                                <input type="text" id="cardSearchRarity" class="form-input" placeholder="Rarity (ex: C/U/R/SR)" />
+                            </div>
+                            <div class="decklist-search-actions">
+                                <button type="button" id="btnCardSearchReset" class="btn-secondary">Reset</button>
+                                <button type="button" id="btnCardSearch" class="btn-primary">Search</button>
+                            </div>
+                            <div id="cardSearchStatus" class="decklist-search-status" aria-live="polite"></div>
+                            <div id="cardSearchResults" class="decklist-search-results" aria-live="polite"></div>
+                        </section>
+                    </aside>
+                </div>
             </section>
         </div>
 
@@ -82,6 +132,21 @@
                 <div class="decklist-import-footer">
                     <button type="button" id="btnDecklistImportCancel" class="btn-secondary">Cancel</button>
                     <button type="button" id="btnDecklistImportConfirm" class="btn-primary">Import</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="deckCardZoomModal" class="deck-card-zoom-modal" aria-hidden="true">
+            <div class="deck-card-zoom-dialog" role="dialog" aria-modal="true" aria-label="Card zoom preview">
+                <button type="button" id="btnDeckCardZoomClose" class="deck-card-zoom-close" aria-label="Close preview">
+                    &times;
+                </button>
+                <div class="deck-card-zoom-content">
+                    <img id="deckCardZoomImage" src="" alt="Card preview" />
+                    <div class="deck-card-zoom-meta">
+                        <div id="deckCardZoomMetaTitle" class="deck-card-zoom-meta-title">Loading...</div>
+                        <div id="deckCardZoomMetaBody" class="deck-card-zoom-meta-body"></div>
+                    </div>
                 </div>
             </div>
         </div>

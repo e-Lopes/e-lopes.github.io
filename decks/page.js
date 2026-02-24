@@ -1266,3 +1266,4 @@ function updateDecksTotal() {
     totalEl.textContent = `Total: ${allDecks.length}`;
 }
 }
+
