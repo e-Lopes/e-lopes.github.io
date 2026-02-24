@@ -609,7 +609,7 @@ function parseDecklistByLines(text) {
         if (/^\/\/\s*/.test(raw)) return;
 
         const withQty = raw.match(
-            /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i
+            /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i
         );
         if (withQty) {
             const qty = Number(withQty[1]);
@@ -619,7 +619,7 @@ function parseDecklistByLines(text) {
         }
 
         const qtyInParens = raw.match(
-            /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i
+            /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i
         );
         if (qtyInParens) {
             const qty = Number(qtyInParens[1]);
@@ -628,7 +628,9 @@ function parseDecklistByLines(text) {
             return;
         }
 
-        const singleCode = raw.match(/^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i);
+        const singleCode = raw.match(
+            /^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i
+        );
         if (singleCode) {
             const code = normalizeDeckCode(singleCode[1]);
             if (isValidDeckCode(code)) temp.push({ code, count: 1 });
@@ -639,7 +641,9 @@ function parseDecklistByLines(text) {
 }
 
 function parseDecklistRepeatedCodes(text) {
-    const matches = text.matchAll(/((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)/gi);
+    const matches = text.matchAll(
+        /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)/gi
+    );
     return Array.from(matches)
         .map((match) => normalizeDeckCode(match[1]))
         .filter((code) => isValidDeckCode(code));
@@ -670,7 +674,9 @@ function normalizeDeckCode(value) {
 }
 
 function isValidDeckCode(code) {
-    return /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?$/i.test(String(code || ''));
+    return /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?$/i.test(
+        String(code || '')
+    );
 }
 
 function renderDecklistCards(entries) {

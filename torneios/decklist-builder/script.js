@@ -1063,7 +1063,7 @@
             .trim()
             .toUpperCase();
         if (!raw || raw.includes(',')) return '';
-        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)$/.test(raw)) return '';
+        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)$/.test(raw)) return '';
         return raw;
     }
 
@@ -1534,7 +1534,7 @@
             if (/^\/\/\s*/.test(raw)) return;
 
             const patternA = raw.match(
-                /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i
+                /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i
             );
             if (patternA) {
                 const qty = Number(patternA[1]);
@@ -1545,7 +1545,7 @@
             }
 
             const patternB = raw.match(
-                /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i
+                /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i
             );
             if (patternB) {
                 const qty = Number(patternB[1]);
@@ -1556,7 +1556,7 @@
             }
 
             const single = raw.match(
-                /^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i
+                /^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i
             );
             if (single) {
                 const code = normalizeDeckCode(single[1]);
