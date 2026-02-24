@@ -109,6 +109,22 @@
     border-radius: 8px;
     border: 1px solid #dce2f2;
     background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%);
+    cursor: pointer;
+}
+
+.player-history-item:focus-visible {
+    outline: 2px solid #4f6fdc;
+    outline-offset: 1px;
+}
+
+.player-history-entry {
+    display: grid;
+    gap: 6px;
+}
+
+.player-history-decklist-panel {
+    margin-left: 8px;
+    width: calc(100% - 8px);
 }
 
 .player-history-store-logo {
@@ -137,6 +153,56 @@
     font-size: 0.78rem;
     color: #4f5f8f;
     overflow-wrap: anywhere;
+}
+
+.player-history-decklist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+
+.player-history-deck-card {
+    position: relative;
+    border: 1px solid #d7deef;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.player-history-deck-card img {
+    width: 100%;
+    display: block;
+}
+
+.player-history-deck-card-count {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(23, 41, 104, 0.35);
+    background: rgba(255, 255, 255, 0.95);
+    color: #172968;
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
+body[data-theme='dark'] .player-history-deck-card-count {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(23, 41, 104, 0.95);
+    color: #fff;
+}
+
+.player-history-decklist-empty {
+    font-size: 0.75rem;
+    color: #4f5f8f;
+    margin-top: 6px;
 }
 
 .player-history-loading,
@@ -233,5 +299,10 @@
     .players-details-row td {
         padding: 0 10px 10px;
         border-bottom: 1px solid #eef1f9;
+    }
+
+    .player-history-decklist-panel {
+        margin-left: 0;
+        width: 100%;
     }
 }
