@@ -7,9 +7,9 @@
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
     const BLANK_MIDDLE_FALLBACK_BG = '../../icons/backgrounds/EX11.png';
-    const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3}$/;
+    const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|LM|P)-\d{1,3}$/;
     const RAW_DECK_CODE_WITH_SUFFIX_PATTERN =
-        /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|LM|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
+        /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|LM|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
     const MAX_COPIES_PER_CARD = 4;
     const MAX_MAIN_DECK_CARDS = 50;
     const MAX_DIGI_EGG_CARDS = 5;
