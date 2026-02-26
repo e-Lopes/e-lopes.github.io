@@ -285,15 +285,54 @@
 
         entries = cappedEntries;
         setSaveStatus('');
-        render(errors);
-        closeImportModal();
 
-        // Auto-sort after a successful import.
-        // We must seed entry.meta from the API response before sorting, because
-        // compareDeckEntries reads entry.meta first and the imported entries arrive
-        // without type/level metadata.
+        // Show "Importing..." feedback while fetching card data from the API.
+        // Do NOT call render() here — it triggers a competing hydrateCardMetadata()
+        // inside render() that increments cardHydrationToken and cancels our own
+        // hydration via the token guard, leaving cardDetailsByCode empty for the sort.
+        const confirmBtn = document.getElementById('btnDecklistImportConfirm');
+        if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Importing...'; }
+        setSaveStatus('Importing cards...', 'info');
+
         try {
-            await hydrateCardMetadata(entries, { allowRerender: false });
+            // Always fetch all unique codes so newly-imported entries always have
+            // type + level data even if a stale cache entry exists without them.
+            const uniqueCodes = [...new Set(
+                entries.map((i) => normalizeDeckCode(i.code)).filter(isValidDeckCode)
+            )];
+
+            if (uniqueCodes.length) {
+                // Fetch each code individually in parallel — the batch API endpoint
+                // does not reliably return all cards when multiple codes are passed,
+                // so individual requests are the only guaranteed approach.
+                const nowIso = new Date().toISOString();
+                const settled = await Promise.allSettled(
+                    uniqueCodes.map(async (code) => {
+                        const query = new URLSearchParams({ card: code, limit: '1' });
+                        const res = await fetch(`${DIGIMON_CARD_API_URL}?${query}`);
+                        if (!res.ok) return null;
+                        const rows = await res.json();
+                        if (!Array.isArray(rows) || !rows.length) return null;
+                        return { code, row: rows[0] };
+                    })
+                );
+                settled.forEach((outcome) => {
+                    if (outcome.status !== 'fulfilled' || !outcome.value) return;
+                    const { code, row } = outcome.value;
+                    const level = normalizeCardLevel(row?.level ?? row?.card_payload?.level);
+                    cardDetailsByCode.set(code, {
+                        card_code: code,
+                        id: row?.id || code,
+                        name: row?.name || code,
+                        pack: row?.pack || '',
+                        color: row?.color || '',
+                        type: row?.type || '',
+                        level: Number.isFinite(level) ? level : (row?.level ?? ''),
+                        card_payload: row || {},
+                        updated_at: nowIso,
+                    });
+                });
+            }
 
             // Write API data back into each entry's meta so the sort comparator
             // has type + level available without needing another async lookup.
@@ -311,16 +350,23 @@
                 }
             });
 
-            const sorted = [...entries].sort(compareDeckEntries);
-            entries = sorted;
+            // Sort exactly like btnDecklistBuilderSortCards does
+            if (entries.length > 1) {
+                const sorted = [...entries].sort(compareDeckEntries);
+                entries = sorted;
+            }
+
             render(errors);
-        } catch { /* sort failed silently — deck is still imported correctly */ }
+            setSaveStatus('Cards imported and sorted successfully.', 'ok');
+        } catch (error) {
+            render(errors);
+            setSaveStatus(error?.message || 'Import completed with errors.', 'warn');
+        } finally {
+            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Import'; }
+            closeImportModal();
+        }
     }
 
-    /**
-     * Trims entries to a maximum total card count, reducing quantities from
-     * the end of the list to stay within the cap.
-     */
     function capImportEntries(sourceEntries, maxTotal) {
         const result = [];
         let running = 0;
@@ -1357,7 +1403,7 @@
                 entries: (Array.isArray(rows) ? rows : [])
                     .map((row) => ({
                         code: normalizeDeckCode(row?.card_code || ''),
-                        count: Math.max(1, Math.min(getMaxCopies(code), Number(row?.qty) || 1)),
+                        count: Math.max(1, Math.min(getMaxCopies(row?.card_code), Number(row?.qty) || 1)),
                         meta: {
                             cardType: String(row?.card_type || '').trim(),
                             cardLevel: normalizeCardLevel(row?.card_level),
@@ -1427,7 +1473,7 @@
                 return {
                     decklist_id: decklistId, position: i + 1,
                     card_code: normalizeDeckCode(entry.code),
-                    qty: Math.max(1, Math.min(getMaxCopies(code), Number(entry.count) || 1)),
+                    qty: Math.max(1, Math.min(getMaxCopies(entry.code), Number(entry.count) || 1)),
                     card_type: meta.cardType, card_level: meta.cardLevel, is_digi_egg: meta.isDigiEgg,
                 };
             });
@@ -1640,24 +1686,40 @@
         const result = [];
         const usedCodes = new Set();
 
+        const pushRow = (row) => {
+            const code = normalizeDeckCode(row?.id || row?.card || '');
+            if (!code || usedCodes.has(code)) return;
+            usedCodes.add(code);
+            result.push({
+                card_code: code, id: row?.id || code, name: row?.name || code,
+                pack: row?.pack || '', color: row?.color || '', type: row?.type || '',
+                card_payload: row || {},
+            });
+        };
+
         for (const chunk of chunkArray(codes, 20)) {
             try {
-                const query = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length) });
+                // Use limit higher than chunk size — the API may return fewer results
+                // when multiple card codes are passed as a comma-separated list.
+                const query = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2) });
                 const res = await fetch(`${DIGIMON_CARD_API_URL}?${query}`);
                 if (!res.ok) continue;
                 const rows = await res.json();
                 if (!Array.isArray(rows)) continue;
-                rows.forEach((row) => {
-                    const code = normalizeDeckCode(row?.id || row?.card || '');
-                    if (!code || usedCodes.has(code)) return;
-                    usedCodes.add(code);
-                    result.push({
-                        card_code: code, id: row?.id || code, name: row?.name || code,
-                        pack: row?.pack || '', color: row?.color || '', type: row?.type || '',
-                        card_payload: row || {},
-                    });
-                });
+                rows.forEach(pushRow);
             } catch { continue; }
+
+            // For any codes the batch missed, fetch individually.
+            const missed = chunk.filter((c) => !usedCodes.has(c));
+            for (const code of missed) {
+                try {
+                    const query = new URLSearchParams({ card: code, limit: '1' });
+                    const res = await fetch(`${DIGIMON_CARD_API_URL}?${query}`);
+                    if (!res.ok) continue;
+                    const rows = await res.json();
+                    if (Array.isArray(rows)) rows.forEach(pushRow);
+                } catch { continue; }
+            }
         }
         return result;
     }
