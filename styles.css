@@ -2267,7 +2267,8 @@ th {
     color: #2f437f;
 }
 
-#btnDecklistBuilderSortCards:hover {
+#btnDecklistBuilderSortCards:hover,
+#btnDecklistBuilderClear:hover {
     background: #e4ecff;
 }
 
@@ -9431,7 +9432,7 @@ body[data-theme='dark'] :is(#btnDecklistBuilderImport, #btnDecklistBuilderExport
 }
 
 
-body[data-theme='dark'] #btnDecklistBuilderSortCards {
+body[data-theme='dark'] :is(#btnDecklistBuilderSortCards,#btnDecklistBuilderClear) {
     background: #1a2740 !important;
     border-color: #3d5687 !important;
     color: #d5e3ff !important;
