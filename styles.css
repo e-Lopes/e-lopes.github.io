@@ -2256,7 +2256,7 @@ th {
     flex-wrap: wrap;
 }
 
-#btnDecklistBuilderSortCards {
+#btnDecklistBuilderSortCards, #btnDecklistBuilderClear {
     height: 30px;
     padding: 0 10px;
     border-radius: 999px;
