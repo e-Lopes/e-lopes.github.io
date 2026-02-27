@@ -21,18 +21,36 @@ Centralizar operacoes de:
 ## Estrutura do Projeto
 
 - `index.html`: dashboard principal
-- `script.js`: logica principal da home
+- `torneios/list-tournaments/script.js`: logica principal da dashboard (tabela + calendario + modais)
 - `styles.css`: estilos globais
 - `styles/`: estilos por componentes e paginas
 - `config/`: configuracoes e utilitarios compartilhados
 - `players/`: modulo de jogadores
 - `decks/`: modulo de decks
 - `torneios/`: fluxo principal de torneios (criar, listar, editar, decklist)
-- `tournaments/`: rotas em ingles equivalentes ao modulo `torneios/`
+- `tournaments/`: aliases em ingles (redirects) para rotas de `torneios/` (compatibilidade de URL)
 - `post-preview/`: editor de post e preview
 - `database/`: schema, migracoes e snapshots SQL
 - `docs/`: guias de estrutura, nomenclatura e seguranca
 - `tests/`: testes automatizados
+
+## Rotas Ativas (Frontend)
+
+- `/` -> `index.html` (carrega modulo de torneios com scripts de `torneios/list-tournaments/`)
+- `/torneios/list-tournaments/` -> pagina de listagem/calendario de torneios
+- `/torneios/create-tournament/` -> fluxo antigo de criacao (mantido por compatibilidade)
+- `/players/` e `/decks/` -> modulos dedicados
+- `/post-preview/` -> editor/preview de posts
+- `/tournaments/*` -> redirects para `/torneios/*`
+
+## OCR (Bandai TCG+)
+
+- O modal `New Tournament` suporta importacao de print(s) para OCR.
+- Endpoint esperado no momento: `POST https://e-lopes-digimon-ocr-api.hf.space/process` com `multipart/form-data` (`file`).
+- Retorno utilizado pelo frontend:
+  - `players[]` para autopreencher resultados
+  - `store_name` para tentar match de loja no select
+  - `tournament_date` (ou `tournament_datetime`) para preencher a data do torneio
 
 ## Setup Local
 
@@ -114,6 +132,7 @@ git commit -m "feat(players): improve pagination layout"
 ## Documentacao Complementar
 
 - `TODO.md`
+- `docs/codebase-audit-2026-02-27.md`
 - `docs/structure-plan.md`
 - `docs/naming-and-language.md`
 - `docs/security-rls.md`

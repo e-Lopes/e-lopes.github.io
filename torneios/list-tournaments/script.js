@@ -25,6 +25,7 @@ const VIEW_STORAGE_KEY = 'tournamentsViewMode';
 const DASHBOARD_VIEW_STORAGE_KEY = 'dashboardActiveView';
 const STATS_VIEW_STORAGE_KEY = 'dashboardStatisticsView';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
+const OCR_API_BASE_URL = 'https://e-lopes-digimon-ocr-api.hf.space';
 const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
 const SORTABLE_FIELDS = ['tournament_date', 'total_players'];
 const SORT_DIRECTIONS = ['asc', 'desc'];
@@ -191,7 +192,10 @@ const DEFAULT_PER_PAGE = 25;
 let perPage = DEFAULT_PER_PAGE;
 let createPlayers = [];
 let createDecks = [];
+let createStores = [];
 let createResults = [];
+let createOcrImportInProgress = false;
+let createOcrSelectedFiles = [];
 let selectedTournamentId = null;
 let currentViewMode = getSavedViewMode();
 let calendarMonthKey = '';
@@ -582,6 +586,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     document
         .getElementById('createTotalPlayers')
         .addEventListener('input', syncCreateResultsByTotal);
+    const btnSelectOcrPrints = document.getElementById('btnSelectOcrPrints');
+    const btnProcessOcrPrints = document.getElementById('btnProcessOcrPrints');
+    const createOcrFilesInput = document.getElementById('createOcrFilesInput');
+    if (btnSelectOcrPrints && createOcrFilesInput) {
+        btnSelectOcrPrints.addEventListener('click', () => {
+            if (createOcrImportInProgress) return;
+            createOcrFilesInput.click();
+        });
+        if (btnProcessOcrPrints) {
+            btnProcessOcrPrints.addEventListener('click', processCreateOcrFiles);
+        }
+        createOcrFilesInput.addEventListener('change', onCreateOcrFilesSelected);
+    }
 
     // Submit edit form
     document
@@ -2807,6 +2824,7 @@ async function openCreateTournamentModal(defaultDate = '') {
     document.getElementById('createInstagramLink').value = '';
 
     createResults = [];
+    resetCreateOcrImportUi();
 
     // Carrega dados base para o modal
     try {
@@ -2831,6 +2849,7 @@ async function openCreateTournamentModal(defaultDate = '') {
 function closeCreateModal() {
     document.getElementById('createModal').classList.remove('active');
     createResults = [];
+    resetCreateOcrImportUi();
     renderCreateResultsRows();
 }
 
@@ -2846,20 +2865,352 @@ function syncCreateResultsByTotal() {
 
     const next = [];
     for (let i = 0; i < Math.min(qty, 36); i++) {
-        next.push(createResults[i] || { player_id: '', deck_id: '' });
+        next.push(
+            createResults[i] || {
+                player_id: '',
+                deck_id: '',
+                player_name: '',
+                deck_name: '',
+                ocr_player_unmatched: false
+            }
+        );
     }
     createResults = next;
     renderCreateResultsRows();
 }
 
+function setCreateOcrStatus(message, tone = 'info') {
+    const el = document.getElementById('createOcrStatus');
+    if (!el) return;
+    const prefix = tone === 'error' ? 'Erro: ' : tone === 'success' ? 'OK: ' : '';
+    el.textContent = `${prefix}${message}`.trim();
+}
+
+function setCreateOcrSelectedInfo(message) {
+    const el = document.getElementById('createOcrSelectedInfo');
+    if (!el) return;
+    el.textContent = message || '';
+}
+
+function resetCreateOcrImportUi() {
+    createOcrImportInProgress = false;
+    createOcrSelectedFiles = [];
+    const input = document.getElementById('createOcrFilesInput');
+    const btnSelect = document.getElementById('btnSelectOcrPrints');
+    const btnProcess = document.getElementById('btnProcessOcrPrints');
+    if (input) input.value = '';
+    if (btnSelect) btnSelect.disabled = false;
+    if (btnProcess) btnProcess.disabled = false;
+    setCreateOcrSelectedInfo('');
+    setCreateOcrStatus('');
+}
+
+function normalizeLookupName(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function normalizeMemberId(value) {
+    return String(value || '')
+        .toUpperCase()
+        .replace(/\s+/g, '');
+}
+
+function isGuestMemberId(value) {
+    const memberId = normalizeMemberId(value);
+    return !memberId || /^GUEST/i.test(memberId);
+}
+
+function parseOcrRank(value, index) {
+    const rank = Number(value);
+    if (Number.isFinite(rank) && rank > 0) return rank;
+    return index + 1;
+}
+
+function extractOcrPlayers(payload) {
+    const players = Array.isArray(payload?.players) ? payload.players : [];
+    return players
+        .map((item, index) => ({
+            rank: parseOcrRank(item?.rank, index),
+            name: String(item?.name || '').trim(),
+            member_id: normalizeMemberId(item?.member_id),
+            points: String(item?.points || '').trim(),
+            omw: String(item?.omw || '').trim()
+        }))
+        .filter((item) => item.name || item.member_id)
+        .slice(0, 100);
+}
+
+function mergeOcrPlayersByMemberId(allPlayers) {
+    const merged = new Map();
+    allPlayers.forEach((item, index) => {
+        const key = item.member_id || `NO_ID_${index}`;
+        const existing = merged.get(key);
+        if (!existing) {
+            merged.set(key, { ...item });
+            return;
+        }
+        if (item.rank < existing.rank) existing.rank = item.rank;
+        if (!existing.name && item.name) existing.name = item.name;
+        if (!existing.points && item.points) existing.points = item.points;
+        if (!existing.omw && item.omw) existing.omw = item.omw;
+    });
+    return Array.from(merged.values())
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, 36);
+}
+
+function findPlayerMatchFromOcr(ocrPlayer) {
+    const ocrMemberId = normalizeMemberId(ocrPlayer.member_id);
+    const ocrName = normalizeLookupName(ocrPlayer.name);
+
+    if (ocrMemberId && !isGuestMemberId(ocrMemberId)) {
+        const byBandaiId = createPlayers.find(
+            (player) => normalizeMemberId(player.bandai_id) === ocrMemberId
+        );
+        if (byBandaiId?.id) {
+            return byBandaiId;
+        }
+    }
+
+    if (ocrName) {
+        const byBandaiNick = createPlayers.find(
+            (player) => normalizeLookupName(player.bandai_nick) === ocrName
+        );
+        if (byBandaiNick?.id) {
+            return byBandaiNick;
+        }
+
+        const byName = createPlayers.find((player) => normalizeLookupName(player.name) === ocrName);
+        if (byName?.id) {
+            return byName;
+        }
+    }
+
+    return null;
+}
+
+function extractOcrStoreAndDate(payload) {
+    const storeName = String(
+        payload?.store_name || payload?.store || payload?.shop || payload?.venue || ''
+    ).trim();
+    const dateRaw = String(
+        payload?.tournament_date || payload?.event_date || payload?.tournament_datetime || payload?.date || ''
+    ).trim();
+    return {
+        storeName,
+        tournamentDate: normalizeOcrTournamentDate(dateRaw)
+    };
+}
+
+function normalizeOcrTournamentDate(rawText) {
+    const raw = String(rawText || '').trim();
+    if (!raw) return '';
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+    const normalized = raw
+        .replace(/~/g, '')
+        .replace(/^\w{3}\.\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const monthMap = {
+        january: 1,
+        february: 2,
+        march: 3,
+        april: 4,
+        may: 5,
+        june: 6,
+        july: 7,
+        august: 8,
+        september: 9,
+        october: 10,
+        november: 11,
+        december: 12
+    };
+
+    const enMonthMatch = normalized.match(/([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/);
+    if (enMonthMatch) {
+        const month = monthMap[String(enMonthMatch[1]).toLowerCase()];
+        const day = Number(enMonthMatch[2]);
+        const year = Number(enMonthMatch[3]);
+        if (month && day >= 1 && day <= 31 && year >= 2000) {
+            const mm = String(month).padStart(2, '0');
+            const dd = String(day).padStart(2, '0');
+            return `${year}-${mm}-${dd}`;
+        }
+    }
+
+    const brMatch = normalized.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (brMatch) {
+        const day = Number(brMatch[1]);
+        const month = Number(brMatch[2]);
+        const year = Number(brMatch[3]);
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2000) {
+            const mm = String(month).padStart(2, '0');
+            const dd = String(day).padStart(2, '0');
+            return `${year}-${mm}-${dd}`;
+        }
+    }
+
+    return '';
+}
+
+function resolveStoreFromOcrName(storeName) {
+    const target = normalizeLookupName(storeName);
+    if (!target || !createStores.length) return null;
+
+    const getAliases = (store) =>
+        [store?.name, store?.bandai_nick, store?.store_nick, store?.nick, store?.alias]
+            .map((value) => normalizeLookupName(value))
+            .filter(Boolean);
+
+    const exact = createStores.find((store) => getAliases(store).some((alias) => alias === target));
+    if (exact) return exact;
+
+    const includes = createStores.find((store) =>
+        getAliases(store).some((alias) => alias.includes(target) || target.includes(alias))
+    );
+    return includes || null;
+}
+
+function onCreateOcrFilesSelected(event) {
+    const files = Array.from(event.target?.files || []);
+    createOcrSelectedFiles = files;
+    if (files.length === 0) {
+        setCreateOcrSelectedInfo('');
+        setCreateOcrStatus('');
+        return;
+    }
+    setCreateOcrSelectedInfo(`${files.length} print(s) selecionado(s).`);
+    setCreateOcrStatus('Processando...');
+    processCreateOcrFiles();
+}
+
+async function requestOcrFromImage(file) {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    const res = await fetch(`${OCR_API_BASE_URL}/process`, {
+        method: 'POST',
+        body: formData
+    });
+    if (!res.ok) {
+        throw new Error(`OCR endpoint respondeu ${res.status}`);
+    }
+    return res.json();
+}
+
+async function processCreateOcrFiles() {
+    if (!createOcrSelectedFiles.length) {
+        setCreateOcrStatus('Selecione ao menos um print antes de processar.', 'error');
+        return;
+    }
+    if (createOcrImportInProgress) return;
+    createOcrImportInProgress = true;
+
+    const btnSelect = document.getElementById('btnSelectOcrPrints');
+    const btnProcess = document.getElementById('btnProcessOcrPrints');
+    if (btnSelect) btnSelect.disabled = true;
+    if (btnProcess) btnProcess.disabled = true;
+    setCreateOcrStatus(`Processando ${createOcrSelectedFiles.length} print(s)...`);
+
+    try {
+        if (!createPlayers.length) {
+            await loadPlayersToCreate();
+        }
+        if (!createStores.length) {
+            await loadStoresToCreate();
+        }
+
+        const allPlayers = [];
+        const detectedStores = [];
+        const detectedDates = [];
+        for (const file of createOcrSelectedFiles) {
+            const payload = await requestOcrFromImage(file);
+            allPlayers.push(...extractOcrPlayers(payload));
+            const meta = extractOcrStoreAndDate(payload);
+            if (meta.storeName) detectedStores.push(meta.storeName);
+            if (meta.tournamentDate) detectedDates.push(meta.tournamentDate);
+        }
+
+        const mergedPlayers = mergeOcrPlayersByMemberId(allPlayers);
+        if (!mergedPlayers.length) {
+            throw new Error('Nenhum resultado reconhecido na imagem');
+        }
+
+        createResults = mergedPlayers.map((ocrPlayer) => {
+            const matchedPlayer = findPlayerMatchFromOcr(ocrPlayer);
+            return {
+                player_id: matchedPlayer?.id || '',
+                deck_id: '',
+                player_name: ocrPlayer.name || '',
+                deck_name: '',
+                ocr_player_unmatched: !matchedPlayer?.id
+            };
+        });
+
+        renderCreateResultsRows();
+        document.getElementById('createTotalPlayers').value = String(createResults.length);
+
+        const selectedStoreName = detectedStores[0] || '';
+        const selectedDate = detectedDates[0] || '';
+        if (selectedStoreName) {
+            const matchedStore = resolveStoreFromOcrName(selectedStoreName);
+            if (matchedStore?.id) {
+                document.getElementById('createStoreSelect').value = String(matchedStore.id);
+            }
+        }
+        if (selectedDate) {
+            document.getElementById('createTournamentDate').value = selectedDate;
+        }
+
+        const unresolvedPlayers = createResults.filter((row) => !row.player_id).length;
+        const unresolvedStore = selectedStoreName
+            ? !resolveStoreFromOcrName(selectedStoreName)
+            : false;
+        const dateDetected = Boolean(selectedDate);
+        if (unresolvedPlayers) {
+            setCreateOcrStatus(
+                `OCR: ${createResults.length} players, ${unresolvedPlayers} sem match${unresolvedStore ? ', loja sem match' : ''}${dateDetected ? ', data preenchida' : ''}.`,
+                'info'
+            );
+        } else {
+            setCreateOcrStatus(
+                `OCR concluido (${createResults.length} players)${selectedStoreName ? ', loja preenchida' : ''}${dateDetected ? ', data preenchida' : ''}.`,
+                'success'
+            );
+        }
+    } catch (err) {
+        console.error('Erro no OCR:', err);
+        setCreateOcrStatus(err.message || 'Falha ao processar OCR.', 'error');
+    } finally {
+        createOcrImportInProgress = false;
+        if (btnSelect) btnSelect.disabled = false;
+        if (btnProcess) btnProcess.disabled = false;
+    }
+}
+
 async function loadStoresToCreate() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stores?select=*&order=name.asc`, {
-            headers
-        });
+        let res = await fetch(
+            `${SUPABASE_URL}/rest/v1/stores?select=id,name,bandai_nick&order=name.asc`,
+            { headers }
+        );
+        if (!res.ok) {
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stores?select=id,name&order=name.asc`, {
+                headers
+            });
+        }
         if (!res.ok) throw new Error('Erro ao carregar lojas');
 
         const stores = await res.json();
+        createStores = stores || [];
         const select = document.getElementById('createStoreSelect');
         select.innerHTML = '<option value="">Selecione a loja...</option>';
         stores.forEach((s) => {
@@ -3337,11 +3688,18 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
 }
 
 async function loadPlayersToCreate() {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/players?select=id,name&order=name.asc`, {
-        headers
-    });
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/players?select=id,name,bandai_id,bandai_nick&order=name.asc`,
+        {
+            headers
+        }
+    );
     if (!res.ok) throw new Error('Erro ao carregar players');
-    createPlayers = await res.json();
+    createPlayers = (await res.json()).map((player) => ({
+        ...player,
+        bandai_id: player.bandai_id || '',
+        bandai_nick: player.bandai_nick || ''
+    }));
 }
 
 async function loadDecksToCreate() {
@@ -3358,7 +3716,13 @@ function addCreateResultRow() {
         return;
     }
 
-    createResults.push({ player_id: '', deck_id: '' });
+    createResults.push({
+        player_id: '',
+        deck_id: '',
+        player_name: '',
+        deck_name: '',
+        ocr_player_unmatched: false
+    });
     renderCreateResultsRows();
 }
 
@@ -3419,6 +3783,10 @@ function bindCreateResultsAutocomplete() {
 
         input.addEventListener('input', () => {
             updateCreateResultField(rowIndex, field, '');
+            updateCreateResultField(rowIndex, `${type}_name`, input.value.trim());
+            if (type === 'player') {
+                updateCreateResultField(rowIndex, 'ocr_player_unmatched', Boolean(input.value.trim()));
+            }
             renderOptions(input.value);
         });
 
@@ -3437,6 +3805,10 @@ function bindCreateResultsAutocomplete() {
             if (!option || option.classList.contains('no-match')) return;
             event.preventDefault();
             updateCreateResultField(rowIndex, field, option.dataset.id || '');
+            updateCreateResultField(rowIndex, `${type}_name`, option.dataset.name || '');
+            if (type === 'player') {
+                updateCreateResultField(rowIndex, 'ocr_player_unmatched', false);
+            }
             input.value = option.dataset.name || '';
             dropdown.style.display = 'none';
         });
@@ -3466,10 +3838,11 @@ function renderCreateResultsRows() {
                 <div class="autocomplete-wrapper" data-row-index="${index}">
                     <input
                         type="text"
-                        class="player-input"
+                        class="player-input${row.ocr_player_unmatched ? ' ocr-player-unmatched' : ''}"
                         data-autocomplete-type="player"
                         placeholder="Digite o player..."
-                        value="${escapeHtml(getItemNameById(createPlayers, row.player_id))}"
+                        value="${escapeHtml(getItemNameById(createPlayers, row.player_id) || row.player_name || '')}"
+                        ${row.ocr_player_unmatched ? 'style="border-color:#f59e0b;background:#fff7ed;" title="Player nao encontrado no cadastro"' : ''}
                         autocomplete="off"
                         required
                     >
@@ -3484,7 +3857,7 @@ function renderCreateResultsRows() {
                         class="deck-input"
                         data-autocomplete-type="deck"
                         placeholder="Digite o deck..."
-                        value="${escapeHtml(getItemNameById(createDecks, row.deck_id))}"
+                        value="${escapeHtml(getItemNameById(createDecks, row.deck_id) || row.deck_name || '')}"
                         autocomplete="off"
                         required
                     >

@@ -3296,6 +3296,82 @@ th {
     color: #667eea;
 }
 
+/* ============================================================
+   TOURNAMENT MODALS - DARK THEME ALIGNMENT
+============================================================ */
+#createModal .ocr-import-actions,
+#editModal .ocr-import-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#createModal .ocr-import-actions .btn-add-result,
+#editModal .ocr-import-actions .btn-add-result {
+    margin-bottom: 0;
+}
+
+body[data-theme='dark'] #createModal .btn-add-result,
+body[data-theme='dark'] #editModal .btn-add-result {
+    background: linear-gradient(180deg, #1a2740 0%, #172339 100%);
+    border: 1px dashed #4e6cb1;
+    color: #d9e7ff;
+}
+
+body[data-theme='dark'] #createModal .btn-add-result:hover,
+body[data-theme='dark'] #editModal .btn-add-result:hover {
+    background: linear-gradient(180deg, #223251 0%, #1d2c47 100%);
+    border-color: #7094e8;
+    color: #f2f7ff;
+}
+
+body[data-theme='dark'] #createModal .btn-add-result:focus-visible,
+body[data-theme='dark'] #editModal .btn-add-result:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(116, 147, 224, 0.28);
+}
+
+body[data-theme='dark'] #createModal .field-hint,
+body[data-theme='dark'] #editModal .field-hint {
+    color: #b8caef;
+}
+
+body[data-theme='dark'] #createModal .autocomplete-dropdown,
+body[data-theme='dark'] #editModal .autocomplete-dropdown {
+    background: #1a2740;
+    border: 1px solid #4e6cb1;
+    box-shadow: 0 10px 24px rgba(4, 9, 20, 0.45);
+}
+
+body[data-theme='dark'] #createModal .autocomplete-item,
+body[data-theme='dark'] #editModal .autocomplete-item {
+    color: #d9e7ff;
+    border-bottom: 1px solid #2a3d64;
+}
+
+body[data-theme='dark'] #createModal .autocomplete-item:hover,
+body[data-theme='dark'] #editModal .autocomplete-item:hover {
+    background: #24385b;
+}
+
+body[data-theme='dark'] #createModal .autocomplete-item.no-match,
+body[data-theme='dark'] #editModal .autocomplete-item.no-match {
+    color: #95abd8;
+    background: transparent;
+}
+
+body[data-theme='dark'] #createModal .autocomplete-item.no-match:hover,
+body[data-theme='dark'] #editModal .autocomplete-item.no-match:hover {
+    background: transparent;
+}
+
+body[data-theme='dark'] #createModal .player-input::placeholder,
+body[data-theme='dark'] #createModal .deck-input::placeholder,
+body[data-theme='dark'] #editModal .player-input::placeholder,
+body[data-theme='dark'] #editModal .deck-input::placeholder {
+    color: #8fa6d2;
+}
+
 .btn-remove-result {
     height: 48px;
     width: 48px;

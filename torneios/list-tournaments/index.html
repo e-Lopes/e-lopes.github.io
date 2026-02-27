@@ -231,6 +231,24 @@
                 <h2>New Tournament</h2>
                 <form id="createTournamentForm">
                     <div class="form-group">
+                        <label>Bandai TCG+ OCR</label>
+                        <input
+                            type="file"
+                            id="createOcrFilesInput"
+                            accept="image/*"
+                            capture="environment"
+                            multiple
+                            hidden
+                        />
+                        <div class="ocr-import-actions">
+                            <button type="button" id="btnSelectOcrPrints" class="btn-add-result">
+                                + Carregar print(s) e preencher
+                            </button>
+                        </div>
+                        <small id="createOcrSelectedInfo" class="field-hint"></small>
+                        <small id="createOcrStatus" class="field-hint"></small>
+                    </div>
+                    <div class="form-group">
                         <label>Store<span class="required">*</span></label>
                         <select id="createStoreSelect" required></select>
                     </div>
