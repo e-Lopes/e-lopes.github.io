@@ -528,7 +528,6 @@
                             type="file"
                             id="createOcrFilesInput"
                             accept="image/*"
-                            capture="environment"
                             multiple
                             hidden
                         />
@@ -612,6 +611,23 @@
             <div class="modal-content">
                 <h2>Edit Tournament</h2>
                 <form id="editTournamentForm">
+                    <div class="form-group">
+                        <label>Bandai TCG+ OCR</label>
+                        <input
+                            type="file"
+                            id="editOcrFilesInput"
+                            accept="image/*"
+                            multiple
+                            hidden
+                        />
+                        <div class="ocr-import-actions">
+                            <button type="button" id="btnSelectEditOcrPrints" class="btn-add-result">
+                                + Carregar print(s) e preencher
+                            </button>
+                        </div>
+                        <small id="editOcrSelectedInfo" class="field-hint"></small>
+                        <small id="editOcrStatus" class="field-hint"></small>
+                    </div>
                     <div class="form-group">
                         <label>Store<span class="required">*</span></label>
                         <select id="editStoreSelect" required></select>
