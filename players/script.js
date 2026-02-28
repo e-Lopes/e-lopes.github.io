@@ -105,6 +105,13 @@ function setupEventListeners() {
                 togglePlayerHistoryEntry(toggleHistoryEntry.dataset.entryKey);
                 return;
             }
+            const registerDecklistButton = event.target.closest(
+                '[data-action="register-history-decklist"]'
+            );
+            if (registerDecklistButton) {
+                openHistoryDecklistRegister(registerDecklistButton);
+                return;
+            }
 
             const editButton = event.target.closest('[data-action="edit-player"]');
             if (editButton) {
@@ -130,6 +137,14 @@ function setupEventListeners() {
             if (toggleHistoryEntry) {
                 event.preventDefault();
                 togglePlayerHistoryEntry(toggleHistoryEntry.dataset.entryKey);
+                return;
+            }
+            const registerDecklistButton = event.target.closest(
+                '[data-action="register-history-decklist"]'
+            );
+            if (registerDecklistButton) {
+                event.preventDefault();
+                openHistoryDecklistRegister(registerDecklistButton);
             }
         });
     }
@@ -233,7 +248,7 @@ function renderPaginatedList() {
                 <tr class="players-details-row ${isExpanded ? '' : 'u-hidden'}" data-player-history-row="${p.id}">
                     <td colspan="2">
                         <div class="player-history" data-player-history="${p.id}">
-                            ${isExpanded ? renderPlayerHistory(historyRows, p.id) : ''}
+                            ${isExpanded ? renderPlayerHistory(historyRows, p.id, p.name) : ''}
                         </div>
                     </td>
                 </tr>
@@ -287,7 +302,7 @@ async function loadPlayerHistory(playerId) {
         const decklistColumn = await resolvePlayerHistoryDecklistColumn(id);
         const endpoint =
             `/rest/v1/tournament_results?player_id=eq.${encodeURIComponent(id)}` +
-            `&select=id,placement,tournament_date,${decklistColumn},store:stores(name),deck:decks(name)&order=tournament_date.desc,placement.asc&limit=200`;
+            `&select=id,placement,tournament_date,tournament_id,${decklistColumn},store:stores(name),deck:decks(name)&order=tournament_date.desc,placement.asc&limit=200`;
         const res = window.supabaseApi
             ? await window.supabaseApi.get(endpoint)
             : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
@@ -300,6 +315,7 @@ async function loadPlayerHistory(playerId) {
                 id: String(row?.id || '').trim(),
                 placement: Number(row?.placement) || 0,
                 tournamentDate: String(row?.tournament_date || ''),
+                tournamentId: String(row?.tournament_id || '').trim(),
                 storeName: String(row?.store?.name || ''),
                 deckName: String(row?.deck?.name || '-'),
                 decklist: String(row?.[decklistColumn] || '').trim()
@@ -335,7 +351,7 @@ async function resolvePlayerHistoryDecklistColumn(playerId) {
     return 'decklist';
 }
 
-function renderPlayerHistory(historyRows, playerId) {
+function renderPlayerHistory(historyRows, playerId, playerName = '') {
     if (!Array.isArray(historyRows)) {
         return '<div class="player-history-loading">Loading history...</div>';
     }
@@ -362,6 +378,26 @@ function renderPlayerHistory(historyRows, playerId) {
             const isEntryExpanded = expandedHistoryEntryKey === entryKey;
             const rawDecklist = String(item.decklist || '').trim();
             const parsedDecklistEntries = parseDecklistEntries(rawDecklist);
+            const registerButtonHtml = `
+                <button
+                    type="button"
+                    class="player-history-register-btn"
+                    data-action="register-history-decklist"
+                    data-result-id="${escapeHtmlAttribute(item.id || '')}"
+                    data-tournament-id="${escapeHtmlAttribute(item.tournamentId || '')}"
+                    data-deck="${escapeHtmlAttribute(item.deckName || '')}"
+                    data-player="${escapeHtmlAttribute(playerName || '')}"
+                    data-store="${escapeHtmlAttribute(storeName || '')}"
+                    data-date="${escapeHtmlAttribute(item.tournamentDate || '')}"
+                    title="Register decklist"
+                    aria-label="Register decklist"
+                >
+                    <span class="nav-icon" aria-hidden="true">
+                        <img src="${escapeHtmlAttribute(`${getAssetPrefix()}icons/digivice.svg`)}" alt="" class="nav-icon-digivice" />
+                    </span>
+                    <span>Register</span>
+                </button>
+            `;
             return `
                 <div class="player-history-entry ${isEntryExpanded ? 'is-open' : ''}">
                     <div
@@ -392,7 +428,10 @@ function renderPlayerHistory(historyRows, playerId) {
                                         ? `<div class="player-history-decklist-grid">
                                             ${renderDecklistCards(parsedDecklistEntries)}
                                         </div>`
-                                        : '<div class="player-history-decklist-empty">No Decklist Registered</div>'
+                                        : `<div class="player-history-decklist-empty-row">
+                                            <div class="player-history-decklist-empty">No Decklist Registered</div>
+                                            ${registerButtonHtml}
+                                        </div>`
                                 }
                             </div>`
                             : ''
@@ -401,6 +440,25 @@ function renderPlayerHistory(historyRows, playerId) {
             `;
         })
         .join('');
+}
+
+function openHistoryDecklistRegister(button) {
+    const resultId = String(button?.dataset?.resultId || '').trim();
+    const tournamentId = String(button?.dataset?.tournamentId || '').trim();
+    const deck = String(button?.dataset?.deck || '').trim();
+    const player = String(button?.dataset?.player || '').trim();
+    const store = String(button?.dataset?.store || '').trim();
+    const date = String(button?.dataset?.date || '').trim();
+
+    const params = new URLSearchParams();
+    if (resultId) params.set('result', resultId);
+    if (tournamentId) params.set('tournament', tournamentId);
+    if (deck) params.set('deck', deck);
+    if (player) params.set('player', player);
+    if (store) params.set('store', store);
+    if (date) params.set('date', date);
+
+    window.location.href = `${getAssetPrefix()}torneios/decklist-builder/index.html?${params.toString()}`;
 }
 
 function renderPagination(totalPages) {

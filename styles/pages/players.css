@@ -205,6 +205,59 @@ body[data-theme='dark'] .player-history-deck-card-count {
     margin-top: 6px;
 }
 
+.player-history-decklist-empty-row {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.player-history-register-btn {
+    border: 1px solid #d6def4;
+    background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%);
+    color: #2e3f72;
+    border-radius: 999px;
+    min-height: 32px;
+    padding: 0 10px 0 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.player-history-register-btn:hover {
+    border-color: #c1cdee;
+    background: linear-gradient(135deg, #f1f5ff 0%, #dde6fb 100%);
+}
+
+.player-history-register-btn:focus-visible {
+    outline: 2px solid #4f6fdc;
+    outline-offset: 1px;
+}
+
+.player-history-register-btn .nav-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body[data-theme='dark'] .player-history-register-btn {
+    border-color: #4f6799;
+    background: linear-gradient(135deg, #243552 0%, #30466f 100%);
+    color: #dbe7ff;
+}
+
+body[data-theme='dark'] .player-history-register-btn:hover {
+    border-color: #6482be;
+    background: linear-gradient(135deg, #2a3d5f 0%, #3a5384 100%);
+}
+
 .player-history-loading,
 .player-history-empty {
     color: #5f6f9f;
