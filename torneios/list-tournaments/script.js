@@ -1646,7 +1646,9 @@ async function fetchAllTournamentResultsForColorStats() {
     const out = [];
     const limit = 1000;
     let offset = 0;
-    const selectClause = encodeURIComponent('placement,tournament_date,tournament_id,deck:decks(name,colors)');
+    const selectClause = encodeURIComponent(
+        'placement,tournament_date,tournament_id,store_id,deck:decks(name,colors)'
+    );
 
     while (true) {
         const endpoint = `/rest/v1/tournament_results?select=${selectClause}&order=tournament_date.desc&limit=${limit}&offset=${offset}`;
@@ -1713,6 +1715,18 @@ function resolveTournamentFormatCodeForStatistics(row) {
         const sourceTournament = tournaments.find((item) => Number(item?.id) === tournamentId);
         const byTournament = normalizeFormatCode(getTournamentFormatCode(sourceTournament));
         if (byTournament) return byTournament;
+    }
+
+    const rowStoreId = String(row?.store_id || '').trim();
+    const rowDate = normalizeStatisticsDateKey(row?.tournament_date);
+    if (rowStoreId && rowDate && Array.isArray(tournaments)) {
+        const sourceTournament = tournaments.find((item) => {
+            const tStoreId = String(item?.store_id || '').trim();
+            const tDate = normalizeStatisticsDateKey(item?.tournament_date);
+            return tStoreId === rowStoreId && tDate === rowDate;
+        });
+        const byStoreDate = normalizeFormatCode(getTournamentFormatCode(sourceTournament));
+        if (byStoreDate) return byStoreDate;
     }
 
     return 'N/A';
