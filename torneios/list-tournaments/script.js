@@ -2347,44 +2347,27 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     }
     if (viewName === 'v_top_cards_by_month') {
         const compareTopCardsRows = (a, b) => {
-            const totalDiff = (Number(b?.total) || 0) - (Number(a?.total) || 0);
-            if (totalDiff !== 0) return totalDiff;
             const championDiff = (Number(b?.champion) || 0) - (Number(a?.champion) || 0);
             if (championDiff !== 0) return championDiff;
             const top2Diff = (Number(b?.top2) || 0) - (Number(a?.top2) || 0);
             if (top2Diff !== 0) return top2Diff;
+            const top3Diff = (Number(b?.top3) || 0) - (Number(a?.top3) || 0);
+            if (top3Diff !== 0) return top3Diff;
+            const top4Diff = (Number(b?.top4) || 0) - (Number(a?.top4) || 0);
+            if (top4Diff !== 0) return top4Diff;
+            const totalDiff = (Number(b?.total) || 0) - (Number(a?.total) || 0);
+            if (totalDiff !== 0) return totalDiff;
+            const nameDiff = String(a?.card_name || '').localeCompare(String(b?.card_name || ''));
+            if (nameDiff !== 0) return nameDiff;
             return String(a?.card_code || '').localeCompare(String(b?.card_code || ''));
         };
-
-        const byMonth = new Map();
-        filteredRows.forEach((row) => {
-            const monthKey = normalizeStatisticsMonthKey(row?.month || '') || '';
-            if (!byMonth.has(monthKey)) byMonth.set(monthKey, []);
-            byMonth.get(monthKey).push(row);
-        });
-
-        const rankedRows = [];
-        byMonth.forEach((monthRows, monthKey) => {
-            const sortedMonthRows = [...monthRows].sort(compareTopCardsRows);
-            sortedMonthRows.forEach((row, index) => {
-                rankedRows.push({
-                    ...row,
-                    month: row?.month || monthKey,
-                    monthly_rank: index + 1
-                });
-            });
-        });
-
-        filteredRows = rankedRows
-            .sort((a, b) => {
-                const monthA = normalizeStatisticsMonthKey(a?.month || '') || '';
-                const monthB = normalizeStatisticsMonthKey(b?.month || '') || '';
-                if (monthA !== monthB) return monthB.localeCompare(monthA);
-                const rankDiff = (Number(a?.monthly_rank) || 0) - (Number(b?.monthly_rank) || 0);
-                if (rankDiff !== 0) return rankDiff;
-                return String(a?.card_code || '').localeCompare(String(b?.card_code || ''));
-            })
-            .slice(0, 20);
+        const sortedRows = [...filteredRows].sort(compareTopCardsRows);
+        filteredRows = sortedRows
+            .slice(0, 20)
+            .map((row, index) => ({
+                ...row,
+                monthly_rank: index + 1
+            }));
     }
 
     if (viewName === 'v_store_champions') {
