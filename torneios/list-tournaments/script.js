@@ -199,8 +199,7 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'usage_percent',
         'titles',
         'top4_total',
-        'top_deck',
-        'top_deck_titles'
+        'top_deck'
     ],
     v_meta_by_month: [
         'month',
@@ -2982,6 +2981,7 @@ function getStatisticsDisplayColumns(viewName, columns) {
         list = list.filter(
             (column) =>
                 column !== 'color_code' &&
+                column !== 'top_deck_titles' &&
                 column !== 'format_code' &&
                 column !== 'format' &&
                 column !== 'month'
