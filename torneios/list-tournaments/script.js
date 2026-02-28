@@ -24,8 +24,11 @@ const PER_PAGE_STORAGE_KEY = 'tournamentsPerPage';
 const VIEW_STORAGE_KEY = 'tournamentsViewMode';
 const DASHBOARD_VIEW_STORAGE_KEY = 'dashboardActiveView';
 const STATS_VIEW_STORAGE_KEY = 'dashboardStatisticsView';
+const STATS_COLUMN_WIDTHS_STORAGE_KEY = 'dashboardStatisticsColumnWidths';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const OCR_API_BASE_URL = 'https://e-lopes-digimon-ocr-api.hf.space';
+const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
+const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
 const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
 const SORTABLE_FIELDS = ['tournament_date', 'total_players'];
 const SORT_DIRECTIONS = ['asc', 'desc'];
@@ -48,6 +51,7 @@ const STATISTICS_VIEWS = [
     { value: 'v_deck_representation', label: 'Representação de Decks' },
     { value: 'v_deck_stats', label: 'Estatísticas de Decks' },
     { value: 'v_meta_by_month', label: 'Meta por Formato' },
+    { value: 'v_top_cards_by_month', label: 'Top Cards' },
     { value: 'v_player_ranking', label: 'Ranking de Players' },
     { value: 'v_store_champions', label: 'Ranking por Loja' }
 ];
@@ -68,6 +72,15 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         title_rate_percent: 'Taxa de Títulos (%): (títulos / total de entradas) x 100.',
         top4_rate_percent: 'Taxa Top4 (%): (resultados no Top4 / total de entradas) x 100.',
         format_code: 'Código do formato do torneio (ex.: BT24, EX11).',
+        card_code: 'Código da carta (ex.: BT1-001).',
+        card_name: 'Nome da carta.',
+        card_type: 'Tipo da carta (Digimon, Tamer, Option, etc.).',
+        is_staple: 'Indica se a carta é staple.',
+        total: 'Quantidade total de decklists Top 4 contendo a carta no mês.',
+        champion: 'Quantidade de decklists campeãs (1º lugar) contendo a carta no mês.',
+        top2: 'Quantidade de decklists Top 2 contendo a carta no mês.',
+        top3: 'Quantidade de decklists Top 3 contendo a carta no mês.',
+        top4: 'Quantidade de decklists Top 4 contendo a carta no mês.',
         tournament_date: 'Data do torneio.',
         tournament_name: 'Nome do torneio.',
         placement: 'Colocação final no torneio.',
@@ -93,6 +106,15 @@ const STATISTICS_COLUMN_HELP_PTBR = {
             'Meta Share (%): (aparições do deck no mês e formato selecionados / total de aparições no mesmo mês e formato) x 100.',
         top4_total: 'Total de resultados Top 4 no mês.',
         titles: 'Total de títulos no mês.'
+    },
+    v_top_cards_by_month: {
+        monthly_rank: 'Posição da carta no mês com base na presença em decklists Top 4.',
+        card_name: 'Nome da carta.',
+        total: 'Total de decklists Top 4 contendo a carta no mês.',
+        champion: 'Total de campeões com a carta no mês.',
+        top2: 'Total de Top 2 com a carta no mês.',
+        top3: 'Total de Top 3 com a carta no mês.',
+        top4: 'Total de Top 4 com a carta no mês.'
     },
     v_player_ranking: {
         unique_decks_used: 'Quantidade de decks diferentes usados pelo jogador.',
@@ -167,6 +189,19 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'top4_total',
         'appearances'
     ],
+    v_top_cards_by_month: [
+        'month',
+        'monthly_rank',
+        'card_name',
+        'card_code',
+        'is_staple',
+        'card_type',
+        'total',
+        'champion',
+        'top2',
+        'top3',
+        'top4'
+    ],
     v_player_ranking: PLAYER_RANKING_TABLE_COLUMNS,
     v_store_champions: [
         'store',
@@ -213,8 +248,12 @@ let currentStatisticsMonthFilter = '';
 let currentStatisticsStoreFilter = '';
 let currentStatisticsFormatFilter = '';
 let currentStatisticsDateFilter = '';
+let currentStatisticsStapleFilter = '';
 let currentStoreChampionsPlayerQuery = '';
 let areStoreChampionsCardsCollapsed = true;
+const stapleTogglePendingCodes = new Set();
+const topCardsNameCache = new Map();
+const topCardsNameLookupAttempted = new Set();
 let tournamentFormatIdSupported = true;
 const FALLBACK_FORMAT_OPTIONS = [
     { id: 1, code: 'BT23', isDefault: false },
@@ -289,6 +328,74 @@ function getSavedStatisticsView() {
 function saveStatisticsViewPreference(value) {
     if (!STATISTICS_VIEWS.some((item) => item.value === value)) return;
     localStorage.setItem(STATS_VIEW_STORAGE_KEY, value);
+}
+
+function getSavedStatisticsColumnWidths() {
+    try {
+        const raw = localStorage.getItem(STATS_COLUMN_WIDTHS_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_error) {
+        return {};
+    }
+}
+
+function saveStatisticsColumnWidths(map) {
+    try {
+        localStorage.setItem(STATS_COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(map || {}));
+    } catch (_error) {}
+}
+
+function getStatisticsColumnWidth(viewName, column) {
+    const map = getSavedStatisticsColumnWidths();
+    const viewMap = map?.[viewName];
+    if (!viewMap || typeof viewMap !== 'object') return null;
+    const width = Number(viewMap[column]);
+    return Number.isFinite(width) && width > 0 ? width : null;
+}
+
+function setStatisticsColumnWidth(viewName, column, width) {
+    const px = Math.max(72, Math.min(720, Math.round(Number(width) || 0)));
+    if (!Number.isFinite(px)) return;
+    const map = getSavedStatisticsColumnWidths();
+    const viewMap = map?.[viewName] && typeof map[viewName] === 'object' ? map[viewName] : {};
+    viewMap[column] = px;
+    map[viewName] = viewMap;
+    saveStatisticsColumnWidths(map);
+}
+
+function clearStatisticsColumnWidth(viewName, column) {
+    const map = getSavedStatisticsColumnWidths();
+    const viewMap = map?.[viewName];
+    if (!viewMap || typeof viewMap !== 'object') return;
+    if (!Object.prototype.hasOwnProperty.call(viewMap, column)) return;
+    delete viewMap[column];
+    map[viewName] = viewMap;
+    saveStatisticsColumnWidths(map);
+}
+
+function applyStatisticsColumnWidth(head, body, columnIndex, widthPx) {
+    const width = Math.max(72, Math.min(720, Math.round(Number(widthPx) || 0)));
+    if (!Number.isFinite(width)) return;
+    const th = head.querySelector(`tr th:nth-child(${columnIndex + 1})`);
+    if (th) {
+        th.style.width = `${width}px`;
+        th.style.minWidth = `${width}px`;
+        th.style.maxWidth = `${width}px`;
+    }
+    body.querySelectorAll(`tr td:nth-child(${columnIndex + 1})`).forEach((td) => {
+        td.style.width = `${width}px`;
+        td.style.minWidth = `${width}px`;
+        td.style.maxWidth = `${width}px`;
+    });
+}
+
+function applySavedStatisticsColumnWidths(head, body, viewName, columns) {
+    columns.forEach((column, index) => {
+        const width = getStatisticsColumnWidth(viewName, column);
+        if (width) applyStatisticsColumnWidth(head, body, index, width);
+    });
 }
 
 function formatDate(dateString) {
@@ -1332,6 +1439,7 @@ async function mountStatisticsContainer() {
             currentStatisticsStoreFilter = '';
             currentStatisticsFormatFilter = '';
             currentStatisticsDateFilter = '';
+            currentStatisticsStapleFilter = '';
             currentStoreChampionsPlayerQuery = '';
             areStoreChampionsCardsCollapsed = true;
             saveStatisticsViewPreference(nextView);
@@ -1371,6 +1479,14 @@ async function mountStatisticsContainer() {
         });
     }
 
+    const stapleFilterSelect = host.querySelector('#statisticsFilterStaple');
+    if (stapleFilterSelect) {
+        stapleFilterSelect.addEventListener('change', () => {
+            currentStatisticsStapleFilter = String(stapleFilterSelect.value || '');
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
     const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
     if (playerSearchInput) {
         playerSearchInput.addEventListener('input', () => {
@@ -1405,6 +1521,7 @@ function unmountStatisticsContainer() {
     currentStatisticsStoreFilter = '';
     currentStatisticsFormatFilter = '';
     currentStatisticsDateFilter = '';
+    currentStatisticsStapleFilter = '';
     currentStoreChampionsPlayerQuery = '';
     areStoreChampionsCardsCollapsed = true;
     window.removeEventListener('resize', handleStatisticsViewportChange);
@@ -1463,7 +1580,11 @@ async function loadAndRenderStatistics(viewName) {
             }
 
             const rows = await response.json();
-            statisticsViewData = Array.isArray(rows) ? rows : [];
+            const baseRows = Array.isArray(rows) ? rows : [];
+            statisticsViewData =
+                viewName === 'v_top_cards_by_month'
+                    ? await enrichTopCardsWithCardName(baseRows)
+                    : baseRows;
             statisticsMonthlyRankingData = [];
         }
         renderStatisticsTable(statisticsViewData, viewName);
@@ -1473,6 +1594,159 @@ async function loadAndRenderStatistics(viewName) {
         statisticsMonthlyRankingData = [];
         renderStatisticsTable([], viewName, error.message || 'Unexpected error');
     }
+}
+
+async function enrichTopCardsWithCardName(rows) {
+    const list = normalizeTopCardsRows(Array.isArray(rows) ? rows : []);
+    if (!list.length) return [];
+
+    const byCode = new Map(topCardsNameCache);
+    try {
+        const cacheRows = await fetchAllCardsCacheRows();
+        (Array.isArray(cacheRows) ? cacheRows : []).forEach((row) => {
+            const key = normalizeCardCodeForLookup(row?.card_code);
+            const name = String(row?.name || '').trim();
+            const normalizedNameAsCode = normalizeCardCodeForLookup(name);
+            if (key && name && normalizedNameAsCode !== key) {
+                byCode.set(key, name);
+                topCardsNameCache.set(key, name);
+            }
+        });
+    } catch (_error) {
+        // Ignore cache failures; fallback stays local to avoid browser CORS/rate-limit loops.
+    }
+
+    const missingCodes = Array.from(
+        new Set(
+            list.map((row) => normalizeCardCodeForLookup(row?.card_code)).filter(
+                (code) => code && !byCode.has(code) && !topCardsNameLookupAttempted.has(code)
+            )
+        )
+    );
+    if (missingCodes.length) {
+        const apiRows = await fetchCardsFromDigimonApi(missingCodes);
+        apiRows.forEach((row) => {
+            const code = normalizeCardCodeForLookup(row?.card_code || row?.id || row?.card);
+            const name = String(row?.name || '').trim();
+            if (!code) return;
+            topCardsNameLookupAttempted.add(code);
+            if (name && normalizeCardCodeForLookup(name) !== code) {
+                byCode.set(code, name);
+                topCardsNameCache.set(code, name);
+            }
+        });
+        missingCodes.forEach((code) => topCardsNameLookupAttempted.add(code));
+    }
+
+    return list.map((row) => {
+        const code = normalizeCardCodeForLookup(row?.card_code);
+        const inlineName = String(row?.card_name || '').trim();
+        const inlineNameIsCode =
+            normalizeCardCodeForLookup(inlineName) &&
+            normalizeCardCodeForLookup(inlineName) === code;
+        return {
+            ...row,
+            card_name:
+                byCode.get(code) ||
+                (!inlineNameIsCode ? inlineName : '') ||
+                '-'
+        };
+    });
+}
+
+async function fetchAllCardsCacheRows() {
+    const out = [];
+    const limit = 1000;
+    let offset = 0;
+    while (true) {
+        const endpoint = `/rest/v1/cards_cache?select=card_code,name&order=card_code.asc&limit=${limit}&offset=${offset}`;
+        const response = window.supabaseApi
+            ? await window.supabaseApi.get(endpoint)
+            : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
+        if (!response.ok) {
+            throw new Error(`Failed to load cards_cache (${response.status})`);
+        }
+        const rows = await response.json();
+        if (!Array.isArray(rows) || !rows.length) break;
+        out.push(...rows);
+        if (rows.length < limit) break;
+        offset += limit;
+    }
+    return out;
+}
+
+async function fetchCardsFromDigimonApi(codes) {
+    const result = [];
+    const usedCodes = new Set();
+    const pushRow = (row) => {
+        const code = normalizeCardCodeForLookup(row?.id || row?.card || '');
+        if (!code || usedCodes.has(code)) return;
+        usedCodes.add(code);
+        result.push({
+            card_code: code,
+            id: row?.id || code,
+            name: row?.name || code,
+            pack: row?.pack || '',
+            color: row?.color || '',
+            type: row?.type || '',
+            card_payload: row || {}
+        });
+    };
+
+    for (const chunk of chunkArray(codes, 20)) {
+        try {
+            const query = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2) });
+            const response = await fetch(`${DIGIMON_CARD_API_URL}?${query}`);
+            if (response.ok) {
+                const rows = await response.json();
+                if (Array.isArray(rows)) rows.forEach(pushRow);
+            }
+        } catch (_error) {}
+
+        const missed = chunk.filter((code) => !usedCodes.has(code));
+        for (const code of missed) {
+            try {
+                const query = new URLSearchParams({ card: code, limit: '1' });
+                const response = await fetch(`${DIGIMON_CARD_API_URL}?${query}`);
+                if (!response.ok) continue;
+                const rows = await response.json();
+                if (Array.isArray(rows)) rows.forEach(pushRow);
+            } catch (_error) {}
+        }
+    }
+    return result;
+}
+
+function normalizeCardCodeForLookup(value) {
+    return String(value || '')
+        .trim()
+        .toUpperCase();
+}
+
+function chunkArray(items, size) {
+    const source = Array.isArray(items) ? items : [];
+    const result = [];
+    const step = Math.max(1, Number(size) || 1);
+    for (let i = 0; i < source.length; i += step) {
+        result.push(source.slice(i, i + step));
+    }
+    return result;
+}
+
+function normalizeTopCardsRows(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => {
+        const source = row || {};
+        const totalValue = source.total ?? source.total_copies ?? source.decklists_with_card ?? 0;
+        return {
+            ...source,
+            total: totalValue,
+            champion: source.champion ?? source.champion_copies ?? 0,
+            top2: source.top2 ?? source.top2_copies ?? 0,
+            top3: source.top3 ?? source.top3_copies ?? 0,
+            top4: source.top4 ?? source.top4_copies ?? 0
+        };
+    });
 }
 
 function renderStatisticsTable(rows, viewName, errorMessage = '') {
@@ -1491,6 +1765,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const formatFilterSelect = host.querySelector('#statisticsFilterFormat');
     const monthFilterSelect = host.querySelector('#statisticsFilterMonth');
     const dateFilterSelect = host.querySelector('#statisticsFilterDate');
+    const stapleFilterSelect = host.querySelector('#statisticsFilterStaple');
     const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
     const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
     const previousBoard = host.querySelector('.store-champions-board');
@@ -1515,7 +1790,8 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             'is-wide-table',
             viewName === 'v_player_ranking' ||
                 viewName === 'v_deck_stats' ||
-                viewName === 'v_deck_representation'
+                viewName === 'v_deck_representation' ||
+                viewName === 'v_top_cards_by_month'
         );
     }
     if (formulaHint) {
@@ -1541,6 +1817,11 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     if (dateFilterSelect) {
         dateFilterSelect.classList.add('is-hidden');
         dateFilterSelect.innerHTML = '<option value="">Todas as datas</option>';
+    }
+    if (stapleFilterSelect) {
+        stapleFilterSelect.classList.add('is-hidden');
+        stapleFilterSelect.innerHTML =
+            '<option value="">Todas as cartas</option><option value="true">Somente staple</option>';
     }
     if (playerSearchInput) {
         playerSearchInput.classList.add('is-hidden');
@@ -1673,6 +1954,18 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         currentStatisticsDateFilter = '';
     }
 
+    if (stapleFilterSelect && viewName === 'v_top_cards_by_month') {
+        stapleFilterSelect.classList.remove('is-hidden');
+        const allowedValues = new Set(['', 'true']);
+        if (!allowedValues.has(currentStatisticsStapleFilter)) {
+            currentStatisticsStapleFilter = '';
+        }
+        stapleFilterSelect.value = currentStatisticsStapleFilter;
+        currentStatisticsStapleFilter = String(stapleFilterSelect.value || '');
+    } else {
+        currentStatisticsStapleFilter = '';
+    }
+
     let filteredRows = rows;
     if (storeColumn && currentStatisticsStoreFilter) {
         filteredRows = filteredRows.filter(
@@ -1701,6 +1994,55 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         filteredRows = filteredRows.filter(
             (row) => normalizeStatisticsDateKey(row?.[dateColumn]) === currentStatisticsDateFilter
         );
+    }
+    if (viewName === 'v_top_cards_by_month' && currentStatisticsStapleFilter === 'true') {
+        filteredRows = filteredRows.filter((row) => {
+            const value = String(row?.is_staple || '')
+                .trim()
+                .toLowerCase();
+            return value === 'true' || value === 't' || value === '1' || value === 'yes' || value === 'sim';
+        });
+    }
+    if (viewName === 'v_top_cards_by_month') {
+        const compareTopCardsRows = (a, b) => {
+            const totalDiff = (Number(b?.total) || 0) - (Number(a?.total) || 0);
+            if (totalDiff !== 0) return totalDiff;
+            const championDiff = (Number(b?.champion) || 0) - (Number(a?.champion) || 0);
+            if (championDiff !== 0) return championDiff;
+            const top2Diff = (Number(b?.top2) || 0) - (Number(a?.top2) || 0);
+            if (top2Diff !== 0) return top2Diff;
+            return String(a?.card_code || '').localeCompare(String(b?.card_code || ''));
+        };
+
+        const byMonth = new Map();
+        filteredRows.forEach((row) => {
+            const monthKey = normalizeStatisticsMonthKey(row?.month || '') || '';
+            if (!byMonth.has(monthKey)) byMonth.set(monthKey, []);
+            byMonth.get(monthKey).push(row);
+        });
+
+        const rankedRows = [];
+        byMonth.forEach((monthRows, monthKey) => {
+            const sortedMonthRows = [...monthRows].sort(compareTopCardsRows);
+            sortedMonthRows.forEach((row, index) => {
+                rankedRows.push({
+                    ...row,
+                    month: row?.month || monthKey,
+                    monthly_rank: index + 1
+                });
+            });
+        });
+
+        filteredRows = rankedRows
+            .sort((a, b) => {
+                const monthA = normalizeStatisticsMonthKey(a?.month || '') || '';
+                const monthB = normalizeStatisticsMonthKey(b?.month || '') || '';
+                if (monthA !== monthB) return monthB.localeCompare(monthA);
+                const rankDiff = (Number(a?.monthly_rank) || 0) - (Number(b?.monthly_rank) || 0);
+                if (rankDiff !== 0) return rankDiff;
+                return String(a?.card_code || '').localeCompare(String(b?.card_code || ''));
+            })
+            .slice(0, 20);
     }
 
     if (viewName === 'v_store_champions') {
@@ -1738,6 +2080,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             (formatFilterSelect && !formatFilterSelect.classList.contains('is-hidden')) ||
             (monthFilterSelect && !monthFilterSelect.classList.contains('is-hidden')) ||
             (dateFilterSelect && !dateFilterSelect.classList.contains('is-hidden')) ||
+            (stapleFilterSelect && !stapleFilterSelect.classList.contains('is-hidden')) ||
             (playerSearchInput && !playerSearchInput.classList.contains('is-hidden')) ||
             (toggleStoreCardsButton && !toggleStoreCardsButton.classList.contains('is-hidden'));
         secondaryControls.classList.toggle('is-hidden', !hasVisibleSecondaryControl);
@@ -1755,6 +2098,8 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
                 status.textContent = 'Sem dados para o mes selecionado.';
             } else if (dateColumn && currentStatisticsDateFilter) {
                 status.textContent = 'Sem dados para a data selecionada.';
+            } else if (viewName === 'v_top_cards_by_month' && currentStatisticsStapleFilter === 'true') {
+                status.textContent = 'Sem dados para cartas staple.';
             } else {
                 status.textContent = `No rows returned for ${viewName}.`;
             }
@@ -1770,11 +2115,6 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             viewName,
             Object.keys(filteredRows[0] || {}).filter((column) => !isInternalStatisticsColumn(column))
         );
-        renderStatisticsHighlights(host, viewName, filteredRows, columns, {
-            showInlineMonthSelect: false,
-            monthValues: [],
-            selectedMonth: ''
-        });
         if (tableWrapper) tableWrapper.classList.add('is-hidden');
         if (dataCard) dataCard.classList.add('is-hidden');
         renderStoreChampionsBoard(host, filteredRows, {
@@ -1797,21 +2137,33 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         currentStatisticsSort = { column: '', direction: 'asc' };
     }
 
-    renderStatisticsHighlights(host, viewName, filteredRows, columns, {
-        showInlineMonthSelect: viewName === 'v_player_ranking' && Boolean(monthColumn),
-        monthValues:
-            viewName === 'v_player_ranking'
-                ? playerMonthlyRows.map((row) => row?.[monthColumn])
-                : [],
-        selectedMonth: currentStatisticsMonthFilter
-    });
-
     const sortedRows = sortStatisticsRows(filteredRows, currentStatisticsSort);
     const headerRow = document.createElement('tr');
-    columns.forEach((column) => {
+    columns.forEach((column, columnIndex) => {
         const th = document.createElement('th');
+        const normalizedColumn = String(column || '').trim().toLowerCase();
+        if (
+            normalizedColumn === 'monthly_rank' ||
+            normalizedColumn === 'overall_rank' ||
+            normalizedColumn === 'store_rank' ||
+            normalizedColumn === 'format_rank'
+        ) {
+            th.classList.add('stats-rank-col');
+        }
+        if (
+            normalizedColumn === 'total' ||
+            normalizedColumn === 'champion' ||
+            normalizedColumn === 'top2' ||
+            normalizedColumn === 'top3' ||
+            normalizedColumn === 'top4'
+        ) {
+            th.classList.add('stats-metric-col');
+        }
+        if (normalizedColumn === 'is_staple') {
+            th.classList.add('stats-staple-col');
+        }
         const description = getStatisticsColumnDescription(viewName, column);
-        const columnLabel = prettifyStatisticsColumn(column, viewName);
+        const columnLabel = getStatisticsHeaderLabel(viewName, column);
         th.title = description;
         const button = document.createElement('button');
         button.type = 'button';
@@ -1824,6 +2176,46 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             <span class="sort-indicator" data-stats-sort-indicator="${column}">\u21C5</span>
         `;
         th.appendChild(button);
+
+        const resizer = document.createElement('span');
+        resizer.className = 'stats-col-resizer';
+        resizer.setAttribute('role', 'separator');
+        resizer.setAttribute('aria-orientation', 'vertical');
+        resizer.setAttribute('aria-label', `Resize column ${columnLabel}`);
+        resizer.title = 'Arraste para ajustar a largura. Duplo clique para resetar.';
+        resizer.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        resizer.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            clearStatisticsColumnWidth(viewName, column);
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+        resizer.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const startX = event.clientX;
+            const startWidth = th.getBoundingClientRect().width;
+
+            const onMouseMove = (moveEvent) => {
+                const delta = moveEvent.clientX - startX;
+                const nextWidth = startWidth + delta;
+                applyStatisticsColumnWidth(head, body, columnIndex, nextWidth);
+            };
+            const onMouseUp = (upEvent) => {
+                const delta = upEvent.clientX - startX;
+                const finalWidth = startWidth + delta;
+                setStatisticsColumnWidth(viewName, column, finalWidth);
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+        th.appendChild(resizer);
         headerRow.appendChild(th);
     });
     head.appendChild(headerRow);
@@ -1832,11 +2224,36 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         const tr = document.createElement('tr');
         columns.forEach((column) => {
             const td = document.createElement('td');
-            td.innerHTML = formatStatisticsCellValue(row[column], column);
+            const normalizedColumn = String(column || '').trim().toLowerCase();
+            if (
+                normalizedColumn === 'monthly_rank' ||
+                normalizedColumn === 'overall_rank' ||
+                normalizedColumn === 'store_rank' ||
+                normalizedColumn === 'format_rank'
+            ) {
+                td.classList.add('stats-rank-col');
+            }
+            if (
+                normalizedColumn === 'total' ||
+                normalizedColumn === 'champion' ||
+                normalizedColumn === 'top2' ||
+                normalizedColumn === 'top3' ||
+                normalizedColumn === 'top4'
+            ) {
+                td.classList.add('stats-metric-col');
+            }
+            if (normalizedColumn === 'is_staple') {
+                td.classList.add('stats-staple-col');
+            }
+            td.innerHTML = formatStatisticsCellValue(row[column], column, row);
             tr.appendChild(td);
         });
         body.appendChild(tr);
     });
+
+    bindStatisticsCardPreview(body);
+    bindStatisticsStapleToggle(body, viewName);
+    applySavedStatisticsColumnWidths(head, body, viewName, columns);
 
     const sortButtons = head.querySelectorAll('.stats-sort-button[data-stats-sort-column]');
     sortButtons.forEach((button) => {
@@ -1850,6 +2267,189 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     updateStatisticsSortIndicators(head);
 
     if (status) status.textContent = '';
+}
+
+function bindStatisticsCardPreview(root) {
+    if (!root) return;
+    const targets = root.querySelectorAll('[data-card-preview-code]');
+    if (!targets.length) return;
+
+    const popover = ensureStatisticsCardPreviewPopover();
+    const img = popover.querySelector('img');
+    if (!img) return;
+
+    const show = (event) => {
+        const el = event.currentTarget;
+        const code = String(el?.getAttribute('data-card-preview-code') || '').trim();
+        if (!code) return;
+        const primary = `${IMAGE_BASE_URL}${encodeURIComponent(code)}.webp`;
+        const fallback = `https://images.digimoncard.io/images/cards/${encodeURIComponent(code)}.png`;
+        img.onerror = () => {
+            if (img.dataset.fallback === '1') return;
+            img.dataset.fallback = '1';
+            img.src = fallback;
+        };
+        img.dataset.fallback = '';
+        img.src = primary;
+        popover.classList.add('is-visible');
+        moveCardPreviewPopover(popover, event.clientX, event.clientY);
+    };
+    const move = (event) => {
+        if (!popover.classList.contains('is-visible')) return;
+        moveCardPreviewPopover(popover, event.clientX, event.clientY);
+    };
+    const hide = () => {
+        popover.classList.remove('is-visible');
+    };
+
+    targets.forEach((el) => {
+        el.addEventListener('mouseenter', show);
+        el.addEventListener('mousemove', move);
+        el.addEventListener('mouseleave', hide);
+        el.addEventListener('blur', hide);
+    });
+}
+
+function normalizeStatisticsStapleState(value) {
+    if (value === true) return 'true';
+    if (value === false) return 'false';
+    const normalized = String(value ?? '')
+        .trim()
+        .toLowerCase();
+    if (normalized === 'true' || normalized === 't' || normalized === '1' || normalized === 'yes' || normalized === 'sim') {
+        return 'true';
+    }
+    if (normalized === 'false' || normalized === 'f' || normalized === '0' || normalized === 'no' || normalized === 'nao' || normalized === 'não') {
+        return 'false';
+    }
+    return 'null';
+}
+
+function getNextStatisticsStapleState(state) {
+    if (state === 'true') return 'false';
+    if (state === 'false') return 'null';
+    return 'true';
+}
+
+function serializeStatisticsStapleState(state) {
+    if (state === 'true') return true;
+    if (state === 'false') return false;
+    return null;
+}
+
+function renderStatisticsStapleToggle(row, value) {
+    const code = normalizeCardCodeForLookup(row?.card_code || '');
+    if (!code) return '-';
+    const state = normalizeStatisticsStapleState(value);
+    const nextState = getNextStatisticsStapleState(state);
+    const stateLabel = state === 'true' ? 'Staple: Sim' : state === 'false' ? 'Staple: Não' : 'Staple: Não definido';
+    const nextLabel = nextState === 'true' ? 'Sim' : nextState === 'false' ? 'Não' : 'Não definido';
+    const icon = state === 'true' ? '✓' : state === 'false' ? '✕' : '';
+    return `
+        <button
+            type="button"
+            class="stats-staple-toggle stats-staple-toggle-${state}"
+            data-stats-staple-code="${escapeHtml(code)}"
+            data-stats-staple-state="${state}"
+            title="${escapeHtml(`${stateLabel}. Clique para mudar para ${nextLabel}.`)}"
+            aria-label="${escapeHtml(`${stateLabel}. Clique para mudar para ${nextLabel}.`)}"
+        >
+            <span class="stats-staple-toggle-icon" aria-hidden="true">${icon}</span>
+        </button>
+    `;
+}
+
+function bindStatisticsStapleToggle(root, viewName) {
+    if (!root || viewName !== 'v_top_cards_by_month') return;
+    const buttons = root.querySelectorAll('button[data-stats-staple-code][data-stats-staple-state]');
+    if (!buttons.length) return;
+
+    buttons.forEach((button) => {
+        button.addEventListener('click', async () => {
+            const code = normalizeCardCodeForLookup(button.dataset.statsStapleCode || '');
+            const currentState = normalizeStatisticsStapleState(button.dataset.statsStapleState || '');
+            if (!code || stapleTogglePendingCodes.has(code)) return;
+            const nextState = getNextStatisticsStapleState(currentState);
+
+            stapleTogglePendingCodes.add(code);
+            button.disabled = true;
+            button.classList.add('is-loading');
+
+            try {
+                await updateStatisticsStapleStateOnServer(code, nextState);
+                const serialized = serializeStatisticsStapleState(nextState);
+                if (Array.isArray(statisticsViewData) && statisticsViewData.length) {
+                    statisticsViewData = statisticsViewData.map((row) => {
+                        const rowCode = normalizeCardCodeForLookup(row?.card_code || '');
+                        if (rowCode !== code) return row;
+                        return { ...row, is_staple: serialized };
+                    });
+                }
+                renderStatisticsTable(statisticsViewData, currentStatisticsView);
+            } catch (error) {
+                console.error('Failed to update is_staple:', error);
+                alert('Falha ao atualizar staple. Tente novamente.');
+            } finally {
+                stapleTogglePendingCodes.delete(code);
+                button.disabled = false;
+                button.classList.remove('is-loading');
+            }
+        });
+    });
+}
+
+async function updateStatisticsStapleStateOnServer(cardCode, nextState) {
+    const code = normalizeCardCodeForLookup(cardCode || '');
+    if (!code) throw new Error('Invalid card code');
+    const payload = { is_staple: serializeStatisticsStapleState(nextState) };
+    const endpoint = `/rest/v1/decklist_cards?card_code=eq.${encodeURIComponent(code)}`;
+    const extraHeaders = { Prefer: 'return=minimal' };
+    const response = window.supabaseApi
+        ? await window.supabaseApi.patch(endpoint, payload, extraHeaders)
+        : await fetch(`${SUPABASE_URL}${endpoint}`, {
+              method: 'PATCH',
+              headers: { ...headers, ...extraHeaders },
+              body: JSON.stringify(payload)
+          });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+}
+
+function ensureStatisticsCardPreviewPopover() {
+    let popover = document.getElementById('statisticsCardPreviewPopover');
+    if (popover) return popover;
+    popover = document.createElement('div');
+    popover.id = 'statisticsCardPreviewPopover';
+    popover.className = 'stats-card-preview-popover';
+    popover.innerHTML = '<img alt="Card preview" />';
+    document.body.appendChild(popover);
+    return popover;
+}
+
+function moveCardPreviewPopover(popover, clientX, clientY) {
+    if (!popover) return;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    const rect = popover.getBoundingClientRect();
+    const offset = 14;
+    const margin = 8;
+
+    let left = clientX + offset;
+    let top = clientY + offset;
+
+    if (left + rect.width + margin > vw) {
+        left = clientX - rect.width - offset;
+    }
+    if (top + rect.height + margin > vh) {
+        top = clientY - rect.height - offset;
+    }
+    left = Math.max(margin, left);
+    top = Math.max(margin, top);
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
 }
 
 function renderStoreChampionsBoard(host, rows, options = {}) {
@@ -1969,6 +2569,15 @@ function prettifyStatisticsColumn(column, viewName = '') {
         store_rank: 'Rank Loja',
         performance_rank: 'Rank Performance',
         format_rank: 'Rank',
+        card_code: 'Carta',
+        card_name: 'Nome',
+        card_type: 'Tipo',
+        is_staple: 'Staple',
+        total: 'Total',
+        champion: 'Champion',
+        top2: 'Top2',
+        top3: 'Top3',
+        top4: 'Top4',
         top4_total: 'Top4',
         meta_share_percent: 'Meta Share (%)',
         title_rate_percent: 'Taxa de Títulos (%)',
@@ -1987,11 +2596,50 @@ function prettifyStatisticsColumn(column, viewName = '') {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function getStatisticsHeaderLabel(viewName, column) {
+    const normalized = String(column || '').trim().toLowerCase();
+    if (viewName === 'v_top_cards_by_month') {
+        const topCardsHeaders = {
+            month: 'Month',
+            monthly_rank: 'Rank',
+            card_code: 'Code',
+            card_name: 'Name',
+            is_staple: 'Staple',
+            card_type: 'Type',
+            decklists_with_card: 'Decklists',
+            total: 'Total',
+            total_copies: 'Total',
+            champion: 'Champion',
+            champion_copies: 'Champion',
+            top2: 'Top 2',
+            top2_copies: 'Top 2',
+            top3: 'Top 3',
+            top3_copies: 'Top 3',
+            top4: 'Top 4',
+            top4_copies: 'Top 4'
+        };
+        if (topCardsHeaders[normalized]) return topCardsHeaders[normalized];
+    }
+    return prettifyStatisticsColumn(column, viewName);
+}
+
 function getStatisticsDisplayColumns(viewName, columns) {
     let list = Array.isArray(columns) ? [...columns] : [];
     list = list.filter((column) => !STATISTICS_REMOVED_COLUMNS.has(String(column || '').trim()));
     if (viewName === 'v_meta_by_month') {
         list = list.filter((column) => column !== 'meta_share_percent');
+    } else if (viewName === 'v_top_cards_by_month') {
+        list = list.filter(
+            (column) =>
+                column !== 'card_level' &&
+                column !== 'is_digi_egg' &&
+                column !== 'decklists_with_card' &&
+                column !== 'total_copies' &&
+                column !== 'champion_copies' &&
+                column !== 'top2_copies' &&
+                column !== 'top3_copies' &&
+                column !== 'top4_copies'
+        );
     }
     const preferred = STATISTICS_VIEW_COLUMN_ORDER[viewName];
     if (!Array.isArray(preferred) || !preferred.length) return list;
@@ -2048,32 +2696,68 @@ function normalizeStatNumber(value) {
     return Number.isFinite(n) ? n : null;
 }
 
-function formatStatisticsCellValue(value, column = '') {
+function formatStatisticsCellValue(value, column = '', row = null) {
+    const normalizedColumn = String(column || '').toLowerCase();
+    if (normalizedColumn === 'is_staple' && row) {
+        return renderStatisticsStapleToggle(row, value);
+    }
+
     if (value === null || value === undefined) return '-';
     if (typeof value === 'object') return escapeHtml(JSON.stringify(value));
 
     const text = String(value).trim();
     if (!text) return '-';
 
-    const normalizedColumn = String(column || '').toLowerCase();
     const numeric = Number(text);
     const isNumeric = Number.isFinite(numeric) && /^-?\d+(\.\d+)?$/.test(text);
     const isPercentColumn = normalizedColumn.includes('percent');
     const isAverageColumn = normalizedColumn.includes('avg');
+    const isMonthColumn = normalizedColumn === 'month';
+    const isTopCardsMetricColumn =
+        normalizedColumn === 'total' ||
+        normalizedColumn === 'champion' ||
+        normalizedColumn === 'top2' ||
+        normalizedColumn === 'top3' ||
+        normalizedColumn === 'top4';
     const isRankColumn =
         normalizedColumn === 'rank' ||
         normalizedColumn.endsWith('_rank') ||
         normalizedColumn === 'placement' ||
         normalizedColumn.endsWith('_placement');
 
+    if (isMonthColumn) {
+        const monthKey = normalizeStatisticsMonthKey(text);
+        if (monthKey) return formatStatisticsMonthLabel(monthKey);
+    }
     if (isRankColumn && isNumeric) {
-        return `<span class="stats-pill stats-pill-rank">#${Math.trunc(numeric)}</span>`;
+        const rank = Math.trunc(numeric);
+        const rankClass =
+            rank === 1
+                ? 'stats-pill-rank-first'
+                : rank === 2
+                  ? 'stats-pill-rank-second'
+                  : rank === 3
+                    ? 'stats-pill-rank-third'
+                    : rank === 4
+                      ? 'stats-pill-rank-fourth'
+                      : 'stats-pill-rank-default';
+        return `<span class="stats-pill stats-pill-rank ${rankClass}">${formatOrdinal(rank)}</span>`;
+    }
+    if ((normalizedColumn === 'card_name' || normalizedColumn === 'card_code') && row) {
+        const code = normalizeCardCodeForLookup(row?.card_code || '');
+        if (code) {
+            const display = normalizedColumn === 'card_name' ? text : code;
+            return `<span class="stats-card-hover" data-card-preview-code="${escapeHtml(code)}">${escapeHtml(display)}</span>`;
+        }
     }
     if (isPercentColumn && isNumeric) {
         return `<span class="stats-pill stats-pill-percent">${numeric.toFixed(2)}%</span>`;
     }
     if (isAverageColumn && isNumeric) {
         return numeric.toFixed(2);
+    }
+    if (isTopCardsMetricColumn && isNumeric) {
+        return String(Math.trunc(numeric));
     }
     if (isNumeric) {
         return numeric.toLocaleString('pt-BR');
@@ -2173,6 +2857,12 @@ function buildStatisticsHighlights(viewName, rows, columns) {
         if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
         if (hasColumn('titles')) {
             list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
+        }
+    } else if (viewName === 'v_top_cards_by_month') {
+        if (hasColumn('month')) list.push({ label: 'Meses', value: String(countUnique('month')) });
+        if (hasColumn('card_code')) list.push({ label: 'Cartas', value: String(countUnique('card_code')) });
+        if (hasColumn('total')) {
+            list.push({ label: 'Total', value: sumNumeric('total').toLocaleString('pt-BR') });
         }
     } else if (viewName === 'v_player_ranking') {
         if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
