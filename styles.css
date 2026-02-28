@@ -8842,6 +8842,12 @@ body.template-preview-page .post-toast {
     text-underline-offset: 2px;
 }
 
+.stats-color-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .stats-card-preview-popover {
     position: fixed;
     display: none;

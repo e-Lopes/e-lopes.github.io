@@ -50,6 +50,7 @@ const DEFAULT_STATISTICS_VIEW = 'v_deck_stats';
 const STATISTICS_VIEWS = [
     { value: 'v_deck_representation', label: 'Representação de Decks' },
     { value: 'v_deck_stats', label: 'Estatísticas de Decks' },
+    { value: 'v_deck_color_stats', label: 'Estatísticas por Cor' },
     { value: 'v_meta_by_month', label: 'Meta por Formato' },
     { value: 'v_top_cards_by_month', label: 'Top Cards' },
     { value: 'v_player_ranking', label: 'Ranking de Players' },
@@ -76,6 +77,11 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         card_name: 'Nome da carta.',
         card_type: 'Tipo da carta (Digimon, Tamer, Option, etc.).',
         is_staple: 'Indica se a carta é staple.',
+        color: 'Cor do deck.',
+        usage_percent:
+            'Uso da Cor (%): (quantidade de resultados com a cor no período / total de resultados do período) x 100.',
+        top_deck: 'Deck da cor com maior número de títulos (Top 1) no período filtrado.',
+        top_deck_titles: 'Quantidade de títulos do deck líder da cor no período.',
         total: 'Quantidade total de decklists Top 4 contendo a carta no mês.',
         champion: 'Quantidade de decklists campeãs (1º lugar) contendo a carta no mês.',
         top2: 'Quantidade de decklists Top 2 contendo a carta no mês.',
@@ -106,6 +112,15 @@ const STATISTICS_COLUMN_HELP_PTBR = {
             'Meta Share (%): (aparições do deck no mês e formato selecionados / total de aparições no mesmo mês e formato) x 100.',
         top4_total: 'Total de resultados Top 4 no mês.',
         titles: 'Total de títulos no mês.'
+    },
+    v_deck_color_stats: {
+        color: 'Cor do deck (R/U/B/W/G/Y/P).',
+        usage_percent:
+            'Uso da cor no período (%): (resultados com a cor / total de resultados do período) x 100.',
+        titles: 'Quantidade de Top 1 da cor no período.',
+        top4_total: 'Quantidade de Top 4 da cor no período.',
+        top_deck: 'Deck da cor que mais venceu no período.',
+        top_deck_titles: 'Quantidade de títulos do deck líder.'
     },
     v_top_cards_by_month: {
         monthly_rank: 'Posição da carta no mês com base na presença em decklists Top 4.',
@@ -178,6 +193,14 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'title_rate_percent',
         'top4_rate_percent',
         'ranking_points'
+    ],
+    v_deck_color_stats: [
+        'color',
+        'usage_percent',
+        'titles',
+        'top4_total',
+        'top_deck',
+        'top_deck_titles'
     ],
     v_meta_by_month: [
         'month',
@@ -254,6 +277,17 @@ let areStoreChampionsCardsCollapsed = true;
 const stapleTogglePendingCodes = new Set();
 const topCardsNameCache = new Map();
 const topCardsNameLookupAttempted = new Set();
+let deckColorStatsSourceRows = [];
+const DECK_COLOR_ORDER = ['r', 'u', 'b', 'w', 'g', 'y', 'p'];
+const DECK_COLOR_LABELS = {
+    r: 'Red',
+    u: 'Blue',
+    b: 'Black',
+    w: 'White',
+    g: 'Green',
+    y: 'Yellow',
+    p: 'Purple'
+};
 let tournamentFormatIdSupported = true;
 const FALLBACK_FORMAT_OPTIONS = [
     { id: 1, code: 'BT23', isDefault: false },
@@ -1451,6 +1485,11 @@ async function mountStatisticsContainer() {
     if (monthSelect) {
         monthSelect.addEventListener('change', () => {
             currentStatisticsMonthFilter = String(monthSelect.value || '');
+            if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsMonthFilter) {
+                currentStatisticsFormatFilter = '';
+                const formatSelect = host.querySelector('#statisticsFilterFormat');
+                if (formatSelect) formatSelect.value = '';
+            }
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1467,6 +1506,11 @@ async function mountStatisticsContainer() {
     if (formatFilterSelect) {
         formatFilterSelect.addEventListener('change', () => {
             currentStatisticsFormatFilter = String(formatFilterSelect.value || '');
+            if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsFormatFilter) {
+                currentStatisticsMonthFilter = '';
+                const monthSelect = host.querySelector('#statisticsFilterMonth');
+                if (monthSelect) monthSelect.value = '';
+            }
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1569,6 +1613,9 @@ async function loadAndRenderStatistics(viewName) {
                 Array.isArray(monthlyRows) ? monthlyRows : [],
                 { isMonthly: true, allTimeByPlayer: playerAllTimeMap }
             );
+        } else if (viewName === 'v_deck_color_stats') {
+            statisticsViewData = await loadDeckColorStatisticsRows();
+            statisticsMonthlyRankingData = [];
         } else {
             const endpoint = `/rest/v1/${viewName}?select=*&limit=1000`;
             const response = window.supabaseApi
@@ -1594,6 +1641,281 @@ async function loadAndRenderStatistics(viewName) {
         statisticsMonthlyRankingData = [];
         renderStatisticsTable([], viewName, error.message || 'Unexpected error');
     }
+}
+
+async function fetchAllTournamentResultsForColorStats() {
+    const out = [];
+    const limit = 1000;
+    let offset = 0;
+    const selectClause = encodeURIComponent('placement,tournament_date,tournament_id,deck:decks(name,colors)');
+
+    while (true) {
+        const endpoint = `/rest/v1/tournament_results?select=${selectClause}&order=tournament_date.desc&limit=${limit}&offset=${offset}`;
+        const response = window.supabaseApi
+            ? await window.supabaseApi.get(endpoint)
+            : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load deck color stats source (${response.status})`);
+        }
+
+        const rows = await response.json();
+        if (!Array.isArray(rows) || !rows.length) break;
+        out.push(...rows);
+        if (rows.length < limit) break;
+        offset += limit;
+    }
+
+    return out;
+}
+
+function normalizeDeckColorsForStatistics(value) {
+    const tokenMap = {
+        r: 'r',
+        red: 'r',
+        vermelho: 'r',
+        u: 'u',
+        blue: 'u',
+        azul: 'u',
+        b: 'b',
+        black: 'b',
+        preto: 'b',
+        w: 'w',
+        white: 'w',
+        branco: 'w',
+        g: 'g',
+        green: 'g',
+        verde: 'g',
+        y: 'y',
+        yellow: 'y',
+        amarelo: 'y',
+        p: 'p',
+        purple: 'p',
+        roxo: 'p'
+    };
+    const tokens = String(value || '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/g)
+        .map((token) => token.trim())
+        .filter(Boolean);
+
+    const colorsSet = new Set();
+    tokens.forEach((token) => {
+        const normalized = tokenMap[token];
+        if (normalized) colorsSet.add(normalized);
+    });
+
+    return DECK_COLOR_ORDER.filter((color) => colorsSet.has(color));
+}
+
+function resolveTournamentFormatCodeForStatistics(row) {
+    const tournamentId = Number(row?.tournament_id);
+    if (Number.isFinite(tournamentId) && tournamentId > 0 && Array.isArray(tournaments)) {
+        const sourceTournament = tournaments.find((item) => Number(item?.id) === tournamentId);
+        const byTournament = normalizeFormatCode(getTournamentFormatCode(sourceTournament));
+        if (byTournament) return byTournament;
+    }
+
+    return 'N/A';
+}
+
+async function loadDeckColorStatisticsRows() {
+    const sourceRows = await fetchAllTournamentResultsForColorStats();
+    deckColorStatsSourceRows = Array.isArray(sourceRows) ? sourceRows : [];
+    if (!Array.isArray(sourceRows) || !sourceRows.length) return [];
+
+    const periodTotals = new Map();
+    const periodColorAgg = new Map();
+    const periodColorDeckAgg = new Map();
+    const colorOrderIndex = new Map(DECK_COLOR_ORDER.map((color, index) => [color, index]));
+
+    sourceRows.forEach((row) => {
+        const placement = Number(row?.placement);
+        if (!Number.isFinite(placement) || placement <= 0) return;
+
+        const month = normalizeStatisticsMonthKey(row?.tournament_date) || '';
+        const formatCode = resolveTournamentFormatCodeForStatistics(row);
+        const periodKey = `${month}|${formatCode}`;
+        periodTotals.set(periodKey, (periodTotals.get(periodKey) || 0) + 1);
+
+        const deck = row?.deck || {};
+        const deckName = String(deck?.name || '-').trim() || '-';
+        const colors = normalizeDeckColorsForStatistics(deck?.colors || '');
+        if (!colors.length) return;
+
+        colors.forEach((colorCode) => {
+            const colorLabel = DECK_COLOR_LABELS[colorCode] || colorCode.toUpperCase();
+            const periodColorKey = `${periodKey}|${colorCode}`;
+            const current = periodColorAgg.get(periodColorKey) || {
+                month,
+                format_code: formatCode,
+                color_code: colorCode,
+                color: colorLabel,
+                usage_count: 0,
+                titles: 0,
+                top4_total: 0
+            };
+
+            current.usage_count += 1;
+            if (placement === 1) current.titles += 1;
+            if (placement <= 4) current.top4_total += 1;
+            periodColorAgg.set(periodColorKey, current);
+
+            if (!periodColorDeckAgg.has(periodColorKey)) {
+                periodColorDeckAgg.set(periodColorKey, new Map());
+            }
+            const deckMap = periodColorDeckAgg.get(periodColorKey);
+            const deckStats = deckMap.get(deckName) || {
+                deck: deckName,
+                titles: 0,
+                top4_total: 0,
+                usage_count: 0
+            };
+            deckStats.usage_count += 1;
+            if (placement === 1) deckStats.titles += 1;
+            if (placement <= 4) deckStats.top4_total += 1;
+            deckMap.set(deckName, deckStats);
+        });
+    });
+
+    return Array.from(periodColorAgg.values())
+        .map((entry) => {
+            const periodKey = `${entry.month}|${entry.format_code}`;
+            const periodColorKey = `${periodKey}|${entry.color_code}`;
+            const periodTotal = Number(periodTotals.get(periodKey) || 0);
+            const usagePercent = periodTotal > 0 ? (entry.usage_count / periodTotal) * 100 : 0;
+            const deckMap = periodColorDeckAgg.get(periodColorKey) || new Map();
+            const topDeck = Array.from(deckMap.values()).sort((a, b) => {
+                const titleDiff = b.titles - a.titles;
+                if (titleDiff !== 0) return titleDiff;
+                const top4Diff = b.top4_total - a.top4_total;
+                if (top4Diff !== 0) return top4Diff;
+                const usageDiff = b.usage_count - a.usage_count;
+                if (usageDiff !== 0) return usageDiff;
+                return String(a.deck || '').localeCompare(String(b.deck || ''));
+            })[0] || { deck: '-', titles: 0 };
+
+            return {
+                month: entry.month,
+                format_code: entry.format_code,
+                color_code: entry.color_code,
+                color: entry.color,
+                usage_percent: usagePercent,
+                titles: entry.titles,
+                top4_total: entry.top4_total,
+                top_deck: topDeck.deck,
+                top_deck_titles: topDeck.titles,
+                _usage_count: entry.usage_count,
+                _period_total: periodTotal
+            };
+        })
+        .sort((a, b) => {
+            const monthDiff = String(b.month || '').localeCompare(String(a.month || ''));
+            if (monthDiff !== 0) return monthDiff;
+            const formatDiff = String(a.format_code || '').localeCompare(String(b.format_code || ''));
+            if (formatDiff !== 0) return formatDiff;
+            const usageDiff = Number(b.usage_percent || 0) - Number(a.usage_percent || 0);
+            if (usageDiff !== 0) return usageDiff;
+            const colorDiff =
+                (colorOrderIndex.get(String(a.color_code || '').toLowerCase()) ?? 999) -
+                (colorOrderIndex.get(String(b.color_code || '').toLowerCase()) ?? 999);
+            if (colorDiff !== 0) return colorDiff;
+            return String(a.color || '').localeCompare(String(b.color || ''));
+        });
+}
+
+function buildDeckColorOverallRowsFromSource(sourceRows, filters = {}) {
+    const list = Array.isArray(sourceRows) ? sourceRows : [];
+    if (!list.length) return [];
+    const monthFilter = String(filters?.monthKey || '').trim();
+    const formatFilter = String(filters?.formatCode || '').trim().toUpperCase();
+
+    const scopedRows = list.filter((row) => {
+        const placement = Number(row?.placement);
+        if (!Number.isFinite(placement) || placement <= 0) return false;
+        if (monthFilter) {
+            const monthKey = normalizeStatisticsMonthKey(row?.tournament_date);
+            if (monthKey !== monthFilter) return false;
+        }
+        if (formatFilter) {
+            const code = resolveTournamentFormatCodeForStatistics(row).toUpperCase();
+            if (code !== formatFilter) return false;
+        }
+        return true;
+    });
+
+    const totalResults = scopedRows.length;
+    if (!totalResults) return [];
+
+    const colorAgg = new Map();
+    const colorDeckAgg = new Map();
+    const colorOrderIndex = new Map(DECK_COLOR_ORDER.map((color, index) => [color, index]));
+
+    scopedRows.forEach((row) => {
+        const placement = Number(row?.placement);
+        if (!Number.isFinite(placement) || placement <= 0) return;
+        const deck = row?.deck || {};
+        const deckName = String(deck?.name || '-').trim() || '-';
+        const colors = normalizeDeckColorsForStatistics(deck?.colors || '');
+        if (!colors.length) return;
+
+        colors.forEach((colorCode) => {
+            const colorLabel = DECK_COLOR_LABELS[colorCode] || colorCode.toUpperCase();
+            const current = colorAgg.get(colorCode) || {
+                color_code: colorCode,
+                color: colorLabel,
+                usage_count: 0,
+                titles: 0,
+                top4_total: 0
+            };
+            current.usage_count += 1;
+            if (placement === 1) current.titles += 1;
+            if (placement <= 4) current.top4_total += 1;
+            colorAgg.set(colorCode, current);
+
+            if (!colorDeckAgg.has(colorCode)) colorDeckAgg.set(colorCode, new Map());
+            const deckMap = colorDeckAgg.get(colorCode);
+            const deckStats = deckMap.get(deckName) || { deck: deckName, titles: 0, top4_total: 0, usage_count: 0 };
+            deckStats.usage_count += 1;
+            if (placement === 1) deckStats.titles += 1;
+            if (placement <= 4) deckStats.top4_total += 1;
+            deckMap.set(deckName, deckStats);
+        });
+    });
+
+    return Array.from(colorAgg.values())
+        .map((entry) => {
+            const deckMap = colorDeckAgg.get(entry.color_code) || new Map();
+            const topDeck = Array.from(deckMap.values()).sort((a, b) => {
+                const titleDiff = b.titles - a.titles;
+                if (titleDiff !== 0) return titleDiff;
+                const top4Diff = b.top4_total - a.top4_total;
+                if (top4Diff !== 0) return top4Diff;
+                const usageDiff = b.usage_count - a.usage_count;
+                if (usageDiff !== 0) return usageDiff;
+                return String(a.deck || '').localeCompare(String(b.deck || ''));
+            })[0] || { deck: '-', titles: 0 };
+            return {
+                color_code: entry.color_code,
+                color: entry.color,
+                usage_percent: (entry.usage_count / totalResults) * 100,
+                titles: entry.titles,
+                top4_total: entry.top4_total,
+                top_deck: topDeck.deck,
+                top_deck_titles: topDeck.titles,
+                month: monthFilter || '',
+                format_code: formatFilter || ''
+            };
+        })
+        .sort((a, b) => {
+            const usageDiff = Number(b.usage_percent || 0) - Number(a.usage_percent || 0);
+            if (usageDiff !== 0) return usageDiff;
+            const colorDiff =
+                (colorOrderIndex.get(String(a.color_code || '').toLowerCase()) ?? 999) -
+                (colorOrderIndex.get(String(b.color_code || '').toLowerCase()) ?? 999);
+            if (colorDiff !== 0) return colorDiff;
+            return String(a.color || '').localeCompare(String(b.color || ''));
+        });
 }
 
 async function enrichTopCardsWithCardName(rows) {
@@ -1791,6 +2113,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             viewName === 'v_player_ranking' ||
                 viewName === 'v_deck_stats' ||
                 viewName === 'v_deck_representation' ||
+                viewName === 'v_deck_color_stats' ||
                 viewName === 'v_top_cards_by_month'
         );
     }
@@ -1995,6 +2318,12 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             (row) => normalizeStatisticsDateKey(row?.[dateColumn]) === currentStatisticsDateFilter
         );
     }
+    if (viewName === 'v_deck_color_stats') {
+        filteredRows = buildDeckColorOverallRowsFromSource(deckColorStatsSourceRows, {
+            monthKey: currentStatisticsMonthFilter,
+            formatCode: currentStatisticsFormatFilter
+        });
+    }
     if (viewName === 'v_top_cards_by_month' && currentStatisticsStapleFilter === 'true') {
         filteredRows = filteredRows.filter((row) => {
             const value = String(row?.is_staple || '')
@@ -2113,7 +2442,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     if (viewName === 'v_store_champions') {
         const columns = getStatisticsDisplayColumns(
             viewName,
-            Object.keys(filteredRows[0] || {}).filter((column) => !isInternalStatisticsColumn(column))
+            Object.keys(filteredRows[0] || {}).filter(
+                (column) => !isInternalStatisticsColumn(column, viewName)
+            )
         );
         if (tableWrapper) tableWrapper.classList.add('is-hidden');
         if (dataCard) dataCard.classList.add('is-hidden');
@@ -2127,7 +2458,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
 
     const columns = getStatisticsDisplayColumns(
         viewName,
-        Object.keys(filteredRows[0] || {}).filter((column) => !isInternalStatisticsColumn(column))
+        Object.keys(filteredRows[0] || {}).filter(
+            (column) => !isInternalStatisticsColumn(column, viewName)
+        )
     );
     if (!columns.length) {
         if (status) status.textContent = `No user-facing columns available for ${viewName}.`;
@@ -2573,6 +2906,10 @@ function prettifyStatisticsColumn(column, viewName = '') {
         card_name: 'Nome',
         card_type: 'Tipo',
         is_staple: 'Staple',
+        color: 'Cor',
+        usage_percent: 'Uso (%)',
+        top_deck: 'Deck Líder',
+        top_deck_titles: 'Títulos do Líder',
         total: 'Total',
         champion: 'Champion',
         top2: 'Top2',
@@ -2598,6 +2935,19 @@ function prettifyStatisticsColumn(column, viewName = '') {
 
 function getStatisticsHeaderLabel(viewName, column) {
     const normalized = String(column || '').trim().toLowerCase();
+    if (viewName === 'v_deck_color_stats') {
+        const colorHeaders = {
+            month: 'Month',
+            format_code: 'Format',
+            color: 'Color',
+            usage_percent: 'Usage (%)',
+            titles: 'Top 1',
+            top4_total: 'Top 4',
+            top_deck: 'Best Deck',
+            top_deck_titles: 'Titles'
+        };
+        if (colorHeaders[normalized]) return colorHeaders[normalized];
+    }
     if (viewName === 'v_top_cards_by_month') {
         const topCardsHeaders = {
             month: 'Month',
@@ -2628,6 +2978,14 @@ function getStatisticsDisplayColumns(viewName, columns) {
     list = list.filter((column) => !STATISTICS_REMOVED_COLUMNS.has(String(column || '').trim()));
     if (viewName === 'v_meta_by_month') {
         list = list.filter((column) => column !== 'meta_share_percent');
+    } else if (viewName === 'v_deck_color_stats') {
+        list = list.filter(
+            (column) =>
+                column !== 'color_code' &&
+                column !== 'format_code' &&
+                column !== 'format' &&
+                column !== 'month'
+        );
     } else if (viewName === 'v_top_cards_by_month') {
         list = list.filter(
             (column) =>
@@ -2696,10 +3054,29 @@ function normalizeStatNumber(value) {
     return Number.isFinite(n) ? n : null;
 }
 
+function renderStatisticsColorCell(row, value) {
+    const colorCode = String(row?.color_code || '')
+        .trim()
+        .toLowerCase();
+    const colorName = String(value || '').trim() || (DECK_COLOR_LABELS[colorCode] || '');
+    if (!colorCode || !DECK_COLOR_ORDER.includes(colorCode)) {
+        return escapeHtml(colorName || '-');
+    }
+    return `
+        <span class="stats-color-cell">
+            <span class="deck-color-chip is-${escapeHtml(colorCode)}" aria-hidden="true"></span>
+            <span>${escapeHtml(colorName || DECK_COLOR_LABELS[colorCode] || colorCode.toUpperCase())}</span>
+        </span>
+    `;
+}
+
 function formatStatisticsCellValue(value, column = '', row = null) {
     const normalizedColumn = String(column || '').toLowerCase();
     if (normalizedColumn === 'is_staple' && row) {
         return renderStatisticsStapleToggle(row, value);
+    }
+    if (normalizedColumn === 'color' && row) {
+        return renderStatisticsColorCell(row, value);
     }
 
     if (value === null || value === undefined) return '-';
@@ -2852,6 +3229,14 @@ function buildStatisticsHighlights(viewName, rows, columns) {
         if (hasColumn('titles')) {
             list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
         }
+    } else if (viewName === 'v_deck_color_stats') {
+        if (hasColumn('color')) list.push({ label: 'Cores', value: String(countUnique('color')) });
+        if (hasColumn('titles')) {
+            list.push({ label: 'Top 1', value: sumNumeric('titles').toLocaleString('pt-BR') });
+        }
+        if (hasColumn('top4_total')) {
+            list.push({ label: 'Top 4', value: sumNumeric('top4_total').toLocaleString('pt-BR') });
+        }
     } else if (viewName === 'v_meta_by_month') {
         if (hasColumn('month')) list.push({ label: 'Meses', value: String(countUnique('month')) });
         if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
@@ -2900,13 +3285,17 @@ function getStatisticsColumnDescription(viewName, column) {
     return `Indicador: ${prettifyStatisticsColumn(column)}.`;
 }
 
-function isInternalStatisticsColumn(column) {
+function isInternalStatisticsColumn(column, viewName = '') {
     const normalized = String(column || '').trim().toLowerCase();
     if (!normalized) return true;
+    if (normalized.startsWith('_')) return true;
     if (STATISTICS_HIDDEN_COLUMNS.has(normalized)) return true;
     if (normalized.endsWith('_id')) return true;
     if (normalized.includes('url')) return true;
     if (normalized.endsWith('_link')) return true;
+    if (viewName === 'v_deck_color_stats') {
+        if (normalized === 'format_code' || normalized === 'format' || normalized === 'month') return false;
+    }
     if (normalized === 'format_code' || normalized === 'format') return true;
     if (normalized === 'store') return true;
     if (normalized === 'month') return true;
@@ -3031,11 +3420,12 @@ function formatStatisticsMonthLabel(monthKey) {
     const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
     if (!match) return monthKey;
     const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
-    return new Intl.DateTimeFormat('pt-BR', {
+    const label = new Intl.DateTimeFormat('pt-BR', {
         month: 'long',
         year: 'numeric',
         timeZone: 'UTC'
     }).format(date);
+    return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function filterStoreChampionsRowsByPlayer(rows, query) {
