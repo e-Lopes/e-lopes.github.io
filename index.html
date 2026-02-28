@@ -446,6 +446,7 @@
                                             Representa&ccedil;&atilde;o de Decks</option>
                                         <option value="v_deck_stats" selected>Estat&iacute;sticas de Decks</option>
                                         <option value="v_meta_by_month">Meta por Formato</option>
+                                        <option value="v_top_cards_by_month">Top Cards</option>
                                         <option value="v_player_ranking">Ranking de Players</option>
                                         <option value="v_store_champions">Ranking por Loja</option>
                                     </select>
@@ -483,6 +484,15 @@
                                     aria-label="Filtrar por data"
                                 >
                                     <option value="">Todas as datas</option>
+                                </select>
+                                <select
+                                    id="statisticsFilterStaple"
+                                    class="statistics-select is-hidden"
+                                    title="Filtrar por staple"
+                                    aria-label="Filtrar por staple"
+                                >
+                                    <option value="">Todas as cartas</option>
+                                    <option value="true">Somente staple</option>
                                 </select>
                                 <input
                                     type="text"
