@@ -19,6 +19,182 @@ let editOcrSelectedFiles = [];
 let editOcrImportInProgress = false;
 const editOcrApiBaseUrl = 'https://e-lopes-digimon-ocr-api.hf.space';
 
+function normalizeEditPlayerNameInput(value) {
+    return String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getPendingPlayerRegistrationsForEdit() {
+    const missingRows = [];
+    const pendingNames = [];
+    const seen = new Set();
+
+    editResults.forEach((row, index) => {
+        if (row.player_id) return;
+        const playerName = normalizeEditPlayerNameInput(row.player_name);
+        if (!playerName) {
+            missingRows.push(index + 1);
+            return;
+        }
+
+        const normalizedName = normalizeLookupNameModal(playerName);
+        const existing = editPlayers.find((player) => {
+            const byName = normalizeLookupNameModal(player.name) === normalizedName;
+            const byNick = normalizeLookupNameModal(player.bandai_nick) === normalizedName;
+            return byName || byNick;
+        });
+
+        if (existing?.id) {
+            row.player_id = existing.id;
+            row.player_name = existing.name || playerName;
+            row.ocr_player_unmatched = false;
+            return;
+        }
+
+        if (!seen.has(normalizedName)) {
+            seen.add(normalizedName);
+            pendingNames.push(playerName);
+        }
+    });
+
+    return { missingRows, pendingNames };
+}
+
+async function ensurePlayersRegisteredForEdit() {
+    const { missingRows, pendingNames } = getPendingPlayerRegistrationsForEdit();
+    if (missingRows.length) {
+        throw new Error('Informe o player nas colocacoes: ' + missingRows.join(', '));
+    }
+
+    if (!pendingNames.length) return true;
+
+    const openModal =
+        typeof window.openRegisterPlayersModal === 'function'
+            ? window.openRegisterPlayersModal
+            : openRegisterPlayersModalFallback;
+    const confirmed = await openModal(pendingNames);
+    if (!confirmed) {
+        return false;
+    }
+
+    for (const playerName of pendingNames) {
+        const normalizedName = normalizeLookupNameModal(playerName);
+        const existing = editPlayers.find(
+            (player) =>
+                normalizeLookupNameModal(player.name) === normalizedName ||
+                normalizeLookupNameModal(player.bandai_nick) === normalizedName
+        );
+        if (existing?.id) continue;
+
+        const insertRes = await fetch(`${modalSupabaseUrl}/rest/v1/players`, {
+            method: 'POST',
+            headers: {
+                ...modalHeaders,
+                Prefer: 'return=representation'
+            },
+            body: JSON.stringify({ name: playerName })
+        });
+        if (!insertRes.ok) {
+            const errorText = await insertRes.text();
+            throw new Error(`Erro ao cadastrar player "${playerName}" (${insertRes.status}): ${errorText}`);
+        }
+
+        const insertedPlayer = (await insertRes.json())[0];
+        if (!insertedPlayer?.id) {
+            throw new Error(`Player "${playerName}" cadastrado sem retornar ID.`);
+        }
+        editPlayers.push({
+            ...insertedPlayer,
+            bandai_id: insertedPlayer.bandai_id || '',
+            bandai_nick: insertedPlayer.bandai_nick || ''
+        });
+    }
+
+    editResults.forEach((row) => {
+        if (row.player_id) return;
+        const normalizedName = normalizeLookupNameModal(normalizeEditPlayerNameInput(row.player_name));
+        const player = editPlayers.find(
+            (candidate) =>
+                normalizeLookupNameModal(candidate.name) === normalizedName ||
+                normalizeLookupNameModal(candidate.bandai_nick) === normalizedName
+        );
+        if (player?.id) {
+            row.player_id = player.id;
+            row.player_name = player.name || row.player_name;
+            row.ocr_player_unmatched = false;
+        }
+    });
+    return true;
+}
+
+function openRegisterPlayersModalFallback(playerNames) {
+    let modal = document.getElementById('registerPlayersModal');
+    if (!modal) {
+        const host = document.createElement('div');
+        host.innerHTML = `
+            <div id="registerPlayersModal" class="modal-overlay">
+                <div class="modal-content register-players-modal-content">
+                    <h2>Os seguintes jogadores serao registrados</h2>
+                    <p class="field-hint register-players-hint">
+                        Confirme para cadastrar os jogadores abaixo antes de salvar o torneio.
+                    </p>
+                    <div class="register-players-box">
+                        <ul id="registerPlayersList" class="register-players-list"></ul>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="btnRegisterPlayersConfirm" class="btn-save">Cadastrar</button>
+                        <button type="button" id="btnRegisterPlayersCancel" class="btn-cancel">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(host.firstElementChild);
+        modal = document.getElementById('registerPlayersModal');
+    }
+
+    const list = document.getElementById('registerPlayersList');
+    const btnConfirm = document.getElementById('btnRegisterPlayersConfirm');
+    const btnCancel = document.getElementById('btnRegisterPlayersCancel');
+    if (!modal || !list || !btnConfirm || !btnCancel) {
+        return Promise.reject(new Error('Nao foi possivel abrir o modal de confirmacao de players.'));
+    }
+
+    list.innerHTML = playerNames
+        .map((name) =>
+            String(name || '').replace(/[&<>"']/g, (char) => {
+                const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+                return map[char] || char;
+            })
+        )
+        .map((safeName) => `<li>${safeName}</li>`)
+        .join('');
+    modal.classList.add('active');
+
+    return new Promise((resolve) => {
+        const cleanup = () => {
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onOverlay);
+            modal.classList.remove('active');
+        };
+        const onConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+        const onCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+        const onOverlay = (event) => {
+            if (event.target === modal) onCancel();
+        };
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlay);
+    });
+}
+
 function editTournament(id) {
     if (!id) {
         alert('Erro: ID do torneio nao encontrado');
@@ -279,7 +455,7 @@ function renderEditResultsRows() {
                 </div>
             </div>
             <div class="form-group">
-                <label>Deck<span class="required">*</span></label>
+                <label>Deck</label>
                 <div class="autocomplete-wrapper" data-row-index="${index}">
                     <input
                         type="text"
@@ -288,7 +464,6 @@ function renderEditResultsRows() {
                         placeholder="Digite o deck..."
                         value="${escapeHtml(getItemNameById(editDecks, row.deck_id))}"
                         autocomplete="off"
-                        required
                     >
                     <div class="autocomplete-dropdown"></div>
                 </div>
@@ -734,7 +909,22 @@ async function editTournamentFormSubmit(e) {
                 ? assignTournamentFormat(updatedBase, formatSelection)
                 : updatedBase;
 
-        const hasInvalidResult = editResults.some((r) => !r.player_id || !r.deck_id);
+        try {
+            const shouldProceed = await ensurePlayersRegisteredForEdit();
+            if (!shouldProceed) return;
+        } catch (registrationError) {
+            if (typeof window.showFriendlyErrorModal === 'function') {
+                window.showFriendlyErrorModal(
+                    'Nao foi possivel continuar',
+                    registrationError.message || 'Falha ao validar cadastro de players.'
+                );
+            } else {
+                alert(registrationError.message || 'Falha ao validar cadastro de players.');
+            }
+            return;
+        }
+
+        const hasInvalidResult = editResults.some((r) => !r.player_id);
         const validInstagram = window.validation
             ? window.validation.isValidOptionalUrl(updated.instagram_link)
             : true;
@@ -779,7 +969,7 @@ async function editTournamentFormSubmit(e) {
             tournament_date: updated.tournament_date,
             total_players: updated.total_players,
             placement: index + 1,
-            deck_id: row.deck_id,
+            deck_id: row.deck_id || null,
             player_id: row.player_id
         }));
 
@@ -792,7 +982,11 @@ async function editTournamentFormSubmit(e) {
         if (!resultsRes.ok) {
             const errorText = await resultsRes.text();
             console.error('Erro ao salvar results:', resultsRes.status, errorText);
-            throw new Error(`Erro ao salvar tournament_results (${resultsRes.status})`);
+            const friendlyMessage =
+                typeof window.getFriendlyResultsSaveErrorMessage === 'function'
+                    ? window.getFriendlyResultsSaveErrorMessage(resultsRes.status, errorText)
+                    : `Erro ao salvar tournament_results (${resultsRes.status})`;
+            throw new Error(friendlyMessage);
         }
 
         closeEditModal();
@@ -808,7 +1002,14 @@ async function editTournamentFormSubmit(e) {
         }
     } catch (err) {
         console.error('Erro completo:', err);
-        alert('Falha ao salvar torneio: ' + err.message);
+        if (typeof window.showFriendlyErrorModal === 'function') {
+            window.showFriendlyErrorModal(
+                'Falha ao salvar torneio',
+                err?.message || 'Nao foi possivel salvar as alteracoes do torneio.'
+            );
+        } else {
+            alert('Falha ao salvar torneio: ' + err.message);
+        }
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;

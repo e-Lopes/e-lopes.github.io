@@ -4825,6 +4825,245 @@ function getItemNameById(items, id) {
     return match?.name || '';
 }
 
+function parseSupabaseError(rawText) {
+    if (!rawText) return null;
+    try {
+        return JSON.parse(rawText);
+    } catch (_error) {
+        return null;
+    }
+}
+
+function getFriendlyResultsSaveErrorMessage(status, rawText) {
+    const parsed = parseSupabaseError(rawText);
+    const code = String(parsed?.code || '').trim();
+    const message = String(parsed?.message || '').trim();
+
+    if (code === '23502' && /deck_id/i.test(message)) {
+        return 'Nao foi possivel salvar o torneio porque o banco ainda exige deck em todos os resultados. Preencha o deck dos players e tente novamente.';
+    }
+
+    if (message) {
+        return `Nao foi possivel salvar os resultados do torneio. ${message}`;
+    }
+
+    return `Nao foi possivel salvar os resultados do torneio (erro ${status}).`;
+}
+window.getFriendlyResultsSaveErrorMessage = getFriendlyResultsSaveErrorMessage;
+
+function showFriendlyErrorModal(title, message) {
+    let modal = document.getElementById('friendlyErrorModal');
+    if (!modal) {
+        const host = document.createElement('div');
+        host.innerHTML = `
+            <div id="friendlyErrorModal" class="modal-overlay">
+                <div class="modal-content friendly-error-modal-content">
+                    <h2 id="friendlyErrorTitle">Erro</h2>
+                    <p id="friendlyErrorMessage" class="friendly-error-message"></p>
+                    <div class="modal-actions">
+                        <button type="button" id="btnFriendlyErrorClose" class="btn-cancel">Entendi</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(host.firstElementChild);
+        modal = document.getElementById('friendlyErrorModal');
+    }
+
+    const titleEl = document.getElementById('friendlyErrorTitle');
+    const messageEl = document.getElementById('friendlyErrorMessage');
+    const btnClose = document.getElementById('btnFriendlyErrorClose');
+    if (!modal || !titleEl || !messageEl || !btnClose) {
+        alert(`${title}\n\n${message}`);
+        return;
+    }
+
+    titleEl.textContent = title || 'Erro';
+    messageEl.textContent = message || 'Ocorreu um erro inesperado.';
+    modal.classList.add('active');
+
+    const cleanup = () => {
+        btnClose.removeEventListener('click', onClose);
+        modal.removeEventListener('click', onOverlay);
+        modal.classList.remove('active');
+    };
+    const onClose = () => cleanup();
+    const onOverlay = (event) => {
+        if (event.target === modal) cleanup();
+    };
+
+    btnClose.addEventListener('click', onClose);
+    modal.addEventListener('click', onOverlay);
+}
+
+window.showFriendlyErrorModal = showFriendlyErrorModal;
+
+function normalizePlayerNameInput(value) {
+    return String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getPendingPlayerRegistrations(results, players) {
+    const missingRows = [];
+    const pendingNames = [];
+    const seen = new Set();
+
+    results.forEach((row, index) => {
+        if (row.player_id) return;
+        const playerName = normalizePlayerNameInput(row.player_name);
+        if (!playerName) {
+            missingRows.push(index + 1);
+            return;
+        }
+
+        const normalizedName = normalizeLookupName(playerName);
+        const existing = players.find((player) => {
+            const byName = normalizeLookupName(player.name) === normalizedName;
+            const byNick = normalizeLookupName(player.bandai_nick) === normalizedName;
+            return byName || byNick;
+        });
+
+        if (existing?.id) {
+            row.player_id = existing.id;
+            row.player_name = existing.name || playerName;
+            row.ocr_player_unmatched = false;
+            return;
+        }
+
+        if (!seen.has(normalizedName)) {
+            seen.add(normalizedName);
+            pendingNames.push(playerName);
+        }
+    });
+
+    return { missingRows, pendingNames };
+}
+
+function openRegisterPlayersModal(playerNames) {
+    let modal = document.getElementById('registerPlayersModal');
+    if (!modal) {
+        const host = document.createElement('div');
+        host.innerHTML = `
+            <div id="registerPlayersModal" class="modal-overlay">
+                <div class="modal-content register-players-modal-content">
+                    <h2>Os seguintes jogadores serao registrados</h2>
+                    <p class="field-hint register-players-hint">
+                        Confirme para cadastrar os jogadores abaixo antes de salvar o torneio.
+                    </p>
+                    <div class="register-players-box">
+                        <ul id="registerPlayersList" class="register-players-list"></ul>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="btnRegisterPlayersConfirm" class="btn-save">Cadastrar</button>
+                        <button type="button" id="btnRegisterPlayersCancel" class="btn-cancel">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(host.firstElementChild);
+        modal = document.getElementById('registerPlayersModal');
+    }
+
+    const list = document.getElementById('registerPlayersList');
+    const btnConfirm = document.getElementById('btnRegisterPlayersConfirm');
+    const btnCancel = document.getElementById('btnRegisterPlayersCancel');
+    if (!modal || !list || !btnConfirm || !btnCancel) {
+        return Promise.reject(new Error('Nao foi possivel abrir o modal de confirmacao de players.'));
+    }
+
+    list.innerHTML = playerNames.map((name) => `<li>${escapeHtml(name)}</li>`).join('');
+    modal.classList.add('active');
+
+    return new Promise((resolve) => {
+        const cleanup = () => {
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onOverlay);
+            modal.classList.remove('active');
+        };
+        const onConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+        const onCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+        const onOverlay = (event) => {
+            if (event.target === modal) onCancel();
+        };
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlay);
+    });
+}
+
+window.openRegisterPlayersModal = openRegisterPlayersModal;
+
+async function ensurePlayersRegisteredForCreate() {
+    const { missingRows, pendingNames } = getPendingPlayerRegistrations(createResults, createPlayers);
+    if (missingRows.length) {
+        throw new Error('Informe o player nas colocacoes: ' + missingRows.join(', '));
+    }
+
+    if (!pendingNames.length) return true;
+
+    const confirmed = await openRegisterPlayersModal(pendingNames);
+    if (!confirmed) {
+        return false;
+    }
+
+    for (const playerName of pendingNames) {
+        const normalizedName = normalizeLookupName(playerName);
+        const existing = createPlayers.find(
+            (player) =>
+                normalizeLookupName(player.name) === normalizedName ||
+                normalizeLookupName(player.bandai_nick) === normalizedName
+        );
+        if (existing?.id) continue;
+
+        const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/players`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                Prefer: 'return=representation'
+            },
+            body: JSON.stringify({ name: playerName })
+        });
+        if (!insertRes.ok) {
+            const errorText = await insertRes.text();
+            throw new Error(`Erro ao cadastrar player "${playerName}" (${insertRes.status}): ${errorText}`);
+        }
+
+        const insertedPlayer = (await insertRes.json())[0];
+        if (!insertedPlayer?.id) {
+            throw new Error(`Player "${playerName}" cadastrado sem retornar ID.`);
+        }
+        createPlayers.push({
+            ...insertedPlayer,
+            bandai_id: insertedPlayer.bandai_id || '',
+            bandai_nick: insertedPlayer.bandai_nick || ''
+        });
+    }
+
+    createResults.forEach((row) => {
+        if (row.player_id) return;
+        const normalizedName = normalizeLookupName(normalizePlayerNameInput(row.player_name));
+        const player = createPlayers.find(
+            (candidate) =>
+                normalizeLookupName(candidate.name) === normalizedName ||
+                normalizeLookupName(candidate.bandai_nick) === normalizedName
+        );
+        if (player?.id) {
+            row.player_id = player.id;
+            row.player_name = player.name || row.player_name;
+            row.ocr_player_unmatched = false;
+        }
+    });
+    return true;
+}
+
 function bindCreateResultsAutocomplete() {
     const wrappers = document.querySelectorAll('#createResultsRows .autocomplete-wrapper');
     wrappers.forEach((wrapper) => {
@@ -4927,7 +5166,7 @@ function renderCreateResultsRows() {
                 </div>
             </div>
             <div class="form-group">
-                <label>Deck<span class="required">*</span></label>
+                <label>Deck</label>
                 <div class="autocomplete-wrapper" data-row-index="${index}">
                     <input
                         type="text"
@@ -4936,7 +5175,6 @@ function renderCreateResultsRows() {
                         placeholder="Digite o deck..."
                         value="${escapeHtml(getItemNameById(createDecks, row.deck_id) || row.deck_name || '')}"
                         autocomplete="off"
-                        required
                     >
                     <div class="autocomplete-dropdown"></div>
                 </div>
@@ -4993,7 +5231,17 @@ async function createTournamentFormSubmit(e) {
         const validInstagram = window.validation
             ? window.validation.isValidOptionalUrl(payload.instagram_link)
             : true;
-        const hasInvalidResult = createResults.some((r) => !r.player_id || !r.deck_id);
+        try {
+            const shouldProceed = await ensurePlayersRegisteredForCreate();
+            if (!shouldProceed) return;
+        } catch (registrationError) {
+            showFriendlyErrorModal(
+                'Nao foi possivel continuar',
+                registrationError.message || 'Falha ao validar cadastro de players.'
+            );
+            return;
+        }
+        const hasInvalidResult = createResults.some((r) => !r.player_id);
         if (
             !payload.store_id ||
             !payload.tournament_date ||
@@ -5034,7 +5282,7 @@ async function createTournamentFormSubmit(e) {
             tournament_date: payload.tournament_date,
             total_players: payload.total_players,
             placement: index + 1,
-            deck_id: row.deck_id,
+            deck_id: row.deck_id || null,
             player_id: row.player_id
         }));
 
@@ -5093,7 +5341,7 @@ async function createTournamentFormSubmit(e) {
                         headers
                     }
                 );
-                throw new Error(`Erro ao cadastrar tournament_results (${resultsRes.status})`);
+                throw new Error(getFriendlyResultsSaveErrorMessage(resultsRes.status, resultsError));
             }
         }
 
@@ -5105,7 +5353,10 @@ async function createTournamentFormSubmit(e) {
         document.getElementById('createTournamentForm').reset();
     } catch (err) {
         console.error('Erro completo:', err);
-        alert('Falha ao cadastrar torneio: ' + err.message);
+        showFriendlyErrorModal(
+            'Falha ao cadastrar torneio',
+            err?.message || 'Nao foi possivel concluir o cadastro do torneio.'
+        );
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;

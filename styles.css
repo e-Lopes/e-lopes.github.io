@@ -3185,6 +3185,59 @@ th {
     flex-direction: column;
 }
 
+.register-players-modal-content {
+    max-width: 620px;
+}
+
+.friendly-error-modal-content {
+    max-width: 560px;
+}
+
+.friendly-error-message {
+    margin: 0;
+    color: #495057;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.register-players-hint {
+    margin-top: -8px;
+    margin-bottom: 12px;
+}
+
+.register-players-box {
+    border: 1px solid #d9deff;
+    background: #f8f9ff;
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.register-players-list {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.register-players-list li {
+    margin: 0 0 6px;
+    color: #495057;
+    font-weight: 500;
+}
+
+body[data-theme='dark'] .register-players-box {
+    border-color: #2f4778;
+    background: #1b2944;
+}
+
+body[data-theme='dark'] .register-players-list li {
+    color: #d9e7ff;
+}
+
+body[data-theme='dark'] .friendly-error-message {
+    color: #d9e7ff;
+}
+
 .btn-save {
     background: linear-gradient(135deg, #28a745, #20c997);
     color: white;

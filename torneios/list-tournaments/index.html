@@ -396,6 +396,26 @@
             </div>
         </div>
 
+        <div id="registerPlayersModal" class="modal-overlay">
+            <div class="modal-content register-players-modal-content">
+                <h2>Os seguintes jogadores serao registrados</h2>
+                <p class="field-hint register-players-hint">
+                    Confirme para cadastrar os jogadores abaixo antes de salvar o torneio.
+                </p>
+                <div class="register-players-box">
+                    <ul id="registerPlayersList" class="register-players-list"></ul>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="btnRegisterPlayersConfirm" class="btn-save">
+                        Cadastrar
+                    </button>
+                    <button type="button" id="btnRegisterPlayersCancel" class="btn-cancel">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <script src="../../config/supabase.js"></script>
         <script src="../../config/api-client.js"></script>
         <script src="../../config/ui-state.js"></script>
