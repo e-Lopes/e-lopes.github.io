@@ -8795,6 +8795,74 @@ body.template-preview-page .post-toast {
     padding-bottom: 2px;
 }
 
+.statistics-top-cards-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border: 1px solid #e6edff;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fbfdff 0%, #f3f7ff 100%);
+}
+
+.statistics-top-cards-pagination .btn-pagination,
+.statistics-top-cards-pagination .btn-pagination-number {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #5f78d6;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+
+.statistics-top-cards-pagination .btn-pagination:hover:not(:disabled),
+.statistics-top-cards-pagination .btn-pagination-number:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(83, 99, 180, 0.28);
+}
+
+.statistics-top-cards-pagination .btn-pagination-number.active,
+.statistics-top-cards-pagination .btn-pagination-number:disabled {
+    background: #dfe7ff;
+    color: #2e447f;
+    border-color: #aebde9;
+    box-shadow: none;
+    opacity: 1;
+}
+
+
+body[data-theme='dark'] .statistics-top-cards-pagination {
+    background: transparent;
+    border-color: #3a4f77;
+}
+
+body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination,
+body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number {
+    background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%);
+    border-color: #5e7db4;
+    color: #e8f0ff;
+}
+
+body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number.active,
+body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:disabled {
+    background: #263754;
+    border-color: #4f6797;
+    color: #c8d9f8;
+}
+
+
 .statistics-table {
     width: max-content;
     min-width: 100%;

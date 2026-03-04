@@ -28,6 +28,7 @@ const STATS_COLUMN_WIDTHS_STORAGE_KEY = 'dashboardStatisticsColumnWidths';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const OCR_API_BASE_URL = 'https://e-lopes-digimon-ocr-api.hf.space';
 const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
+const ENABLE_TOP_CARDS_API_LOOKUP = window.APP_CONFIG?.ENABLE_TOP_CARDS_API_LOOKUP !== false;
 const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
 const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
 const SORTABLE_FIELDS = ['tournament_date', 'total_players'];
@@ -271,9 +272,11 @@ let currentStatisticsStoreFilter = '';
 let currentStatisticsFormatFilter = '';
 let currentStatisticsDateFilter = '';
 let currentStatisticsStapleFilter = '';
+let currentTopCardsPage = 1;
 let currentStoreChampionsPlayerQuery = '';
 let areStoreChampionsCardsCollapsed = true;
 const stapleTogglePendingCodes = new Set();
+const TOP_CARDS_PER_PAGE = 10;
 const topCardsNameCache = new Map();
 const topCardsNameLookupAttempted = new Set();
 let deckColorStatsSourceRows = [];
@@ -1473,6 +1476,7 @@ async function mountStatisticsContainer() {
             currentStatisticsFormatFilter = '';
             currentStatisticsDateFilter = '';
             currentStatisticsStapleFilter = '';
+            currentTopCardsPage = 1;
             currentStoreChampionsPlayerQuery = '';
             areStoreChampionsCardsCollapsed = true;
             saveStatisticsViewPreference(nextView);
@@ -1484,6 +1488,7 @@ async function mountStatisticsContainer() {
     if (monthSelect) {
         monthSelect.addEventListener('change', () => {
             currentStatisticsMonthFilter = String(monthSelect.value || '');
+            currentTopCardsPage = 1;
             if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsMonthFilter) {
                 currentStatisticsFormatFilter = '';
                 const formatSelect = host.querySelector('#statisticsFilterFormat');
@@ -1497,6 +1502,7 @@ async function mountStatisticsContainer() {
     if (storeFilterSelect) {
         storeFilterSelect.addEventListener('change', () => {
             currentStatisticsStoreFilter = String(storeFilterSelect.value || '');
+            currentTopCardsPage = 1;
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1505,6 +1511,7 @@ async function mountStatisticsContainer() {
     if (formatFilterSelect) {
         formatFilterSelect.addEventListener('change', () => {
             currentStatisticsFormatFilter = String(formatFilterSelect.value || '');
+            currentTopCardsPage = 1;
             if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsFormatFilter) {
                 currentStatisticsMonthFilter = '';
                 const monthSelect = host.querySelector('#statisticsFilterMonth');
@@ -1518,6 +1525,7 @@ async function mountStatisticsContainer() {
     if (dateFilterSelect) {
         dateFilterSelect.addEventListener('change', () => {
             currentStatisticsDateFilter = String(dateFilterSelect.value || '');
+            currentTopCardsPage = 1;
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1526,6 +1534,7 @@ async function mountStatisticsContainer() {
     if (stapleFilterSelect) {
         stapleFilterSelect.addEventListener('change', () => {
             currentStatisticsStapleFilter = String(stapleFilterSelect.value || '');
+            currentTopCardsPage = 1;
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1565,6 +1574,7 @@ function unmountStatisticsContainer() {
     currentStatisticsFormatFilter = '';
     currentStatisticsDateFilter = '';
     currentStatisticsStapleFilter = '';
+    currentTopCardsPage = 1;
     currentStoreChampionsPlayerQuery = '';
     areStoreChampionsCardsCollapsed = true;
     window.removeEventListener('resize', handleStatisticsViewportChange);
@@ -1958,7 +1968,7 @@ async function enrichTopCardsWithCardName(rows) {
             )
         )
     );
-    if (missingCodes.length) {
+    if (missingCodes.length && ENABLE_TOP_CARDS_API_LOOKUP) {
         const apiRows = await fetchCardsFromDigimonApi(missingCodes);
         apiRows.forEach((row) => {
             const code = normalizeCardCodeForLookup(row?.card_code || row?.id || row?.card);
@@ -1970,6 +1980,8 @@ async function enrichTopCardsWithCardName(rows) {
                 topCardsNameCache.set(code, name);
             }
         });
+        missingCodes.forEach((code) => topCardsNameLookupAttempted.add(code));
+    } else if (missingCodes.length) {
         missingCodes.forEach((code) => topCardsNameLookupAttempted.add(code));
     }
 
@@ -2084,6 +2096,52 @@ function normalizeTopCardsRows(rows) {
     });
 }
 
+function aggregateTopCardsRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const byCode = new Map();
+
+    rows.forEach((row) => {
+        const source = row || {};
+        const code = normalizeCardCodeForLookup(source.card_code || source.id || source.card || '');
+        if (!code) return;
+
+        const existing = byCode.get(code) || {
+            ...source,
+            card_code: code,
+            total: 0,
+            champion: 0,
+            top2: 0,
+            top3: 0,
+            top4: 0,
+            is_staple: 'null'
+        };
+
+        const sourceName = String(source.card_name || '').trim();
+        if (!String(existing.card_name || '').trim() && sourceName) {
+            existing.card_name = sourceName;
+        }
+
+        existing.total += Number(source.total) || 0;
+        existing.champion += Number(source.champion) || 0;
+        existing.top2 += Number(source.top2) || 0;
+        existing.top3 += Number(source.top3) || 0;
+        existing.top4 += Number(source.top4) || 0;
+
+        if (normalizeStatisticsStapleState(source.is_staple) === 'true') {
+            existing.is_staple = 'true';
+        } else if (
+            normalizeStatisticsStapleState(source.is_staple) === 'false' &&
+            normalizeStatisticsStapleState(existing.is_staple) !== 'true'
+        ) {
+            existing.is_staple = 'false';
+        }
+
+        byCode.set(code, existing);
+    });
+
+    return Array.from(byCode.values());
+}
+
 function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const host = document.getElementById('statisticsDynamicContainer');
     if (!host) return;
@@ -2107,6 +2165,8 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     if (previousBoard) previousBoard.remove();
     const previousHighlights = host.querySelector('.statistics-highlights');
     if (previousHighlights) previousHighlights.remove();
+    const previousTopCardsPagination = host.querySelector('.statistics-top-cards-pagination');
+    if (previousTopCardsPagination) previousTopCardsPagination.remove();
     const head = host.querySelector('#statisticsTable thead');
     const body = host.querySelector('#statisticsTable tbody');
     if (!head || !body) return;
@@ -2345,6 +2405,12 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             return value === 'true' || value === 't' || value === '1' || value === 'yes' || value === 'sim';
         });
     }
+    if (viewName === 'v_top_cards_by_month' && !currentStatisticsMonthFilter) {
+        filteredRows = aggregateTopCardsRows(filteredRows);
+    }
+    let topCardsTotalRows = 0;
+    let topCardsTotalPages = 0;
+    let isTopCardsPaginated = false;
     if (viewName === 'v_top_cards_by_month') {
         const compareTopCardsRows = (a, b) => {
             const championDiff = (Number(b?.champion) || 0) - (Number(a?.champion) || 0);
@@ -2362,12 +2428,22 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             return String(a?.card_code || '').localeCompare(String(b?.card_code || ''));
         };
         const sortedRows = [...filteredRows].sort(compareTopCardsRows);
-        filteredRows = sortedRows
-            .slice(0, 20)
-            .map((row, index) => ({
-                ...row,
-                monthly_rank: index + 1
-            }));
+        isTopCardsPaginated = true;
+        topCardsTotalRows = sortedRows.length;
+        topCardsTotalPages = Math.max(
+            1,
+            Math.ceil(topCardsTotalRows / TOP_CARDS_PER_PAGE)
+        );
+        if (currentTopCardsPage > topCardsTotalPages) {
+            currentTopCardsPage = topCardsTotalPages;
+        }
+        if (currentTopCardsPage < 1) currentTopCardsPage = 1;
+        const start = (currentTopCardsPage - 1) * TOP_CARDS_PER_PAGE;
+        const end = start + TOP_CARDS_PER_PAGE;
+        filteredRows = sortedRows.slice(start, end).map((row, index) => ({
+            ...row,
+            monthly_rank: start + index + 1
+        }));
     }
 
     if (viewName === 'v_store_champions') {
@@ -2433,7 +2509,11 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         if (dataCard) dataCard.classList.remove('is-hidden');
         return;
     }
-    if (rowCount) rowCount.textContent = String(filteredRows.length || 0);
+    if (rowCount) {
+        rowCount.textContent = String(
+            isTopCardsPaginated ? topCardsTotalRows : filteredRows.length || 0
+        );
+    }
 
     if (viewName === 'v_store_champions') {
         const columns = getStatisticsDisplayColumns(
@@ -2594,8 +2674,68 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         });
     });
     updateStatisticsSortIndicators(head);
+    if (isTopCardsPaginated && topCardsTotalPages > 1) {
+        renderStatisticsTopCardsPagination(host, topCardsTotalPages);
+    }
 
     if (status) status.textContent = '';
+}
+
+function renderStatisticsTopCardsPagination(host, totalPages) {
+    if (!host || totalPages <= 1) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'statistics-top-cards-pagination';
+
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.className = 'btn-pagination btn-pagination-prev';
+    prev.textContent = '◀';
+    prev.setAttribute('aria-label', 'Pagina anterior');
+    prev.disabled = currentTopCardsPage <= 1;
+    prev.addEventListener('click', () => {
+        if (currentTopCardsPage <= 1) return;
+        currentTopCardsPage -= 1;
+        renderStatisticsTable(statisticsViewData, currentStatisticsView);
+    });
+    wrapper.appendChild(prev);
+
+    const startPage = Math.max(1, currentTopCardsPage - 2);
+    const endPage = Math.min(totalPages, currentTopCardsPage + 2);
+    for (let page = startPage; page <= endPage; page++) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn-pagination-number';
+        button.textContent = String(page);
+        if (page === currentTopCardsPage) {
+            button.classList.add('active');
+            button.disabled = true;
+        }
+        button.addEventListener('click', () => {
+            currentTopCardsPage = page;
+            renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+        wrapper.appendChild(button);
+    }
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'btn-pagination btn-pagination-next';
+    next.textContent = '▶';
+    next.setAttribute('aria-label', 'Proxima pagina');
+    next.disabled = currentTopCardsPage >= totalPages;
+    next.addEventListener('click', () => {
+        if (currentTopCardsPage >= totalPages) return;
+        currentTopCardsPage += 1;
+        renderStatisticsTable(statisticsViewData, currentStatisticsView);
+    });
+    wrapper.appendChild(next);
+
+    const tableWrapper = host.querySelector('.statistics-table-wrapper');
+    if (tableWrapper) {
+        tableWrapper.insertAdjacentElement('afterend', wrapper);
+    } else {
+        host.appendChild(wrapper);
+    }
 }
 
 function bindStatisticsCardPreview(root) {

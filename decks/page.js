@@ -566,6 +566,11 @@ function filterDecks(searchTerm) {
 }
 
 function renderDecksList() {
+    const container = document.getElementById('decksList');
+    const emptyState = document.getElementById('emptyState');
+    const noResults = document.getElementById('noResults');
+    if (!container) return;
+
     const filtered = filterDecks(currentSearchTerm);
     const merged = filtered.map((deck) => buildDeckTableRow(deck));
     const sorted = sortDeckTableRows(merged);
@@ -579,17 +584,14 @@ function renderDecksList() {
     const pagedDecks = sorted.slice(start, end);
 
     if (totalItems === 0) {
-        const container = document.getElementById('decksList');
-        const emptyState = document.getElementById('emptyState');
-        const noResults = document.getElementById('noResults');
         container.style.display = 'none';
-        emptyState.style.display = currentSearchTerm ? 'none' : 'block';
-        noResults.style.display = currentSearchTerm ? 'block' : 'none';
+        if (emptyState) emptyState.style.display = currentSearchTerm ? 'none' : 'block';
+        if (noResults) noResults.style.display = currentSearchTerm ? 'block' : 'none';
         renderPagination(0);
         return;
     }
 
-    document.getElementById('noResults').style.display = 'none';
+    if (noResults) noResults.style.display = 'none';
     displayDecks(pagedDecks, imagesMap, Boolean(currentSearchTerm));
     renderPagination(totalPages);
 }
