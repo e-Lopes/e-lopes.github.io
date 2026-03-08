@@ -1,4 +1,4 @@
-﻿const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
+const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
 const headers = window.createSupabaseHeaders
     ? window.createSupabaseHeaders()
@@ -272,6 +272,7 @@ let currentStatisticsStoreFilter = '';
 let currentStatisticsFormatFilter = '';
 let currentStatisticsDateFilter = '';
 let currentStatisticsStapleFilter = '';
+let hasManualMetaFormatSelection = false;
 let currentTopCardsPage = 1;
 let currentStoreChampionsPlayerQuery = '';
 let areStoreChampionsCardsCollapsed = true;
@@ -1478,6 +1479,7 @@ async function mountStatisticsContainer() {
             currentStatisticsFormatFilter = '';
             currentStatisticsDateFilter = '';
             currentStatisticsStapleFilter = '';
+            hasManualMetaFormatSelection = false;
             currentTopCardsPage = 1;
             currentStoreChampionsPlayerQuery = '';
             areStoreChampionsCardsCollapsed = true;
@@ -1513,6 +1515,9 @@ async function mountStatisticsContainer() {
     if (formatFilterSelect) {
         formatFilterSelect.addEventListener('change', () => {
             currentStatisticsFormatFilter = String(formatFilterSelect.value || '');
+            if (currentStatisticsView === 'v_meta_by_month') {
+                hasManualMetaFormatSelection = true;
+            }
             currentTopCardsPage = 1;
             if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsFormatFilter) {
                 currentStatisticsMonthFilter = '';
@@ -1576,6 +1581,7 @@ function unmountStatisticsContainer() {
     currentStatisticsFormatFilter = '';
     currentStatisticsDateFilter = '';
     currentStatisticsStapleFilter = '';
+    hasManualMetaFormatSelection = false;
     currentTopCardsPage = 1;
     currentStoreChampionsPlayerQuery = '';
     areStoreChampionsCardsCollapsed = true;
@@ -2144,6 +2150,55 @@ function aggregateTopCardsRows(rows) {
     return Array.from(byCode.values());
 }
 
+function aggregateMetaByDeckRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const byDeck = new Map();
+
+    rows.forEach((row) => {
+        const source = row || {};
+        const deckName = String(source.deck || source.deck_name || '-').trim() || '-';
+        const deckKey = deckName.toLowerCase();
+        const existing = byDeck.get(deckKey) || {
+            deck: deckName,
+            format_rank: 0,
+            ranking_points: 0,
+            titles: 0,
+            top4_total: 0,
+            appearances: 0
+        };
+
+        if (!String(existing.deck || '').trim() && deckName) {
+            existing.deck = deckName;
+        }
+
+        existing.ranking_points += Number(source.ranking_points) || 0;
+        existing.titles += Number(source.titles) || 0;
+        existing.top4_total += Number(source.top4_total) || 0;
+        existing.appearances += Number(source.appearances) || 0;
+
+        byDeck.set(deckKey, existing);
+    });
+
+    const aggregated = Array.from(byDeck.values());
+    aggregated.sort((a, b) => {
+        const pointsDiff = (Number(b.ranking_points) || 0) - (Number(a.ranking_points) || 0);
+        if (pointsDiff !== 0) return pointsDiff;
+        const appearancesDiff = (Number(b.appearances) || 0) - (Number(a.appearances) || 0);
+        if (appearancesDiff !== 0) return appearancesDiff;
+        const top4Diff = (Number(b.top4_total) || 0) - (Number(a.top4_total) || 0);
+        if (top4Diff !== 0) return top4Diff;
+        const titlesDiff = (Number(b.titles) || 0) - (Number(a.titles) || 0);
+        if (titlesDiff !== 0) return titlesDiff;
+        return String(a.deck || '').localeCompare(String(b.deck || ''));
+    });
+
+    aggregated.forEach((row, index) => {
+        row.format_rank = index + 1;
+    });
+
+    return aggregated;
+}
+
 function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const host = document.getElementById('statisticsDynamicContainer');
     if (!host) return;
@@ -2303,7 +2358,11 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             currentStatisticsFormatFilter,
             'Todos os formatos'
         );
-        if (viewName === 'v_meta_by_month' && !currentStatisticsFormatFilter) {
+        if (
+            viewName === 'v_meta_by_month' &&
+            !currentStatisticsFormatFilter &&
+            !hasManualMetaFormatSelection
+        ) {
             const latestFormat = getLatestStatisticsFormat(rows, formatColumn, monthColumn);
             if (latestFormat) {
                 currentStatisticsFormatFilter = latestFormat;
@@ -2409,6 +2468,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     }
     if (viewName === 'v_top_cards_by_month' && !currentStatisticsMonthFilter) {
         filteredRows = aggregateTopCardsRows(filteredRows);
+    }
+    if (viewName === 'v_meta_by_month' && !currentStatisticsFormatFilter) {
+        filteredRows = aggregateMetaByDeckRows(filteredRows);
     }
     let topCardsTotalRows = 0;
     let topCardsTotalPages = 0;
@@ -2691,7 +2753,7 @@ function renderStatisticsTopCardsPagination(host, totalPages) {
     const prev = document.createElement('button');
     prev.type = 'button';
     prev.className = 'btn-pagination btn-pagination-prev';
-    prev.textContent = '◀';
+    prev.textContent = '?';
     prev.setAttribute('aria-label', 'Pagina anterior');
     prev.disabled = currentTopCardsPage <= 1;
     prev.addEventListener('click', () => {
@@ -2722,7 +2784,7 @@ function renderStatisticsTopCardsPagination(host, totalPages) {
     const next = document.createElement('button');
     next.type = 'button';
     next.className = 'btn-pagination btn-pagination-next';
-    next.textContent = '▶';
+    next.textContent = '?';
     next.setAttribute('aria-label', 'Proxima pagina');
     next.disabled = currentTopCardsPage >= totalPages;
     next.addEventListener('click', () => {
@@ -2815,7 +2877,7 @@ function renderStatisticsStapleToggle(row, value) {
     const nextState = getNextStatisticsStapleState(state);
     const stateLabel = state === 'true' ? 'Staple: Sim' : state === 'false' ? 'Staple: Não' : 'Staple: Não definido';
     const nextLabel = nextState === 'true' ? 'Sim' : nextState === 'false' ? 'Não' : 'Não definido';
-    const icon = state === 'true' ? '✓' : state === 'false' ? '✕' : '';
+    const icon = state === 'true' ? '?' : state === 'false' ? '?' : '';
     return `
         <button
             type="button"
@@ -3983,7 +4045,7 @@ function renderPagination() {
     const prevButton = document.createElement('button');
     prevButton.type = 'button';
     prevButton.className = 'btn-pagination btn-pagination-prev';
-    prevButton.textContent = '◀';
+    prevButton.textContent = '?';
     prevButton.setAttribute('aria-label', 'Pagina anterior');
     prevButton.disabled = currentPage <= 1;
     prevButton.addEventListener('click', () => {
@@ -4016,7 +4078,7 @@ function renderPagination() {
     const nextButton = document.createElement('button');
     nextButton.type = 'button';
     nextButton.className = 'btn-pagination btn-pagination-next';
-    nextButton.textContent = '▶';
+    nextButton.textContent = '?';
     nextButton.setAttribute('aria-label', 'Proxima pagina');
     nextButton.disabled = currentPage >= totalPages;
     nextButton.addEventListener('click', () => {
@@ -4485,7 +4547,9 @@ function buildPieSlicePolygon(startDeg, endDeg, steps = 24) {
 function buildDeckPieData(results) {
     const grouped = new Map();
     (results || []).forEach((item) => {
-        const key = item.deck || 'Unknown Deck';
+        const deckName = String(item?.deck || '').trim();
+        if (!deckName) return;
+        const key = deckName;
         if (!grouped.has(key)) {
             grouped.set(key, {
                 deck: key,
@@ -4676,7 +4740,43 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             throw new Error(`Erro ao carregar detalhes (${res.status})`);
         }
 
-        const results = await res.json();
+        let results = await res.json();
+        if (!Array.isArray(results)) results = [];
+
+        if (!results.length) {
+            const fallbackSelect = encodeURIComponent('id,placement,total_players,player:players(name),deck:decks(name)');
+            const fallbackRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${tournament.tournament_date}&select=${fallbackSelect}&order=placement.asc`,
+                { headers }
+            );
+            if (fallbackRes.ok) {
+                const fallbackRows = await fallbackRes.json();
+                if (Array.isArray(fallbackRows) && fallbackRows.length) {
+                    results = fallbackRows.map((row) => ({
+                        id: row?.id || '',
+                        store_id: tournament.store_id || '',
+                        store: tournament.store?.name || '',
+                        tournament_date: tournament.tournament_date || '',
+                        placement: Number(row?.placement) || 0,
+                        player: String(row?.player?.name || '').trim() || '-',
+                        deck: String(row?.deck?.name || '').trim(),
+                        image_url: '',
+                        total_players: Number(row?.total_players) || 0
+                    }));
+                }
+            }
+        }
+
+        results = results
+            .map((row) => ({
+                ...row,
+                placement: Number(row?.placement) || 0,
+                player: String(row?.player || row?.player_name || '').trim() || '-',
+                deck: String(row?.deck || row?.deck_name || '').trim(),
+                image_url: String(row?.image_url || '').trim()
+            }))
+            .sort((a, b) => (Number(a?.placement) || 999) - (Number(b?.placement) || 999));
+
         const topFour = (results || []).filter((r) => Number(r.placement) <= 4);
         const totalPlayers = Number.isFinite(Number(tournament.total_players))
             ? Number(tournament.total_players)
@@ -4722,26 +4822,39 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         const podiumHtml = topFour.length
             ? topFour
                   .map((item) => {
+                      const playerName = String(item.player || '-').trim() || '-';
+                      const deckName = String(item.deck || '').trim();
+                      const hasDeck = Boolean(deckName);
+                      const podiumMainText = hasDeck ? deckName : playerName;
+                      const podiumSubText = hasDeck ? playerName : '';
                       const imageUrl =
                           item.image_url ||
-                          `https://via.placeholder.com/200x200/667eea/ffffff?text=${encodeURIComponent((item.deck || 'Deck').substring(0, 10))}`;
+                          `https://via.placeholder.com/200x200/667eea/ffffff?text=${encodeURIComponent(podiumMainText.substring(0, 10) || 'Deck')}`;
                       return `
                 <div class="details-podium-card ${placementClass(Number(item.placement))}">
                     <div class="details-rank-badge">${formatOrdinal(item.placement)}</div>
                     <div class="details-deck-card-footer">
-                        <div class="details-player-name">${item.player || '-'}</div>
-                        <div class="details-deck-name">${item.deck || '-'}</div>
+                        ${hasDeck ? `<div class="details-player-name">${escapeHtml(podiumSubText)}</div>` : ''}
+                        <div class="details-deck-name">${escapeHtml(podiumMainText)}</div>
                     </div>
+                    ${
+                        hasDeck
+                            ? `
                     <div class="details-card-image-wrapper">
-                        <img src="${imageUrl}" alt="${item.deck || 'Deck'}" class="details-deck-card-image">
+                        <img src="${imageUrl}" alt="${escapeHtml(podiumMainText || 'Deck')}" class="details-deck-card-image">
                     </div>
+                    `
+                            : ''
+                    }
                 </div>
             `;
                   })
                   .join('')
-            : `<div class="results-mini-item"><div class="results-mini-main">No podium data found.</div></div>`;
+            : `<div class="details-empty-state">Nenhum podio registrado para este torneio.</div>`;
 
         const pieSlices = buildDeckPieData(results);
+        const storeName = String(tournament.store?.name || 'Store').trim() || 'Store';
+        const storeIcon = resolveStoreIcon(storeName);
         const pieHtml = pieSlices.length
             ? pieSlices
                   .map(
@@ -4768,17 +4881,20 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             `
                   )
                   .join('')
-            : `<div class="details-pie-legend-item">No deck data</div>`;
+            : '';
 
         const resultsHtml = (results || []).length
             ? results
                 .map(
                     (item) => {
+                        const playerName = String(item.player || '-').trim() || '-';
+                        const deckName = String(item.deck || '').trim();
+                        const hasDeck = Boolean(deckName);
                         const payload = encodeURIComponent(
                             JSON.stringify({
                                 resultId: item.id || '',
-                                deck: item.deck || '',
-                                player: item.player || '',
+                                deck: String(item.deck || '').trim(),
+                                player: playerName,
                                 code: extractDeckCodeFromImageUrl(item.image_url || ''),
                                 store: tournament.store?.name || '',
                                 date: tournament.tournament_date || '',
@@ -4788,25 +4904,54 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                         );
                         return `
                 <div
-                    class="results-mini-item with-action ${fullResultsPlacementClass(Number(item.placement))}"
-                    data-action="open-decklist-builder"
+                    class="results-mini-item ${hasDeck ? 'with-action' : ''} ${fullResultsPlacementClass(Number(item.placement))}"
+                    ${hasDeck ? 'data-action="open-decklist-builder"' : ''}
                     data-decklist-payload="${payload}"
-                    role="button"
-                    tabindex="0"
-                    aria-label="Open decklist builder for ${escapeHtml(item.deck || 'Deck')}"
-                    title="Open decklist builder"
+                    ${hasDeck ? 'role="button" tabindex="0"' : ''}
+                    aria-label="${hasDeck ? `Open decklist builder for ${escapeHtml(item.deck || 'Deck')}` : `Placement ${formatOrdinal(item.placement)} - ${escapeHtml(playerName)}`}"
+                    title="${hasDeck ? 'Open decklist builder' : ''}"
                 >
                     <div class="results-mini-rank">${formatOrdinal(item.placement)}</div>
                     <div class="results-mini-main">
-                        <strong>${item.deck || '-'}</strong>
-                        <span>${item.player || '-'}</span>
+                        ${
+                            hasDeck
+                                ? `
+                        <strong>${escapeHtml(deckName)}</strong>
+                        <span>${escapeHtml(playerName)}</span>
+                        `
+                                : `
+                        <strong>${escapeHtml(playerName)}</strong>
+                        `
+                        }
                     </div>
                 </div>
             `;
                     }
                   )
                   .join('')
-            : `<div class="results-mini-item"><div class="results-mini-main">No results found.</div></div>`;
+            : `<div class="details-empty-state">Nenhum resultado registrado para este torneio.</div>`;
+
+        const pieSectionHtml = pieSlices.length
+            ? `
+                <div class="details-block details-pie-block">
+                    <h3 class="details-section-title">
+                        <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M21.21 15.89A10 10 0 1 1 12 2v10z" />
+                            <path d="M12 2a10 0 0 1 10 10h-10z" />
+                        </svg>
+                        <span>Deck Distribution</span>
+                    </h3>
+                    <div class="details-pie-panel">
+                        <div class="details-pie-container">${pieHtml}</div>
+                        <div class="details-pie-legend">${pieLegend}</div>
+                    </div>
+                </div>
+            `
+            : `
+                <div class="details-store-logo-only-block">
+                    <img src="${escapeHtml(storeIcon)}" alt="${escapeHtml(storeName)}" class="details-pie-store-logo" loading="lazy">
+                </div>
+            `;
 
         if (!targetContainer) {
             if (String(selectedTournamentId) !== tournamentId) return;
@@ -4839,19 +4984,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                     </h3>
                     <div class="results-mini">${resultsHtml}</div>
                 </div>
-                <div class="details-block details-pie-block">
-                    <h3 class="details-section-title">
-                        <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path d="M21.21 15.89A10 10 0 1 1 12 2v10z" />
-                            <path d="M12 2a10 10 0 0 1 10 10h-10z" />
-                        </svg>
-                        <span>Deck Distribution</span>
-                    </h3>
-                    <div class="details-pie-panel">
-                        <div class="details-pie-container">${pieHtml}</div>
-                        <div class="details-pie-legend">${pieLegend}</div>
-                    </div>
-                </div>
+                ${pieSectionHtml}
             </div>
         `;
         setupInteractivePieSlices(
@@ -5504,4 +5637,5 @@ async function createTournamentFormSubmit(e) {
         submitBtn.textContent = originalText;
     }
 }
+
 

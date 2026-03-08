@@ -1717,7 +1717,8 @@ th {
 
 .details-grid > .details-block:first-child,
 .details-grid > .details-full-results-block,
-.details-grid > .details-pie-block {
+.details-grid > .details-pie-block,
+.details-grid > .details-store-logo-only-block {
     height: 520px;
     min-height: 520px;
     max-height: 520px;
@@ -1800,6 +1801,53 @@ th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.details-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 88px;
+    padding: 12px 14px;
+    border: 1px dashed #c9d6fb;
+    border-radius: 10px;
+    background: #f6f8ff;
+    color: #4a5f92;
+    text-align: center;
+    line-height: 1.35;
+    font-size: 0.9rem;
+}
+
+.details-empty-state-inline {
+    min-height: 0;
+}
+
+.details-pie-store-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    box-sizing: border-box;
+}
+
+.details-pie-store-logo {
+    width: min(72%, 210px);
+    height: min(72%, 210px);
+    object-fit: contain;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #dbe5ff;
+    padding: 10px;
+    box-shadow: 0 8px 18px rgba(28, 47, 102, 0.2);
+}
+
+.details-store-logo-only-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
 }
 
 .details-pie-block {
@@ -3771,7 +3819,8 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
 
     .details-grid > .details-block:first-child,
     .details-grid > .details-full-results-block,
-    .details-grid > .details-pie-block {
+    .details-grid > .details-pie-block,
+    .details-grid > .details-store-logo-only-block {
         height: auto;
         min-height: 0;
         max-height: none;
@@ -8603,9 +8652,6 @@ body.template-preview-page .post-toast {
     padding: 0;
     background: transparent;
     box-shadow: none;
-    width: min(100%, 1180px);
-    max-width: 1180px;
-    margin: 0 auto;
     box-sizing: border-box;
 }
 
@@ -9272,7 +9318,7 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
 
 .store-champions-board {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
     margin-top: 10px;
     padding-top: 6px;
@@ -10182,8 +10228,12 @@ body[data-theme='dark'] .player-history-store-logo {
     border-color: #44577d !important;
 }
 
+body[data-theme='dark'] .store-podium-icon {
+    background: #1b2740 !important;
+    border-color: #44577d !important;
+}
+
 body[data-theme='dark'] :is(.statistics-main-selects, .statistics-highlights) {
-    background: #162033 !important;
     border-color: #3b4b6a !important;
 }
 
@@ -10552,6 +10602,17 @@ body[data-theme='dark'] .details-pie-slice {
 
 body[data-theme='dark'] .details-pie-container {
     border-color: #233552 !important;
+}
+
+body[data-theme='dark'] .details-empty-state {
+    background: #1a2740 !important;
+    border-color: #44577d !important;
+    color: #cfdaef !important;
+}
+
+body[data-theme='dark'] .details-pie-store-logo {
+    background: #1b2740 !important;
+    border-color: #44577d !important;
 }
 /* ============================================================
    DARK MODE - DECKS RANK BADGE PODIUM PALETTE RESTORE
@@ -10970,6 +11031,85 @@ body[data-theme='dark'] .table-date-value,
 body[data-theme='dark'] .table-data-value {
     color: #d7e4fa !important;
 }
+
+@media (max-width: 768px) {
+    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row),
+    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row):nth-child(even),
+    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row):hover,
+    body[data-theme='dark'] #tournamentsTable > tbody > tr.clickable-row.is-active {
+        background: #162033 !important;
+        border-color: #44577d !important;
+    }
+
+    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row) > td {
+        background: transparent !important;
+    }
+
+    body[data-theme='dark'] #tournamentsTable td:nth-child(2) .table-store-content {
+        background: #1b2740 !important;
+        border-color: #44577d !important;
+    }
+
+    body[data-theme='dark'] #tournamentsTable td:nth-child(3) .table-mobile-store-tournament {
+        color: #9fb4df !important;
+    }
+}
+
+body:not([data-theme='dark']) .container {
+    background: linear-gradient(180deg, #f8f4ff 0%, #eef2ff 100%) !important;
+    border: 1px solid #cfd4ff;
+}
+
+body:not([data-theme='dark']) .filters-row {
+    background: linear-gradient(135deg, rgba(117, 75, 162, 0.08) 0%, rgba(102, 126, 234, 0.08) 100%);
+    border: 1px solid #d4cbff;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+body:not([data-theme='dark']) .filter-group .filter-select,
+body:not([data-theme='dark']) .form-group.per-page-filter select {
+    background-color: #f7f3ff;
+    border-color: #c8ccff;
+    color: #2f3564;
+}
+
+body:not([data-theme='dark']) .filter-group .filter-select:focus,
+body:not([data-theme='dark']) .form-group.per-page-filter select:focus {
+    border-color: #8ea0f0;
+    box-shadow: 0 0 0 3px rgba(126, 105, 202, 0.16);
+}
+
+body:not([data-theme='dark']) #tournamentsTable tr {
+    background: linear-gradient(135deg, #f8f4ff 0%, #edf2ff 100%);
+    border-color: #cfd5ff;
+    box-shadow: 0 4px 12px rgba(88, 73, 160, 0.12);
+}
+
+body:not([data-theme='dark']) #tournamentsTable td:nth-child(2) .table-store-content {
+    background: linear-gradient(180deg, #f3efff 0%, #e8eeff 100%);
+    border-color: #c5cbff;
+}
+
+body:not([data-theme='dark']) #tournamentsTable td:nth-child(1) .table-date-value {
+    color: #2d3674;
+}
+
+body:not([data-theme='dark']) #tournamentsTable td:nth-child(3) .table-mobile-store-tournament {
+    color: #4a56a1;
+}
+
+body:not([data-theme='dark']) #tournamentsTable td:nth-child(4) .table-mobile-players-line {
+    color: #3b4688;
+}
+
+body[data-theme='dark'] .filter-group .filter-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239db9e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h18'/%3E%3Cpath d='M6 4v2l5 6v6l2-1v-5l5-6V4'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: 12px center !important;
+    background-size: 16px 16px !important;
+    padding-left: 38px !important;
+}
 /* ============================================================
    DETAILS HEADER/PLAYER/DECK TEXT COLOR UPDATE
 ============================================================ */
@@ -11009,4 +11149,187 @@ body[data-theme='dark'] .details-player-name {
 body[data-theme='dark'] .details-podium-card .details-deck-name,
 body[data-theme='dark'] .details-deck-name {
     color: #eef3ff !important;
+}
+/* ============================================================
+   LIGHT THEME - LILAC CONSISTENCY (TABLE + DECKS)
+============================================================ */
+@media (min-width: 769px) {
+    body:not([data-theme='dark']) #tournamentsTable td:nth-child(2) .table-store-content {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+
+body:not([data-theme='dark']) .statistics-table-wrapper {
+    background: linear-gradient(180deg, #f8f4ff 0%, #eef2ff 100%) !important;
+}
+
+body:not([data-theme='dark']) :is(
+    .deck-format-select,
+    .deck-month-select,
+    .search-box .search-input,
+    .search-box .page-size-select,
+    .page-size-select,
+    .btn-view-toggle,
+    .pagination button
+) {
+    background: #f7f3ff !important;
+    border-color: #c8ccff !important;
+    color: #2f3564 !important;
+}
+
+body:not([data-theme='dark']) .search-box {
+    background: transparent !important;
+}
+
+body:not([data-theme='dark']) .decks-table-wrapper {
+    background: linear-gradient(180deg, #f8f4ff 0%, #eef2ff 100%) !important;
+    border-color: #cfd4ff !important;
+}
+
+body:not([data-theme='dark']) .decks-table {
+    background: transparent !important;
+}
+
+body:not([data-theme='dark']) .decks-table th {
+    background: linear-gradient(180deg, #f2ecff 0%, #e7ecff 100%) !important;
+    border-color: #d2d8ff !important;
+    color: #33458a !important;
+}
+
+body:not([data-theme='dark']) .decks-table td {
+    background: rgba(248, 244, 255, 0.72) !important;
+    border-color: #e1e6ff !important;
+}
+
+body:not([data-theme='dark']) .decks-table tbody tr:nth-child(even) td {
+    background: rgba(239, 243, 255, 0.78) !important;
+}
+
+body:not([data-theme='dark']) .decks-table tbody tr:hover td {
+    background: rgba(231, 237, 255, 0.95) !important;
+}
+
+body:not([data-theme='dark']) .decks-col-thumb-wrapper {
+    background: #f3efff !important;
+    border-color: #c8ccff !important;
+}
+/* ============================================================
+   HOME DASHBOARD - INTEGRATED LEFT SIDEBAR (DESKTOP)
+============================================================ */
+@media (min-width: 1024px) {
+    body.dashboard-home .container {
+        max-width: none;
+        margin: 0;
+        min-height: calc(100vh - 40px);
+        padding: 16px;
+        display: grid;
+        grid-template-columns: 256px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+    }
+
+    body.dashboard-home .container > :not(.dashboard-home-header) {
+        grid-column: 2;
+        min-width: 0;
+    }
+
+    body.dashboard-home .dashboard-home-header {
+        grid-column: 1;
+        grid-row: 1 / span 8;
+        position: sticky;
+        top: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        text-align: left;
+        margin: 0;
+        padding: 14px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(208, 216, 255, 0.8);
+        background: linear-gradient(180deg, rgba(244, 238, 255, 0.78) 0%, rgba(233, 239, 255, 0.72) 100%);
+        box-shadow: none;
+        min-height: calc(100vh - 72px);
+    }
+
+    body.dashboard-home .dashboard-home-header .logo-wrapper {
+        margin: 2px 0 0;
+        width: 100%;
+        justify-content: center;
+    }
+
+    body.dashboard-home .dashboard-home-header .header-logo {
+        width: 94px;
+        max-width: none;
+    }
+
+    body.dashboard-home .dashboard-home-header .subtitle {
+        margin: 0;
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: #30417a;
+        letter-spacing: 0.1px;
+        text-align: center;
+    }
+
+    body.dashboard-home .dashboard-home-header .nav-buttons-wrapper {
+        width: 100%;
+        margin: 4px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+
+    body.dashboard-home .dashboard-home-header .nav-button {
+        width: 100%;
+        min-height: 42px;
+        border-radius: 10px;
+        justify-content: flex-start;
+        font-size: 0.93rem;
+        background: linear-gradient(135deg, rgba(117, 139, 227, 0.28) 0%, rgba(124, 95, 184, 0.28) 100%);
+        border: 1px solid rgba(145, 160, 231, 0.45);
+        box-shadow: none;
+        color: #2b3d78;
+    }
+
+    body.dashboard-home .dashboard-home-header .nav-button:hover {
+        transform: none;
+        background: linear-gradient(135deg, rgba(117, 139, 227, 0.4) 0%, rgba(124, 95, 184, 0.4) 100%);
+    }
+
+    body.dashboard-home .dashboard-home-header .nav-button.is-active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: rgba(103, 126, 234, 0.8);
+        color: #f5f8ff;
+        box-shadow: 0 0 0 2px rgba(115, 130, 214, 0.2);
+    }
+
+    body.dashboard-home[data-theme='dark'] .dashboard-home-header {
+        border-color: #34486f;
+        background: linear-gradient(180deg, rgba(23, 34, 55, 0.78) 0%, rgba(19, 29, 46, 0.7) 100%);
+    }
+
+    body.dashboard-home[data-theme='dark'] .dashboard-home-header .subtitle {
+        color: #d8e3fb !important;
+    }
+
+    body.dashboard-home[data-theme='dark'] .dashboard-home-header .nav-button {
+        color: #d8e4ff !important;
+        background: linear-gradient(135deg, rgba(58, 84, 135, 0.32) 0%, rgba(77, 60, 133, 0.32) 100%);
+        border-color: rgba(96, 123, 175, 0.55);
+    }
+
+    body.dashboard-home[data-theme='dark'] .dashboard-home-header .nav-button:hover {
+        background: linear-gradient(135deg, rgba(71, 100, 157, 0.42) 0%, rgba(91, 72, 151, 0.42) 100%);
+    }
+
+    body.dashboard-home[data-theme='dark'] .dashboard-home-header .nav-button.is-active {
+        background: linear-gradient(135deg, #5770d6 0%, #6d4ab4 100%);
+        border-color: rgba(124, 146, 227, 0.75);
+        color: #f1f6ff !important;
+    }
 }
