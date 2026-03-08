@@ -18,10 +18,16 @@
         <div class="container">
             <header class="dashboard-home-header">
                 <div class="logo-wrapper">
-                    <img src="icons/logo.png" alt="DigiStats" class="header-logo" />
+                    <a href="https://github.com/e-Lopes/e-lopes.github.io" target="_blank" rel="noopener noreferrer" title="View on GitHub"
+                        style="display:inline-block;cursor:pointer;transition:transform 0.2s,filter 0.2s;"
+                        onmouseover="this.style.transform='scale(1.08)';this.style.filter='brightness(1.15) drop-shadow(0 0 8px rgba(255,255,255,0.3))'"
+                        onmouseout="this.style.transform='scale(1)';this.style.filter='none'"
+                        onclick="if(window.innerWidth<=768)event.preventDefault()">
+                        <img src="icons/logo.png" alt="DigiStats" class="header-logo" />
+                    </a>
                 </div>
-                <p class="subtitle">Digimon TCG Tournament Management</p>
 
+                <p class="subtitle">Digimon TCG Tournament Management</p>
                 <div class="nav-buttons-wrapper">
                     <button type="button" id="btnShowTournamentsNav" class="nav-button is-active">
                         <span class="nav-icon" aria-hidden="true">

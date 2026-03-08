@@ -1,4 +1,4 @@
-const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
+﻿const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
 const headers = window.createSupabaseHeaders
     ? window.createSupabaseHeaders()
@@ -4776,7 +4776,8 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 image_url: String(row?.image_url || '').trim()
             }))
             .sort((a, b) => (Number(a?.placement) || 999) - (Number(b?.placement) || 999));
-
+        const storeName = String(tournament.store?.name || 'Store').trim() || 'Store';
+        const storeIcon = resolveStoreIcon(storeName);
         const topFour = (results || []).filter((r) => Number(r.placement) <= 4);
         const totalPlayers = Number.isFinite(Number(tournament.total_players))
             ? Number(tournament.total_players)
@@ -4785,21 +4786,26 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         const header = `
             <div class="tournament-details-header">
                 <div class="details-header-top">
-                    <div class="details-header-meta">
+                    <div style="display:flex;align-items:center;gap:16px;">
+                        <div class="details-header-meta">
                         <strong>${tournament.tournament_name || 'Tournament'}</strong>
                         <div>${formatDate(tournament.tournament_date)} - ${tournament.store?.name || 'Store'}</div>
                         <div>Total Players: ${totalPlayers}</div>
                         <div>Format: ${formatCode || '-'}</div>
+                        </div>
+                        <img src="${escapeHtml(storeIcon)}" alt="${escapeHtml(storeName)}" class="details-pie-store-logo" loading="lazy"
+                        style="max-width:210px;max-height:102px;width:auto;height:auto;object-fit:contain;"
+                        onload="if(window.innerWidth<=768)this.style.display='none';">
                     </div>
                     <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
                         <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-                            <circle cx="9" cy="10" r="1.7"></circle>
-                            <path d="M4 17l5-4 3.2 2.6 3.8-3.6 4 5"></path>
+                        <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                        <circle cx="9" cy="10" r="1.7"></circle>
+                        <path d="M4 17l5-4 3.2 2.6 3.8-3.6 4 5"></path>
                         </svg>
                         <span>Generate Post</span>
                     </button>
-                </div>
+                </div>      
             </div>
         `;
 
@@ -4853,8 +4859,6 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             : `<div class="details-empty-state">Nenhum podio registrado para este torneio.</div>`;
 
         const pieSlices = buildDeckPieData(results);
-        const storeName = String(tournament.store?.name || 'Store').trim() || 'Store';
-        const storeIcon = resolveStoreIcon(storeName);
         const pieHtml = pieSlices.length
             ? pieSlices
                   .map(
@@ -4948,9 +4952,6 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 </div>
             `
             : `
-                <div class="details-store-logo-only-block">
-                    <img src="${escapeHtml(storeIcon)}" alt="${escapeHtml(storeName)}" class="details-pie-store-logo" loading="lazy">
-                </div>
             `;
 
         if (!targetContainer) {

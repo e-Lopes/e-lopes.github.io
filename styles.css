@@ -1666,7 +1666,7 @@ th {
 .details-header-top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
     margin-bottom: 10px;
 }
@@ -1833,8 +1833,10 @@ th {
 }
 
 .details-pie-store-logo {
-    width: min(72%, 210px);
-    height: min(72%, 210px);
+    max-width: 210px;
+    max-height: 102px;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: 12px;
     background: #fff;
