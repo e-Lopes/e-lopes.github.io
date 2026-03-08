@@ -4787,15 +4787,15 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             <div class="tournament-details-header">
                 <div class="details-header-top">
                     <div style="display:flex;align-items:center;gap:16px;">
+                        <img src="${escapeHtml(storeIcon)}" alt="${escapeHtml(storeName)}" class="details-pie-store-logo" loading="lazy"
+                        style="max-width:210px;max-height:102px;width:auto;height:auto;object-fit:contain;"
+                        onload="if(window.innerWidth<=768)this.style.display='none';">
                         <div class="details-header-meta">
                         <strong>${tournament.tournament_name || 'Tournament'}</strong>
                         <div>${formatDate(tournament.tournament_date)} - ${tournament.store?.name || 'Store'}</div>
                         <div>Total Players: ${totalPlayers}</div>
                         <div>Format: ${formatCode || '-'}</div>
-                        </div>
-                        <img src="${escapeHtml(storeIcon)}" alt="${escapeHtml(storeName)}" class="details-pie-store-logo" loading="lazy"
-                        style="max-width:210px;max-height:102px;width:auto;height:auto;object-fit:contain;"
-                        onload="if(window.innerWidth<=768)this.style.display='none';">
+                        </div>                        
                     </div>
                     <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
                         <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
