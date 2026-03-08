@@ -682,7 +682,7 @@ function resolveStoreIcon(storeName) {
     const normalized = normalizeStoreName(storeName);
     if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
     if (normalized.includes('cartinhas') || normalized.includes('celta'))
-        return `${base}ReiDasCartinhas.jpg`;
+        return `${base}ReiDasCartinhas.png`;
     if (normalized.includes('meruru')) return `${base}Meruru.svg`;
     if (normalized.includes('taverna')) return `${base}Taverna.png`;
     if (normalized.includes('tcgbr') || normalized.includes('tcg br')) return `${base}TCGBR.png`;
