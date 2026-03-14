@@ -2,7 +2,7 @@
 
 ## Current Score
 
-**8.1 / 10**
+**8.3 / 10**
 
 ## Why this score
 
@@ -10,6 +10,15 @@
 - UI quality has improved (dark theme, modals, dashboard consistency), but there is still style debt and duplicated legacy paths.
 - Documentation is now better, but technical debt remains in structure and legacy modules.
 - Test coverage and release hardening are still below ideal for long-term stability.
+
+## Recent Wins (Mar 2026)
+
+- Decklist metadata normalized into `decklist_card_metadata` (reduced duplication).
+- Views updated: `v_decklist_cards_enriched`, `v_top_cards_by_month`.
+- Deckbuilder now prioritizes DB metadata/cache before public API.
+- Card zoom details fixed to hydrate from DB cache + API fallback.
+- Auto-sort & auto-save decklists on load to normalize ordering.
+- Database snapshots stabilized using Session Pooler connection.
 
 ## Priority Improvements
 
@@ -35,11 +44,19 @@
 
 - Add and backfill store alias column (`bandai_nick`) and keep matching strategy documented.
 - Add minimal migration checklist for players/stores OCR matching fields.
+- Ensure `validate_decklist_limits` uses `decklist_card_metadata` (trigger integrity).
+- Document decklist normalization conventions (position, qty, metadata ownership).
+
+## 4.1) Decklist data quality (new)
+
+- Add a repair job/endpoint to re-hydrate missing card metadata for legacy decklists.
+- Add consistency checks (missing `card_type`/`card_level` in metadata).
 
 ## 5) Testing and quality gates
 
 - Add integration tests for create modal flow (manual + OCR import paths).
 - Add smoke tests for theme toggle and modal rendering.
+- Add a regression test for decklist sort order (level + set + serial).
 - Make lint + tests mandatory before release/deploy.
 
 ## 6) Operational readiness
