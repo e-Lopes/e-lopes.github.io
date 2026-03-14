@@ -134,6 +134,7 @@ ALTER FUNCTION "public"."touch_updated_at"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."validate_decklist_limits"() RETURNS "trigger"
     LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
     AS $$
 DECLARE
     v_decklist_id bigint;
@@ -143,12 +144,11 @@ BEGIN
     v_decklist_id := coalesce(NEW.decklist_id, OLD.decklist_id);
 
     SELECT
-        coalesce(sum(CASE WHEN meta.is_digi_egg THEN dc.qty ELSE 0 END), 0),
-        coalesce(sum(CASE WHEN NOT meta.is_digi_egg THEN dc.qty ELSE 0 END), 0)
+        coalesce(sum(CASE WHEN is_digi_egg THEN qty ELSE 0 END), 0),
+        coalesce(sum(CASE WHEN NOT is_digi_egg THEN qty ELSE 0 END), 0)
     INTO v_egg, v_main
-    FROM public.decklist_cards dc
-    JOIN public.decklist_card_metadata meta ON meta.card_code = dc.card_code
-    WHERE dc.decklist_id = v_decklist_id;
+    FROM public.decklist_cards
+    WHERE decklist_id = v_decklist_id;
 
     IF v_egg > 5 THEN
         RAISE EXCEPTION 'Decklist inválida: Digi-Egg > 5 (atual: %)', v_egg;

@@ -2935,7 +2935,7 @@ async function updateStatisticsStapleStateOnServer(cardCode, nextState) {
     const code = normalizeCardCodeForLookup(cardCode || '');
     if (!code) throw new Error('Invalid card code');
     const payload = { is_staple: serializeStatisticsStapleState(nextState) };
-    const endpoint = `/rest/v1/decklist_cards?card_code=eq.${encodeURIComponent(code)}`;
+    const endpoint = `/rest/v1/decklist_card_metadata?card_code=eq.${encodeURIComponent(code)}`;
     const extraHeaders = { Prefer: 'return=minimal' };
     const response = window.supabaseApi
         ? await window.supabaseApi.patch(endpoint, payload, extraHeaders)

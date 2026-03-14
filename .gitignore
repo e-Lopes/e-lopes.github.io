@@ -2,3 +2,6 @@ node_modules/
 .env
 .env.*
 !.env.example
+.npm-cache/_update-notifier-last-checked
+.npm-cache/_logs/2026-03-14T02_16_35_820Z-debug-0.log
+.npm-cache/_logs/2026-03-14T02_16_38_194Z-debug-0.log
