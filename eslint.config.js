@@ -1,6 +1,6 @@
 module.exports = [
     {
-        ignores: ['node_modules/**']
+        ignores: ['node_modules/**', 'backup/**']
     },
     {
         files: ['eslint.config.js', 'tests/**/*.js', 'scripts/**/*.js'],
