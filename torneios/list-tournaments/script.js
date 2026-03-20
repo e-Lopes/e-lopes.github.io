@@ -4460,8 +4460,9 @@ function renderPagination() {
     });
     div.appendChild(prevButton);
 
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(totalPages, currentPage + 2);
+    const pageRadius = window.innerWidth <= 768 ? 1 : 2;
+    const startPage = Math.max(1, currentPage - pageRadius);
+    const endPage = Math.min(totalPages, currentPage + pageRadius);
 
     for (let i = startPage; i <= endPage; i++) {
         const btn = document.createElement('button');

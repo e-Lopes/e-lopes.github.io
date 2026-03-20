@@ -492,17 +492,21 @@ function renderPagination(totalPages) {
         return btn;
     };
 
-    pagination.appendChild(makeBtn('\u00AB', 'First page', currentPage === 1, () => {
-        currentPage = 1;
-        renderPaginatedList();
-    }));
+    const isMobile = window.innerWidth <= 768;
+
+    if (!isMobile) {
+        pagination.appendChild(makeBtn('\u00AB', 'First page', currentPage === 1, () => {
+            currentPage = 1;
+            renderPaginatedList();
+        }));
+    }
     pagination.appendChild(makeBtn('\u25C0', 'Previous page', currentPage <= 1, () => {
         if (currentPage <= 1) return;
         currentPage -= 1;
         renderPaginatedList();
     }));
 
-    const WINDOW = 5;
+    const WINDOW = isMobile ? 3 : 5;
     const startPage = Math.max(1, Math.min(currentPage - Math.floor(WINDOW / 2), totalPages - WINDOW + 1));
     const endPage = Math.min(totalPages, startPage + WINDOW - 1);
 
@@ -527,10 +531,12 @@ function renderPagination(totalPages) {
         currentPage += 1;
         renderPaginatedList();
     }));
-    pagination.appendChild(makeBtn('\u00BB', 'Last page', currentPage >= totalPages, () => {
-        currentPage = totalPages;
-        renderPaginatedList();
-    }));
+    if (!isMobile) {
+        pagination.appendChild(makeBtn('\u00BB', 'Last page', currentPage >= totalPages, () => {
+            currentPage = totalPages;
+            renderPaginatedList();
+        }));
+    }
 }
 
 async function handleSubmit() {
