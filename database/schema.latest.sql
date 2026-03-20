@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS "public"."decklist_cards" (
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     CONSTRAINT "decklist_cards_position_check" CHECK (("position" > 0)),
-    CONSTRAINT "decklist_cards_qty_check" CHECK ((("qty" >= 1) AND ("qty" <= 4)))
+    CONSTRAINT "decklist_cards_qty_check" CHECK ((("qty" >= 1) AND ("qty" <= 50)))
 );
 
 
@@ -1689,7 +1689,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
-
 
 
 

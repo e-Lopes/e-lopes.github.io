@@ -6,8 +6,10 @@
         <meta name="theme-color" content="#667eea" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="DigiStats" />
         <title>DigiStats - Tournaments</title>
         <link rel="icon" type="image/png" href="icons/favicon/favicon.png" />
+        <link rel="apple-touch-icon" href="icons/icons-192.png" />
         <link rel="manifest" href="manifest.json" />
         <link rel="stylesheet" href="styles.css" />
         <link rel="stylesheet" href="styles/components/utilities.css" />
@@ -65,6 +67,16 @@
                             </svg>
                         </span>
                         <span>Statistics</span>
+                    </button>
+                    <button type="button" id="btnAdminNav" class="nav-button">
+                        <span class="nav-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="8" r="4"></circle>
+                                <path d="M12 14c-5 0-8 2-8 4v1h16v-1c0-2-3-4-8-4z"></path>
+                                <path d="M18 3l1.5 3L23 7l-2.5 2 .5 3-3-1.5L15 12l.5-3L13 7l3.5-1z"></path>
+                            </svg>
+                        </span>
+                        <span>Admin</span>
                     </button>
                 </div>
             </header>
@@ -281,6 +293,7 @@
             <div id="decksDynamicContainer" class="is-hidden"></div>
             <div id="playersDynamicContainer" class="is-hidden"></div>
             <div id="statisticsDynamicContainer" class="is-hidden"></div>
+            <div id="adminDynamicContainer" class="is-hidden"></div>
 
             <template id="decksContainerTemplate">
                 <div class="decks-container">
@@ -503,6 +516,16 @@
                                 </select>
                                 <input
                                     type="text"
+                                    id="statisticsFilterDeck"
+                                    class="statistics-deck-search is-hidden"
+                                    placeholder="Buscar deck..."
+                                    aria-label="Filtrar por deck"
+                                    autocomplete="off"
+                                    list="statisticsDeckDatalist"
+                                />
+                                <datalist id="statisticsDeckDatalist"></datalist>
+                                <input
+                                    type="text"
                                     id="statisticsPlayerSearch"
                                     class="statistics-player-search is-hidden"
                                     placeholder="Buscar player..."
@@ -520,6 +543,7 @@
                             <p id="statisticsFormulaHint" class="statistics-formula-hint"></p>
                         </div>
                     </div>
+                    <div id="statisticsChartArea" class="statistics-chart-area is-hidden"></div>
                     <div class="statistics-data-card">
                         <p id="statisticsStatus" class="statistics-status">
                             Select a view to load data.
@@ -530,6 +554,156 @@
                             <thead></thead>
                             <tbody></tbody>
                         </table>
+                    </div>
+                </div>
+            </template>
+            <template id="adminContainerTemplate">
+                <div class="admin-container" id="adminContainer">
+                    <div class="page-header">
+                        <h1 class="page-title">Administration</h1>
+                        <div class="admin-tabs">
+                            <button type="button" class="admin-tab-btn is-active" data-admin-tab="formats">Formats / Meta</button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="banlist">Ban List</button>
+                        </div>
+                    </div>
+
+                    <!-- Formats / Meta panel -->
+                    <div data-admin-panel="formats" class="admin-panel">
+                        <div class="admin-panel-header">
+                            <div>
+                                <h2 class="admin-panel-title">Formats / Meta</h2>
+                                <p class="admin-panel-desc">Manage tournament formats. The default format is pre-selected when creating tournaments.</p>
+                            </div>
+                            <button type="button" class="btn-primary" data-admin-action="create-format">+ New Format</button>
+                        </div>
+                        <div class="admin-table-wrapper">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Name</th>
+                                        <th>Default</th>
+                                        <th>Status</th>
+                                        <th>Background</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminFormatsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Ban List panel -->
+                    <div data-admin-panel="banlist" class="admin-panel is-hidden">
+                        <div class="admin-panel-header">
+                            <div>
+                                <h2 class="admin-panel-title">Ban List</h2>
+                                <p class="admin-panel-desc">Manage card restrictions. Changes apply to new decklists only — existing registered decklists are not affected.</p>
+                            </div>
+                            <button type="button" class="btn-primary" data-admin-action="add-ban">+ Add Restriction</button>
+                        </div>
+                        <div class="admin-banlist-search-row">
+                            <input type="text" id="adminBanListSearch" class="search-input" placeholder="Filter by card code or name…" autocomplete="off" />
+                            <span id="adminBanListCount" class="admin-dim"></span>
+                        </div>
+                        <div class="admin-table-wrapper">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Card Code</th>
+                                        <th>Name</th>
+                                        <th>Restriction</th>
+                                        <th>Notes</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminBanListBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Format Modal -->
+                    <div id="adminFormatModal" class="modal-overlay">
+                        <div class="modal-content">
+                            <h3 class="admin-modal-title">New Format / Meta</h3>
+                            <form id="adminFormatForm">
+                                <input type="hidden" id="adminFormatId" />
+                                <div class="form-group">
+                                    <label for="adminFormatCode">Code <span class="required">*</span></label>
+                                    <input type="text" id="adminFormatCode" placeholder="e.g. BT19" required autocomplete="off" style="text-transform:uppercase" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="adminFormatName">Name</label>
+                                    <input type="text" id="adminFormatName" placeholder="e.g. BT19 Meta" autocomplete="off" />
+                                </div>
+                                <div class="form-group" style="display:flex;gap:24px;align-items:center;">
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                        <input type="checkbox" id="adminFormatIsActive" />
+                                        Active
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                        <input type="checkbox" id="adminFormatIsDefault" />
+                                        Set as Default
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Background Image</label>
+                                    <div class="admin-bg-selected-preview" id="adminFormatBgSelectedWrap" style="display:none;">
+                                        <img id="adminFormatBgPreview" alt="Selected background" />
+                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-format-bg" title="Remove background">✕</button>
+                                    </div>
+                                    <input type="hidden" id="adminFormatBgUrl" />
+                                    <input type="hidden" id="adminFormatBgPath" />
+                                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                                        <label class="btn-secondary admin-upload-label">
+                                            Upload new
+                                            <input type="file" id="adminFormatFile" accept="image/*" style="display:none;" />
+                                        </label>
+                                        <button type="button" class="btn-secondary" data-admin-action="browse-bucket-images">Browse existing</button>
+                                    </div>
+                                    <div id="adminBucketBrowser" class="admin-bucket-browser is-hidden">
+                                        <div id="adminBucketImages" class="admin-bucket-grid"></div>
+                                    </div>
+                                </div>
+                                <p id="adminFormatStatus" class="admin-form-status"></p>
+                                <div class="modal-actions">
+                                    <button type="submit" class="btn-save">Save</button>
+                                    <button type="button" class="btn-cancel" data-admin-action="close-format-modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Ban Modal -->
+                    <div id="adminBanModal" class="modal-overlay">
+                        <div class="modal-content">
+                            <h3 class="admin-modal-title">Add Restriction</h3>
+                            <form id="adminBanForm">
+                                <input type="hidden" id="adminBanOriginalCode" />
+                                <div class="form-group">
+                                    <label for="adminBanCardCode">Card Code <span class="required">*</span></label>
+                                    <input type="text" id="adminBanCardCode" placeholder="e.g. BT7-072" required autocomplete="off" style="text-transform:uppercase" />
+                                    <div class="admin-ban-card-preview" id="adminBanCardPreview"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="adminBanRestriction">Restriction <span class="required">*</span></label>
+                                    <select id="adminBanRestriction">
+                                        <option value="limited">Limited (1 copy)</option>
+                                        <option value="choice-restricted">Choice-Restricted</option>
+                                        <option value="banned">Banned (cannot use)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="adminBanNotes">Notes</label>
+                                    <input type="text" id="adminBanNotes" placeholder="Optional note..." autocomplete="off" />
+                                </div>
+                                <p id="adminBanStatus" class="admin-form-status"></p>
+                                <div class="modal-actions">
+                                    <button type="submit" class="btn-save">Save</button>
+                                    <button type="button" class="btn-cancel" data-admin-action="close-ban-modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </template>

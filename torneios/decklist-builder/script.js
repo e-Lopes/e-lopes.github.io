@@ -67,9 +67,14 @@
     // ─── Runtime config ───────────────────────────────────────────────────────
 
     const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
+    const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
     const headers = window.createSupabaseHeaders
         ? window.createSupabaseHeaders()
-        : { 'Content-Type': 'application/json' };
+        : {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+          };
 
     // ─── State ────────────────────────────────────────────────────────────────
 
@@ -93,8 +98,38 @@
         bindActions();
         render([]);
         renderCardSearchResults();
+        await loadBanListFromDb();
         await applyContextFromQuery();
     });
+
+    // ─── Ban list from DB ─────────────────────────────────────────────────────
+
+    async function loadBanListFromDb() {
+        if (!window.APP_CONFIG?.SUPABASE_URL) return;
+        try {
+            const headers = window.createSupabaseHeaders
+                ? window.createSupabaseHeaders()
+                : { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/ban_list?select=card_code,restriction`,
+                { headers }
+            );
+            if (!res.ok) return; // table may not exist yet — silently skip
+            const rows = await res.json();
+            if (!Array.isArray(rows)) return;
+            for (const row of rows) {
+                const code = String(row.card_code || '').trim().toUpperCase();
+                if (!code) continue;
+                if (row.restriction === 'banned') {
+                    BANNED_CODES.add(code);
+                } else if (row.restriction === 'limited' || row.restriction === 'choice-restricted') {
+                    RESTRICTED_CODES.add(code);
+                }
+            }
+        } catch {
+            // Non-critical — builder works with hardcoded lists as fallback
+        }
+    }
 
     // ─── Event binding ────────────────────────────────────────────────────────
 
@@ -458,6 +493,9 @@
                     ...dbRow,
                     id: dbRow?.id || normalized,
                     card_code: normalized,
+                    // decklist_card_metadata uses card_type; map to type for compatibility
+                    type: dbRow?.type || dbRow?.card_type || '',
+                    level: normalizeCardLevel(dbRow?.card_level ?? dbRow?.level),
                     updated_at: new Date().toISOString(),
                 };
                 cardDetailsByCode.set(normalized, cached);
@@ -1059,17 +1097,17 @@
 
         while (rows.length < CARD_SEARCH_MAX_RESULTS) {
             const params = new URLSearchParams({
-                select: 'card_code,id,name,pack,color,type,card_payload',
+                select: 'card_code,id,name,pack,color,card_type,card_payload',
                 order: 'card_code.asc',
                 limit: String(Math.min(limit, CARD_SEARCH_MAX_RESULTS - rows.length)),
                 offset: String(offset),
             });
             if (filters.n) params.set('name', `ilike.*${filters.n}*`);
             if (filters.color) params.set('color', `ilike.*${filters.color}*`);
-            if (filters.type) params.set('type', `ilike.*${filters.type}*`);
+            if (filters.type) params.set('card_type', `ilike.*${filters.type}*`);
             if (filters.card) params.set('card_code', `ilike.${filters.card}%`);
 
-            const endpoint = `/rest/v1/cards_cache?${params.toString()}`;
+            const endpoint = `/rest/v1/decklist_card_metadata?${params.toString()}`;
             const response = window.supabaseApi
                 ? await window.supabaseApi.get(endpoint)
                 : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
@@ -1082,6 +1120,7 @@
                 ...row,
                 id: row?.id || row?.card_code,
                 card: row?.card_code,
+                type: row?.type || row?.card_type || '',
             }));
             rows.push(...normalized);
             if (batch.length < limit) break;
@@ -1507,7 +1546,7 @@
                 entries: (Array.isArray(rows) ? rows : [])
                     .map((row) => ({
                         code: normalizeDeckCode(row?.card_code || ''),
-                        count: Math.max(1, Math.min(getMaxCopies(row?.card_code), Number(row?.qty) || 1)),
+                        count: Math.max(1, Number(row?.qty) || 1),
                         meta: {
                             cardType: String(row?.card_meta?.card_type || '').trim(),
                             cardLevel: normalizeCardLevel(row?.card_meta?.card_level),
@@ -1546,6 +1585,9 @@
         if (btn) btn.disabled = true;
         setSaveStatus('Saving decklist...', 'info');
 
+        // Ensure card metadata (type/level) is hydrated before persisting
+        await hydrateCardMetadata(entries, { allowRerender: false });
+
         try {
             const text = serializeDecklist(entries);
             const saved = await saveDecklistStructured(context.resultId, entries);
@@ -1562,35 +1604,39 @@
     }
 
     async function saveDecklistStructured(resultId, sourceEntries) {
-        try {
-            const decklistId = await ensureDecklistRow(resultId);
-            if (!decklistId) return false;
+        const decklistId = await ensureDecklistRow(resultId);
+        if (!decklistId) return false;
 
-            const delRes = await fetch(
-                `${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}?decklist_id=eq.${decklistId}`,
-                { method: 'DELETE', headers },
-            );
-            if (!delRes.ok) return false;
+        const delRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}?decklist_id=eq.${decklistId}`,
+            { method: 'DELETE', headers },
+        );
+        if (!delRes.ok) {
+            const detail = await readSupabaseError(delRes);
+            throw new Error(`Failed to delete decklist cards (HTTP ${delRes.status}). ${detail}`);
+        }
 
-            const metaSaved = await upsertDecklistCardMetadata(sourceEntries);
-            if (!metaSaved) return false;
+        await upsertDecklistCardMetadata(sourceEntries);
 
-            const rows = (Array.isArray(sourceEntries) ? sourceEntries : []).map((entry, i) => {
-                return {
-                    decklist_id: decklistId, position: i + 1,
-                    card_code: normalizeDeckCode(entry.code),
-                    qty: Math.max(1, Math.min(getMaxCopies(entry.code), Number(entry.count) || 1)),
-                };
-            });
-            if (!rows.length) return true;
+        const rows = (Array.isArray(sourceEntries) ? sourceEntries : []).map((entry, i) => {
+            return {
+                decklist_id: decklistId, position: i + 1,
+                card_code: normalizeDeckCode(entry.code),
+                qty: Math.max(1, Math.min(getMaxCopies(entry.code), Number(entry.count) || 1)),
+            };
+        });
+        if (!rows.length) return true;
 
-            const insRes = await fetch(`${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify(rows),
-            });
-            return insRes.ok;
-        } catch { return false; }
+        const insRes = await fetch(`${SUPABASE_URL}/rest/v1/${DECKLIST_CARDS_TABLE}`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify(rows),
+        });
+        if (!insRes.ok) {
+            const detail = await readSupabaseError(insRes);
+            throw new Error(`Failed to insert decklist cards (HTTP ${insRes.status}). ${detail}`);
+        }
+        return true;
     }
 
     async function upsertDecklistCardMetadata(sourceEntries) {
@@ -1599,10 +1645,17 @@
             const code = normalizeDeckCode(entry?.code || '');
             if (!isValidDeckCode(code)) return;
             const meta = getDecklistCardMetadata(entry);
+            const details = cardDetailsByCode.get(code) || {};
             const current = rowsByCode.get(code) || { card_code: code, card_type: null, card_level: null, is_digi_egg: false };
             if (meta.cardType) current.card_type = meta.cardType;
             if (Number.isFinite(meta.cardLevel)) current.card_level = meta.cardLevel;
             if (meta.isDigiEgg) current.is_digi_egg = true;
+            // Enrich with full card details when available
+            if (details.id) current.id = details.id;
+            if (details.name) current.name = details.name;
+            if (details.pack) current.pack = details.pack;
+            if (details.color) current.color = details.color;
+            if (details.card_payload && typeof details.card_payload === 'object') current.card_payload = details.card_payload;
             rowsByCode.set(code, current);
         });
 
@@ -1618,7 +1671,23 @@
             },
             body: JSON.stringify(rows),
         });
-        return res.ok;
+        if (!res.ok) {
+            const detail = await readSupabaseError(res);
+            throw new Error(`Failed to upsert decklist card metadata (HTTP ${res.status}). ${detail}`);
+        }
+        return true;
+    }
+
+    async function readSupabaseError(res) {
+        try {
+            const data = await res.clone().json();
+            if (data?.message) return data.message;
+            if (data?.details) return data.details;
+            if (data?.hint) return data.hint;
+            return JSON.stringify(data);
+        } catch {
+            try { return await res.text(); } catch { return ''; }
+        }
     }
 
     async function ensureDecklistRow(resultId) {
@@ -1648,7 +1717,7 @@
             );
             if (res.ok) return true;
         }
-        return true;
+        return false;
     }
 
     function serializeDecklist(sourceEntries) {
@@ -1729,7 +1798,11 @@
 
     function normalizeCardLevel(value) {
         const n = Number(value);
-        return Number.isFinite(n) ? n : null;
+        if (Number.isFinite(n)) return n;
+        const match = String(value || '').match(/(\d+)/);
+        if (!match) return null;
+        const parsed = Number(match[1]);
+        return Number.isFinite(parsed) ? parsed : null;
     }
 
     function normalizeBoolean(value) {
@@ -1786,7 +1859,7 @@
     function getDigimonLevelSort(rawLevel) {
         const level = Number(rawLevel);
         if (!Number.isFinite(level)) return 99;
-        const order = { 3: 0, 4: 1, 5: 2, 6: 3, 7: 4 };
+        const order = { 2: 0, 3: 1, 4: 2, 5: 3, 6: 4, 7: 5 };
         return Object.prototype.hasOwnProperty.call(order, level) ? order[level] : 50 + Math.max(0, Math.trunc(level));
     }
 
@@ -1801,9 +1874,9 @@
 
     function compareSetSort(l, r) {
         if ((l?.familyRank ?? 0) !== (r?.familyRank ?? 0)) return (r?.familyRank ?? 0) - (l?.familyRank ?? 0);
-        if ((l?.family || '') !== (r?.family || '')) return String(r?.family || '').localeCompare(String(l?.family || ''));
+        if ((l?.family || '') !== (r?.family || '')) return String(l?.family || '').localeCompare(String(r?.family || ''));
         if ((l?.setNumber ?? -1) !== (r?.setNumber ?? -1)) return (l?.setNumber ?? -1) - (r?.setNumber ?? -1);
-        return String(r?.raw || '').localeCompare(String(l?.raw || ''));
+        return String(l?.raw || '').localeCompare(String(r?.raw || ''));
     }
 
     function parseCardSerialNumber(code) {
@@ -1885,8 +1958,8 @@
         const normalized = normalizeDeckCode(code || '');
         if (!isValidDeckCode(normalized)) return null;
         const endpoint =
-            `/rest/v1/cards_cache` +
-            `?select=card_code,id,name,pack,color,type,card_payload&card_code=eq.${encodeURIComponent(normalized)}&limit=1`;
+            `/rest/v1/decklist_card_metadata` +
+            `?select=card_code,id,name,pack,color,card_type,card_level,card_payload&card_code=eq.${encodeURIComponent(normalized)}&limit=1`;
         const response = window.supabaseApi
             ? await window.supabaseApi.get(endpoint)
             : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
@@ -1913,7 +1986,7 @@
     function shouldFetchApiMetadata(details) {
         const meta = details || {};
         const type = normalizeCardType(meta?.type || '');
-        const level = Number(meta?.level);
+        const level = normalizeCardLevel(meta?.level);
         const isEgg = normalizeBoolean(meta?.is_digi_egg);
 
         if (!type && !isEgg) return true;
@@ -1968,7 +2041,10 @@
 
         if (apiRows.length) {
             const nowIso = new Date().toISOString();
-            apiRows.forEach((row) => cardDetailsByCode.set(row.card_code, { ...row, updated_at: nowIso }));
+            apiRows.forEach((row) => {
+                const lvl = normalizeCardLevel(row.card_payload?.level);
+                cardDetailsByCode.set(row.card_code, { ...row, level: lvl, updated_at: nowIso });
+            });
             refreshRenderedCardTitles();
             if (allowRerender && buildDeckGroupBreakdownHtml(entries) !== initialSig) {
                 render([]);

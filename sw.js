@@ -110,11 +110,15 @@ async function cacheFirst(request) {
     const cached = await cache.match(request);
     if (cached) return cached;
 
-    const response = await fetch(request);
-    if (response && response.ok) {
-        cache.put(request, response.clone());
+    try {
+        const response = await fetch(request);
+        if (response && response.ok) {
+            cache.put(request, response.clone());
+        }
+        return response;
+    } catch {
+        return new Response('Offline', { status: 503, statusText: 'Offline' });
     }
-    return response;
 }
 
 

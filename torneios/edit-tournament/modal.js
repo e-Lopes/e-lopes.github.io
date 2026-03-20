@@ -279,7 +279,7 @@ async function loadStoresToEdit(selectedStoreId) {
 
     stores.forEach((s) => {
         const isSelected = String(s.id) === String(selectedStoreId);
-        select.innerHTML += `<option value="${s.id}" ${isSelected ? 'selected' : ''}>${s.name}</option>`;
+        select.innerHTML += `<option value="${s.id}" ${isSelected ? 'selected' : ''}>${escapeHtml(s.name)}</option>`;
     });
 }
 

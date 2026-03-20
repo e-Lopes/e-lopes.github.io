@@ -8,6 +8,7 @@
         <link rel="stylesheet" href="../styles.css" />
         <link rel="stylesheet" href="../styles/components/utilities.css" />
         <link rel="stylesheet" href="../styles/components/states.css" />
+        <link rel="stylesheet" href="../styles/pages/players.css" />
     </head>
     <body>
         <div class="container">
@@ -63,6 +64,10 @@
                     </div>
 
                     <div class="decks-list-controls">
+                        <label class="decks-has-decklists-filter" title="Mostrar apenas decks com ao menos uma decklist cadastrada">
+                            <input type="checkbox" id="filterHasDecklists" />
+                            Has decklists
+                        </label>
                         <select
                             id="deckRankFormatSelect"
                             class="deck-format-select"

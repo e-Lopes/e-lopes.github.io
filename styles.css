@@ -59,7 +59,7 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
@@ -201,7 +201,7 @@ button.nav-button {
     border-radius: 8px;
     font-size: 1em;
     transition: 0.3s;
-    background: white;
+    background: #f5f7fc;
 }
 
 .filter-group select:focus {
@@ -215,7 +215,7 @@ button.nav-button {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: white;
+    background: #f5f7fc;
     padding: 15px 30px;
     border-radius: 10px;
     border: 2px solid #667eea;
@@ -256,7 +256,7 @@ button.nav-button {
     border-radius: 20px 120px 120px 20px;
     padding: 25px 230px 25px 30px;
     min-height: 160px;
-    background: white;
+    background: #f5f7fc;
     box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
     transition: 0.3s;
 }
@@ -414,7 +414,7 @@ button.nav-button {
     gap: 15px;
     padding: 16px 18px;
     border-radius: 14px;
-    background: white;
+    background: #f5f7fc;
     transition: 0.25s ease;
     border: 1px solid #eee;
 }
@@ -718,7 +718,7 @@ body {
 .container {
     max-width: 900px;
     margin: 0 auto;
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     padding: 30px;
@@ -836,7 +836,7 @@ h1 {
 
 /* Placements Section */
 .placements-section {
-    background: white;
+    background: #f5f7fc;
     padding: 25px;
     border-radius: 12px;
     margin-bottom: 20px;
@@ -923,7 +923,7 @@ h1 {
     font-size: 1em;
     border: 2px solid #ced4da;
     border-radius: 8px;
-    background: white;
+    background: #f5f7fc;
     color: #333;
     cursor: pointer;
     transition: all 0.2s;
@@ -952,7 +952,7 @@ h1 {
     font-size: 1em;
     border: 2px solid #ced4da;
     border-radius: 8px;
-    background: white;
+    background: #f5f7fc;
     color: #333;
     transition: all 0.2s;
 }
@@ -964,7 +964,7 @@ h1 {
     font-size: 1em;
     border: 2px solid #ced4da;
     border-radius: 8px;
-    background: white;
+    background: #f5f7fc;
     color: #333;
     transition: all 0.2s;
 }
@@ -994,7 +994,7 @@ h1 {
     top: calc(98% + 5px);
     left: 0;
     right: 0;
-    background: white;
+    background: #f5f7fc;
     border: 2px solid #667eea;
     border-radius: 8px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
@@ -1032,7 +1032,7 @@ h1 {
 }
 
 .autocomplete-item.no-match:hover {
-    background: white;
+    background: #f5f7fc;
 }
 
 /* Empty State */
@@ -1691,7 +1691,7 @@ th {
 }
 
 .details-block {
-    background: #fff;
+    background: #f5f7fc;
     border: 1px solid #e5e7ef;
     border-radius: 10px;
     padding: 14px;
@@ -1728,7 +1728,7 @@ th {
 }
 
 .details-pie-panel {
-    background: #fff;
+    background: #f5f7fc;
     border: 1px solid #e8eaf4;
     border-radius: 12px;
     padding: 10px;
@@ -1839,7 +1839,7 @@ th {
     height: auto;
     object-fit: contain;
     border-radius: 12px;
-    background: #fff;
+    background: #f5f7fc;
     border: 1px solid #dbe5ff;
     padding: 10px;
     box-shadow: 0 8px 18px rgba(28, 47, 102, 0.2);
@@ -1872,7 +1872,7 @@ th {
     border-radius: 20px 120px 120px 20px;
     padding: 14px 128px 14px 14px;
     min-height: 100px;
-    background: white;
+    background: #f5f7fc;
     box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
     overflow: hidden;
 }
@@ -2552,7 +2552,7 @@ th {
     max-height: none;
     min-height: 120px;
     flex: 1 1 auto;
-    overflow: hidden;
+    overflow-y: auto;
     padding: 2px;
 }
 
@@ -2639,7 +2639,7 @@ th {
     position: relative;
     border: 1px solid #c6d7ff;
     border-radius: 11px;
-    background: #fff;
+    background: #f5f7fc;
     overflow: hidden;
     transition:
         border-color 0.16s ease,
@@ -2790,7 +2790,7 @@ th {
     width: 22px;
     height: 22px;
     border: 1px solid #e39f9f;
-    background: #fff;
+    background: #f5f7fc;
     color: #a33a3a;
     border-radius: 999px;
     line-height: 1;
@@ -2814,7 +2814,7 @@ th {
     border: 1px solid #d9deff;
     border-radius: 10px;
     overflow: hidden;
-    background: #fff;
+    background: #f5f7fc;
     transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -3167,7 +3167,7 @@ th {
 }
 
 .modal-content {
-    background: white;
+    background: #f5f7fc;
     padding: 30px;
     border-radius: 15px;
     width: 90%;
@@ -3384,7 +3384,7 @@ body[data-theme='dark'] .friendly-error-message {
 .btn-add-result {
     width: 100%;
     border: 2px dashed #ced4da;
-    background: #fff;
+    background: #f5f7fc;
     color: #495057;
     border-radius: 8px;
     height: 48px;
@@ -3564,7 +3564,7 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
     #tournamentsTable tr {
         display: block;
         position: relative;
-        background: white;
+        background: #f5f7fc;
         border: 1px solid #ddd;
         border-radius: 8px;
         padding: 10px 64px 10px 86px;
@@ -4339,7 +4339,7 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
     height: 36px;
     border: 1px solid #cfd6ff;
     border-radius: 8px;
-    background: #fff;
+    background: #f5f7fc;
     color: #3f4da1;
     cursor: pointer;
     font-size: 1.2rem;
@@ -4388,7 +4388,7 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
 
 .calendar-day {
     min-height: 96px;
-    background: #fff;
+    background: #f5f7fc;
     border: 1px solid #e5e7ef;
     border-radius: 10px;
     padding: 8px;
@@ -4487,7 +4487,7 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
 
 .calendar-empty-state {
     border: 1px dashed #ccd3fb;
-    background: #fff;
+    background: #f5f7fc;
     color: #6874b2;
     border-radius: 10px;
     padding: 24px 12px;
@@ -4542,7 +4542,7 @@ body {
 }
 
 .container {
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     padding: 30px;
@@ -4870,7 +4870,7 @@ body {
 }
 
 .container {
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     padding: 30px;
@@ -5169,7 +5169,7 @@ body {
 .container {
     width: 100%;
     max-width: 1400px;
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     padding: 30px;
@@ -5263,7 +5263,7 @@ input[type='text'] {
     padding: 0 18px;
     border: 2px solid #ced4da;
     outline: none;
-    background: white;
+    background: #f5f7fc;
 }
 
 input[type='text']:focus {
@@ -5334,7 +5334,7 @@ input[type='text']:focus {
     height: 40px;
     border: 2px solid #ddd;
     border-radius: 8px;
-    background: #fff;
+    background: #f5f7fc;
     color: #333;
     font-size: 1em;
     font-family: inherit;
@@ -5363,7 +5363,7 @@ input[type='text']:focus {
     border: 1px solid #f0f0f0;
     border-radius: 12px;
     margin-bottom: 12px;
-    background: white;
+    background: #f5f7fc;
     transition: 0.2s;
     gap: 15px;
     flex-wrap: nowrap;
@@ -5537,7 +5537,7 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
@@ -5681,7 +5681,7 @@ button.nav-button:disabled:active {
     border-radius: 8px;
     font-size: 1em;
     transition: 0.3s;
-    background: white;
+    background: #f5f7fc;
 }
 
 .filter-group select:focus {
@@ -5695,7 +5695,7 @@ button.nav-button:disabled:active {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: white;
+    background: #f5f7fc;
     padding: 15px 30px;
     border-radius: 10px;
     border: 2px solid #667eea;
@@ -5736,7 +5736,7 @@ button.nav-button:disabled:active {
     border-radius: 20px 120px 120px 20px;
     padding: 25px 230px 25px 30px;
     min-height: 160px;
-    background: white;
+    background: #f5f7fc;
     box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
     transition: 0.3s;
 }
@@ -5894,7 +5894,7 @@ button.nav-button:disabled:active {
     gap: 15px;
     padding: 16px 18px;
     border-radius: 14px;
-    background: white;
+    background: #f5f7fc;
     transition: 0.25s ease;
     border: 1px solid #eee;
 }
@@ -6174,7 +6174,7 @@ body {
 }
 
 .container {
-    background: white;
+    background: #f5f7fc;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     padding: 30px;
@@ -6238,7 +6238,7 @@ body {
     grid-template-columns: 126px minmax(0, 1fr) auto;
     align-items: center;
     gap: 14px;
-    background: #fff;
+    background: #f5f7fc;
     border: 1px solid #eaeaea;
     border-radius: 14px;
     padding: 12px 14px;
@@ -6479,7 +6479,7 @@ body {
     align-items: center !important;
     gap: 8px !important;
     position: relative !important;
-    background: white;
+    background: #f5f7fc;
     border-radius: 10px;
     width: 100% !important;
 }
@@ -6675,7 +6675,7 @@ body {
     border: 1px solid #d9deff;
     border-radius: 10px;
     overflow: hidden;
-    background: #fff;
+    background: #f5f7fc;
 }
 
 .decklist-mvp-card img {
@@ -6773,7 +6773,7 @@ body {
     height: 34px;
     border: 1px solid #ced4da;
     border-radius: 6px;
-    background: #fff;
+    background: #f5f7fc;
     color: #333;
     cursor: pointer;
     padding: 0 10px;
@@ -6795,7 +6795,7 @@ body {
     height: 48px;
     border: 2px solid #ddd;
     border-radius: 8px;
-    background: #fff;
+    background: #f5f7fc;
     color: #333;
     cursor: pointer;
     transition: all 0.2s;
@@ -8295,7 +8295,7 @@ body.template-preview-page .post-toast {
     overflow-x: auto;
     border: 1px solid #e5e7ef;
     border-radius: 12px;
-    background: #fff;
+    background: #f5f7fc;
 }
 
 .decks-table {
@@ -8456,7 +8456,7 @@ body.template-preview-page .post-toast {
     border-radius: 999px;
     border: 1px solid #d6ddef;
     overflow: hidden;
-    background: #fff;
+    background: #f5f7fc;
     flex-shrink: 0;
 }
 
@@ -8613,7 +8613,7 @@ body.template-preview-page .post-toast {
     border: 1px solid #c7d2fe;
     border-radius: 10px;
     padding: 0 12px;
-    background: #fff;
+    background: #f5f7fc;
 }
 
 #postBackgroundUpload,
@@ -8621,7 +8621,7 @@ body.template-preview-page .post-toast {
     border: 1px dashed #a5b4fc;
     border-radius: 10px;
     padding: 8px 10px;
-    background: #fff;
+    background: #f5f7fc;
 }
 
 .template-upload-label {
@@ -8810,6 +8810,163 @@ body.template-preview-page .post-toast {
     color: #29458b;
 }
 
+.statistics-coverage-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    font-size: 0.82rem;
+    color: #51608f;
+}
+
+.statistics-coverage-note .coverage-icon {
+    font-size: 0.9rem;
+}
+
+.statistics-coverage-note .coverage-tip {
+    color: #8a96b0;
+    font-style: italic;
+}
+
+/* ── Statistics Loading Spinner ──────────────────────────── */
+
+.stats-loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #c8d0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: stats-spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+@keyframes stats-spin {
+    to { transform: rotate(360deg); }
+}
+
+body[data-theme='dark'] .stats-loading-spinner {
+    border-color: #3a4f6e !important;
+    border-top-color: #7a9fd4 !important;
+}
+
+/* ── Statistics Inline Charts ────────────────────────────── */
+
+.statistics-chart-area {
+    margin: 0 0 16px 0;
+    padding: 0;
+}
+
+.statistics-chart-area.is-hidden {
+    display: none;
+}
+
+.stats-chart-wrap {
+    background: var(--card-bg, #fff);
+    border: 1px solid #e5e9f2;
+    border-radius: 10px;
+    padding: 16px 20px;
+    overflow: hidden;
+}
+
+/* Donut chart */
+.stats-donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.stats-donut-chart {
+    width: 140px;
+    height: 140px;
+    flex-shrink: 0;
+}
+
+.stats-chart-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 160px;
+}
+
+.chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+}
+
+.chart-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.chart-legend-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #334155;
+}
+
+.chart-legend-pct {
+    font-weight: 700;
+    color: #51608f;
+    min-width: 38px;
+    text-align: right;
+    font-size: 0.78rem;
+}
+
+/* Color bar chart */
+.stats-color-bars-wrap {
+    padding: 12px 20px;
+}
+
+.stats-color-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.color-bar-row {
+    display: grid;
+    grid-template-columns: 64px 1fr 44px;
+    align-items: center;
+    gap: 10px;
+}
+
+.color-bar-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.color-bar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+    height: 14px;
+    overflow: hidden;
+}
+
+.color-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.color-bar-pct {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #51608f;
+    text-align: right;
+}
+
 .statistics-status {
     color: #334155;
     font-size: 0.9rem;
@@ -8833,7 +8990,7 @@ body.template-preview-page .post-toast {
     border-radius: 0;
     overflow-x: auto;
     overflow-y: auto;
-    background: #fff;
+    background: #f5f7fc;
     box-shadow: none;
     max-width: 100%;
     width: 100%;
@@ -9285,6 +9442,27 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
     flex: 1 1 220px;
 }
 
+.statistics-deck-search {
+    height: 44px;
+    width: clamp(190px, 28vw, 280px);
+    min-width: 190px;
+    max-width: 320px;
+    border: 1px solid #c7d4ff;
+    border-radius: 10px;
+    padding: 0 12px;
+    background: #f9fbff;
+    color: #24356f;
+    font-size: 0.92rem;
+    flex: 1 1 220px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.statistics-deck-search:focus {
+    border-color: #8fa7ef;
+    box-shadow: 0 0 0 3px rgba(103, 132, 230, 0.14);
+}
+
 .statistics-player-search {
     width: 100%;
     min-width: 220px;
@@ -9377,7 +9555,7 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
     height: 34px;
     object-fit: contain;
     border-radius: 8px;
-    background: #fff;
+    background: #f5f7fc;
     border: 1px solid #dbe5ff;
     padding: 4px;
 }
@@ -9398,7 +9576,7 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
     border: 1px solid #e7ecfb;
     border-radius: 10px;
     padding: 8px 10px;
-    background: #fff;
+    background: #f5f7fc;
 }
 
 .store-podium-rank {
@@ -10363,6 +10541,96 @@ body[data-theme='dark'] .statistics-table-wrapper {
     border: 1px solid #354760 !important;
     border-radius: 12px !important;
 }
+
+/* Statistics label / hint / status text */
+body[data-theme='dark'] .statistics-select-label {
+    color: #8fa8d4 !important;
+}
+
+/* Statistics filter selects — dark mode */
+body[data-theme='dark'] #statisticsFilterStore,
+body[data-theme='dark'] #statisticsFilterFormat,
+body[data-theme='dark'] #statisticsFilterMonth,
+body[data-theme='dark'] #statisticsFilterDate,
+body[data-theme='dark'] #statisticsFilterStaple,
+body[data-theme='dark'] .statistics-deck-search {
+    background: #1e2d45 !important;
+    border-color: #3d5580 !important;
+    color: #c7d9f5 !important;
+}
+
+body[data-theme='dark'] #statisticsFilterStore option,
+body[data-theme='dark'] #statisticsFilterFormat option,
+body[data-theme='dark'] #statisticsFilterMonth option,
+body[data-theme='dark'] #statisticsFilterDate option,
+body[data-theme='dark'] #statisticsFilterStaple option {
+    background: #1e2d45;
+    color: #c7d9f5;
+}
+
+body[data-theme='dark'] .statistics-deck-search:focus {
+    border-color: #6a8cbf !important;
+    box-shadow: 0 0 0 3px rgba(103, 140, 200, 0.18) !important;
+}
+
+body[data-theme='dark'] .statistics-deck-search::placeholder {
+    color: #5a7098 !important;
+}
+
+body[data-theme='dark'] .statistics-formula-hint {
+    color: #7a90b8 !important;
+}
+
+body[data-theme='dark'] .statistics-status {
+    color: #9baec8 !important;
+}
+
+body[data-theme='dark'] .statistics-highlight-label {
+    color: #7a90b8 !important;
+}
+
+/* Statistics data card (summary row above table) */
+body[data-theme='dark'] .statistics-data-card {
+    background: linear-gradient(180deg, #162133 0%, #1a2740 100%) !important;
+    border-color: #3d4f72 !important;
+}
+
+/* Statistics table: cell borders (th + td) */
+body[data-theme='dark'] .statistics-table th,
+body[data-theme='dark'] .statistics-table td {
+    border-bottom-color: #243550 !important;
+}
+
+/* Statistics table: header row (overrides border-bottom-color above for th) */
+body[data-theme='dark'] .statistics-table th {
+    background: linear-gradient(180deg, #1a2b42 0%, #1e3151 100%) !important;
+    color: #b8cde8 !important;
+    border-bottom-color: #2e4668 !important;
+}
+
+/* Statistics table: alternating rows and hover */
+body[data-theme='dark'] .statistics-table tbody tr:nth-child(even) {
+    background: #172234 !important;
+}
+
+body[data-theme='dark'] .statistics-table tbody tr:hover {
+    background: #1e3452 !important;
+}
+
+/* Sort button hover in dark mode */
+body[data-theme='dark'] .stats-sort-button:hover {
+    color: #8fb8ef !important;
+}
+
+/* Column resizer handle */
+body[data-theme='dark'] .stats-col-resizer::after {
+    background: #3a5070 !important;
+}
+
+body[data-theme='dark'] .statistics-table th:hover .stats-col-resizer::after {
+    background: #6a8cbf !important;
+}
+
 /* ============================================================
    DARK MODE - RESTORE ORIGINAL PODIUM/FULL RESULTS/HISTORY
 ============================================================ */
@@ -10899,6 +11167,47 @@ body[data-theme='dark'] .points-pill.top4 {
     border-color: #6d8fca !important;
     color: #d9e7ff !important;
 }
+
+body[data-theme='dark'] .statistics-coverage-note {
+    color: #9bacd4 !important;
+}
+
+body[data-theme='dark'] .statistics-coverage-note .coverage-tip {
+    color: #6a7d9f !important;
+}
+
+body[data-theme='dark'] .stats-chart-wrap {
+    background: #1e2a3b !important;
+    border-color: #2d3f55 !important;
+}
+
+body[data-theme='dark'] .chart-legend-label {
+    color: #c8d4e8 !important;
+}
+
+body[data-theme='dark'] .chart-legend-pct {
+    color: #8fa4c8 !important;
+}
+
+body[data-theme='dark'] .color-bar-label {
+    color: #c8d4e8 !important;
+}
+
+body[data-theme='dark'] .color-bar-track {
+    background: #2d3f55 !important;
+}
+
+body[data-theme='dark'] .color-bar-pct {
+    color: #8fa4c8 !important;
+}
+
+.donut-hole {
+    fill: #fff;
+}
+
+body[data-theme='dark'] .donut-hole {
+    fill: #1e2a3b !important;
+}
 /* ============================================================
    DARK MODE - STATISTICS STORE/SEARCH/RANK/PERCENT COLORS
 ============================================================ */
@@ -11134,21 +11443,9 @@ body[data-theme='dark'] .details-header-meta :is(strong, span, p, small) {
 }
 
 body[data-theme='dark'] .details-player-name {
-    color: #b9c8e4 !important;
-}
-
-body[data-theme='dark'] .details-deck-name {
-    color: #e6eefc !important;
-}
-/* ============================================================
-   DARK MODE - FORCE LIGHTER DETAILS PLAYER/DECK TEXT
-============================================================ */
-body[data-theme='dark'] .details-podium-card .details-player-name,
-body[data-theme='dark'] .details-player-name {
     color: #c7d6ef !important;
 }
 
-body[data-theme='dark'] .details-podium-card .details-deck-name,
 body[data-theme='dark'] .details-deck-name {
     color: #eef3ff !important;
 }
@@ -11334,4 +11631,456 @@ body:not([data-theme='dark']) .decks-col-thumb-wrapper {
         border-color: rgba(124, 146, 227, 0.75);
         color: #f1f6ff !important;
     }
+}
+
+/* ===== Deck history panel ===== */
+.deck-history-tr {
+    background: transparent !important;
+}
+
+.deck-history-td {
+    padding: 0 8px 10px !important;
+    border-top: none !important;
+}
+
+.deck-history-panel-compact {
+    grid-column: 1 / -1;
+    padding: 0 4px 4px;
+    margin-top: 2px;
+}
+
+/* 2-column grid for deck history items (no store logo column) */
+.deck-history-list .player-history-item {
+    grid-template-columns: 32px minmax(0, 1fr);
+}
+
+.deck-history-list .player-history-decklist-actions {
+    margin-bottom: 10px;
+}
+
+.decks-has-decklists-filter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #3d4f80;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.decks-has-decklists-filter input[type='checkbox'] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+body[data-theme='dark'] .decks-has-decklists-filter {
+    color: #a8bcf0;
+}
+
+.deck-name-toggle {
+    border: none;
+    background: transparent;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* ===== Admin Panel ===== */
+.admin-container {
+    padding: 0 0 40px;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.admin-tab-btn {
+    padding: 6px 18px;
+    border-radius: 20px;
+    border: 1.5px solid var(--color-border, #ddd);
+    background: transparent;
+    color: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.admin-tab-btn.is-active,
+.admin-tab-btn:hover {
+    background: var(--color-primary, #667eea);
+    color: #fff;
+    border-color: var(--color-primary, #667eea);
+}
+
+.admin-panel {
+    margin-top: 20px;
+}
+
+.admin-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.admin-panel-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+}
+
+.admin-panel-desc {
+    font-size: 0.82rem;
+    opacity: 0.6;
+    margin: 0;
+}
+
+.admin-table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e0e0e0);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.admin-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--color-table-header, #f5f7ff);
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+
+.admin-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tr:hover td {
+    background: var(--color-row-hover, rgba(102, 126, 234, 0.04));
+}
+
+.admin-actions-cell {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.admin-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.admin-badge--default { background: #667eea22; color: #4a5fc8; }
+.admin-badge--active  { background: #2ecc7122; color: #1a9e55; }
+.admin-badge--inactive { background: #e0e0e022; color: #888; }
+.admin-badge--banned  { background: #e74c3c22; color: #c0392b; }
+.admin-badge--limited { background: #f39c1222; color: #b07300; }
+.admin-badge--choice  { background: #9b59b622; color: #7d3c98; }
+
+.admin-btn-danger {
+    background: rgba(231, 76, 60, 0.1) !important;
+    color: #c0392b !important;
+    border-color: rgba(231, 76, 60, 0.3) !important;
+}
+
+.admin-btn-danger:hover {
+    background: rgba(231, 76, 60, 0.2) !important;
+}
+
+.admin-link {
+    font-size: 0.8rem;
+    color: var(--color-primary, #667eea);
+    text-decoration: none;
+}
+
+.admin-link:hover { text-decoration: underline; }
+
+.admin-dim {
+    opacity: 0.45;
+    font-size: 0.85rem;
+}
+
+.admin-loading,
+.admin-empty,
+.admin-error {
+    text-align: center;
+    padding: 24px 16px;
+}
+
+.admin-error { color: var(--color-danger, #e74c3c); }
+.admin-empty { opacity: 0.55; }
+
+.admin-modal-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 16px;
+}
+
+.admin-form-status {
+    min-height: 20px;
+    font-size: 0.85rem;
+    color: var(--color-danger, #e74c3c);
+    margin: 0 0 8px;
+}
+
+/* Ban modal card preview */
+.admin-ban-card-preview {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.admin-ban-card-img {
+    width: 140px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+/* Ban list search row */
+.admin-banlist-search-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.admin-banlist-search-row .search-input {
+    flex: 1;
+    min-width: 0;
+    max-width: 360px;
+}
+
+/* Admin background browser */
+.admin-bg-selected-preview {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.admin-bg-selected-preview img {
+    max-width: 100%;
+    max-height: 110px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-bg-clear-btn {
+    background: rgba(231, 76, 60, 0.12);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: #c0392b;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.admin-upload-label {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+}
+
+.admin-bucket-browser {
+    margin-top: 10px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 8px;
+    padding: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.admin-bucket-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 6px;
+}
+
+.admin-bucket-thumb {
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    padding: 3px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: border-color 0.15s;
+}
+
+.admin-bucket-thumb:hover {
+    border-color: var(--color-primary, #667eea);
+}
+
+.admin-bucket-thumb img {
+    width: 100%;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.admin-bucket-thumb-name {
+    font-size: 0.65rem;
+    opacity: 0.7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    text-align: center;
+}
+
+/* Dark theme overrides */
+body[data-theme='dark'] .admin-table th {
+    background: rgba(255,255,255,0.04);
+    border-color: #2a3a5a;
+}
+body[data-theme='dark'] .admin-table td {
+    border-color: #2a3a5a;
+}
+body[data-theme='dark'] .admin-table-wrapper {
+    border-color: #2a3a5a;
+}
+body[data-theme='dark'] .admin-badge--default { background: #667eea33; color: #a0b4f8; }
+body[data-theme='dark'] .admin-badge--active  { background: #2ecc7133; color: #5dde9a; }
+body[data-theme='dark'] .admin-badge--banned  { background: #e74c3c33; color: #f08080; }
+body[data-theme='dark'] .admin-badge--limited { background: #f39c1233; color: #f5c060; }
+body[data-theme='dark'] .admin-badge--choice  { background: #9b59b633; color: #c09be0; }
+body[data-theme='dark'] .admin-tab-btn {
+    border-color: #2a3a5a;
+}
+body[data-theme='dark'] .admin-btn-danger {
+    background: rgba(231, 76, 60, 0.15) !important;
+    color: #f08080 !important;
+}
+
+/* ============================================================
+   DARK MODE - TOURNAMENT DETAILS SECTION
+============================================================ */
+body[data-theme='dark'] .tournament-details-section {
+    background: #162133 !important;
+    border-color: #2e4668 !important;
+}
+
+body[data-theme='dark'] .tournament-details-header {
+    color: #b8cde8 !important;
+}
+
+body[data-theme='dark'] .details-title-icon {
+    color: #7a9fd4 !important;
+}
+
+/* ============================================================
+   DARK MODE - MONTH FILTER NOTE
+   (for v_deck_color_stats view month label display)
+============================================================ */
+body[data-theme='dark'] .statistics-inline-month-select:focus {
+    border-color: #6a8cbf !important;
+    box-shadow: 0 0 0 3px rgba(103, 140, 200, 0.18) !important;
+}
+
+/* ============================================================
+   THEME TOGGLE — hidden (dark mode only)
+============================================================ */
+#themeToggleBtn {
+    display: none !important;
+}
+
+/* ============================================================
+   SPARKLINE — deck trend column
+============================================================ */
+.stats-trend-col {
+    width: 80px;
+    min-width: 80px;
+    text-align: center;
+    padding: 4px 8px !important;
+}
+
+.stats-sparkline {
+    display: block;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+.sparkline-empty {
+    color: #aab8d4;
+    font-size: 1rem;
+}
+
+.stats-trend-header {
+    cursor: default !important;
+    pointer-events: none;
+}
+
+body[data-theme='dark'] .sparkline-empty {
+    color: #4a5f80 !important;
+}
+
+/* ============================================================
+   DARK MODE - DECKS & PLAYERS PAGINATION
+   (.pagination wrapper used by decks/page.js and players/script.js)
+============================================================ */
+body[data-theme='dark'] .pagination .btn-pagination,
+body[data-theme='dark'] .pagination .btn-pagination-number {
+    background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%) !important;
+    border-color: #5e7db4 !important;
+    color: #e8f0ff !important;
+}
+
+body[data-theme='dark'] .pagination .btn-pagination:hover:not(:disabled),
+body[data-theme='dark'] .pagination .btn-pagination-number:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3a5580 0%, #4e70a8 100%) !important;
+    box-shadow: 0 4px 10px rgba(83, 99, 180, 0.28) !important;
+}
+
+body[data-theme='dark'] .pagination .btn-pagination-number.active,
+body[data-theme='dark'] .pagination .btn-pagination-number:disabled {
+    background: #263754 !important;
+    border-color: #4f6797 !important;
+    color: #c8d9f8 !important;
+    box-shadow: none !important;
+}
+
+body[data-theme='dark'] .pagination .btn-pagination:disabled {
+    opacity: 0.4 !important;
+    background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%) !important;
 }

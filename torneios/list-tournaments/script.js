@@ -94,7 +94,8 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         total_players: 'Quantidade total de jogadores no torneio.',
         image_url: 'URL da imagem principal do deck.',
         instagram_link: 'Link do post no Instagram do evento.',
-        decklist: 'Decklist registrada para o resultado.'
+        decklist: 'Decklist registrada para o resultado.',
+        trend: 'Meta Share (%) mês a mês. Mostra se o deck está subindo ou caindo no meta.'
     },
     v_deck_representation: {
         tournaments_played: 'Quantidade de torneios distintos em que o deck apareceu.',
@@ -115,6 +116,8 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         titles: 'Total de títulos no mês.'
     },
     v_deck_color_stats: {
+        month: 'Mês de referência para as estatísticas de cor.',
+        format_code: 'Formato do metagame (ex: BT24, EX11).',
         color: 'Cor do deck (R/U/B/W/G/Y/P).',
         usage_percent:
             'Uso da cor no período (%): (resultados com a cor / total de resultados do período) x 100.',
@@ -126,11 +129,11 @@ const STATISTICS_COLUMN_HELP_PTBR = {
     v_top_cards_by_month: {
         monthly_rank: 'Posição da carta no mês com base na presença em decklists Top 4.',
         card_name: 'Nome da carta.',
-        total: 'Total de decklists Top 4 contendo a carta no mês.',
-        champion: 'Total de campeões com a carta no mês.',
-        top2: 'Total de Top 2 com a carta no mês.',
-        top3: 'Total de Top 3 com a carta no mês.',
-        top4: 'Total de Top 4 com a carta no mês.'
+        total: 'Total de decklists Top 4 (1º ao 4º lugar) que contêm esta carta.',
+        champion: 'Decklists campeãs (1º lugar) que contêm esta carta. Não é o número de títulos da carta.',
+        top2: 'Decklists que finalizaram em 2º lugar contendo esta carta.',
+        top3: 'Decklists que finalizaram em 3º lugar contendo esta carta.',
+        top4: 'Decklists que finalizaram em 4º lugar contendo esta carta.'
     },
     v_player_ranking: {
         unique_decks_used: 'Quantidade de decks diferentes usados pelo jogador.',
@@ -174,6 +177,7 @@ const STATISTICS_REMOVED_COLUMNS = new Set([
 const STATISTICS_VIEW_COLUMN_ORDER = {
     v_deck_representation: [
         'deck',
+        'trend',
         'appearances',
         'tournaments_played',
         'unique_players',
@@ -184,6 +188,7 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
     ],
     v_deck_stats: [
         'deck',
+        'trend',
         'entries',
         'titles',
         'top4_total',
@@ -196,6 +201,8 @@ const STATISTICS_VIEW_COLUMN_ORDER = {
         'ranking_points'
     ],
     v_deck_color_stats: [
+        'month',
+        'format_code',
         'color',
         'usage_percent',
         'titles',
@@ -264,6 +271,8 @@ let decksScriptsPromise = null;
 let playersViewMounted = false;
 let playersScriptsPromise = null;
 let statisticsViewMounted = false;
+let adminViewMounted = false;
+let adminScriptsPromise = null;
 let statisticsViewData = [];
 let statisticsMonthlyRankingData = [];
 let currentStatisticsSort = { column: '', direction: 'asc' };
@@ -272,6 +281,9 @@ let currentStatisticsStoreFilter = '';
 let currentStatisticsFormatFilter = '';
 let currentStatisticsDateFilter = '';
 let currentStatisticsStapleFilter = '';
+let currentStatisticsDeckFilter = '';
+let statisticsTopCardsDeckNames = [];
+let statisticsDeckSparklineData = new Map();
 let hasManualMetaFormatSelection = false;
 let currentTopCardsPage = 1;
 let currentStoreChampionsPlayerQuery = '';
@@ -1151,6 +1163,7 @@ function setupDashboardViewSwitching() {
     const btnManageDecksNav = document.getElementById('btnManageDecksNav');
     const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
     const btnShowStatisticsNav = document.getElementById('btnShowStatisticsNav');
+    const btnAdminNav = document.getElementById('btnAdminNav');
 
     if (!btnShowTournamentsNav && !btnManageDecksNav && !btnManagePlayersNav && !btnShowStatisticsNav)
         return;
@@ -1179,6 +1192,12 @@ function setupDashboardViewSwitching() {
         });
     }
 
+    if (btnAdminNav) {
+        btnAdminNav.addEventListener('click', () => {
+            switchDashboardView('admin');
+        });
+    }
+
     updateDashboardViewUi();
     const savedDashboardView = getSavedDashboardView();
     if (savedDashboardView !== currentDashboardView) {
@@ -1187,7 +1206,7 @@ function setupDashboardViewSwitching() {
 }
 
 async function switchDashboardView(view) {
-    if (view !== 'tournaments' && view !== 'decks' && view !== 'players' && view !== 'statistics')
+    if (view !== 'tournaments' && view !== 'decks' && view !== 'players' && view !== 'statistics' && view !== 'admin')
         return;
     if (currentDashboardView === view) return;
 
@@ -1239,26 +1258,45 @@ async function switchDashboardView(view) {
             updateDashboardViewUi();
         }
     }
+
+    if (view === 'admin') {
+        try {
+            await ensureAdminViewReady();
+            if (typeof window.initAdminPage === 'function') {
+                window.initAdminPage();
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Unable to load admin view right now.');
+            currentDashboardView = 'tournaments';
+            saveDashboardViewPreference();
+            updateDashboardViewUi();
+        }
+    }
 }
 
 function updateDashboardViewUi() {
     const isDecks = currentDashboardView === 'decks';
     const isPlayers = currentDashboardView === 'players';
     const isStatistics = currentDashboardView === 'statistics';
-    const isTournaments = !isDecks && !isPlayers && !isStatistics;
+    const isAdmin = currentDashboardView === 'admin';
+    const isTournaments = !isDecks && !isPlayers && !isStatistics && !isAdmin;
     const filtersRow = document.querySelector('.filters-row');
     const decksContainer = document.getElementById('decksDynamicContainer');
     const playersContainer = document.getElementById('playersDynamicContainer');
     const statisticsContainer = document.getElementById('statisticsDynamicContainer');
+    const adminContainer = document.getElementById('adminDynamicContainer');
     const btnShowTournamentsNav = document.getElementById('btnShowTournamentsNav');
     const btnManageDecksNav = document.getElementById('btnManageDecksNav');
     const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
     const btnShowStatisticsNav = document.getElementById('btnShowStatisticsNav');
+    const btnAdminNav = document.getElementById('btnAdminNav');
 
-    if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers || isStatistics);
+    if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers || isStatistics || isAdmin);
     if (decksContainer) decksContainer.classList.toggle('is-hidden', !isDecks);
     if (playersContainer) playersContainer.classList.toggle('is-hidden', !isPlayers);
     if (statisticsContainer) statisticsContainer.classList.toggle('is-hidden', !isStatistics);
+    if (adminContainer) adminContainer.classList.toggle('is-hidden', !isAdmin);
 
     if (btnShowTournamentsNav) {
         btnShowTournamentsNav.classList.toggle('is-active', isTournaments);
@@ -1280,8 +1318,13 @@ function updateDashboardViewUi() {
         btnShowStatisticsNav.disabled = isStatistics;
         btnShowStatisticsNav.setAttribute('aria-pressed', String(isStatistics));
     }
+    if (btnAdminNav) {
+        btnAdminNav.classList.toggle('is-active', isAdmin);
+        btnAdminNav.disabled = isAdmin;
+        btnAdminNav.setAttribute('aria-pressed', String(isAdmin));
+    }
 
-    if (!isDecks && !isPlayers && !isStatistics) {
+    if (!isDecks && !isPlayers && !isStatistics && !isAdmin) {
         renderCurrentView();
         return;
     }
@@ -1297,6 +1340,7 @@ function updateDashboardViewUi() {
 async function ensureDecksViewReady() {
     unmountPlayersContainer();
     unmountStatisticsContainer();
+    unmountAdminContainer();
     await mountDecksContainer();
     await loadDecksAssets();
 }
@@ -1387,6 +1431,7 @@ function loadScriptOnce(src) {
 async function ensurePlayersViewReady() {
     unmountDecksContainer();
     unmountStatisticsContainer();
+    unmountAdminContainer();
     await mountPlayersContainer();
     await loadPlayersAssets();
 }
@@ -1394,6 +1439,7 @@ async function ensurePlayersViewReady() {
 async function ensureStatisticsViewReady() {
     unmountDecksContainer();
     unmountPlayersContainer();
+    unmountAdminContainer();
     await mountStatisticsContainer();
 }
 
@@ -1493,11 +1539,6 @@ async function mountStatisticsContainer() {
         monthSelect.addEventListener('change', () => {
             currentStatisticsMonthFilter = String(monthSelect.value || '');
             currentTopCardsPage = 1;
-            if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsMonthFilter) {
-                currentStatisticsFormatFilter = '';
-                const formatSelect = host.querySelector('#statisticsFilterFormat');
-                if (formatSelect) formatSelect.value = '';
-            }
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1519,11 +1560,6 @@ async function mountStatisticsContainer() {
                 hasManualMetaFormatSelection = true;
             }
             currentTopCardsPage = 1;
-            if (currentStatisticsView === 'v_deck_color_stats' && currentStatisticsFormatFilter) {
-                currentStatisticsMonthFilter = '';
-                const monthSelect = host.querySelector('#statisticsFilterMonth');
-                if (monthSelect) monthSelect.value = '';
-            }
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
         });
     }
@@ -1543,6 +1579,41 @@ async function mountStatisticsContainer() {
             currentStatisticsStapleFilter = String(stapleFilterSelect.value || '');
             currentTopCardsPage = 1;
             renderStatisticsTable(statisticsViewData, currentStatisticsView);
+        });
+    }
+
+    const deckFilterInput = host.querySelector('#statisticsFilterDeck');
+    if (deckFilterInput) {
+        let deckFilterDebounce = null;
+        deckFilterInput.addEventListener('input', () => {
+            const typed = String(deckFilterInput.value || '').trim();
+            clearTimeout(deckFilterDebounce);
+            deckFilterDebounce = setTimeout(() => {
+                const matched = statisticsTopCardsDeckNames.find(
+                    (n) => n.toLowerCase() === typed.toLowerCase()
+                );
+                const newFilter = matched || '';
+                if (newFilter !== currentStatisticsDeckFilter) {
+                    currentStatisticsDeckFilter = newFilter;
+                    currentTopCardsPage = 1;
+                    loadAndRenderStatistics(currentStatisticsView);
+                }
+            }, 350);
+        });
+        deckFilterInput.addEventListener('change', () => {
+            const typed = String(deckFilterInput.value || '').trim();
+            const matched = statisticsTopCardsDeckNames.find(
+                (n) => n.toLowerCase() === typed.toLowerCase()
+            );
+            const newFilter = matched || (typed === '' ? '' : currentStatisticsDeckFilter);
+            if (typed === '') {
+                deckFilterInput.value = '';
+            }
+            if (newFilter !== currentStatisticsDeckFilter) {
+                currentStatisticsDeckFilter = newFilter;
+                currentTopCardsPage = 1;
+                loadAndRenderStatistics(currentStatisticsView);
+            }
         });
     }
 
@@ -1588,12 +1659,64 @@ function unmountStatisticsContainer() {
     window.removeEventListener('resize', handleStatisticsViewportChange);
 }
 
+async function ensureAdminViewReady() {
+    unmountDecksContainer();
+    unmountPlayersContainer();
+    unmountStatisticsContainer();
+    await mountAdminContainer();
+    await loadAdminAssets();
+}
+
+async function mountAdminContainer() {
+    if (adminViewMounted) return;
+
+    const host = document.getElementById('adminDynamicContainer');
+    if (!host) return;
+
+    const template = document.getElementById('adminContainerTemplate');
+    if (!template?.content?.firstElementChild) {
+        throw new Error('Admin template not found in index.html');
+    }
+
+    const embedded = template.content.firstElementChild.cloneNode(true);
+    host.innerHTML = '';
+    host.appendChild(embedded);
+
+    adminViewMounted = true;
+}
+
+function unmountAdminContainer() {
+    const host = document.getElementById('adminDynamicContainer');
+    if (host && host.innerHTML) {
+        host.innerHTML = '';
+    }
+    adminViewMounted = false;
+    if (typeof window.resetAdminPage === 'function') {
+        window.resetAdminPage();
+    }
+}
+
+async function loadAdminAssets() {
+    if (adminScriptsPromise) return adminScriptsPromise;
+
+    const prefix = getAssetPrefix();
+    adminScriptsPromise = loadScriptOnce(`${prefix}admin/script.js`);
+    return adminScriptsPromise;
+}
+
 async function loadAndRenderStatistics(viewName) {
     const host = document.getElementById('statisticsDynamicContainer');
     if (!host) return;
 
     const status = host.querySelector('#statisticsStatus');
-    if (status) status.textContent = '';
+    const dataCard = host.querySelector('.statistics-data-card');
+    const tableWrapper = host.querySelector('.statistics-table-wrapper');
+    if (status) {
+        status.innerHTML = '<span class="stats-loading-spinner"></span> Carregando...';
+        status.classList.remove('is-hidden');
+    }
+    if (dataCard) dataCard.classList.remove('is-hidden');
+    if (tableWrapper) tableWrapper.classList.add('is-hidden');
 
     try {
         if (viewName === 'v_player_ranking') {
@@ -1630,14 +1753,65 @@ async function loadAndRenderStatistics(viewName) {
                 Array.isArray(monthlyRows) ? monthlyRows : [],
                 { isMonthly: true, allTimeByPlayer: playerAllTimeMap }
             );
-        } else if (viewName === 'v_deck_color_stats') {
-            statisticsViewData = await loadDeckColorStatisticsRows();
+        } else if (viewName === 'v_top_cards_by_month') {
+            // Load deck names for the filter dropdown (cached across renders).
+            if (!statisticsTopCardsDeckNames.length) {
+                try {
+                    const dnEndpoint = '/rest/v1/v_top_cards_by_deck?select=deck_name&limit=1000';
+                    const dnResponse = window.supabaseApi
+                        ? await window.supabaseApi.get(dnEndpoint)
+                        : await fetch(`${SUPABASE_URL}${dnEndpoint}`, { headers });
+                    if (dnResponse.ok) {
+                        const dnRows = await dnResponse.json();
+                        statisticsTopCardsDeckNames = [
+                            ...new Set(
+                                (Array.isArray(dnRows) ? dnRows : [])
+                                    .map((r) => String(r?.deck_name || '').trim())
+                                    .filter(Boolean)
+                            )
+                        ].sort((a, b) => a.localeCompare(b));
+                    }
+                } catch (_) {
+                    // ignore — filter will show empty, still functional
+                }
+            }
+
+            const topCardsEndpoint = currentStatisticsDeckFilter
+                ? `/rest/v1/v_top_cards_by_deck?deck_name=eq.${encodeURIComponent(currentStatisticsDeckFilter)}&select=*&limit=1000`
+                : '/rest/v1/v_top_cards_by_month?select=*&limit=1000';
+            const response = window.supabaseApi
+                ? await window.supabaseApi.get(topCardsEndpoint)
+                : await fetch(`${SUPABASE_URL}${topCardsEndpoint}`, { headers });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load top cards (${response.status})`);
+            }
+
+            const rows = await response.json();
+            statisticsViewData = await enrichTopCardsWithCardName(Array.isArray(rows) ? rows : []);
             statisticsMonthlyRankingData = [];
         } else {
+            const isDeckView =
+                viewName === 'v_deck_stats' || viewName === 'v_deck_representation';
+
             const endpoint = `/rest/v1/${viewName}?select=*&limit=1000`;
-            const response = window.supabaseApi
-                ? await window.supabaseApi.get(endpoint)
-                : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
+            const sparklineEndpoint =
+                '/rest/v1/v_meta_by_month?select=deck,month,meta_share_percent&limit=1000';
+
+            const fetches = [
+                window.supabaseApi
+                    ? window.supabaseApi.get(endpoint)
+                    : fetch(`${SUPABASE_URL}${endpoint}`, { headers })
+            ];
+            if (isDeckView) {
+                fetches.push(
+                    window.supabaseApi
+                        ? window.supabaseApi.get(sparklineEndpoint)
+                        : fetch(`${SUPABASE_URL}${sparklineEndpoint}`, { headers })
+                );
+            }
+
+            const [response, sparklineResponse] = await Promise.all(fetches);
 
             if (!response.ok) {
                 throw new Error(`Failed to load ${viewName} (${response.status})`);
@@ -1645,10 +1819,31 @@ async function loadAndRenderStatistics(viewName) {
 
             const rows = await response.json();
             const baseRows = Array.isArray(rows) ? rows : [];
-            statisticsViewData =
-                viewName === 'v_top_cards_by_month'
-                    ? await enrichTopCardsWithCardName(baseRows)
-                    : baseRows;
+
+            if (isDeckView && sparklineResponse?.ok) {
+                const sparklineRows = await sparklineResponse.json();
+                const byDeck = new Map();
+                (Array.isArray(sparklineRows) ? sparklineRows : []).forEach((r) => {
+                    const deck = String(r?.deck || '').trim();
+                    if (!deck) return;
+                    if (!byDeck.has(deck)) byDeck.set(deck, []);
+                    byDeck.get(deck).push({
+                        month: String(r?.month || ''),
+                        pct: Number(r?.meta_share_percent) || 0
+                    });
+                });
+                byDeck.forEach((arr) =>
+                    arr.sort((a, b) => String(a.month).localeCompare(String(b.month)))
+                );
+                statisticsDeckSparklineData = byDeck;
+                statisticsViewData = baseRows.map((row) => ({
+                    ...row,
+                    trend: byDeck.get(String(row?.deck || '').trim()) || []
+                }));
+            } else {
+                if (isDeckView) statisticsDeckSparklineData = new Map();
+                statisticsViewData = baseRows;
+            }
             statisticsMonthlyRankingData = [];
         }
         renderStatisticsTable(statisticsViewData, viewName);
@@ -2216,6 +2411,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const monthFilterSelect = host.querySelector('#statisticsFilterMonth');
     const dateFilterSelect = host.querySelector('#statisticsFilterDate');
     const stapleFilterSelect = host.querySelector('#statisticsFilterStaple');
+    const deckFilterInput = host.querySelector('#statisticsFilterDeck');
+    const deckDatalist = host.querySelector('#statisticsDeckDatalist') ||
+        document.getElementById('statisticsDeckDatalist');
     const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
     const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
     const previousBoard = host.querySelector('.store-champions-board');
@@ -2248,7 +2446,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         );
     }
     if (formulaHint) {
-        const formulaHtml = getStatisticsFormulaHintHtml(viewName);
+        const formulaHtml = getStatisticsFormulaHintHtml(viewName, rows);
         formulaHint.innerHTML = formulaHtml;
         formulaHint.classList.toggle('is-hidden', !formulaHtml);
     }
@@ -2423,6 +2621,27 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         currentStatisticsStapleFilter = '';
     }
 
+    if (deckFilterInput) {
+        if (viewName === 'v_top_cards_by_month') {
+            deckFilterInput.classList.remove('is-hidden');
+            if (deckDatalist) {
+                deckDatalist.innerHTML = '';
+                statisticsTopCardsDeckNames.forEach((name) => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    deckDatalist.appendChild(opt);
+                });
+            }
+            if (!deckFilterInput.value && currentStatisticsDeckFilter) {
+                deckFilterInput.value = currentStatisticsDeckFilter;
+            }
+        } else {
+            deckFilterInput.classList.add('is-hidden');
+            deckFilterInput.value = '';
+            currentStatisticsDeckFilter = '';
+        }
+    }
+
     let filteredRows = rows;
     if (storeColumn && currentStatisticsStoreFilter) {
         filteredRows = filteredRows.filter(
@@ -2452,12 +2671,6 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             (row) => normalizeStatisticsDateKey(row?.[dateColumn]) === currentStatisticsDateFilter
         );
     }
-    if (viewName === 'v_deck_color_stats') {
-        filteredRows = buildDeckColorOverallRowsFromSource(deckColorStatsSourceRows, {
-            monthKey: currentStatisticsMonthFilter,
-            formatCode: currentStatisticsFormatFilter
-        });
-    }
     if (viewName === 'v_top_cards_by_month' && currentStatisticsStapleFilter === 'true') {
         filteredRows = filteredRows.filter((row) => {
             const value = String(row?.is_staple || '')
@@ -2466,7 +2679,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             return value === 'true' || value === 't' || value === '1' || value === 'yes' || value === 'sim';
         });
     }
-    if (viewName === 'v_top_cards_by_month' && !currentStatisticsMonthFilter) {
+    if (viewName === 'v_top_cards_by_month' && !currentStatisticsMonthFilter && !currentStatisticsDeckFilter) {
         filteredRows = aggregateTopCardsRows(filteredRows);
     }
     if (viewName === 'v_meta_by_month' && !currentStatisticsFormatFilter) {
@@ -2565,12 +2778,17 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
                 status.textContent = 'Sem dados para a data selecionada.';
             } else if (viewName === 'v_top_cards_by_month' && currentStatisticsStapleFilter === 'true') {
                 status.textContent = 'Sem dados para cartas staple.';
+            } else if (viewName === 'v_top_cards_by_month') {
+                status.textContent =
+                    'Nenhum resultado Top 4 com decklist registrada encontrado. ' +
+                    'Registre decklists pelo deckbuilder para ver as estatísticas de cartas aqui.';
             } else {
                 status.textContent = `No rows returned for ${viewName}.`;
             }
             status.classList.remove('is-hidden');
         }
         if (dataCard) dataCard.classList.remove('is-hidden');
+        renderStatisticsCharts(host, viewName, []);
         return;
     }
     if (rowCount) {
@@ -2578,6 +2796,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             isTopCardsPaginated ? topCardsTotalRows : filteredRows.length || 0
         );
     }
+    renderStatisticsCharts(host, viewName, filteredRows);
 
     if (viewName === 'v_store_champions') {
         const columns = getStatisticsDisplayColumns(
@@ -2638,17 +2857,26 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         const description = getStatisticsColumnDescription(viewName, column);
         const columnLabel = getStatisticsHeaderLabel(viewName, column);
         th.title = description;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'stats-sort-button';
-        button.dataset.statsSortColumn = column;
-        button.title = description;
-        button.setAttribute('aria-label', `${columnLabel}: ${description}`);
-        button.innerHTML = `
-            ${columnLabel}
-            <span class="sort-indicator" data-stats-sort-indicator="${column}">\u21C5</span>
-        `;
-        th.appendChild(button);
+        if (normalizedColumn === 'trend') {
+            th.classList.add('stats-trend-col');
+            const label = document.createElement('span');
+            label.className = 'stats-sort-button stats-trend-header';
+            label.textContent = columnLabel;
+            label.title = description;
+            th.appendChild(label);
+        } else {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'stats-sort-button';
+            button.dataset.statsSortColumn = column;
+            button.title = description;
+            button.setAttribute('aria-label', `${columnLabel}: ${description}`);
+            button.innerHTML = `
+                ${columnLabel}
+                <span class="sort-indicator" data-stats-sort-indicator="${column}">\u21C5</span>
+            `;
+            th.appendChild(button);
+        }
 
         const resizer = document.createElement('span');
         resizer.className = 'stats-col-resizer';
@@ -2718,6 +2946,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             if (normalizedColumn === 'is_staple') {
                 td.classList.add('stats-staple-col');
             }
+            if (normalizedColumn === 'trend') {
+                td.classList.add('stats-trend-col');
+            }
             td.innerHTML = formatStatisticsCellValue(row[column], column, row);
             tr.appendChild(td);
         });
@@ -2753,7 +2984,7 @@ function renderStatisticsTopCardsPagination(host, totalPages) {
     const prev = document.createElement('button');
     prev.type = 'button';
     prev.className = 'btn-pagination btn-pagination-prev';
-    prev.textContent = '?';
+    prev.textContent = '‹';
     prev.setAttribute('aria-label', 'Pagina anterior');
     prev.disabled = currentTopCardsPage <= 1;
     prev.addEventListener('click', () => {
@@ -2784,7 +3015,7 @@ function renderStatisticsTopCardsPagination(host, totalPages) {
     const next = document.createElement('button');
     next.type = 'button';
     next.className = 'btn-pagination btn-pagination-next';
-    next.textContent = '?';
+    next.textContent = '›';
     next.setAttribute('aria-label', 'Proxima pagina');
     next.disabled = currentTopCardsPage >= totalPages;
     next.addEventListener('click', () => {
@@ -3125,7 +3356,8 @@ function prettifyStatisticsColumn(column, viewName = '') {
         month: 'Mês',
         appearances: 'Aparições',
         entries: 'Aparições',
-        titles: 'Títulos'
+        titles: 'Títulos',
+        trend: 'Tendência'
     };
     if (labels[normalized]) return labels[normalized];
     return String(column || '')
@@ -3157,16 +3389,16 @@ function getStatisticsHeaderLabel(viewName, column) {
             is_staple: 'Staple',
             card_type: 'Type',
             decklists_with_card: 'Decklists',
-            total: 'Total',
-            total_copies: 'Total',
-            champion: 'Champion',
-            champion_copies: 'Champion',
-            top2: 'Top 2',
-            top2_copies: 'Top 2',
-            top3: 'Top 3',
-            top3_copies: 'Top 3',
-            top4: 'Top 4',
-            top4_copies: 'Top 4'
+            total: 'Decklists',
+            total_copies: 'Decklists',
+            champion: '1st',
+            champion_copies: '1st',
+            top2: '2nd',
+            top2_copies: '2nd',
+            top3: '3rd',
+            top3_copies: '3rd',
+            top4: '4th',
+            top4_copies: '4th'
         };
         if (topCardsHeaders[normalized]) return topCardsHeaders[normalized];
     }
@@ -3183,14 +3415,15 @@ function getStatisticsDisplayColumns(viewName, columns) {
             (column) =>
                 column !== 'color_code' &&
                 column !== 'top_deck_titles' &&
-                column !== 'format_code' &&
-                column !== 'format' &&
-                column !== 'month'
+                column !== 'usage_count'
         );
     } else if (viewName === 'v_top_cards_by_month') {
         list = list.filter(
             (column) =>
                 column !== 'card_level' &&
+                column !== 'deck_name' &&
+                column !== 'pack' &&
+                column !== 'color' &&
                 column !== 'is_digi_egg' &&
                 column !== 'decklists_with_card' &&
                 column !== 'total_copies' &&
@@ -3271,8 +3504,35 @@ function renderStatisticsColorCell(row, value) {
     `;
 }
 
+function buildSparklineSvg(points) {
+    const arr = Array.isArray(points) ? points : [];
+    if (arr.length < 2) return '<span class="sparkline-empty">—</span>';
+    const values = arr.map((p) => p.pct);
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    const range = max - min || 1;
+    const W = 72, H = 24, PAD = 2;
+    const coords = values.map((v, i) => {
+        const x = PAD + (i / (values.length - 1)) * (W - 2 * PAD);
+        const y = (H - PAD) - ((v - min) / range) * (H - 2 * PAD);
+        return [x.toFixed(1), y.toFixed(1)];
+    });
+    const polyline = coords.map((c) => c.join(',')).join(' ');
+    const lastX = coords[coords.length - 1][0];
+    const lastY = coords[coords.length - 1][1];
+    const trend = values[values.length - 1] - values[0];
+    const color = trend > 0 ? '#26de81' : trend < 0 ? '#fc5c65' : '#8fa8d4';
+    return `<svg class="stats-sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${lastX}" cy="${lastY}" r="2.2" fill="${color}"/>
+    </svg>`;
+}
+
 function formatStatisticsCellValue(value, column = '', row = null) {
     const normalizedColumn = String(column || '').toLowerCase();
+    if (normalizedColumn === 'trend') {
+        return buildSparklineSvg(Array.isArray(value) ? value : []);
+    }
     if (normalizedColumn === 'is_staple' && row) {
         return renderStatisticsStapleToggle(row, value);
     }
@@ -3495,7 +3755,7 @@ function isInternalStatisticsColumn(column, viewName = '') {
     if (normalized.includes('url')) return true;
     if (normalized.endsWith('_link')) return true;
     if (viewName === 'v_deck_color_stats') {
-        if (normalized === 'format_code' || normalized === 'format' || normalized === 'month') return false;
+        if (normalized === 'format_code' || normalized === 'month') return false;
     }
     if (normalized === 'format_code' || normalized === 'format') return true;
     if (normalized === 'store') return true;
@@ -3731,12 +3991,35 @@ function isStatisticsMobileViewport() {
     return window.matchMedia('(max-width: 768px)').matches;
 }
 
-function getStatisticsFormulaHintHtml(viewName) {
+function getStatisticsFormulaHintHtml(viewName, allRows) {
     const shouldShowPointsLegend =
         viewName === 'v_deck_stats' ||
         viewName === 'v_player_ranking' ||
         viewName === 'v_store_champions' ||
         viewName === 'v_meta_by_month';
+
+    if (viewName === 'v_top_cards_by_month') {
+        const rowList = Array.isArray(allRows) ? allRows : [];
+        if (!rowList.length) return '';
+        const uniqueCards = new Set(rowList.map((r) => r?.card_code).filter(Boolean)).size;
+        if (currentStatisticsDeckFilter) {
+            return `<div class="statistics-coverage-note">
+                <span class="coverage-icon">📋</span>
+                <span>${uniqueCards} carta${uniqueCards !== 1 ? 's' : ''} em decklists Top 4 de <strong>${currentStatisticsDeckFilter}</strong></span>
+                <span class="coverage-tip">Apenas decklists registradas pelo deckbuilder aparecem aqui.</span>
+            </div>`;
+        }
+        const uniqueMonths = new Set(
+            rowList.map((r) => normalizeStatisticsMonthKey(r?.month)).filter(Boolean)
+        ).size;
+        const monthLabel = uniqueMonths === 1 ? '1 mês' : `${uniqueMonths} meses`;
+        return `<div class="statistics-coverage-note">
+            <span class="coverage-icon">📋</span>
+            <span>${uniqueCards} carta${uniqueCards !== 1 ? 's' : ''} em decklists Top 4 registradas · ${monthLabel} de dados</span>
+            <span class="coverage-tip">Apenas decklists registradas pelo deckbuilder aparecem aqui.</span>
+        </div>`;
+    }
+
     if (!shouldShowPointsLegend) return '';
 
     return `
@@ -3747,6 +4030,127 @@ function getStatisticsFormulaHintHtml(viewName) {
             <span class="points-pill top4">4º +5pts</span>
         </div>
     `;
+}
+
+// ─── Inline SVG Charts ────────────────────────────────────────────────────────
+
+const CHART_PALETTE = [
+    '#667eea', '#f7b731', '#fc5c65', '#26de81', '#fd9644',
+    '#45aaf2', '#a55eea', '#20bf6b', '#eb3b5a', '#2bcbba'
+];
+
+const COLOR_CODE_PALETTE = {
+    r: '#fc5c65', u: '#45aaf2', b: '#6b7280',
+    w: '#f3f4f6', g: '#26de81', y: '#f7b731', p: '#a55eea'
+};
+
+function renderStatisticsCharts(host, viewName, filteredRows) {
+    const chartArea = host ? host.querySelector('#statisticsChartArea') : null;
+    if (!chartArea) return;
+
+    const showChart =
+        (viewName === 'v_meta_by_month' || viewName === 'v_deck_color_stats') &&
+        Array.isArray(filteredRows) &&
+        filteredRows.length > 0;
+
+    chartArea.classList.toggle('is-hidden', !showChart);
+    if (!showChart) { chartArea.innerHTML = ''; return; }
+
+    if (viewName === 'v_meta_by_month') {
+        chartArea.innerHTML = buildMetaDonutChartHtml(filteredRows);
+    } else if (viewName === 'v_deck_color_stats') {
+        chartArea.innerHTML = buildColorBarChartHtml(filteredRows);
+    }
+}
+
+function buildMetaDonutChartHtml(rows) {
+    const sorted = [...rows].sort((a, b) => Number(b?.appearances || 0) - Number(a?.appearances || 0));
+    const total = sorted.reduce((sum, r) => sum + Number(r?.appearances || 0), 0);
+    if (!total) return '';
+
+    const TOP_N = 7;
+    const topRows = sorted.slice(0, TOP_N);
+    const othersCount = sorted.slice(TOP_N).reduce((sum, r) => sum + Number(r?.appearances || 0), 0);
+    const segments = topRows.map((r, i) => ({
+        label: String(r?.deck || r?.deck_name || '-'),
+        value: Number(r?.appearances || 0),
+        color: CHART_PALETTE[i % CHART_PALETTE.length]
+    }));
+    if (othersCount > 0) segments.push({ label: 'Outros', value: othersCount, color: '#cbd5e1' });
+
+    const R = 56, CX = 70, CY = 70, gap = 0.02;
+    let paths = '';
+    let angle = -Math.PI / 2;
+    segments.forEach((seg) => {
+        const sweep = (seg.value / total) * (Math.PI * 2 - gap * segments.length);
+        const x1 = CX + R * Math.cos(angle);
+        const y1 = CY + R * Math.sin(angle);
+        angle += sweep + gap;
+        const x2 = CX + R * Math.cos(angle);
+        const y2 = CY + R * Math.sin(angle);
+        const large = sweep > Math.PI ? 1 : 0;
+        paths += `<path d="M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z"
+            fill="${seg.color}" opacity="0.92"/>`;
+    });
+    // centre hole — use style so CSS variables work in inline SVG
+    paths += `<circle cx="${CX}" cy="${CY}" r="28" class="donut-hole"/>`;
+
+    const legendItems = segments.map((seg) => {
+        const pct = ((seg.value / total) * 100).toFixed(1);
+        return `<span class="chart-legend-item">
+            <span class="chart-legend-dot" style="background:${seg.color}"></span>
+            <span class="chart-legend-label">${seg.label}</span>
+            <span class="chart-legend-pct">${pct}%</span>
+        </span>`;
+    }).join('');
+
+    return `<div class="stats-chart-wrap stats-donut-wrap">
+        <svg class="stats-donut-chart" viewBox="0 0 140 140" aria-hidden="true">${paths}</svg>
+        <div class="stats-chart-legend">${legendItems}</div>
+    </div>`;
+}
+
+function buildColorBarChartHtml(rows) {
+    // Aggregate by color_code across all months/formats in the current filtered set.
+    // usage_percent is averaged; titles and top4_total are summed.
+    const byCode = new Map();
+    rows.forEach((r) => {
+        const code = String(r?.color_code || '').toLowerCase();
+        if (!code) return;
+        const existing = byCode.get(code) || {
+            color_code: code,
+            color: String(r?.color || code.toUpperCase()),
+            usage_pct_sum: 0,
+            count: 0
+        };
+        existing.usage_pct_sum += Number(r?.usage_percent || 0);
+        existing.count += 1;
+        byCode.set(code, existing);
+    });
+
+    const sorted = Array.from(byCode.values())
+        .map((e) => ({ ...e, usage_percent: e.usage_pct_sum / e.count }))
+        .sort((a, b) => b.usage_percent - a.usage_percent);
+
+    if (!sorted.length) return '';
+    const maxPct = Math.max(...sorted.map((r) => r.usage_percent), 1);
+
+    const bars = sorted.map((r) => {
+        const pct = r.usage_percent;
+        const barW = Math.max(2, (pct / maxPct) * 100);
+        const fill = COLOR_CODE_PALETTE[r.color_code] || CHART_PALETTE[0];
+        return `<div class="color-bar-row">
+            <span class="color-bar-label">${r.color}</span>
+            <div class="color-bar-track">
+                <div class="color-bar-fill" style="width:${barW.toFixed(1)}%;background:${fill}"></div>
+            </div>
+            <span class="color-bar-pct">${pct.toFixed(1)}%</span>
+        </div>`;
+    }).join('');
+
+    return `<div class="stats-chart-wrap stats-color-bars-wrap">
+        <div class="stats-color-bars">${bars}</div>
+    </div>`;
 }
 
 function handleStatisticsViewportChange() {
@@ -4495,7 +4899,7 @@ async function loadStoresToCreate() {
         const select = document.getElementById('createStoreSelect');
         select.innerHTML = '<option value="">Selecione a loja...</option>';
         stores.forEach((s) => {
-            select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            select.innerHTML += `<option value="${s.id}">${escapeHtml(s.name)}</option>`;
         });
     } catch (err) {
         console.error('Erro ao carregar lojas:', err);
@@ -5578,13 +5982,14 @@ async function createTournamentFormSubmit(e) {
                 );
 
                 if (!existingRes.ok) {
-                    await fetch(
+                    const rollbackRes1 = await fetch(
                         `${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`,
                         {
                             method: 'DELETE',
                             headers
                         }
                     );
+                    if (!rollbackRes1.ok) console.error('Tournament rollback failed:', rollbackRes1.status);
                     throw new Error(
                         `Erro ao correlacionar tournament_results existentes (${existingRes.status})`
                     );
@@ -5610,13 +6015,14 @@ async function createTournamentFormSubmit(e) {
                     }
                 }
             } else {
-                await fetch(
+                const rollbackRes2 = await fetch(
                     `${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`,
                     {
                         method: 'DELETE',
                         headers
                     }
                 );
+                if (!rollbackRes2.ok) console.error('Tournament rollback failed:', rollbackRes2.status);
                 throw new Error(getFriendlyResultsSaveErrorMessage(resultsRes.status, resultsError));
             }
         }

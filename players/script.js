@@ -425,7 +425,18 @@ function renderPlayerHistory(historyRows, playerId, playerName = '') {
                             ? `<div class="player-history-decklist-panel">
                                 ${
                                     parsedDecklistEntries.length > 0
-                                        ? `<div class="player-history-decklist-grid">
+                                        ? `<div class="player-history-decklist-actions">
+                                            <a
+                                                href="${escapeHtmlAttribute(`${getAssetPrefix()}torneios/decklist-builder/index.html?${new URLSearchParams(Object.fromEntries([['resultId', item.id || ''], ['deck', item.deckName || ''], ['player', playerName || ''], ['store', storeName || ''], ['date', item.tournamentDate || '']].filter(([, v]) => v))).toString()}`)}"
+                                                class="player-history-register-btn"
+                                            >
+                                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                    <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                                                </svg>
+                                                <span>Edit in Builder</span>
+                                            </a>
+                                        </div>
+                                        <div class="player-history-decklist-grid">
                                             ${renderDecklistCards(parsedDecklistEntries)}
                                         </div>`
                                         : `<div class="player-history-decklist-empty-row">
@@ -451,7 +462,7 @@ function openHistoryDecklistRegister(button) {
     const date = String(button?.dataset?.date || '').trim();
 
     const params = new URLSearchParams();
-    if (resultId) params.set('result', resultId);
+    if (resultId) params.set('resultId', resultId);
     if (tournamentId) params.set('tournament', tournamentId);
     if (deck) params.set('deck', deck);
     if (player) params.set('player', player);
@@ -470,21 +481,30 @@ function renderPagination(totalPages) {
 
     if (currentPage > totalPages) currentPage = totalPages;
 
-    const prevButton = document.createElement('button');
-    prevButton.type = 'button';
-    prevButton.className = 'btn-pagination btn-pagination-prev';
-    prevButton.textContent = '\u25C0';
-    prevButton.setAttribute('aria-label', 'Previous page');
-    prevButton.disabled = currentPage <= 1;
-    prevButton.addEventListener('click', () => {
+    const makeBtn = (label, ariaLabel, disabled, onClick) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-pagination';
+        btn.textContent = label;
+        btn.setAttribute('aria-label', ariaLabel);
+        btn.disabled = disabled;
+        btn.addEventListener('click', onClick);
+        return btn;
+    };
+
+    pagination.appendChild(makeBtn('\u00AB', 'First page', currentPage === 1, () => {
+        currentPage = 1;
+        renderPaginatedList();
+    }));
+    pagination.appendChild(makeBtn('\u25C0', 'Previous page', currentPage <= 1, () => {
         if (currentPage <= 1) return;
         currentPage -= 1;
         renderPaginatedList();
-    });
-    pagination.appendChild(prevButton);
+    }));
 
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(totalPages, currentPage + 2);
+    const WINDOW = 5;
+    const startPage = Math.max(1, Math.min(currentPage - Math.floor(WINDOW / 2), totalPages - WINDOW + 1));
+    const endPage = Math.min(totalPages, startPage + WINDOW - 1);
 
     for (let i = startPage; i <= endPage; i++) {
         const btn = document.createElement('button');
@@ -502,18 +522,15 @@ function renderPagination(totalPages) {
         pagination.appendChild(btn);
     }
 
-    const nextButton = document.createElement('button');
-    nextButton.type = 'button';
-    nextButton.className = 'btn-pagination btn-pagination-next';
-    nextButton.textContent = '\u25B6';
-    nextButton.setAttribute('aria-label', 'Next page');
-    nextButton.disabled = currentPage >= totalPages;
-    nextButton.addEventListener('click', () => {
+    pagination.appendChild(makeBtn('\u25B6', 'Next page', currentPage >= totalPages, () => {
         if (currentPage >= totalPages) return;
         currentPage += 1;
         renderPaginatedList();
-    });
-    pagination.appendChild(nextButton);
+    }));
+    pagination.appendChild(makeBtn('\u00BB', 'Last page', currentPage >= totalPages, () => {
+        currentPage = totalPages;
+        renderPaginatedList();
+    }));
 }
 
 async function handleSubmit() {

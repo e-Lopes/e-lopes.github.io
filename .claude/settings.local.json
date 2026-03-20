@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find c:/Users/Eduardo/Desktop/Mestrado/digimon_dashboard -name *snapshot* -o -name *backup*)",
+      "Bash(head -20 grep -rn \"import.*db\\\\.js\\\\|src.*db\\\\.js\\\\|require.*db\" \"c:\\\\Users\\\\Eduardo\\\\Desktop\\\\Mestrado\\\\digimon_dashboard\" --include=\"*.js\" --include=\"*.html\")"
+    ]
+  }
+}

@@ -155,6 +155,10 @@
     overflow-wrap: anywhere;
 }
 
+.player-history-decklist-actions {
+    margin-bottom: 10px;
+}
+
 .player-history-decklist-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
@@ -209,7 +213,7 @@ body[data-theme='dark'] .player-history-deck-card-count {
     margin-top: 6px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 10px;
 }
 

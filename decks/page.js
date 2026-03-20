@@ -32,6 +32,11 @@ let deckRankMonths = [];
 let selectedDeckRankMonth = getInitialDeckRankMonth();
 let selectedDeckRankFormat = getInitialDeckRankFormat();
 let deckTableSort = getInitialDeckTableSort();
+let expandedDeckId = null;
+let expandedDeckHistoryKey = null;
+const deckHistoryCache = new Map();
+let filterHasDecklists = false;
+const deckIdsWithDecklists = new Set();
 
 function getDeckNameForDisplay(name) {
     const text = String(name || '');
@@ -339,6 +344,18 @@ function setupDeckActions() {
     if (!container) return;
 
     container.addEventListener('click', (event) => {
+        const historyToggle = event.target.closest('[data-action="toggle-deck-history"]');
+        if (historyToggle) {
+            toggleDeckHistory(historyToggle.dataset.deckId);
+            return;
+        }
+
+        const entryToggle = event.target.closest('[data-action="toggle-deck-history-entry"]');
+        if (entryToggle) {
+            toggleDeckHistoryEntry(entryToggle.dataset.entryKey);
+            return;
+        }
+
         const sortButton = event.target.closest('[data-decks-sort-field]');
         if (sortButton) {
             const field = String(sortButton.dataset.decksSortField || '');
@@ -364,6 +381,15 @@ function setupDeckActions() {
         const deleteButton = event.target.closest('[data-action="delete-deck"]');
         if (deleteButton) {
             deleteDeck(deleteButton.dataset.deckId, deleteButton.dataset.deckName || '');
+        }
+    });
+
+    container.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const entryToggle = event.target.closest('[data-action="toggle-deck-history-entry"]');
+        if (entryToggle) {
+            event.preventDefault();
+            toggleDeckHistoryEntry(entryToggle.dataset.entryKey);
         }
     });
 }
@@ -524,6 +550,14 @@ function setupPaginationControls() {
     const pageSizeSelect = document.getElementById('pageSizeSelect');
     const monthSelect = document.getElementById('deckRankMonthSelect');
     const formatSelect = document.getElementById('deckRankFormatSelect');
+    const hasDecklistsCheckbox = document.getElementById('filterHasDecklists');
+    if (hasDecklistsCheckbox) {
+        hasDecklistsCheckbox.addEventListener('change', () => {
+            filterHasDecklists = hasDecklistsCheckbox.checked;
+            currentPage = 1;
+            renderDecksList();
+        });
+    }
     if (pageSizeSelect) {
         pageSizeSelect.value = String(pageSize);
         pageSizeSelect.addEventListener('change', () => {
@@ -560,6 +594,7 @@ function filterDecks(searchTerm) {
     return allDecks.filter((deck) => {
         const matchesSearch = !normalizedSearch || deck.name.toLowerCase().includes(normalizedSearch);
         if (!matchesSearch) return false;
+        if (filterHasDecklists && !deckIdsWithDecklists.has(String(deck.id))) return false;
         if (!selectedDeckRankFormat) return true;
         return getDeckFormatTag(deck) === selectedDeckRankFormat;
     });
@@ -605,21 +640,30 @@ function renderPagination(totalPages) {
 
     if (currentPage > totalPages) currentPage = totalPages;
 
-    const prev = document.createElement('button');
-    prev.type = 'button';
-    prev.className = 'btn-pagination btn-pagination-prev';
-    prev.textContent = '\u25C0';
-    prev.setAttribute('aria-label', 'Previous page');
-    prev.disabled = currentPage === 1;
-    prev.addEventListener('click', () => {
+    const makeBtn = (label, ariaLabel, disabled, onClick) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-pagination';
+        btn.textContent = label;
+        btn.setAttribute('aria-label', ariaLabel);
+        btn.disabled = disabled;
+        btn.addEventListener('click', onClick);
+        return btn;
+    };
+
+    pagination.appendChild(makeBtn('\u00AB', 'First page', currentPage === 1, () => {
+        currentPage = 1;
+        renderDecksList();
+    }));
+    pagination.appendChild(makeBtn('\u25C0', 'Previous page', currentPage === 1, () => {
         if (currentPage <= 1) return;
         currentPage -= 1;
         renderDecksList();
-    });
-    pagination.appendChild(prev);
+    }));
 
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(totalPages, currentPage + 2);
+    const WINDOW = 5;
+    const startPage = Math.max(1, Math.min(currentPage - Math.floor(WINDOW / 2), totalPages - WINDOW + 1));
+    const endPage = Math.min(totalPages, startPage + WINDOW - 1);
 
     for (let p = startPage; p <= endPage; p++) {
         const btn = document.createElement('button');
@@ -637,18 +681,15 @@ function renderPagination(totalPages) {
         pagination.appendChild(btn);
     }
 
-    const next = document.createElement('button');
-    next.type = 'button';
-    next.className = 'btn-pagination btn-pagination-next';
-    next.textContent = '\u25B6';
-    next.setAttribute('aria-label', 'Next page');
-    next.disabled = currentPage === totalPages;
-    next.addEventListener('click', () => {
+    pagination.appendChild(makeBtn('\u25B6', 'Next page', currentPage === totalPages, () => {
         if (currentPage >= totalPages) return;
         currentPage += 1;
         renderDecksList();
-    });
-    pagination.appendChild(next);
+    }));
+    pagination.appendChild(makeBtn('\u00BB', 'Last page', currentPage === totalPages, () => {
+        currentPage = totalPages;
+        renderDecksList();
+    }));
 }
 
 function clearSearch() {
@@ -682,7 +723,7 @@ async function loadDecks() {
             });
         }
 
-        await loadDeckRankRows();
+        await Promise.all([loadDeckRankRows(), loadDeckIdsWithDecklists()]);
         populateDeckRankFormatSelect();
         populateDeckRankMonthSelect();
         renderDecksList();
@@ -726,6 +767,36 @@ async function loadDeckRankRows() {
     if (!selectedDeckRankMonth || !deckRankMonths.includes(selectedDeckRankMonth)) {
         selectedDeckRankMonth = deckRankMonths[0] || '';
         localStorage.setItem(DECK_RANK_MONTH_STORAGE_KEY, selectedDeckRankMonth);
+    }
+}
+
+async function loadDeckIdsWithDecklists() {
+    deckIdsWithDecklists.clear();
+    try {
+        const [structuredRes, legacyRes] = await Promise.all([
+            fetch(
+                `${SUPABASE_URL}/rest/v1/tournament_results?select=deck_id,decklists!inner(id)&limit=5000`,
+                { headers }
+            ),
+            fetch(
+                `${SUPABASE_URL}/rest/v1/tournament_results?select=deck_id&decklist=not.is.null&limit=5000`,
+                { headers }
+            )
+        ]);
+        if (structuredRes.ok) {
+            const rows = await structuredRes.json();
+            rows.forEach((r) => {
+                if (r.deck_id) deckIdsWithDecklists.add(String(r.deck_id));
+            });
+        }
+        if (legacyRes.ok) {
+            const rows = await legacyRes.json();
+            rows.forEach((r) => {
+                if (r.deck_id) deckIdsWithDecklists.add(String(r.deck_id));
+            });
+        }
+    } catch {
+        // non-critical — filter just won't work if this fails
     }
 }
 
@@ -970,6 +1041,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                 encodeURIComponent(deck.name.substring(0, 12));
             const deckCode = extractCodeFromUrl(imageUrl);
             const deckNameDisplay = getDeckNameForDisplay(deck.name);
+            const isExpanded = expandedDeckId === deck.id;
 
             const deckCard = document.createElement('div');
             deckCard.className = 'deck-row';
@@ -978,10 +1050,18 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                     <img src="${imageUrl || fallback}" alt="${deck.name}" class="deck-thumb-image">
                 </div>
                 <div class="deck-info">
-                    <div class="deck-name-line">
-                        <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
-                        ${renderDeckColorsInline(deck.colors, 'card-inline')}
-                    </div>
+                    <button
+                        class="deck-name-toggle"
+                        type="button"
+                        data-action="toggle-deck-history"
+                        data-deck-id="${deck.id}"
+                        aria-expanded="${isExpanded ? 'true' : 'false'}">
+                        <div class="deck-name-line">
+                            <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
+                            ${renderDeckColorsInline(deck.colors, 'card-inline')}
+                        </div>
+                        <span class="player-main-hint">${isExpanded ? 'Hide decklists' : 'Show decklists'}</span>
+                    </button>
                     ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
                     ${renderDeckColorsInline(deck.colors, 'card-below')}
                 </div>
@@ -1022,16 +1102,18 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
 
             const image = deckCard.querySelector('.deck-thumb-image');
             if (image) {
-                image.addEventListener(
-                    'error',
-                    () => {
-                        image.src = fallback;
-                    },
-                    { once: true }
-                );
+                image.addEventListener('error', () => { image.src = fallback; }, { once: true });
             }
 
             container.appendChild(deckCard);
+
+            if (isExpanded) {
+                const historyEl = document.createElement('div');
+                historyEl.className = 'deck-history-panel-compact';
+                historyEl.innerHTML = renderDeckHistoryPanel(deck.id, deck.name);
+                container.appendChild(historyEl);
+                bindDeckHistoryImageFallbacks(historyEl);
+            }
         });
         applyViewMode();
         return;
@@ -1079,24 +1161,33 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
             const fallback =
                 'https://via.placeholder.com/80x80/667eea/ffffff?text=' +
                 encodeURIComponent(deck.name.substring(0, 2));
+            const isExpanded = expandedDeckId === deck.id;
             return `
                 <tr>
                     <td class="decks-col-name">
-                        <span class="decks-col-name-wrap">
-                            <span class="decks-col-thumb-wrapper">
-                                <img
-                                    src="${escapeHtmlAttribute(imageUrl || fallback)}"
-                                    alt="${escapeHtmlAttribute(deck.name)}"
-                                    class="decks-col-thumb-image"
-                                    loading="lazy"
-                                    onerror="this.onerror=null;this.src='${escapeHtmlAttribute(fallback)}';"
-                                />
+                        <button
+                            class="player-main-toggle"
+                            type="button"
+                            data-action="toggle-deck-history"
+                            data-deck-id="${deck.id}"
+                            aria-expanded="${isExpanded ? 'true' : 'false'}">
+                            <span class="decks-col-name-wrap">
+                                <span class="decks-col-thumb-wrapper">
+                                    <img
+                                        src="${escapeHtmlAttribute(imageUrl || fallback)}"
+                                        alt="${escapeHtmlAttribute(deck.name)}"
+                                        class="decks-col-thumb-image"
+                                        loading="lazy"
+                                        onerror="this.onerror=null;this.src='${escapeHtmlAttribute(fallback)}';"
+                                    />
+                                </span>
+                                <span class="decks-col-name-text">
+                                    <strong>${escapeHtmlAttribute(deck.name)}</strong>
+                                    ${renderDeckColorsInline(deck.colors, 'table')}
+                                </span>
                             </span>
-                            <span class="decks-col-name-text">
-                                <strong>${escapeHtmlAttribute(deck.name)}</strong>
-                                ${renderDeckColorsInline(deck.colors, 'table')}
-                            </span>
-                        </span>
+                            <span class="player-main-hint">${isExpanded ? 'Hide decklists' : 'Show decklists'}</span>
+                        </button>
                     </td>
                     <td class="decks-num-cell">${numericSquare(stats, 'monthly_appearances')}</td>
                     <td class="decks-num-cell">${numericSquare(stats, 'tournament_appearances')}</td>
@@ -1144,6 +1235,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                         </div>
                     </td>
                 </tr>
+                ${isExpanded ? `<tr class="deck-history-tr is-open"><td colspan="13" class="deck-history-td"><div class="deck-history-panel">${renderDeckHistoryPanel(deck.id, deck.name)}</div></td></tr>` : ''}
             `;
         })
         .join('');
@@ -1172,6 +1264,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
         </div>
     `;
     applyViewMode();
+    if (expandedDeckId) bindDeckHistoryImageFallbacks(container);
 }
 
 function escapeHtmlAttribute(value) {
@@ -1266,6 +1359,247 @@ function updateDecksTotal() {
     const totalEl = document.getElementById('decksTotalCount');
     if (!totalEl) return;
     totalEl.textContent = `Total: ${allDecks.length}`;
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function toggleDeckHistory(deckId) {
+    const id = String(deckId || '').trim();
+    if (!id) return;
+    expandedDeckHistoryKey = null;
+    expandedDeckId = expandedDeckId === id ? null : id;
+    renderDecksList();
+    if (expandedDeckId && !deckHistoryCache.has(expandedDeckId)) {
+        loadDeckHistory(expandedDeckId);
+    }
+}
+
+function toggleDeckHistoryEntry(entryKey) {
+    const key = String(entryKey || '').trim();
+    if (!key) return;
+    expandedDeckHistoryKey = expandedDeckHistoryKey === key ? null : key;
+    renderDecksList();
+}
+
+async function loadDeckHistory(deckId) {
+    const id = String(deckId || '').trim();
+    if (!id || deckHistoryCache.has(id)) return;
+
+    deckHistoryCache.set(id, { loading: true });
+    renderDecksList();
+
+    try {
+        const endpoint =
+            `${SUPABASE_URL}/rest/v1/tournament_results` +
+            `?deck_id=eq.${encodeURIComponent(id)}` +
+            `&select=id,placement,tournament_date,tournament_id,decklist,player:players(id,name),store:stores(name),decklists(id,decklist_cards(card_code,qty,position))` +
+            `&order=tournament_date.desc,placement.asc&limit=200`;
+        const res = await fetch(endpoint, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const results = await res.json();
+        deckHistoryCache.set(id, { loading: false, results: Array.isArray(results) ? results : [] });
+    } catch (err) {
+        console.error('Error loading deck history:', err);
+        deckHistoryCache.set(id, { loading: false, results: [], error: true });
+    }
+    renderDecksList();
+}
+
+function renderDeckHistoryPanel(deckId, deckName) {
+    const id = String(deckId || '');
+    const cached = deckHistoryCache.get(id);
+    if (!cached || cached.loading) {
+        return `<div class="player-history-loading">Loading decklists…</div>`;
+    }
+    if (cached.error) {
+        return `<div class="player-history-error">Failed to load decklists.</div>`;
+    }
+    if (!cached.results || cached.results.length === 0) {
+        return `<div class="player-history-empty">No tournament results found for this deck.</div>`;
+    }
+
+    const hasAnyDecklist = cached.results.some((item) => {
+        const structuredCards = item.decklists?.[0]?.decklist_cards || [];
+        if (structuredCards.length > 0) return true;
+        return parseDecklistByLinesForHistory(String(item.decklist || '').trim()).length > 0;
+    });
+    if (!hasAnyDecklist) {
+        return `<div class="player-history-empty">No decklists registered for this deck's results.</div>`;
+    }
+
+    const entries = cached.results.flatMap((item) => {
+        const placement = Number(item.placement) || 0;
+        const placementClass =
+            placement === 1 ? 'first-place' :
+            placement === 2 ? 'second-place' :
+            placement === 3 ? 'third-place' :
+            placement === 4 ? 'fourth-place' : 'other-place';
+        const playerName = item.player?.name || '-';
+        const storeName = item.store?.name || '-';
+        const dateStr = formatHistoryDate(item.tournament_date);
+        const entryKey = String(item.id || '');
+        const isEntryExpanded = expandedDeckHistoryKey === entryKey;
+
+        const structuredCards = (item.decklists?.[0]?.decklist_cards || [])
+            .slice()
+            .sort((a, b) => Number(a.position) - Number(b.position));
+        const legacyText = String(item.decklist || '').trim();
+        const parsedLegacy = structuredCards.length === 0 ? parseDecklistByLinesForHistory(legacyText) : [];
+
+        // Skip results with no decklist at all
+        if (structuredCards.length === 0 && parsedLegacy.length === 0) return [];
+
+        const builderUrl = buildDecklistBuilderUrl({
+            resultId: item.id,
+            tournament: item.tournament_id,
+            deck: deckName,
+            store: storeName,
+            date: item.tournament_date
+        });
+
+        let decklistPanelHtml = '';
+        if (structuredCards.length > 0) {
+            decklistPanelHtml = `
+                <div class="player-history-decklist-panel">
+                    <div class="player-history-decklist-actions">
+                        <a href="${escapeHtmlAttribute(builderUrl)}" class="player-history-register-btn">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                        </svg>
+                        <span>Edit in Builder</span>
+                    </a>
+                    </div>
+                    <div class="player-history-decklist-grid">
+                        ${renderDeckHistoryCardsHtml(structuredCards)}
+                    </div>
+                </div>`;
+        } else {
+            decklistPanelHtml = `
+                <div class="player-history-decklist-panel">
+                    <div class="player-history-decklist-actions">
+                        <a href="${escapeHtmlAttribute(builderUrl)}" class="player-history-register-btn">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                        </svg>
+                        <span>Edit in Builder</span>
+                    </a>
+                    </div>
+                    <div class="player-history-decklist-grid">
+                        ${renderDeckHistoryCardsHtml(parsedLegacy)}
+                    </div>
+                </div>`;
+        }
+
+        return [`
+            <div class="player-history-entry ${isEntryExpanded ? 'is-open' : ''}">
+                <div
+                    class="player-history-item ${placementClass}"
+                    role="button"
+                    tabindex="0"
+                    data-action="toggle-deck-history-entry"
+                    data-entry-key="${escapeHtmlAttribute(entryKey)}"
+                    aria-expanded="${isEntryExpanded ? 'true' : 'false'}">
+                    <span class="results-mini-rank">${formatOrdinal(placement)}</span>
+                    <div class="player-history-main">
+                        <strong>${escapeHtml(playerName)}</strong>
+                        <span>${escapeHtml(storeName)} — ${dateStr}</span>
+                    </div>
+                </div>
+                ${isEntryExpanded ? decklistPanelHtml : ''}
+            </div>`];
+    });
+
+    return `<div class="player-history deck-history-list">${entries.join('')}</div>`;
+}
+
+function parseDecklistByLinesForHistory(text) {
+    const lines = String(text || '').split(/\r?\n/);
+    const entries = [];
+    lines.forEach((line) => {
+        const raw = line.trim();
+        if (!raw || /^\/\//.test(raw)) return;
+        const parenMatch = raw.match(/^(\d{1,2})\s*\(\s*([A-Z0-9-]+)\s*\)\s*$/i);
+        if (parenMatch) {
+            const qty = Number(parenMatch[1]);
+            const code = normalizeDeckCode(parenMatch[2]);
+            if (isValidDeckCode(code)) entries.push({ card_code: code, qty });
+            return;
+        }
+        const namedMatch = raw.match(/^(\d{1,2})\s+.*?([A-Z]{1,3}\d{0,2}-\d{1,3})\s*$/i);
+        if (namedMatch) {
+            const qty = Number(namedMatch[1]);
+            const code = normalizeDeckCode(namedMatch[2]);
+            if (isValidDeckCode(code)) entries.push({ card_code: code, qty });
+        }
+    });
+    return entries;
+}
+
+function renderDeckHistoryCardsHtml(cards) {
+    return cards.map((card) => {
+        const code = String(card.card_code || '').split('_')[0];
+        const qty = Number(card.qty) || 1;
+        const candidates = [
+            `${IMAGE_BASE_URL}${code}.webp`,
+            `${IMAGE_BASE_URL}${code}.png`,
+            `https://card-list.prodigi.dev/images/cards/${code}.webp`,
+            `https://card-list.prodigi.dev/images/cards/${code}.png`
+        ];
+        const candidatesJson = escapeHtmlAttribute(JSON.stringify(candidates));
+        return `
+            <article class="player-history-deck-card" data-code="${escapeHtmlAttribute(code)}">
+                <span class="player-history-deck-card-count">${qty}</span>
+                <img
+                    src="${escapeHtmlAttribute(candidates[0])}"
+                    alt="${escapeHtmlAttribute(code)}"
+                    loading="lazy"
+                    data-image-candidates="${candidatesJson}"
+                />
+            </article>`;
+    }).join('');
+}
+
+function formatHistoryDate(dateStr) {
+    if (!dateStr) return '-';
+    const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return dateStr;
+    return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function buildDecklistBuilderUrl(params) {
+    const prefix = getDeckAssetPrefix();
+    const searchParams = new URLSearchParams();
+    if (params.resultId) searchParams.set('resultId', String(params.resultId));
+    if (params.tournament) searchParams.set('tournament', String(params.tournament));
+    if (params.deck) searchParams.set('deck', String(params.deck));
+    if (params.store) searchParams.set('store', String(params.store));
+    if (params.date) searchParams.set('date', String(params.date));
+    return `${prefix}torneios/decklist-builder/?${searchParams.toString()}`;
+}
+
+function bindDeckHistoryImageFallbacks(root) {
+    const scopeRoot = root || document;
+    scopeRoot.querySelectorAll('.player-history-deck-card img[data-image-candidates]').forEach((img) => {
+        if (img.dataset.fallbackBound === 'true') return;
+        img.dataset.fallbackBound = 'true';
+        img.addEventListener('error', () => {
+            let candidates;
+            try { candidates = JSON.parse(img.dataset.imageCandidates || '[]'); } catch { candidates = []; }
+            const currentSrc = img.src;
+            const nextIdx = candidates.indexOf(currentSrc) + 1;
+            if (nextIdx > 0 && nextIdx < candidates.length) {
+                img.src = candidates[nextIdx];
+            } else {
+                const code = img.closest('[data-code]')?.dataset.code || '';
+                img.src = `https://via.placeholder.com/220x308/667eea/ffffff?text=${encodeURIComponent(code)}`;
+            }
+        });
+    });
 }
 }
 
