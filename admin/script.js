@@ -64,6 +64,8 @@ function setupAdminActions() {
         if (action === 'browse-bucket-images') toggleBucketBrowser();
         if (action === 'select-bucket-image') selectBucketImage(btn.dataset.url, btn.dataset.path);
         if (action === 'clear-format-bg') clearFormatBackground();
+        if (action === 'repair-check') runRepairCheck();
+        if (action === 'repair-run') runRepairRun();
     });
 
     // Format form submit
@@ -210,7 +212,13 @@ function openFormatModal(id) {
 
     // Set existing background if any, otherwise try to auto-detect from code
     if (format?.background_url) {
-        setFormatBgPreview(format.background_url, format.background_url, format.background_path || null);
+        // Normalize: strip legacy /formats/ sub-path so URL points to bucket root
+        const normalizedUrl = format.background_url.replace(
+            /(\/storage\/v1\/object\/public\/[^/]+\/)formats\//,
+            '$1'
+        );
+        const normalizedPath = (format.background_path || '').replace(/^formats\//, '');
+        setFormatBgPreview(normalizedUrl, normalizedUrl, normalizedPath || null);
     } else {
         clearFormatBackground();
         if (format?.code) autoDetectFormatBackground(format.code);
@@ -325,7 +333,7 @@ async function deleteFormat(id, name) {
 
 async function uploadFormatBackground(file, code) {
     const ext = file.name.split('.').pop().toLowerCase() || 'png';
-    const path = `formats/${code}.${ext}`;
+    const path = `${code}.${ext}`;
     const bucket = 'post-backgrounds';
     const uploadUrl = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
 
@@ -433,10 +441,11 @@ function renderAdminBanList() {
         .map(
             (entry) => {
                 const name = adminBanNameMap[entry.card_code];
+                const previewAttr = `data-card-preview-code="${encodeURIComponent(entry.card_code)}"`;
                 return `
         <tr>
-            <td><code>${escapeAdminHtml(entry.card_code)}</code></td>
-            <td class="admin-dim">${name ? escapeAdminHtml(name) : '<span style="opacity:.45">—</span>'}</td>
+            <td><code class="stats-card-hover" ${previewAttr}>${escapeAdminHtml(entry.card_code)}</code></td>
+            <td class="admin-dim">${name ? `<span class="stats-card-hover" ${previewAttr}>${escapeAdminHtml(name)}</span>` : '<span style="opacity:.45">—</span>'}</td>
             <td><span class="admin-badge ${BADGE_CLASS[entry.restriction] || ''}">${LABELS[entry.restriction] || escapeAdminHtml(entry.restriction)}</span></td>
             <td class="admin-dim">${escapeAdminHtml(entry.notes || '—')}</td>
             <td class="admin-actions-cell">
@@ -447,6 +456,10 @@ function renderAdminBanList() {
             }
         )
         .join('');
+
+    if (typeof bindStatisticsCardPreview === 'function') {
+        bindStatisticsCardPreview(host);
+    }
 }
 
 function openBanModal(cardCode) {
@@ -716,21 +729,18 @@ async function toggleBucketBrowser() {
 
 function autoDetectFormatBackground(code) {
     if (!code || !window.APP_CONFIG?.SUPABASE_URL) return;
-    // Try common extensions in order
     const extensions = ['png', 'jpg', 'jpeg', 'webp'];
-    const base = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/formats/`;
+    const bucketBase = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/`;
 
     let found = false;
     for (const ext of extensions) {
         if (found) break;
-        const url = `${base}${encodeURIComponent(code)}.${ext}`;
-        const path = `formats/${code}.${ext}`;
-        // Test if image loads via a temporary Image object
+        const url = `${bucketBase}${encodeURIComponent(code)}.${ext}`;
+        const path = `${code}.${ext}`;
         const img = new Image();
         img.onload = () => {
             if (found) return;
             found = true;
-            // Only set if user hasn't already chosen something
             const urlInput = document.getElementById('adminFormatBgUrl');
             if (!urlInput || urlInput.value) return;
             setFormatBgPreview(url, url, path);
@@ -752,7 +762,24 @@ function setFormatBgPreview(src, url, path) {
     const pathInput = document.getElementById('adminFormatBgPath');
 
     if (wrap) wrap.style.display = src ? 'flex' : 'none';
-    if (img) img.src = src || '';
+    if (img) {
+        img.style.display = '';
+        img.alt = 'Selected background';
+        img.onerror = () => {
+            console.warn('[adminBgPreview] failed to load:', src);
+            img.style.display = 'none';
+            if (wrap) {
+                let fl = wrap.querySelector('.admin-bg-fallback-label');
+                if (!fl) {
+                    fl = document.createElement('span');
+                    fl.className = 'admin-bg-fallback-label';
+                    wrap.insertBefore(fl, wrap.firstChild);
+                }
+                fl.textContent = path || (src ? src.split('/').pop() : '');
+            }
+        };
+        img.src = src || '';
+    }
     if (urlInput) urlInput.value = url || '';
     if (pathInput) pathInput.value = path || '';
 }
@@ -761,6 +788,228 @@ function clearFormatBackground() {
     setFormatBgPreview(null, null, null);
     const fileInput = document.getElementById('adminFormatFile');
     if (fileInput) fileInput.value = '';
+}
+
+// ============================================================
+// DATA REPAIR
+// ============================================================
+const REPAIR_DIGIMON_API = 'https://digimoncard.io/api-public/search';
+let _repairIncompleteCodesCache = null;
+
+function repairLog(msg, type = 'info') {
+    const log = document.getElementById('adminRepairLog');
+    if (!log) return;
+    log.classList.remove('is-hidden');
+    const line = document.createElement('div');
+    line.className = `admin-repair-log-line admin-repair-log-${type}`;
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+function repairLogClear() {
+    const log = document.getElementById('adminRepairLog');
+    if (log) { log.innerHTML = ''; log.classList.add('is-hidden'); }
+}
+
+async function fetchRepairIncompleteCodes() {
+    const base = window.APP_CONFIG.SUPABASE_URL;
+    const hdrs = window.createSupabaseHeaders();
+    const out = [];
+    const limit = 1000;
+    let offset = 0;
+    while (true) {
+        const params = new URLSearchParams({
+            select: 'card_code',
+            or: '(card_level.is.null,card_type.is.null,name.is.null,pack.is.null,pack.eq.)',
+            order: 'card_code.asc',
+            limit: String(limit),
+            offset: String(offset),
+        });
+        const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${params}`, { headers: hdrs });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) break;
+        rows.forEach(r => out.push(r.card_code));
+        if (rows.length < limit) break;
+        offset += limit;
+    }
+    return out;
+}
+
+// --- progress helpers ---
+function repairProgressShow(label, pct, detail) {
+    const wrap = document.getElementById('adminRepairProgress');
+    const labelEl = document.getElementById('adminRepairProgressLabel');
+    const pctEl = document.getElementById('adminRepairProgressPct');
+    const bar = document.getElementById('adminRepairProgressBar');
+    const detailEl = document.getElementById('adminRepairProgressDetail');
+    if (!wrap) return;
+    wrap.classList.remove('is-hidden');
+    if (labelEl) labelEl.textContent = label;
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+    if (bar) bar.style.width = `${Math.min(100, pct)}%`;
+    if (detailEl && detail !== undefined) detailEl.textContent = detail;
+}
+
+function repairProgressHide() {
+    const wrap = document.getElementById('adminRepairProgress');
+    if (wrap) wrap.classList.add('is-hidden');
+}
+
+async function fetchCardsFromDigimonApiAdmin(codes, onProgress) {
+    const result = [];
+    const usedCodes = new Set();
+    const pushRow = (row) => {
+        const code = String(row?.id || row?.card || '').trim().toUpperCase();
+        if (!code || usedCodes.has(code)) return;
+        usedCodes.add(code);
+        result.push({
+            card_code: code,
+            id: row?.id || code,
+            name: row?.name || null,
+            pack: row?.pack || code.split('-')[0] || null,
+            color: row?.color || null,
+            card_payload: row || {},
+        });
+    };
+    const chunks = [];
+    for (let i = 0; i < codes.length; i += 20) chunks.push(codes.slice(i, i + 20));
+
+    let processed = 0;
+    for (const chunk of chunks) {
+        try {
+            const q = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2) });
+            const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+            if (res.ok) {
+                const rows = await res.json();
+                if (Array.isArray(rows)) rows.forEach(pushRow);
+            }
+        } catch (_) {}
+        const missed = chunk.filter(c => !usedCodes.has(c));
+        for (const code of missed) {
+            try {
+                const q = new URLSearchParams({ card: code, limit: '1' });
+                const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (Array.isArray(rows)) rows.forEach(pushRow);
+                }
+            } catch (_) {}
+        }
+        processed += chunk.length;
+        if (onProgress) onProgress(processed, codes.length, result.length);
+    }
+    return result;
+}
+
+async function upsertRepairRows(rows, onProgress) {
+    const base = window.APP_CONFIG.SUPABASE_URL;
+    const hdrs = window.createSupabaseHeaders();
+    const CHUNK = 200;
+    let done = 0;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const res = await fetch(`${base}/rest/v1/decklist_card_metadata?on_conflict=card_code`, {
+            method: 'POST',
+            headers: { ...hdrs, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify(chunk),
+        });
+        if (!res.ok) {
+            const detail = await res.text().catch(() => '');
+            throw new Error(`Upsert failed (HTTP ${res.status}): ${detail}`);
+        }
+        done += chunk.length;
+        if (onProgress) onProgress(done, rows.length);
+    }
+}
+
+async function runRepairCheck() {
+    repairLogClear();
+    repairProgressHide();
+    _repairIncompleteCodesCache = null;
+    const countEl = document.getElementById('adminRepairMissingCount');
+    const runBtn = document.getElementById('adminRepairRunBtn');
+    if (countEl) countEl.textContent = 'Scanning…';
+    if (runBtn) runBtn.disabled = true;
+
+    try {
+        const codes = await fetchRepairIncompleteCodes();
+        _repairIncompleteCodesCache = codes;
+        if (countEl) {
+            countEl.textContent = codes.length
+                ? `Found ${codes.length} card(s) with incomplete metadata.`
+                : 'All records are complete. Nothing to repair.';
+        }
+        if (runBtn) runBtn.disabled = codes.length === 0;
+        if (codes.length) repairLog(`${codes.length} incomplete card(s) found. Click "Repair" to fix.`, 'info');
+    } catch (err) {
+        if (countEl) countEl.textContent = 'Error scanning records.';
+        repairLog(`Error: ${err.message}`, 'error');
+    }
+}
+
+async function runRepairRun() {
+    const codes = _repairIncompleteCodesCache;
+    if (!codes || !codes.length) { repairLog('Run "Check" first.', 'warn'); return; }
+
+    const runBtn = document.getElementById('adminRepairRunBtn');
+    const checkBtn = document.querySelector('[data-admin-action="repair-check"]');
+    if (runBtn) runBtn.disabled = true;
+    if (checkBtn) checkBtn.disabled = true;
+    repairLogClear();
+
+    repairProgressShow('Buscando dados na API…', 0, `0 / ${codes.length} cartas processadas`);
+    repairLog(`Iniciando repair de ${codes.length} carta(s)…`, 'info');
+
+    try {
+        const fetched = await fetchCardsFromDigimonApiAdmin(codes, (done, total, found) => {
+            const pct = (done / total) * 70; // API fetch = 0-70%
+            repairProgressShow(
+                'Buscando dados na API…',
+                pct,
+                `${done} / ${total} processadas · ${found} encontradas`
+            );
+        });
+
+        repairLog(`API retornou dados para ${fetched.length} / ${codes.length} carta(s).`, 'info');
+
+        if (!fetched.length) {
+            repairProgressHide();
+            repairLog('Nenhum dado retornado pela API. Nada foi atualizado.', 'warn');
+            if (runBtn) runBtn.disabled = false;
+            if (checkBtn) checkBtn.disabled = false;
+            return;
+        }
+
+        repairProgressShow('Salvando no banco…', 70, `0 / ${fetched.length} salvas`);
+
+        await upsertRepairRows(fetched, (done, total) => {
+            const pct = 70 + (done / total) * 30; // upsert = 70-100%
+            repairProgressShow(
+                'Salvando no banco…',
+                pct,
+                `${done} / ${total} salvas`
+            );
+        });
+
+        repairProgressShow('Concluído!', 100, `${fetched.length} registro(s) atualizados`);
+
+        const missed = codes.length - fetched.length;
+        repairLog(
+            `Pronto. ${fetched.length} registro(s) atualizados.${missed ? ` ${missed} código(s) não encontrados na API.` : ''}`,
+            'success'
+        );
+
+        _repairIncompleteCodesCache = null;
+        const countEl = document.getElementById('adminRepairMissingCount');
+        if (countEl) countEl.textContent = 'Repair concluído. Clique em "Check" para verificar novamente.';
+    } catch (err) {
+        repairProgressHide();
+        repairLog(`Erro: ${err.message}`, 'error');
+        if (runBtn) runBtn.disabled = false;
+    }
+    if (checkBtn) checkBtn.disabled = false;
 }
 
 // ============================================================

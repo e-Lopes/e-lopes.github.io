@@ -15,7 +15,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -710,7 +710,7 @@ Substitua .position-rank por:*/
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -2181,8 +2181,6 @@ th {
     margin: 0;
 }
 
-
-
 .decklist-builder-meta {
     display: flex;
     flex-wrap: wrap;
@@ -3275,16 +3273,16 @@ th {
     font-weight: 500;
 }
 
-body[data-theme='dark'] .register-players-box {
+.register-players-box {
     border-color: #2f4778;
     background: #1b2944;
 }
 
-body[data-theme='dark'] .register-players-list li {
+.register-players-list li {
     color: #d9e7ff;
 }
 
-body[data-theme='dark'] .friendly-error-message {
+.friendly-error-message {
     color: #d9e7ff;
 }
 
@@ -3414,64 +3412,64 @@ body[data-theme='dark'] .friendly-error-message {
     margin-bottom: 0;
 }
 
-body[data-theme='dark'] #createModal .btn-add-result,
-body[data-theme='dark'] #editModal .btn-add-result {
+#createModal .btn-add-result,
+#editModal .btn-add-result {
     background: linear-gradient(180deg, #1a2740 0%, #172339 100%);
     border: 1px dashed #4e6cb1;
     color: #d9e7ff;
 }
 
-body[data-theme='dark'] #createModal .btn-add-result:hover,
-body[data-theme='dark'] #editModal .btn-add-result:hover {
+#createModal .btn-add-result:hover,
+#editModal .btn-add-result:hover {
     background: linear-gradient(180deg, #223251 0%, #1d2c47 100%);
     border-color: #7094e8;
     color: #f2f7ff;
 }
 
-body[data-theme='dark'] #createModal .btn-add-result:focus-visible,
-body[data-theme='dark'] #editModal .btn-add-result:focus-visible {
+#createModal .btn-add-result:focus-visible,
+#editModal .btn-add-result:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px rgba(116, 147, 224, 0.28);
 }
 
-body[data-theme='dark'] #createModal .field-hint,
-body[data-theme='dark'] #editModal .field-hint {
+#createModal .field-hint,
+#editModal .field-hint {
     color: #b8caef;
 }
 
-body[data-theme='dark'] #createModal .autocomplete-dropdown,
-body[data-theme='dark'] #editModal .autocomplete-dropdown {
+#createModal .autocomplete-dropdown,
+#editModal .autocomplete-dropdown {
     background: #1a2740;
     border: 1px solid #4e6cb1;
     box-shadow: 0 10px 24px rgba(4, 9, 20, 0.45);
 }
 
-body[data-theme='dark'] #createModal .autocomplete-item,
-body[data-theme='dark'] #editModal .autocomplete-item {
+#createModal .autocomplete-item,
+#editModal .autocomplete-item {
     color: #d9e7ff;
     border-bottom: 1px solid #2a3d64;
 }
 
-body[data-theme='dark'] #createModal .autocomplete-item:hover,
-body[data-theme='dark'] #editModal .autocomplete-item:hover {
+#createModal .autocomplete-item:hover,
+#editModal .autocomplete-item:hover {
     background: #24385b;
 }
 
-body[data-theme='dark'] #createModal .autocomplete-item.no-match,
-body[data-theme='dark'] #editModal .autocomplete-item.no-match {
+#createModal .autocomplete-item.no-match,
+#editModal .autocomplete-item.no-match {
     color: #95abd8;
     background: transparent;
 }
 
-body[data-theme='dark'] #createModal .autocomplete-item.no-match:hover,
-body[data-theme='dark'] #editModal .autocomplete-item.no-match:hover {
+#createModal .autocomplete-item.no-match:hover,
+#editModal .autocomplete-item.no-match:hover {
     background: transparent;
 }
 
-body[data-theme='dark'] #createModal .player-input::placeholder,
-body[data-theme='dark'] #createModal .deck-input::placeholder,
-body[data-theme='dark'] #editModal .player-input::placeholder,
-body[data-theme='dark'] #editModal .deck-input::placeholder {
+#createModal .player-input::placeholder,
+#createModal .deck-input::placeholder,
+#editModal .player-input::placeholder,
+#editModal .deck-input::placeholder {
     color: #8fa6d2;
 }
 
@@ -3705,14 +3703,24 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
     }
 
     .filters-row {
-        grid-template-columns: minmax(0, 1fr) 52px 52px 52px;
-        gap: 10px 8px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 52px 52px;
+        gap: 8px 6px;
         grid-template-areas:
-            'create perpage toggle clear'
-            'store store store store'
-            'name name name name'
-            'instagram instagram instagram instagram'
-            'month month month month';
+            'create create toggle clear'
+            'store name . .'
+            'instagram month . .';
+    }
+
+    /* Esconde per-page no mobile — menos relevante e libera espaço */
+    .filters-row > :nth-child(6) {
+        display: none;
+    }
+
+    /* Trunca labels longas dos filtros para não quebrar linha */
+    .filters-row .filter-group > label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .filters-row > :nth-child(2) {
@@ -3737,12 +3745,6 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
         min-width: 0;
         height: 52px;
         justify-self: stretch;
-    }
-
-    .filters-row > :nth-child(6) {
-        grid-area: perpage;
-        justify-self: stretch;
-        align-self: end;
     }
 
     .filters-row > :nth-child(7) {
@@ -4295,6 +4297,142 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
     }
 }
 
+/* ============================================================
+   MOBILE — 414px (iPhone 11/12/13/14, Pixel) ESPECÍFICO
+   Foco: criar torneio + registrar resultados + visualizar torneios
+============================================================ */
+@media (max-width: 414px) {
+    /* Container mais justo */
+    .modal-content {
+        padding: 10px;
+    }
+
+    /* Tournament row card — reduz padding lateral para liberar espaço pro conteúdo */
+    #tournamentsTable tr {
+        padding: 8px 46px 8px 72px;
+        min-height: 76px;
+    }
+
+    #tournamentsTable td:nth-child(2) {
+        width: 54px;
+        height: 54px;
+    }
+
+    #tournamentsTable td:nth-child(2) .table-store-content {
+        width: 54px;
+        height: 54px;
+    }
+
+    #tournamentsTable td:nth-child(2) .table-store-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    #tournamentsTable td:nth-child(5),
+    #tournamentsTable td:nth-child(6) {
+        width: 30px;
+        right: 8px;
+    }
+
+    #tournamentsTable td:nth-child(5) .btn-instagram,
+    #tournamentsTable td:nth-child(6) .btn-edit.btn-icon-only {
+        width: 30px;
+        height: 30px;
+    }
+
+    /* Result row — colunas fixas menores para inputs de player/deck ganharem espaço */
+    .result-row {
+        grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) 38px;
+        gap: 4px;
+    }
+
+    .result-row .form-group:first-child input {
+        width: 38px;
+        min-width: 38px;
+        height: 42px;
+    }
+
+    .btn-remove-result {
+        width: 38px;
+        height: 42px;
+        min-height: 42px;
+        margin-top: 22px;
+    }
+
+    /* Autocomplete dropdown — não herda largura do input estreito */
+    .autocomplete-dropdown {
+        min-width: 220px;
+        max-width: min(90vw, 320px);
+    }
+
+    /* OCR import — empilha verticalmente */
+    #createModal .ocr-import-actions,
+    #editModal .ocr-import-actions {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    #createModal .ocr-import-actions .btn-add-result,
+    #editModal .ocr-import-actions .btn-add-result {
+        width: 100%;
+        font-size: 0.85em;
+        padding: 10px 8px;
+        height: auto;
+    }
+
+    /* Details header — empilha info do torneio e botão Generate Post */
+    .details-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .details-generate-post-btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Podium cards — imagem menor para liberar espaço para texto */
+    .details-card-image-wrapper {
+        width: 60px;
+        height: 60px;
+        border-width: 3px;
+    }
+
+    .details-rank-badge {
+        min-width: 32px;
+        height: 32px;
+        font-size: 0.76em;
+    }
+
+    .details-podium-card {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+
+    /* Pie chart — ligeiramente maior em telas estreitas */
+    .details-pie-container {
+        width: min(100%, 200px);
+    }
+
+    /* Register players list — nomes longos não vazam */
+    .register-players-list li {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    /* Filters row — ajusta para telas muito pequenas */
+    .filters-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px;
+        gap: 6px 6px;
+    }
+
+    .filters-row > :nth-child(1) {
+        height: 44px;
+        font-size: 0.8em;
+    }
+}
+
 .calendar-view-container.is-hidden {
     display: none;
 }
@@ -4536,7 +4674,7 @@ body[data-theme='dark'] #editModal .deck-input::placeholder {
    CONTAINER E LAYOUT
 ============================================================ */
 body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -4650,6 +4788,13 @@ select:focus {
 .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .btn-secondary {
@@ -4864,7 +5009,7 @@ select:focus {
    CONTAINER E LAYOUT
 ============================================================ */
 body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -5159,7 +5304,7 @@ select:focus {
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
     display: flex;
@@ -5493,7 +5638,7 @@ input[type='text']:focus {
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -6168,7 +6313,7 @@ button.nav-button:disabled:active {
 }
 
 body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -8248,7 +8393,6 @@ body.template-preview-page .post-toast {
     }
 }
 
-
 /* Decks table ranking view */
 .deck-month-select {
     width: 180px !important;
@@ -8846,7 +8990,7 @@ body.template-preview-page .post-toast {
     to { transform: rotate(360deg); }
 }
 
-body[data-theme='dark'] .stats-loading-spinner {
+.stats-loading-spinner {
     border-color: #3a4f6e !important;
     border-top-color: #7a9fd4 !important;
 }
@@ -9047,26 +9191,24 @@ body[data-theme='dark'] .stats-loading-spinner {
     opacity: 1;
 }
 
-
-body[data-theme='dark'] .statistics-top-cards-pagination {
+.statistics-top-cards-pagination {
     background: transparent;
     border-color: #3a4f77;
 }
 
-body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination,
-body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number {
+.statistics-top-cards-pagination .btn-pagination,
+.statistics-top-cards-pagination .btn-pagination-number {
     background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%);
     border-color: #5e7db4;
     color: #e8f0ff;
 }
 
-body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number.active,
-body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:disabled {
+.statistics-top-cards-pagination .btn-pagination-number.active,
+.statistics-top-cards-pagination .btn-pagination-number:disabled {
     background: #263754;
     border-color: #4f6797;
     color: #c8d9f8;
 }
-
 
 .statistics-table {
     width: max-content;
@@ -9671,26 +9813,92 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
 /* Mobile compact spacing for dashboard navigation buttons */
 @media (max-width: 768px) {
     .nav-buttons-wrapper {
-        margin-top: 10px !important;
-        gap: 8px !important;
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        align-items: stretch !important;
-        justify-items: stretch !important;
+        margin-top: 8px !important;
+        gap: 6px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        padding-bottom: 12px !important;
+    }
+
+    .nav-buttons-wrapper::-webkit-scrollbar {
+        display: none;
     }
 
     .nav-buttons-wrapper .nav-button {
-        width: 100% !important;
+        flex: 1 1 0 !important;
+        min-width: 56px !important;
         max-width: none !important;
-        padding: 12px 10px !important;
-        min-height: 44px !important;
+        width: auto !important;
+        flex-direction: column !important;
+        padding: 8px 6px !important;
+        min-height: 56px !important;
+        gap: 4px !important;
         margin: 0 !important;
         justify-content: center !important;
-        font-size: 0.88em !important;
+        font-size: 0.72em !important;
+        border-radius: 10px !important;
+    }
+
+    .nav-buttons-wrapper .nav-icon {
+        width: 18px !important;
+        height: 18px !important;
+    }
+
+    /* Estado ativo: sem anel (box-shadow), borda inferior como indicador */
+    .nav-buttons-wrapper .nav-button.is-active {
+        background: linear-gradient(160deg, rgba(80, 100, 200, 0.55) 0%, rgba(90, 60, 160, 0.55) 100%) !important;
+        box-shadow: none !important;
+        border-bottom: 3px solid #a0b4f8 !important;
+        padding-bottom: 5px !important;
+    }
+
+    .nav-buttons-wrapper .nav-button:not(.is-active) {
+        background: rgba(255, 255, 255, 0.06) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-shadow: none !important;
     }
 
     header .subtitle {
-        margin-bottom: 10px !important;
+        margin-bottom: 6px !important;
+    }
+
+    /* Dashboard home header — logo + título lado a lado no mobile */
+    body.dashboard-home .dashboard-home-header {
+        padding: 8px 0 10px !important;
+        margin-bottom: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 0 10px !important;
+    }
+
+    body.dashboard-home .dashboard-home-header .logo-wrapper {
+        flex: 0 0 auto !important;
+        margin: 0 !important;
+        width: auto !important;
+        justify-content: flex-start !important;
+    }
+
+    body.dashboard-home .dashboard-home-header .header-logo {
+        width: 56px !important;
+        max-width: none !important;
+        height: auto !important;
+    }
+
+    body.dashboard-home .dashboard-home-header .subtitle {
+        flex: 1 1 0 !important;
+        font-size: 0.8rem !important;
+        margin: 0 !important;
+        text-align: left !important;
+    }
+
+    body.dashboard-home .dashboard-home-header .nav-buttons-wrapper {
+        flex: 0 0 100% !important;
     }
 
     .statistics-primary-controls {
@@ -9771,7 +9979,6 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
     }
 }
 
-
 /* ============================================================
    THEME TOGGLE + DARK MODE
 ============================================================ */
@@ -9828,40 +10035,40 @@ body[data-theme='dark'] .statistics-top-cards-pagination .btn-pagination-number:
     display: none;
 }
 
-body[data-theme='dark'] .theme-toggle-btn {
+.theme-toggle-btn {
     background: rgba(20, 27, 41, 0.95);
     color: #d5def0;
     border-color: #3f4b68;
 }
 
-body[data-theme='dark'] .theme-toggle-icon-sun {
+.theme-toggle-icon-sun {
     display: none;
 }
 
-body[data-theme='dark'] .theme-toggle-icon-moon {
+.theme-toggle-icon-moon {
     display: inline-flex;
 }
 
-body[data-theme='dark'] {
+{
     background: linear-gradient(135deg, #0f1625 0%, #1a2234 100%) !important;
     color: #d5def0;
 }
 
-body[data-theme='dark'] .container {
+.container {
     background: #121a2a !important;
     color: #d5def0;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
-body[data-theme='dark'] header {
+header {
     border-bottom-color: #3f4b68 !important;
 }
 
-body[data-theme='dark'] :is(h1, h2, h3, h4, h5, h6) {
+:is(h1, h2, h3, h4, h5, h6) {
     color: #dce5f5 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     p,
     span,
     label,
@@ -9880,7 +10087,7 @@ body[data-theme='dark'] :is(
     color: #c7d1e4 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .filters,
     .filter-group select,
     .filter-group input,
@@ -9919,127 +10126,127 @@ body[data-theme='dark'] :is(
     color: #d5def0 !important;
 }
 
-body[data-theme='dark'] input::placeholder,
-body[data-theme='dark'] textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
     color: #8f9bb4 !important;
 }
 
-body[data-theme='dark'] .top-nav .nav-button,
-body[data-theme='dark'] .nav-button,
-body[data-theme='dark'] .btn-primary,
-body[data-theme='dark'] .btn-save,
-body[data-theme='dark'] .btn-create,
-body[data-theme='dark'] .btn-create-filter,
-body[data-theme='dark'] .generate-post-btn {
+.top-nav .nav-button,
+.nav-button,
+.btn-primary,
+.btn-save,
+.btn-create,
+.btn-create-filter,
+.generate-post-btn {
     color: #eef3ff !important;
 }
 
-body[data-theme='dark'] .nav-icon-digivice {
+.nav-icon-digivice {
     filter: brightness(0) invert(1);
 }
 
-body[data-theme='dark'] .decklist-builder-panel {
+.decklist-builder-panel {
     background: #141d2f !important;
     border-color: #334566 !important;
 }
 
-body[data-theme='dark'] .decklist-builder-meta-pill,
-body[data-theme='dark'] .decklist-builder-stats {
+.decklist-builder-meta-pill,
+.decklist-builder-stats {
     background: #1b2740 !important;
     border-color: #3c537a !important;
     color: #cddcff !important;
 }
 
-body[data-theme='dark'] .decklist-builder-breakdown-chart {
+.decklist-builder-breakdown-chart {
     background: #1a2741 !important;
     border-color: #35507b !important;
 }
 
-body[data-theme='dark'] .decklist-builder-breakdown-divider {
+.decklist-builder-breakdown-divider {
     background: #3c5580 !important;
 }
 
-body[data-theme='dark'] .decklist-builder-breakdown-bar-fill {
+.decklist-builder-breakdown-bar-fill {
     background: linear-gradient(180deg, #20b8cf 0%, #157f97 100%) !important;
 }
 
-body[data-theme='dark'] .decklist-builder-breakdown-bar-value {
+.decklist-builder-breakdown-bar-value {
     color: #d7e6ff !important;
 }
 
-body[data-theme='dark'] .decklist-builder-breakdown-bar-label {
+.decklist-builder-breakdown-bar-label {
     color: #bdd0ff !important;
 }
 
-body[data-theme='dark'] .decklist-builder-save-status {
+.decklist-builder-save-status {
     color: #95abd6 !important;
 }
 
-body[data-theme='dark'] .decklist-builder-errors {
+.decklist-builder-errors {
     border-color: #7a3c46 !important;
     background: #311a22 !important;
     color: #ffd2d8 !important;
 }
 
-body[data-theme='dark'] .decklist-builder-errors-close {
+.decklist-builder-errors-close {
     border-color: #8b4a55 !important;
     background: #45232d !important;
     color: #ffd8dd !important;
 }
 
-body[data-theme='dark'] .decklist-builder-errors-close:hover {
+.decklist-builder-errors-close:hover {
     background: #5a2d39 !important;
 }
 
-body[data-theme='dark'] .decklist-builder-zoom-hint {
+.decklist-builder-zoom-hint {
     color: #9fb5df !important;
 }
 
-body[data-theme='dark'] .decklist-builder-side .decklist-search-panel {
+.decklist-builder-side .decklist-search-panel {
     background: linear-gradient(180deg, #172238 0%, #131d30 100%) !important;
     border-color: #334a73 !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
 
-body[data-theme='dark'] .decklist-search-header h2,
-body[data-theme='dark'] .decklist-search-status,
-body[data-theme='dark'] .decklist-search-page-indicator {
+.decklist-search-header h2,
+.decklist-search-status,
+.decklist-search-page-indicator {
     color: #cfe0ff !important;
 }
 
-body[data-theme='dark'] .decklist-search-status.is-ok {
+.decklist-search-status.is-ok {
     color: #4cd98a !important;
 }
 
-body[data-theme='dark'] .decklist-search-status.is-info {
+.decklist-search-status.is-info {
     color: #7eb7ff !important;
 }
 
-body[data-theme='dark'] .decklist-search-status.is-warn {
+.decklist-search-status.is-warn {
     color: #ffc86b !important;
 }
 
-body[data-theme='dark'] .decklist-search-status.is-error {
+.decklist-search-status.is-error {
     color: #ff8f8f !important;
 }
 
-body[data-theme='dark'] .decklist-search-panel .form-input,
-body[data-theme='dark'] .decklist-search-panel select.form-input {
+.decklist-search-panel .form-input,
+.decklist-search-panel select.form-input {
     background-color: #0f1728 !important;
     border-color: #30476f !important;
     color: #dbe7ff !important;
 }
 
-body[data-theme='dark'] .decklist-search-panel .form-input::placeholder {
+.decklist-search-panel .form-input::placeholder {
     color: #8096be !important;
 }
 
-body[data-theme='dark'] .decklist-search-panel .form-input:focus {
+.decklist-search-panel .form-input:focus {
     border-color: #5b8fe3 !important;
     box-shadow: 0 0 0 3px rgba(91, 143, 227, 0.26) !important;
 }
 
-body[data-theme='dark'] .decklist-search-panel select.form-input {
+.decklist-search-panel select.form-input {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239db9e9' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
     background-position: right 10px center !important;
@@ -10047,76 +10254,74 @@ body[data-theme='dark'] .decklist-search-panel select.form-input {
     padding-right: 34px !important;
 }
 
-body[data-theme='dark'] :is(#btnDecklistBuilderImport, #btnDecklistBuilderExport, #btnDecklistBuilderExportImage) {
+:is(#btnDecklistBuilderImport, #btnDecklistBuilderExport, #btnDecklistBuilderExportImage) {
     background: #1a2740 !important;
     border-color: #3d5687 !important;
     color: #d5e3ff !important;
 }
 
-
-body[data-theme='dark'] :is(#btnDecklistBuilderSortCards,#btnDecklistBuilderClear) {
+:is(#btnDecklistBuilderSortCards,#btnDecklistBuilderClear) {
     background: #1a2740 !important;
     border-color: #3d5687 !important;
     color: #d5e3ff !important;
 }
 
-
-body[data-theme='dark'] :is(#btnDecklistBuilderImport, #btnDecklistBuilderExport, #btnDecklistBuilderExportImage):hover {
+:is(#btnDecklistBuilderImport, #btnDecklistBuilderExport, #btnDecklistBuilderExportImage):hover {
     background: #223457 !important;
     border-color: #5272b2 !important;
 }
 
-body[data-theme='dark'] .decklist-search-page-btn {
+.decklist-search-page-btn {
     background: #17253d !important;
     border-color: #3d5687 !important;
     color: #d6e3ff !important;
 }
 
-body[data-theme='dark'] .decklist-search-page-btn:hover:not(:disabled) {
+.decklist-search-page-btn:hover:not(:disabled) {
     background: #233a60 !important;
     border-color: #5a7fc0 !important;
 }
 
-body[data-theme='dark'] .decklist-search-card {
+.decklist-search-card {
     background: #101a2d !important;
     border-color: #2d456d !important;
 }
 
-body[data-theme='dark'] .decklist-search-card:hover {
+.decklist-search-card:hover {
     border-color: #63c6ff !important;
     box-shadow:
         0 8px 18px rgba(7, 15, 29, 0.62),
         0 0 0 2px rgba(99, 198, 255, 0.3) !important;
 }
 
-body[data-theme='dark'] .decklist-search-card::before {
+.decklist-search-card::before {
     background: rgba(26, 54, 112, 0.94) !important;
 }
 
-body[data-theme='dark'] .decklist-search-card-code {
+.decklist-search-card-code {
     background: rgba(10, 18, 33, 0.9) !important;
     border-color: rgba(134, 171, 231, 0.44) !important;
     color: #d9e8ff !important;
 }
 
-body[data-theme='dark'] .decklist-search-empty,
-body[data-theme='dark'] .decklist-builder-empty {
+.decklist-search-empty,
+.decklist-builder-empty {
     background: rgba(19, 30, 49, 0.74) !important;
     border-color: #35507a !important;
     color: #b8caef !important;
 }
 
-body[data-theme='dark'] .decklist-builder-card {
+.decklist-builder-card {
     background: #111b2e !important;
     border-color: #30496f !important;
 }
 
-body[data-theme='dark'] .decklist-builder-card:hover {
+.decklist-builder-card:hover {
     border-color: #5bc4ff !important;
     box-shadow: 0 0 0 2px rgba(91, 196, 255, 0.28) !important;
 }
 
-body[data-theme='dark'] .decklist-builder-count {
+.decklist-builder-count {
     background: rgba(9, 17, 33, 0.9) !important;
 }
 
@@ -10131,7 +10336,7 @@ body[data-theme='dark'] .decklist-builder-count {
 /* ============================================================
    DARK MODE - TABLES/CALENDAR/DECKS EXTENSIONS
 ============================================================ */
-body[data-theme='dark'] :is(
+:is(
     table,
     #tournamentsTable,
     #tournamentsTable th,
@@ -10152,7 +10357,7 @@ body[data-theme='dark'] :is(
     border-color: #35435f !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     #tournamentsTable th,
     .players-table thead th,
     .statistics-table th,
@@ -10162,7 +10367,7 @@ body[data-theme='dark'] :is(
     color: #e2e9f8 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     #tournamentsTable tbody tr:nth-child(even),
     .statistics-table tbody tr:nth-child(even),
     .decks-table tbody tr:nth-child(even)
@@ -10170,7 +10375,7 @@ body[data-theme='dark'] :is(
     background: #141f31 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     #tournamentsTable tbody tr:hover,
     .players-table-row:hover td,
     .statistics-table tbody tr:hover,
@@ -10179,7 +10384,7 @@ body[data-theme='dark'] :is(
     background: #20304b !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .clickable-row:hover,
     .clickable-row.is-active,
     #tournamentsTable .details-row .details-row-cell
@@ -10187,7 +10392,7 @@ body[data-theme='dark'] :is(
     background: #1a2740 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .table-date-value,
     .table-store-name,
     .table-tournament-name,
@@ -10202,29 +10407,29 @@ body[data-theme='dark'] :is(
     color: #c9d4ea !important;
 }
 
-body[data-theme='dark'] .sort-indicator.is-active {
+.sort-indicator.is-active {
     color: #9fb5ff !important;
 }
 
-body[data-theme='dark'] :is(.btn-toggle-view, .btn-clear-filters) {
+:is(.btn-toggle-view, .btn-clear-filters) {
     background: #1a2740 !important;
     color: #d7e1f4 !important;
     border-color: #3f4f71 !important;
 }
 
-body[data-theme='dark'] .btn-toggle-view:hover,
-body[data-theme='dark'] .btn-clear-filters:hover {
+.btn-toggle-view:hover,
+.btn-clear-filters:hover {
     background: #20304d !important;
     box-shadow: 0 0 0 3px rgba(90, 115, 173, 0.24) !important;
 }
 
-body[data-theme='dark'] .btn-toggle-view.is-calendar-active {
+.btn-toggle-view.is-calendar-active {
     background: #3e5fa8 !important;
     border-color: #3e5fa8 !important;
     color: #eef3ff !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .btn-edit,
     .btn-edit.btn-icon-only,
     .btn-action.btn-icon-only,
@@ -10238,7 +10443,7 @@ body[data-theme='dark'] :is(
     border-color: #405074 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .btn-edit:hover,
     .btn-action.btn-icon-only:hover,
     .deck-actions .btn-secondary:hover,
@@ -10249,7 +10454,7 @@ body[data-theme='dark'] :is(
     border-color: #5670a8 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .calendar-panel,
     .calendar-toolbar,
     .calendar-year-nav,
@@ -10265,45 +10470,45 @@ body[data-theme='dark'] :is(
     border-color: #374663 !important;
 }
 
-body[data-theme='dark'] .calendar-weekdays div,
-body[data-theme='dark'] .calendar-year,
-body[data-theme='dark'] .calendar-year-nav-label {
+.calendar-weekdays div,
+.calendar-year,
+.calendar-year-nav-label {
     color: #aab8d4 !important;
 }
 
-body[data-theme='dark'] .calendar-title,
-body[data-theme='dark'] .calendar-day-number,
-body[data-theme='dark'] .calendar-event-store,
-body[data-theme='dark'] .calendar-event-tournament {
+.calendar-title,
+.calendar-day-number,
+.calendar-event-store,
+.calendar-event-tournament {
     color: #e2e9f8 !important;
 }
 
-body[data-theme='dark'] .calendar-day.is-empty {
+.calendar-day.is-empty {
     background: #131d2e !important;
 }
 
-body[data-theme='dark'] .calendar-event {
+.calendar-event {
     background: #223452 !important;
     border-color: #4a5f88 !important;
 }
 
-body[data-theme='dark'] .calendar-event:hover,
-body[data-theme='dark'] .calendar-day.is-clickable:hover {
+.calendar-event:hover,
+.calendar-day.is-clickable:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
     background: #2a3f62 !important;
 }
 
-body[data-theme='dark'] .calendar-nav-btn {
+.calendar-nav-btn {
     background: #1e2d48 !important;
     color: #d9e3f7 !important;
     border-color: #43567f !important;
 }
 
-body[data-theme='dark'] .calendar-nav-btn:disabled {
+.calendar-nav-btn:disabled {
     opacity: 0.5 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .decks-grid,
     .deck-row,
     .deck-info,
@@ -10333,7 +10538,7 @@ body[data-theme='dark'] :is(
     border-color: #374663 !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .deck-name,
     .deck-code,
     .decks-col-name strong,
@@ -10347,34 +10552,34 @@ body[data-theme='dark'] :is(
     color: #d8e2f6 !important;
 }
 
-body[data-theme='dark'] .deck-code {
+.deck-code {
     background: #223452 !important;
     color: #cfe0ff !important;
 }
 
-body[data-theme='dark'] .decks-th-digivice-img {
+.decks-th-digivice-img {
     filter: brightness(0) invert(1) !important;
 }
 /* ============================================================
    DARK MODE - FINE TUNING REQUESTED
 ============================================================ */
-body[data-theme='dark'] .btn-view-toggle {
+.btn-view-toggle {
     background: #1a2740 !important;
     color: #d7e1f4 !important;
     border-color: #3f4f71 !important;
 }
 
-body[data-theme='dark'] .btn-view-toggle:hover {
+.btn-view-toggle:hover {
     background: #233654 !important;
     border-color: #5b74a7 !important;
 }
 
-body[data-theme='dark'] .deck-thumb-image {
+.deck-thumb-image {
     border: 2px solid #4a5f88 !important;
     border-radius: 50% !important;
 }
 
-body[data-theme='dark'] .details-rank-badge {
+.details-rank-badge {
     color: #e1e9f8 !important;
     border-color: #5872a6 !important;
     background: linear-gradient(150deg, #253755 0%, #1d2c45 55%, #162236 100%) !important;
@@ -10385,7 +10590,7 @@ body[data-theme='dark'] .details-rank-badge {
         0 3px 8px rgba(0, 0, 0, 0.28) !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .player-history,
     .player-history-item,
     .player-history-loading,
@@ -10399,31 +10604,31 @@ body[data-theme='dark'] :is(
     border-color: #374663 !important;
 }
 
-body[data-theme='dark'] .player-history-item {
+.player-history-item {
     background: linear-gradient(135deg, #1a2740 0%, #20314e 100%) !important;
 }
 
-body[data-theme='dark'] .player-history-store-logo {
+.player-history-store-logo {
     background: #1b2740 !important;
     border-color: #44577d !important;
 }
 
-body[data-theme='dark'] .store-podium-icon {
+.store-podium-icon {
     background: #1b2740 !important;
     border-color: #44577d !important;
 }
 
-body[data-theme='dark'] :is(.statistics-main-selects, .statistics-highlights) {
+:is(.statistics-main-selects, .statistics-highlights) {
     border-color: #3b4b6a !important;
 }
 
-body[data-theme='dark'] .statistics-main-selects :is(select, input, .statistics-player-search) {
+.statistics-main-selects :is(select, input, .statistics-player-search) {
     background: #1a2740 !important;
     color: #d5def0 !important;
     border-color: #44577d !important;
 }
 
-body[data-theme='dark'] .statistics-highlight-card {
+.statistics-highlight-card {
     background: #1b2740 !important;
     border-color: #44577d !important;
 }
@@ -10431,203 +10636,203 @@ body[data-theme='dark'] .statistics-highlight-card {
    DARK MODE - FINAL TUNING V2
 ============================================================ */
 /* Keep rank badge original palette even in dark mode */
-body[data-theme='dark'] .details-rank-badge,
-body[data-theme='dark'] .details-rank-badge span {
+.details-rank-badge,
+.details-rank-badge span {
     color: #1f2430 !important;
     border-color: rgba(0, 0, 0, 0.16) !important;
     background: linear-gradient(150deg, #f7f9ff 0%, #b9c6f5 46%, #8da2ea 100%) !important;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.first-place .details-rank-badge,
-body[data-theme='dark'] .details-podium-card.first-place .details-rank-badge span {
+.details-podium-card.first-place .details-rank-badge,
+.details-podium-card.first-place .details-rank-badge span {
     color: #4a3900 !important;
     border-color: rgba(144, 102, 0, 0.5) !important;
     background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.second-place .details-rank-badge,
-body[data-theme='dark'] .details-podium-card.second-place .details-rank-badge span {
+.details-podium-card.second-place .details-rank-badge,
+.details-podium-card.second-place .details-rank-badge span {
     color: #2f333a !important;
     border-color: rgba(84, 90, 102, 0.45) !important;
     background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.third-place .details-rank-badge,
-body[data-theme='dark'] .details-podium-card.third-place .details-rank-badge span,
-body[data-theme='dark'] .details-podium-card.fourth-place .details-rank-badge,
-body[data-theme='dark'] .details-podium-card.fourth-place .details-rank-badge span {
+.details-podium-card.third-place .details-rank-badge,
+.details-podium-card.third-place .details-rank-badge span,
+.details-podium-card.fourth-place .details-rank-badge,
+.details-podium-card.fourth-place .details-rank-badge span {
     color: #fff !important;
 }
 
-body[data-theme='dark'] .details-podium-card.third-place .details-rank-badge {
+.details-podium-card.third-place .details-rank-badge {
     border-color: rgba(97, 52, 21, 0.55) !important;
     background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.fourth-place .details-rank-badge {
+.details-podium-card.fourth-place .details-rank-badge {
     border-color: rgba(18, 82, 72, 0.55) !important;
     background: linear-gradient(150deg, #bfeee6 0%, #3da996 45%, #1b6b5f 100%) !important;
 }
 
 /* Darker color across toggle controls in dark mode */
-body[data-theme='dark'] :is(.theme-toggle-btn, .btn-toggle-view, .btn-view-toggle) {
+:is(.theme-toggle-btn, .btn-toggle-view, .btn-view-toggle) {
     color: #a8b7d2 !important;
 }
 
-body[data-theme='dark'] .deck-thumb-image {
+.deck-thumb-image {
     border: 2px solid #2f3f5e !important;
     border-radius: 50% !important;
 }
 
 /* Modal helper chips */
-body[data-theme='dark'] .modal-tips {
+.modal-tips {
     background: #1a2740 !important;
     border-color: #415274 !important;
 }
 
-body[data-theme='dark'] .modal-tips :is(h4, ul, li) {
+.modal-tips :is(h4, ul, li) {
     color: #cfd9ee !important;
 }
 
-body[data-theme='dark'] .code-example {
+.code-example {
     background: #243552 !important;
     color: #cfdcff !important;
     border-color: #4d6594 !important;
 }
 
-body[data-theme='dark'] .code-example:hover {
+.code-example:hover {
     background: #2d4467 !important;
     border-color: #6f88bf !important;
 }
 
 /* Keep remove actions in original red palette */
-body[data-theme='dark'] :is(.btn-danger, .btn-remove-result) {
+:is(.btn-danger, .btn-remove-result) {
     background: #ffebee !important;
     color: #c62828 !important;
     border: 1px solid #ffcdd2 !important;
 }
 
-body[data-theme='dark'] :is(.btn-danger:hover, .btn-remove-result:hover) {
+:is(.btn-danger:hover, .btn-remove-result:hover) {
     background: #ffcdd2 !important;
     color: #b71c1c !important;
     border-color: #ef9a9a !important;
 }
 
 /* Keep player history item original colors */
-body[data-theme='dark'] .player-history-item {
+.player-history-item {
     border-color: #dce2f2 !important;
     background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%) !important;
     color: #1f2947 !important;
 }
 
-body[data-theme='dark'] .player-history-item :is(strong, span, .results-mini-rank) {
+.player-history-item :is(strong, span, .results-mini-rank) {
     color: inherit !important;
 }
 
-body[data-theme='dark'] .player-history-main span {
+.player-history-main span {
     color: #4f5f8f !important;
 }
 
 /* Statistics containers */
-body[data-theme='dark'] .statistics-controls {
+.statistics-controls {
     background: linear-gradient(180deg, #162133 0%, #1a2740 100%) !important;
     border-color: #3d4f72 !important;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
 }
 
-body[data-theme='dark'] .statistics-table-wrapper {
+.statistics-table-wrapper {
     background: #121d2f !important;
     border: 1px solid #354760 !important;
     border-radius: 12px !important;
 }
 
 /* Statistics label / hint / status text */
-body[data-theme='dark'] .statistics-select-label {
+.statistics-select-label {
     color: #8fa8d4 !important;
 }
 
 /* Statistics filter selects — dark mode */
-body[data-theme='dark'] #statisticsFilterStore,
-body[data-theme='dark'] #statisticsFilterFormat,
-body[data-theme='dark'] #statisticsFilterMonth,
-body[data-theme='dark'] #statisticsFilterDate,
-body[data-theme='dark'] #statisticsFilterStaple,
-body[data-theme='dark'] .statistics-deck-search {
+#statisticsFilterStore,
+#statisticsFilterFormat,
+#statisticsFilterMonth,
+#statisticsFilterDate,
+#statisticsFilterStaple,
+.statistics-deck-search {
     background: #1e2d45 !important;
     border-color: #3d5580 !important;
     color: #c7d9f5 !important;
 }
 
-body[data-theme='dark'] #statisticsFilterStore option,
-body[data-theme='dark'] #statisticsFilterFormat option,
-body[data-theme='dark'] #statisticsFilterMonth option,
-body[data-theme='dark'] #statisticsFilterDate option,
-body[data-theme='dark'] #statisticsFilterStaple option {
+#statisticsFilterStore option,
+#statisticsFilterFormat option,
+#statisticsFilterMonth option,
+#statisticsFilterDate option,
+#statisticsFilterStaple option {
     background: #1e2d45;
     color: #c7d9f5;
 }
 
-body[data-theme='dark'] .statistics-deck-search:focus {
+.statistics-deck-search:focus {
     border-color: #6a8cbf !important;
     box-shadow: 0 0 0 3px rgba(103, 140, 200, 0.18) !important;
 }
 
-body[data-theme='dark'] .statistics-deck-search::placeholder {
+.statistics-deck-search::placeholder {
     color: #5a7098 !important;
 }
 
-body[data-theme='dark'] .statistics-formula-hint {
+.statistics-formula-hint {
     color: #7a90b8 !important;
 }
 
-body[data-theme='dark'] .statistics-status {
+.statistics-status {
     color: #9baec8 !important;
 }
 
-body[data-theme='dark'] .statistics-highlight-label {
+.statistics-highlight-label {
     color: #7a90b8 !important;
 }
 
 /* Statistics data card (summary row above table) */
-body[data-theme='dark'] .statistics-data-card {
+.statistics-data-card {
     background: linear-gradient(180deg, #162133 0%, #1a2740 100%) !important;
     border-color: #3d4f72 !important;
 }
 
 /* Statistics table: cell borders (th + td) */
-body[data-theme='dark'] .statistics-table th,
-body[data-theme='dark'] .statistics-table td {
+.statistics-table th,
+.statistics-table td {
     border-bottom-color: #243550 !important;
 }
 
 /* Statistics table: header row (overrides border-bottom-color above for th) */
-body[data-theme='dark'] .statistics-table th {
+.statistics-table th {
     background: linear-gradient(180deg, #1a2b42 0%, #1e3151 100%) !important;
     color: #b8cde8 !important;
     border-bottom-color: #2e4668 !important;
 }
 
 /* Statistics table: alternating rows and hover */
-body[data-theme='dark'] .statistics-table tbody tr:nth-child(even) {
+.statistics-table tbody tr:nth-child(even) {
     background: #172234 !important;
 }
 
-body[data-theme='dark'] .statistics-table tbody tr:hover {
+.statistics-table tbody tr:hover {
     background: #1e3452 !important;
 }
 
 /* Sort button hover in dark mode */
-body[data-theme='dark'] .stats-sort-button:hover {
+.stats-sort-button:hover {
     color: #8fb8ef !important;
 }
 
 /* Column resizer handle */
-body[data-theme='dark'] .stats-col-resizer::after {
+.stats-col-resizer::after {
     background: #3a5070 !important;
 }
 
-body[data-theme='dark'] .statistics-table th:hover .stats-col-resizer::after {
+.statistics-table th:hover .stats-col-resizer::after {
     background: #6a8cbf !important;
 }
 
@@ -10635,103 +10840,103 @@ body[data-theme='dark'] .statistics-table th:hover .stats-col-resizer::after {
    DARK MODE - RESTORE ORIGINAL PODIUM/FULL RESULTS/HISTORY
 ============================================================ */
 /* Main podium (home/post pages) */
-body[data-theme='dark'] .podium-card.first-place {
+.podium-card.first-place {
     border-left: 12px solid #ffd700 !important;
     background: linear-gradient(90deg, #fff 70%, #fff9e6) !important;
     box-shadow: 0 0 25px rgba(255, 215, 0, 0.35) !important;
 }
 
-body[data-theme='dark'] .podium-card.second-place {
+.podium-card.second-place {
     border-left: 12px solid #c0c0c0 !important;
     background: linear-gradient(90deg, #fff 70%, #f3f3f3) !important;
 }
 
-body[data-theme='dark'] .podium-card.third-place {
+.podium-card.third-place {
     border-left: 12px solid #cd7f32 !important;
     background: linear-gradient(90deg, #fff 70%, #fff4ed) !important;
 }
 
-body[data-theme='dark'] .podium-card.fourth-place {
+.podium-card.fourth-place {
     border-left: 12px solid #268d7c !important;
     background: linear-gradient(90deg, #fff 70%, #e8f5f3) !important;
 }
 
 /* Tournament details podium */
-body[data-theme='dark'] .details-podium-card.first-place {
+.details-podium-card.first-place {
     border-left: 12px solid #ffd700 !important;
     background: linear-gradient(90deg, #fff 70%, #fff9e6) !important;
     box-shadow: 0 0 25px rgba(255, 215, 0, 0.35) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.second-place {
+.details-podium-card.second-place {
     border-left: 12px solid #c0c0c0 !important;
     background: linear-gradient(90deg, #fff 70%, #f3f3f3) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.third-place {
+.details-podium-card.third-place {
     border-left: 12px solid #cd7f32 !important;
     background: linear-gradient(90deg, #fff 70%, #fff4ed) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.fourth-place {
+.details-podium-card.fourth-place {
     border-left: 12px solid #268d7c !important;
     background: linear-gradient(90deg, #fff 70%, #e8f5f3) !important;
 }
 
 /* Full results (original placement palette) */
-body[data-theme='dark'] .results-mini-item.first-place {
+.results-mini-item.first-place {
     border-color: rgba(198, 141, 0, 0.45) !important;
     background: linear-gradient(135deg, #fff8d4 0%, #ffe58a 100%) !important;
 }
 
-body[data-theme='dark'] .results-mini-item.second-place {
+.results-mini-item.second-place {
     border-color: rgba(141, 153, 171, 0.45) !important;
     background: linear-gradient(135deg, #f8fafc 0%, #d4dbe6 100%) !important;
 }
 
-body[data-theme='dark'] .results-mini-item.third-place {
+.results-mini-item.third-place {
     border-color: rgba(134, 71, 31, 0.48) !important;
     background: linear-gradient(135deg, #f7d9c2 0%, #d29a72 100%) !important;
 }
 
-body[data-theme='dark'] .results-mini-item.fourth-place {
+.results-mini-item.fourth-place {
     border-color: rgba(27, 107, 95, 0.45) !important;
     background: linear-gradient(135deg, #d7f3ee 0%, #8ad2c4 100%) !important;
 }
 
-body[data-theme='dark'] .results-mini-item.other-place {
+.results-mini-item.other-place {
     border-color: rgba(67, 87, 176, 0.45) !important;
     background: linear-gradient(135deg, #eef2ff 0%, #cdd8ff 100%) !important;
 }
 
 /* Player history (same original colors as full results) */
-body[data-theme='dark'] .player-history-item.first-place {
+.player-history-item.first-place {
     border-color: rgba(198, 141, 0, 0.45) !important;
     background: linear-gradient(135deg, #fff8d4 0%, #ffe58a 100%) !important;
 }
 
-body[data-theme='dark'] .player-history-item.second-place {
+.player-history-item.second-place {
     border-color: rgba(141, 153, 171, 0.45) !important;
     background: linear-gradient(135deg, #f8fafc 0%, #d4dbe6 100%) !important;
 }
 
-body[data-theme='dark'] .player-history-item.third-place {
+.player-history-item.third-place {
     border-color: rgba(134, 71, 31, 0.48) !important;
     background: linear-gradient(135deg, #f7d9c2 0%, #d29a72 100%) !important;
 }
 
-body[data-theme='dark'] .player-history-item.fourth-place {
+.player-history-item.fourth-place {
     border-color: rgba(27, 107, 95, 0.45) !important;
     background: linear-gradient(135deg, #d7f3ee 0%, #8ad2c4 100%) !important;
 }
 
-body[data-theme='dark'] .player-history-item.other-place {
+.player-history-item.other-place {
     border-color: rgba(67, 87, 176, 0.45) !important;
     background: linear-gradient(135deg, #eef2ff 0%, #cdd8ff 100%) !important;
 }
 
 /* Decks table rank badge keeps original style in dark mode */
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge {
+.decks-rank-cell .details-rank-badge {
     color: #1f2430 !important;
     border-color: rgba(0, 0, 0, 0.16) !important;
     background: linear-gradient(150deg, #f7f9ff 0%, #b9c6f5 46%, #8da2ea 100%) !important;
@@ -10740,94 +10945,94 @@ body[data-theme='dark'] .decks-rank-cell .details-rank-badge {
 /* ============================================================
    DARK MODE - DETAILS PODIUM BLUE BACKGROUND FIX
 ============================================================ */
-body[data-theme='dark'] .details-podium-card.first-place {
+.details-podium-card.first-place {
     border-left: 12px solid #ffd700 !important;
     background: linear-gradient(90deg, #1a2740 70%, #2a3654 100%) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.second-place {
+.details-podium-card.second-place {
     border-left: 12px solid #c0c0c0 !important;
     background: linear-gradient(90deg, #1a2740 70%, #27344f 100%) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.third-place {
+.details-podium-card.third-place {
     border-left: 12px solid #cd7f32 !important;
     background: linear-gradient(90deg, #1a2740 70%, #2d3550 100%) !important;
 }
 
-body[data-theme='dark'] .details-podium-card.fourth-place {
+.details-podium-card.fourth-place {
     border-left: 12px solid #268d7c !important;
     background: linear-gradient(90deg, #1a2740 70%, #243b4a 100%) !important;
 }
 /* ============================================================
    DARK MODE - DETAILS FOOTER + RESULTS TEXT COLOR
 ============================================================ */
-body[data-theme='dark'] .details-podium-card .details-deck-card-footer {
+.details-podium-card .details-deck-card-footer {
     background: transparent !important;
     color: #1f2947 !important;
 }
 
-body[data-theme='dark'] .details-podium-card .details-deck-name {
+.details-podium-card .details-deck-name {
     color: #333 !important;
 }
 
-body[data-theme='dark'] .details-podium-card .details-player-name {
+.details-podium-card .details-player-name {
     color: #666 !important;
 }
 
-body[data-theme='dark'] .results-mini-main {
+.results-mini-main {
     color: #1f2947 !important;
 }
 
-body[data-theme='dark'] .results-mini-main strong {
+.results-mini-main strong {
     color: #1f2947 !important;
 }
 
-body[data-theme='dark'] .results-mini-main span {
+.results-mini-main span {
     color: #4f5f8f !important;
 }
 /* ============================================================
    DARK MODE - DETAILS TEXT + RESULTS MAIN INHERIT
 ============================================================ */
-body[data-theme='dark'] .details-podium-card .details-player-name {
+.details-podium-card .details-player-name {
     color: #c7d3ea !important;
 }
 
-body[data-theme='dark'] .details-podium-card .details-deck-name {
+.details-podium-card .details-deck-name {
     color: #e4ebf8 !important;
 }
 
-body[data-theme='dark'] .results-mini-main,
-body[data-theme='dark'] .results-mini-main strong,
-body[data-theme='dark'] .results-mini-main span {
+.results-mini-main,
+.results-mini-main strong,
+.results-mini-main span {
     color: inherit !important;
 }
 /* ============================================================
    DARK MODE - RESULTS MINI MAIN NO BLUE BACKGROUND
 ============================================================ */
-body[data-theme='dark'] .results-mini-main {
+.results-mini-main {
     background: transparent !important;
     border: none !important;
     color: inherit !important;
 }
 
-body[data-theme='dark'] .results-mini-main strong,
-body[data-theme='dark'] .results-mini-main span {
+.results-mini-main strong,
+.results-mini-main span {
     background: transparent !important;
     color: inherit !important;
 }
 /* ============================================================
    DARK MODE - FORCE LIGHT PALETTE ON FULL RESULTS ROWS
 ============================================================ */
-body[data-theme='dark'] .results-mini-item {
+.results-mini-item {
     border-color: #dce2f2 !important;
     background: linear-gradient(135deg, #f7f9ff 0%, #e9eefc 100%) !important;
     color: #1f2947 !important;
 }
 
-body[data-theme='dark'] .results-mini-main,
-body[data-theme='dark'] .results-mini-main strong,
-body[data-theme='dark'] .results-mini-main span {
+.results-mini-main,
+.results-mini-main strong,
+.results-mini-main span {
     background: transparent !important;
     border: none !important;
     color: inherit !important;
@@ -10835,9 +11040,9 @@ body[data-theme='dark'] .results-mini-main span {
 /* ============================================================
    DARK MODE - RESULTS MAIN MATCH ITEM BACKGROUND
 ============================================================ */
-body[data-theme='dark'] .results-mini-item .results-mini-main,
-body[data-theme='dark'] .results-mini-item .results-mini-main strong,
-body[data-theme='dark'] .results-mini-item .results-mini-main span {
+.results-mini-item .results-mini-main,
+.results-mini-item .results-mini-main strong,
+.results-mini-item .results-mini-main span {
     background: inherit !important;
     color: inherit !important;
     border: none !important;
@@ -10845,74 +11050,74 @@ body[data-theme='dark'] .results-mini-item .results-mini-main span {
 /* ============================================================
    DARK MODE - RESULTS TEXT DARKER (DECK + PLAYER)
 ============================================================ */
-body[data-theme='dark'] .results-mini-item .results-mini-main strong {
+.results-mini-item .results-mini-main strong {
     color: #1e2a45 !important;
 }
 
-body[data-theme='dark'] .results-mini-item .results-mini-main span {
+.results-mini-item .results-mini-main span {
     color: #334b7a !important;
 }
 /* ============================================================
    DARK MODE - DETAILS PIE + HEADER META
 ============================================================ */
-body[data-theme='dark'] .details-pie-slice {
+.details-pie-slice {
     filter: brightness(0.55) saturate(0.9) !important;
 }
 
-body[data-theme='dark'] .details-header-meta,
-body[data-theme='dark'] .details-header-meta :is(strong, span, p, small) {
+.details-header-meta,
+.details-header-meta :is(strong, span, p, small) {
     color: #dbe5f6 !important;
 }
 /* ============================================================
    DARK MODE - DETAILS PIE ORIGINAL + DARK BORDER
 ============================================================ */
-body[data-theme='dark'] .details-pie-slice {
+.details-pie-slice {
     filter: none !important;
 }
 
-body[data-theme='dark'] .details-pie-container {
+.details-pie-container {
     border-color: #233552 !important;
 }
 
-body[data-theme='dark'] .details-empty-state {
+.details-empty-state {
     background: #1a2740 !important;
     border-color: #44577d !important;
     color: #cfdaef !important;
 }
 
-body[data-theme='dark'] .details-pie-store-logo {
+.details-pie-store-logo {
     background: #1b2740 !important;
     border-color: #44577d !important;
 }
 /* ============================================================
    DARK MODE - DECKS RANK BADGE PODIUM PALETTE RESTORE
 ============================================================ */
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-first {
+.decks-rank-cell .details-rank-badge.decks-rank-first {
     color: #4a3900 !important;
     border-color: rgba(144, 102, 0, 0.5) !important;
     background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%) !important;
 }
 
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-second {
+.decks-rank-cell .details-rank-badge.decks-rank-second {
     color: #2f333a !important;
     border-color: rgba(84, 90, 102, 0.45) !important;
     background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%) !important;
 }
 
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-third {
+.decks-rank-cell .details-rank-badge.decks-rank-third {
     color: #fff !important;
     border-color: rgba(97, 52, 21, 0.55) !important;
     background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%) !important;
 }
 
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-fourth {
+.decks-rank-cell .details-rank-badge.decks-rank-fourth {
     color: #fff !important;
     border-color: rgba(18, 82, 72, 0.55) !important;
     background: linear-gradient(150deg, #bfeee6 0%, #3da996 45%, #1b6b5f 100%) !important;
 }
 
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-rank-default,
-body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-average-badge {
+.decks-rank-cell .details-rank-badge.decks-rank-default,
+.decks-rank-cell .details-rank-badge.decks-average-badge {
     color: #132157 !important;
     border-color: rgba(48, 67, 145, 0.52) !important;
     background: linear-gradient(150deg, #eef2ff 0%, #9fb5ff 46%, #5f7fe8 100%) !important;
@@ -10920,7 +11125,7 @@ body[data-theme='dark'] .decks-rank-cell .details-rank-badge.decks-average-badge
 /* ============================================================
    DARK MODE - DECK THUMB WRAPPER COLOR
 ============================================================ */
-body[data-theme='dark'] .deck-thumb-wrapper {
+.deck-thumb-wrapper {
     background: linear-gradient(135deg, #1f2f49 0%, #2b3f62 100%) !important;
     border-color: #2f3f5e !important;
 }
@@ -10945,17 +11150,17 @@ body[data-theme='dark'] .deck-thumb-wrapper {
 /* ============================================================
    DECKS - REMOVE BUTTON MATCH .btn-remove-result (DARK MODE)
 ============================================================ */
-body[data-theme='dark'] .decks-container .btn-danger,
-body[data-theme='dark'] #decksList .deck-actions .btn-danger,
-body[data-theme='dark'] .decks-table-actions .btn-danger {
+.decks-container .btn-danger,
+#decksList .deck-actions .btn-danger,
+.decks-table-actions .btn-danger {
     background: #dc3545 !important;
     color: #fff !important;
     border: none !important;
 }
 
-body[data-theme='dark'] .decks-container .btn-danger:hover,
-body[data-theme='dark'] #decksList .deck-actions .btn-danger:hover,
-body[data-theme='dark'] .decks-table-actions .btn-danger:hover {
+.decks-container .btn-danger:hover,
+#decksList .deck-actions .btn-danger:hover,
+.decks-table-actions .btn-danger:hover {
     background: #c82333 !important;
     color: #fff !important;
     border: none !important;
@@ -10963,67 +11168,52 @@ body[data-theme='dark'] .decks-table-actions .btn-danger:hover {
 /* ============================================================
    DECKS TABLE - DELETE BUTTON EXACT RED IN DARK MODE
 ============================================================ */
-body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon,
-body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon {
+.decks-table-actions .btn-secondary.btn-danger.btn-icon,
+.decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon {
     background: #dc3545 !important;
     color: #fff !important;
     border: none !important;
 }
 
-body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon:hover,
-body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:hover,
-body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon:focus,
-body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:focus,
-body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon:active,
-body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:active {
+.decks-table-actions .btn-secondary.btn-danger.btn-icon:hover,
+.decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:hover,
+.decks-table-actions .btn-secondary.btn-danger.btn-icon:focus,
+.decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:focus,
+.decks-table-actions .btn-secondary.btn-danger.btn-icon:active,
+.decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon:active {
     background: #c82333 !important;
     color: #fff !important;
     border: none !important;
 }
 
-body[data-theme='dark'] .decks-table-actions .btn-secondary.btn-danger.btn-icon svg,
-body[data-theme='dark'] .decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon svg {
+.decks-table-actions .btn-secondary.btn-danger.btn-icon svg,
+.decks-table .decks-actions-col .btn-secondary.btn-danger.btn-icon svg {
     stroke: currentColor !important;
 }
 /* ============================================================
    DARK MODE - HISTORY META + PODIUM/STORE/DATE DARKER TEXT
 ============================================================ */
-body[data-theme='dark'] .player-history-main {
+.player-history-main {
     color: #1f2947 !important;
 }
 
-body[data-theme='dark'] .player-history-main span {
+.player-history-main span {
     color: inherit !important;
 }
 
-body[data-theme='dark'] .details-podium-card .details-deck-name {
-    color: #1f2947 !important;
-}
-
-body[data-theme='dark'] .details-podium-card .details-player-name {
-    color: #2f446d !important;
-}
-
-body[data-theme='dark'] .details-header-meta,
-body[data-theme='dark'] .details-header-meta :is(strong, span, p, small),
-body[data-theme='dark'] .table-store-name,
-body[data-theme='dark'] .table-date-value,
-body[data-theme='dark'] .table-mobile-store-tournament {
-    color: #2a4068 !important;
-}
 /* ============================================================
    DARK MODE - PLAYER HISTORY SPAN BG + RANK TEXT COLOR
 ============================================================ */
-body[data-theme='dark'] .player-history-main span {
+.player-history-main span {
     background: transparent !important;
     color: inherit !important;
 }
 
-body[data-theme='dark'] .results-mini-rank {
-    color: #1f2947 !important;
+.results-mini-rank {
+    color: #c7d3ea !important;
 }
 
-body[data-theme='dark'] :is(
+:is(
     .results-mini-item.third-place .results-mini-rank,
     .results-mini-item.fourth-place .results-mini-rank,
     .player-history-item.third-place .results-mini-rank,
@@ -11048,15 +11238,15 @@ body[data-theme='dark'] :is(
     border: none !important;
 }
 
-body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only {
+.player-actions .btn-action.btn-danger.btn-icon-only {
     background: #dc3545 !important;
     color: #fff !important;
     border: none !important;
 }
 
-body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:hover,
-body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:focus,
-body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:active {
+.player-actions .btn-action.btn-danger.btn-icon-only:hover,
+.player-actions .btn-action.btn-danger.btn-icon-only:focus,
+.player-actions .btn-action.btn-danger.btn-icon-only:active {
     background: #c82333 !important;
     color: #fff !important;
     border: none !important;
@@ -11068,7 +11258,7 @@ body[data-theme='dark'] .player-actions .btn-action.btn-danger.btn-icon-only:act
     color: #17233e !important;
 }
 
-body[data-theme='dark'] .results-mini-rank {
+.results-mini-rank {
     color: #17233e !important;
 }
 /* ============================================================
@@ -11085,17 +11275,17 @@ body[data-theme='dark'] .results-mini-rank {
 .player-history-item.third-place .results-mini-rank,
 .player-history-item.fourth-place .results-mini-rank,
 .player-history-item.other-place .results-mini-rank,
-body[data-theme='dark'] .results-mini-rank,
-body[data-theme='dark'] .results-mini-item.first-place .results-mini-rank,
-body[data-theme='dark'] .results-mini-item.second-place .results-mini-rank,
-body[data-theme='dark'] .results-mini-item.third-place .results-mini-rank,
-body[data-theme='dark'] .results-mini-item.fourth-place .results-mini-rank,
-body[data-theme='dark'] .results-mini-item.other-place .results-mini-rank,
-body[data-theme='dark'] .player-history-item.first-place .results-mini-rank,
-body[data-theme='dark'] .player-history-item.second-place .results-mini-rank,
-body[data-theme='dark'] .player-history-item.third-place .results-mini-rank,
-body[data-theme='dark'] .player-history-item.fourth-place .results-mini-rank,
-body[data-theme='dark'] .player-history-item.other-place .results-mini-rank {
+.results-mini-rank,
+.results-mini-item.first-place .results-mini-rank,
+.results-mini-item.second-place .results-mini-rank,
+.results-mini-item.third-place .results-mini-rank,
+.results-mini-item.fourth-place .results-mini-rank,
+.results-mini-item.other-place .results-mini-rank,
+.player-history-item.first-place .results-mini-rank,
+.player-history-item.second-place .results-mini-rank,
+.player-history-item.third-place .results-mini-rank,
+.player-history-item.fourth-place .results-mini-rank,
+.player-history-item.other-place .results-mini-rank {
     color: #17233e !important;
 }
 /* ============================================================
@@ -11138,66 +11328,66 @@ body[data-theme='dark'] .player-history-item.other-place .results-mini-rank {
     color: #1f3f7c !important;
 }
 
-body[data-theme='dark'] :is(#statisticsViewSelect, #statisticsFilterFormat, #statisticsFilterMonth, #statisticsFilterStaple) {
+:is(#statisticsViewSelect, #statisticsFilterFormat, #statisticsFilterMonth, #statisticsFilterStaple) {
     background: #243552 !important;
     color: #d7e4fa !important;
     border-color: #4d6594 !important;
 }
 
-body[data-theme='dark'] .points-pill.gold {
+.points-pill.gold {
     background: #5b4618 !important;
     border-color: #c49d3c !important;
     color: #ffe9ae !important;
 }
 
-body[data-theme='dark'] .points-pill.silver {
+.points-pill.silver {
     background: #354356 !important;
     border-color: #7e8ea8 !important;
     color: #e5edf8 !important;
 }
 
-body[data-theme='dark'] .points-pill.bronze {
+.points-pill.bronze {
     background: #5a3a2a !important;
     border-color: #bc815f !important;
     color: #ffd9c6 !important;
 }
 
-body[data-theme='dark'] .points-pill.top4 {
+.points-pill.top4 {
     background: #2a3f66 !important;
     border-color: #6d8fca !important;
     color: #d9e7ff !important;
 }
 
-body[data-theme='dark'] .statistics-coverage-note {
+.statistics-coverage-note {
     color: #9bacd4 !important;
 }
 
-body[data-theme='dark'] .statistics-coverage-note .coverage-tip {
+.statistics-coverage-note .coverage-tip {
     color: #6a7d9f !important;
 }
 
-body[data-theme='dark'] .stats-chart-wrap {
+.stats-chart-wrap {
     background: #1e2a3b !important;
     border-color: #2d3f55 !important;
 }
 
-body[data-theme='dark'] .chart-legend-label {
+.chart-legend-label {
     color: #c8d4e8 !important;
 }
 
-body[data-theme='dark'] .chart-legend-pct {
+.chart-legend-pct {
     color: #8fa4c8 !important;
 }
 
-body[data-theme='dark'] .color-bar-label {
+.color-bar-label {
     color: #c8d4e8 !important;
 }
 
-body[data-theme='dark'] .color-bar-track {
+.color-bar-track {
     background: #2d3f55 !important;
 }
 
-body[data-theme='dark'] .color-bar-pct {
+.color-bar-pct {
     color: #8fa4c8 !important;
 }
 
@@ -11205,20 +11395,20 @@ body[data-theme='dark'] .color-bar-pct {
     fill: #fff;
 }
 
-body[data-theme='dark'] .donut-hole {
+.donut-hole {
     fill: #1e2a3b !important;
 }
 /* ============================================================
    DARK MODE - STATISTICS STORE/SEARCH/RANK/PERCENT COLORS
 ============================================================ */
-body[data-theme='dark'] #statisticsFilterStore,
-body[data-theme='dark'] .statistics-player-search {
+#statisticsFilterStore,
+.statistics-player-search {
     background: #243552 !important;
     color: #d7e4fa !important;
     border-color: #4d6594 !important;
 }
 
-body[data-theme='dark'] .stats-pill-rank {
+.stats-pill-rank {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -11237,68 +11427,68 @@ body[data-theme='dark'] .stats-pill-rank {
         inset 0 -2px 4px rgba(0, 0, 0, 0.15) !important;
 }
 
-body[data-theme='dark'] .stats-pill-rank.stats-pill-rank-first {
+.stats-pill-rank.stats-pill-rank-first {
     color: #4a3900 !important;
     border-color: rgba(144, 102, 0, 0.5) !important;
     background: linear-gradient(150deg, #fff8cc 0%, #ffd447 42%, #c68d00 100%) !important;
 }
 
-body[data-theme='dark'] .stats-pill-rank.stats-pill-rank-second {
+.stats-pill-rank.stats-pill-rank-second {
     color: #2f333a !important;
     border-color: rgba(84, 90, 102, 0.45) !important;
     background: linear-gradient(150deg, #f6f8fb 0%, #c6cdd8 45%, #8d99ab 100%) !important;
 }
 
-body[data-theme='dark'] .stats-pill-rank.stats-pill-rank-third {
+.stats-pill-rank.stats-pill-rank-third {
     color: #1f2430 !important;
     border-color: rgba(97, 52, 21, 0.55) !important;
     background: linear-gradient(150deg, #f3ccb0 0%, #c7814d 44%, #86471f 100%) !important;
 }
 
-body[data-theme='dark'] .stats-pill-rank.stats-pill-rank-fourth {
+.stats-pill-rank.stats-pill-rank-fourth {
     color: #1f2430 !important;
     border-color: rgba(18, 82, 72, 0.55) !important;
     background: linear-gradient(150deg, #bfeee6 0%, #3da996 45%, #1b6b5f 100%) !important;
 }
 
-body[data-theme='dark'] .stats-pill-percent {
+.stats-pill-percent {
     background: #304b76 !important;
     color: #e3edff !important;
     border-color: #7696d1 !important;
 }
 
-body[data-theme='dark'] .stats-pill-flag-yes {
+.stats-pill-flag-yes {
     background: #27455d !important;
     color: #e2f6ff !important;
     border-color: #66a2cc !important;
 }
 
-body[data-theme='dark'] .stats-pill-flag-no {
+.stats-pill-flag-no {
     background: #5a3036 !important;
     color: #ffe7eb !important;
     border-color: #d68a96 !important;
 }
 
-body[data-theme='dark'] .stats-staple-toggle {
+.stats-staple-toggle {
     border-color: rgba(120, 145, 201, 0.5) !important;
     box-shadow:
         inset 0 1px 2px rgba(245, 249, 255, 0.16),
         inset 0 -2px 4px rgba(2, 7, 20, 0.45) !important;
 }
 
-body[data-theme='dark'] .stats-staple-toggle-true {
+.stats-staple-toggle-true {
     color: #d8ffe9 !important;
     border-color: rgba(66, 179, 114, 0.75) !important;
     background: linear-gradient(150deg, #224b37 0%, #2e7e57 48%, #3bb374 100%) !important;
 }
 
-body[data-theme='dark'] .stats-staple-toggle-false {
+.stats-staple-toggle-false {
     color: #ffe3e6 !important;
     border-color: rgba(212, 108, 121, 0.75) !important;
     background: linear-gradient(150deg, #5a2730 0%, #8a3d4a 48%, #b35666 100%) !important;
 }
 
-body[data-theme='dark'] .stats-staple-toggle-null {
+.stats-staple-toggle-null {
     border-color: rgba(132, 149, 190, 0.78) !important;
     background:
         radial-gradient(circle at 50% 50%, rgba(31, 47, 78, 0.94) 52%, rgba(70, 90, 132, 0.96) 53%),
@@ -11307,25 +11497,25 @@ body[data-theme='dark'] .stats-staple-toggle-null {
 /* ============================================================
    DARK MODE - INLINE MONTH + STORE PODIUM TEXT COLORS
 ============================================================ */
-body[data-theme='dark'] .statistics-inline-month-select {
+.statistics-inline-month-select {
     background: #243552 !important;
     color: #d7e4fa !important;
     border-color: #4d6594 !important;
 }
 
-body[data-theme='dark'] .store-podium-rank {
+.store-podium-rank {
     color: #1c2a47 !important;
 }
 
-body[data-theme='dark'] .store-podium-main,
-body[data-theme='dark'] .store-podium-main strong,
-body[data-theme='dark'] .store-podium-main small {
+.store-podium-main,
+.store-podium-main strong,
+.store-podium-main small {
     color: #d7e4fa !important;
 }
 /* ============================================================
    DARK MODE - STATISTICS HIGHLIGHT VALUE LIGHTER
 ============================================================ */
-body[data-theme='dark'] .statistics-highlight-value {
+.statistics-highlight-value {
     color: #e8f0ff !important;
 }
 /* ============================================================
@@ -11337,84 +11527,36 @@ body[data-theme='dark'] .statistics-highlight-value {
     color: #2a4068 !important;
 }
 
-body[data-theme='dark'] .table-store-name,
-body[data-theme='dark'] .table-date-value,
-body[data-theme='dark'] .table-data-value {
+.table-store-name,
+.table-date-value,
+.table-data-value {
     color: #d7e4fa !important;
 }
 
 @media (max-width: 768px) {
-    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row),
-    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row):nth-child(even),
-    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row):hover,
-    body[data-theme='dark'] #tournamentsTable > tbody > tr.clickable-row.is-active {
+    #tournamentsTable > tbody > tr:not(.details-row),
+    #tournamentsTable > tbody > tr:not(.details-row):nth-child(even),
+    #tournamentsTable > tbody > tr:not(.details-row):hover,
+    #tournamentsTable > tbody > tr.clickable-row.is-active {
         background: #162033 !important;
         border-color: #44577d !important;
     }
 
-    body[data-theme='dark'] #tournamentsTable > tbody > tr:not(.details-row) > td {
+    #tournamentsTable > tbody > tr:not(.details-row) > td {
         background: transparent !important;
     }
 
-    body[data-theme='dark'] #tournamentsTable td:nth-child(2) .table-store-content {
+    #tournamentsTable td:nth-child(2) .table-store-content {
         background: #1b2740 !important;
         border-color: #44577d !important;
     }
 
-    body[data-theme='dark'] #tournamentsTable td:nth-child(3) .table-mobile-store-tournament {
+    #tournamentsTable td:nth-child(3) .table-mobile-store-tournament {
         color: #9fb4df !important;
     }
 }
 
-body:not([data-theme='dark']) .container {
-    background: linear-gradient(180deg, #f8f4ff 0%, #eef2ff 100%) !important;
-    border: 1px solid #cfd4ff;
-}
-
-body:not([data-theme='dark']) .filters-row {
-    background: linear-gradient(135deg, rgba(117, 75, 162, 0.08) 0%, rgba(102, 126, 234, 0.08) 100%);
-    border: 1px solid #d4cbff;
-    border-radius: 12px;
-    padding: 10px;
-}
-
-body:not([data-theme='dark']) .filter-group .filter-select,
-body:not([data-theme='dark']) .form-group.per-page-filter select {
-    background-color: #f7f3ff;
-    border-color: #c8ccff;
-    color: #2f3564;
-}
-
-body:not([data-theme='dark']) .filter-group .filter-select:focus,
-body:not([data-theme='dark']) .form-group.per-page-filter select:focus {
-    border-color: #8ea0f0;
-    box-shadow: 0 0 0 3px rgba(126, 105, 202, 0.16);
-}
-
-body:not([data-theme='dark']) #tournamentsTable tr {
-    background: linear-gradient(135deg, #f8f4ff 0%, #edf2ff 100%);
-    border-color: #cfd5ff;
-    box-shadow: 0 4px 12px rgba(88, 73, 160, 0.12);
-}
-
-body:not([data-theme='dark']) #tournamentsTable td:nth-child(2) .table-store-content {
-    background: linear-gradient(180deg, #f3efff 0%, #e8eeff 100%);
-    border-color: #c5cbff;
-}
-
-body:not([data-theme='dark']) #tournamentsTable td:nth-child(1) .table-date-value {
-    color: #2d3674;
-}
-
-body:not([data-theme='dark']) #tournamentsTable td:nth-child(3) .table-mobile-store-tournament {
-    color: #4a56a1;
-}
-
-body:not([data-theme='dark']) #tournamentsTable td:nth-child(4) .table-mobile-players-line {
-    color: #3b4688;
-}
-
-body[data-theme='dark'] .filter-group .filter-select {
+.filter-group .filter-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239db9e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h18'/%3E%3Cpath d='M6 4v2l5 6v6l2-1v-5l5-6V4'/%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
     background-position: 12px center !important;
@@ -11426,94 +11568,17 @@ body[data-theme='dark'] .filter-group .filter-select {
 ============================================================ */
 .details-header-meta,
 .details-header-meta :is(strong, span, p, small) {
-    color: #2a4068 !important;
-}
-
-.details-player-name {
-    color: #4a5d86 !important;
-}
-
-.details-deck-name {
-    color: #1f2947 !important;
-}
-
-body[data-theme='dark'] .details-header-meta,
-body[data-theme='dark'] .details-header-meta :is(strong, span, p, small) {
     color: #d7e4fa !important;
 }
 
-body[data-theme='dark'] .details-player-name {
+.details-player-name {
     color: #c7d6ef !important;
 }
 
-body[data-theme='dark'] .details-deck-name {
+.details-deck-name {
     color: #eef3ff !important;
 }
-/* ============================================================
-   LIGHT THEME - LILAC CONSISTENCY (TABLE + DECKS)
-============================================================ */
-@media (min-width: 769px) {
-    body:not([data-theme='dark']) #tournamentsTable td:nth-child(2) .table-store-content {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-}
 
-body:not([data-theme='dark']) .statistics-table-wrapper {
-    background: linear-gradient(180deg, #f8f4ff 0%, #eef2ff 100%) !important;
-}
-
-body:not([data-theme='dark']) :is(
-    .deck-format-select,
-    .deck-month-select,
-    .search-box .search-input,
-    .search-box .page-size-select,
-    .page-size-select,
-    .btn-view-toggle,
-    .pagination button
-) {
-    background: #f7f3ff !important;
-    border-color: #c8ccff !important;
-    color: #2f3564 !important;
-}
-
-body:not([data-theme='dark']) .search-box {
-    background: transparent !important;
-}
-
-body:not([data-theme='dark']) .decks-table-wrapper {
-    background: linear-gradient(180deg, #f8f4ff 0%, #eef2ff 100%) !important;
-    border-color: #cfd4ff !important;
-}
-
-body:not([data-theme='dark']) .decks-table {
-    background: transparent !important;
-}
-
-body:not([data-theme='dark']) .decks-table th {
-    background: linear-gradient(180deg, #f2ecff 0%, #e7ecff 100%) !important;
-    border-color: #d2d8ff !important;
-    color: #33458a !important;
-}
-
-body:not([data-theme='dark']) .decks-table td {
-    background: rgba(248, 244, 255, 0.72) !important;
-    border-color: #e1e6ff !important;
-}
-
-body:not([data-theme='dark']) .decks-table tbody tr:nth-child(even) td {
-    background: rgba(239, 243, 255, 0.78) !important;
-}
-
-body:not([data-theme='dark']) .decks-table tbody tr:hover td {
-    background: rgba(231, 237, 255, 0.95) !important;
-}
-
-body:not([data-theme='dark']) .decks-col-thumb-wrapper {
-    background: #f3efff !important;
-    border-color: #c8ccff !important;
-}
 /* ============================================================
    HOME DASHBOARD - INTEGRATED LEFT SIDEBAR (DESKTOP)
 ============================================================ */
@@ -11607,26 +11672,26 @@ body:not([data-theme='dark']) .decks-col-thumb-wrapper {
         box-shadow: 0 0 0 2px rgba(115, 130, 214, 0.2);
     }
 
-    body.dashboard-home[data-theme='dark'] .dashboard-home-header {
+    body.dashboard-home .dashboard-home-header {
         border-color: #34486f;
         background: linear-gradient(180deg, rgba(23, 34, 55, 0.78) 0%, rgba(19, 29, 46, 0.7) 100%);
     }
 
-    body.dashboard-home[data-theme='dark'] .dashboard-home-header .subtitle {
+    body.dashboard-home .dashboard-home-header .subtitle {
         color: #d8e3fb !important;
     }
 
-    body.dashboard-home[data-theme='dark'] .dashboard-home-header .nav-button {
+    body.dashboard-home .dashboard-home-header .nav-button {
         color: #d8e4ff !important;
         background: linear-gradient(135deg, rgba(58, 84, 135, 0.32) 0%, rgba(77, 60, 133, 0.32) 100%);
         border-color: rgba(96, 123, 175, 0.55);
     }
 
-    body.dashboard-home[data-theme='dark'] .dashboard-home-header .nav-button:hover {
+    body.dashboard-home .dashboard-home-header .nav-button:hover {
         background: linear-gradient(135deg, rgba(71, 100, 157, 0.42) 0%, rgba(91, 72, 151, 0.42) 100%);
     }
 
-    body.dashboard-home[data-theme='dark'] .dashboard-home-header .nav-button.is-active {
+    body.dashboard-home .dashboard-home-header .nav-button.is-active {
         background: linear-gradient(135deg, #5770d6 0%, #6d4ab4 100%);
         border-color: rgba(124, 146, 227, 0.75);
         color: #f1f6ff !important;
@@ -11677,7 +11742,7 @@ body:not([data-theme='dark']) .decks-col-thumb-wrapper {
     accent-color: #667eea;
 }
 
-body[data-theme='dark'] .decks-has-decklists-filter {
+.decks-has-decklists-filter {
     color: #a8bcf0;
 }
 
@@ -11749,6 +11814,93 @@ body[data-theme='dark'] .decks-has-decklists-filter {
     opacity: 0.6;
     margin: 0;
 }
+
+.admin-repair-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.admin-repair-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    flex-wrap: wrap;
+}
+
+.admin-repair-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.admin-repair-actions .btn-primary,
+.admin-repair-actions .btn-secondary {
+    padding: 8px 20px;
+    font-size: 0.875rem;
+    height: 36px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+.admin-repair-progress {
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-repair-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.83rem;
+    font-weight: 500;
+}
+
+.admin-repair-progress-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--color-border, #e0e0e0);
+    overflow: hidden;
+}
+
+.admin-repair-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--color-primary, #667eea);
+    transition: width 0.25s ease;
+}
+
+.admin-repair-progress-detail {
+    font-size: 0.78rem;
+    opacity: 0.6;
+}
+
+.admin-repair-log {
+    max-height: 260px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    padding: 12px 14px;
+    font-size: 0.82rem;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.admin-repair-log-info  { opacity: 0.75; }
+.admin-repair-log-success { color: #26de81; }
+.admin-repair-log-warn  { color: #ffd32a; }
+.admin-repair-log-error { color: #fc5c65; }
 
 .admin-table-wrapper {
     overflow-x: auto;
@@ -11899,6 +12051,20 @@ body[data-theme='dark'] .decks-has-decklists-filter {
     min-width: 0;
 }
 
+.admin-bg-fallback-label {
+    font-size: 0.8rem;
+    color: #a0b4cc;
+    padding: 6px 8px;
+    background: #1a2336;
+    border-radius: 6px;
+    border: 1px solid #3f4b68;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .admin-bg-clear-btn {
     background: rgba(231, 76, 60, 0.12);
     border: 1px solid rgba(231, 76, 60, 0.3);
@@ -11970,42 +12136,107 @@ body[data-theme='dark'] .decks-has-decklists-filter {
 }
 
 /* Dark theme overrides */
-body[data-theme='dark'] .admin-table th {
+.admin-table th {
     background: rgba(255,255,255,0.04);
     border-color: #2a3a5a;
 }
-body[data-theme='dark'] .admin-table td {
+.admin-table td {
     border-color: #2a3a5a;
 }
-body[data-theme='dark'] .admin-table-wrapper {
+.admin-table-wrapper {
     border-color: #2a3a5a;
 }
-body[data-theme='dark'] .admin-badge--default { background: #667eea33; color: #a0b4f8; }
-body[data-theme='dark'] .admin-badge--active  { background: #2ecc7133; color: #5dde9a; }
-body[data-theme='dark'] .admin-badge--banned  { background: #e74c3c33; color: #f08080; }
-body[data-theme='dark'] .admin-badge--limited { background: #f39c1233; color: #f5c060; }
-body[data-theme='dark'] .admin-badge--choice  { background: #9b59b633; color: #c09be0; }
-body[data-theme='dark'] .admin-tab-btn {
+.admin-badge--default { background: #667eea33; color: #a0b4f8; }
+.admin-badge--active  { background: #2ecc7133; color: #5dde9a; }
+.admin-badge--banned  { background: #e74c3c33; color: #f08080; }
+.admin-badge--limited { background: #f39c1233; color: #f5c060; }
+.admin-badge--choice  { background: #9b59b633; color: #c09be0; }
+.admin-tab-btn {
     border-color: #2a3a5a;
 }
-body[data-theme='dark'] .admin-btn-danger {
+.admin-btn-danger {
     background: rgba(231, 76, 60, 0.15) !important;
     color: #f08080 !important;
+}
+
+/* Admin format/ban modal — dark theme */
+#adminFormatModal .modal-content,
+#adminBanModal .modal-content {
+    color: #c7d3ea;
+}
+
+#adminFormatModal .form-group label,
+#adminBanModal .form-group label,
+#adminFormatModal label,
+#adminBanModal label {
+    color: #c7d3ea;
+}
+
+#adminFormatModal .btn-secondary,
+#adminFormatModal .admin-upload-label {
+    background: #1e2d45;
+    color: #c7d3ea;
+    border: 1px solid #3f4b68;
+}
+
+#adminFormatModal .btn-secondary:hover,
+#adminFormatModal .admin-upload-label:hover {
+    background: #243554;
+}
+
+#adminFormatModal .admin-bucket-browser {
+    border-color: #3f4b68;
+    background: #151e2e;
+}
+
+#adminFormatModal input[type="checkbox"],
+#adminBanModal input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #3f4b68;
+    border-radius: 4px;
+    background: #1a2336;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+#adminFormatModal input[type="checkbox"]:checked,
+#adminBanModal input[type="checkbox"]:checked {
+    background: #667eea;
+    border-color: #667eea;
+}
+
+#adminFormatModal input[type="checkbox"]:checked::after,
+#adminBanModal input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0;
+    width: 8px;
+    height: 11px;
+    border: 2px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
 }
 
 /* ============================================================
    DARK MODE - TOURNAMENT DETAILS SECTION
 ============================================================ */
-body[data-theme='dark'] .tournament-details-section {
+.tournament-details-section {
     background: #162133 !important;
     border-color: #2e4668 !important;
 }
 
-body[data-theme='dark'] .tournament-details-header {
+.tournament-details-header {
     color: #b8cde8 !important;
 }
 
-body[data-theme='dark'] .details-title-icon {
+.details-title-icon {
     color: #7a9fd4 !important;
 }
 
@@ -12013,7 +12244,7 @@ body[data-theme='dark'] .details-title-icon {
    DARK MODE - MONTH FILTER NOTE
    (for v_deck_color_stats view month label display)
 ============================================================ */
-body[data-theme='dark'] .statistics-inline-month-select:focus {
+.statistics-inline-month-select:focus {
     border-color: #6a8cbf !important;
     box-shadow: 0 0 0 3px rgba(103, 140, 200, 0.18) !important;
 }
@@ -12051,7 +12282,7 @@ body[data-theme='dark'] .statistics-inline-month-select:focus {
     pointer-events: none;
 }
 
-body[data-theme='dark'] .sparkline-empty {
+.sparkline-empty {
     color: #4a5f80 !important;
 }
 
@@ -12059,28 +12290,254 @@ body[data-theme='dark'] .sparkline-empty {
    DARK MODE - DECKS & PLAYERS PAGINATION
    (.pagination wrapper used by decks/page.js and players/script.js)
 ============================================================ */
-body[data-theme='dark'] .pagination .btn-pagination,
-body[data-theme='dark'] .pagination .btn-pagination-number {
+.pagination .btn-pagination,
+.pagination .btn-pagination-number {
     background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%) !important;
     border-color: #5e7db4 !important;
     color: #e8f0ff !important;
 }
 
-body[data-theme='dark'] .pagination .btn-pagination:hover:not(:disabled),
-body[data-theme='dark'] .pagination .btn-pagination-number:hover:not(:disabled) {
+.pagination .btn-pagination:hover:not(:disabled),
+.pagination .btn-pagination-number:hover:not(:disabled) {
     background: linear-gradient(135deg, #3a5580 0%, #4e70a8 100%) !important;
     box-shadow: 0 4px 10px rgba(83, 99, 180, 0.28) !important;
 }
 
-body[data-theme='dark'] .pagination .btn-pagination-number.active,
-body[data-theme='dark'] .pagination .btn-pagination-number:disabled {
+.pagination .btn-pagination-number.active,
+.pagination .btn-pagination-number:disabled {
     background: #263754 !important;
     border-color: #4f6797 !important;
     color: #c8d9f8 !important;
     box-shadow: none !important;
 }
 
-body[data-theme='dark'] .pagination .btn-pagination:disabled {
+.pagination .btn-pagination:disabled {
     opacity: 0.4 !important;
     background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%) !important;
+}
+
+/* ============================================================
+   MOBILE UX FIXES — DASHBOARD HOME (all sections)
+   Adicionado para corrigir: filtros 50/50, espaçamento entre
+   seções, decks/players/stats/admin layout no mobile.
+============================================================ */
+@media (max-width: 768px) {
+    /* --- Header: padding horizontal zero --- */
+    body.dashboard-home .dashboard-home-header {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* --- Filters-row: flexbox (elimina espaço vazio do grid) --- */
+    /* :not(.is-hidden) evita override do display:none que o JS aplica ao trocar de seção */
+    .filters-row:not(.is-hidden) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px 6px !important;
+    }
+
+    /* Create button: ocupa espaço à esquerda na linha 1 */
+    .filters-row > :nth-child(1) {
+        flex: 1 1 auto !important;
+        width: auto !important;
+        height: 52px !important;
+        order: 1 !important;
+        grid-area: auto !important;
+    }
+
+    /* Filter-actions (≡ e ▽): linha 1 à direita, mesmo tamanho do Add */
+    .filters-row > :nth-child(7) {
+        flex: 0 0 auto !important;
+        order: 2 !important;
+        display: flex !important;
+        gap: 6px !important;
+        align-items: stretch !important;
+        grid-area: auto !important;
+    }
+
+    #btnToggleView,
+    #btnClearFilters {
+        flex: 0 0 52px !important;
+        width: 52px !important;
+        height: 52px !important;
+        grid-area: auto !important;
+        justify-self: auto !important;
+    }
+
+    /* Filtros: 50/50 perfeito nas linhas abaixo */
+    .filters-row > .filter-group:not(.per-page-filter) {
+        flex: 1 1 calc(50% - 3px) !important;
+        max-width: calc(50% - 3px) !important;
+        min-width: 0 !important;
+        order: 3 !important;
+        grid-area: auto !important;
+    }
+
+    /* Per-page oculto no mobile */
+    .filters-row > .per-page-filter {
+        display: none !important;
+    }
+
+    /* Label dos filtros: truncar em vez de quebrar linha */
+    .filters-row .filter-group > label {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* --- Espaçamento entre header e conteúdo das seções --- */
+    .filters-row:not(.is-hidden),
+    .decks-container,
+    .decks-container-embedded,
+    .players-container-embedded,
+    .statistics-container-embedded,
+    .admin-container {
+        margin-top: 14px !important;
+    }
+
+    /* --- Decks: Total + Add na mesma linha --- */
+    .decks-container .page-header,
+    .decks-container-embedded .page-header {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+        padding-bottom: 12px !important;
+    }
+
+    .decks-container .header-actions,
+    .decks-container-embedded .header-actions {
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: auto !important;
+        flex-shrink: 0 !important;
+    }
+
+    .decks-total {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+
+    /* --- Players: respiro entre itens --- */
+    .player-item {
+        padding: 14px 12px !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* --- Admin: botões da tabela não transbordam --- */
+    .admin-actions-cell {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+    }
+
+    .admin-actions-cell .btn-secondary,
+    .admin-actions-cell .btn-cancel {
+        font-size: 0.76rem !important;
+        padding: 4px 8px !important;
+        white-space: nowrap !important;
+        width: auto !important;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 8px 8px !important;
+        font-size: 0.8rem !important;
+    }
+
+    /* --- Decks search-row: search ocupa linha inteira, month+size abaixo --- */
+    .search-row {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    .search-box {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px 6px !important;
+        width: 100% !important;
+        align-items: center !important;
+    }
+
+    .search-box .search-input {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+    }
+
+    .search-box .deck-month-select {
+        flex: 1 1 calc(50% - 3px) !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+
+    .search-box .page-size-select {
+        flex: 0 0 60px !important;
+        width: 60px !important;
+        min-width: 0 !important;
+    }
+
+    /* --- Players: input "Enter player name" em linha separada --- */
+    .players-header .header-actions {
+        flex-wrap: wrap !important;
+    }
+
+    .players-header .players-name-input {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        order: 10 !important;
+    }
+}
+
+/* 414px: ícones de filtro acompanham altura do botão Add */
+@media (max-width: 414px) {
+    .filters-row > :nth-child(1) {
+        height: 44px !important;
+    }
+
+    #btnToggleView,
+    #btnClearFilters {
+        flex: 0 0 44px !important;
+        width: 44px !important;
+        height: 44px !important;
+    }
+}
+
+/* ============================================================
+   DECK COLOR CHIP — bolinha preta com contorno visível
+============================================================ */
+.deck-color-chip.is-b {
+    box-shadow: 0 0 0 1.5px rgba(180, 190, 210, 0.7) !important;
+}
+
+/* ============================================================
+   MOBILE — DECKS: nome truncado, sem código, cores organizadas
+============================================================ */
+@media (max-width: 768px) {
+    /* Oculta o código da carta (ex: "BT24-017") */
+    .deck-code {
+        display: none !important;
+    }
+
+    /* Garante que o botão de nome não quebre a largura do container */
+    .deck-name-toggle {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Linha com nome: não quebra, trunca com ellipsis */
+    .deck-name-line {
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .deck-name-line .deck-name {
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+        min-width: 0 !important;
+    }
 }

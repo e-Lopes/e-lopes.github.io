@@ -564,6 +564,7 @@
                         <div class="admin-tabs">
                             <button type="button" class="admin-tab-btn is-active" data-admin-tab="formats">Formats / Meta</button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="banlist">Ban List</button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">Data Repair</button>
                         </div>
                     </div>
 
@@ -619,6 +620,39 @@
                                 </thead>
                                 <tbody id="adminBanListBody"></tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Data Repair panel -->
+                    <div data-admin-panel="datarepair" class="admin-panel is-hidden">
+                        <div class="admin-panel-header">
+                            <div>
+                                <h2 class="admin-panel-title">Data Repair</h2>
+                                <p class="admin-panel-desc">Re-hydrate missing card metadata (name, card_level, card_type) for legacy entries in <code>decklist_card_metadata</code>.</p>
+                            </div>
+                        </div>
+                        <div class="admin-repair-section">
+                            <div class="admin-repair-row">
+                                <div>
+                                    <strong>Card Metadata Repair</strong>
+                                    <p class="admin-panel-desc" id="adminRepairMissingCount">Click "Check" to scan for incomplete records.</p>
+                                </div>
+                                <div class="admin-repair-actions">
+                                    <button type="button" class="btn-secondary" data-admin-action="repair-check">Check</button>
+                                    <button type="button" class="btn-primary" id="adminRepairRunBtn" data-admin-action="repair-run" disabled>Repair</button>
+                                </div>
+                            </div>
+                            <div id="adminRepairProgress" class="admin-repair-progress is-hidden">
+                                <div class="admin-repair-progress-header">
+                                    <span id="adminRepairProgressLabel">Aguardando…</span>
+                                    <span id="adminRepairProgressPct">0%</span>
+                                </div>
+                                <div class="admin-repair-progress-track">
+                                    <div id="adminRepairProgressBar" class="admin-repair-progress-bar" style="width:0%"></div>
+                                </div>
+                                <div id="adminRepairProgressDetail" class="admin-repair-progress-detail"></div>
+                            </div>
+                            <div id="adminRepairLog" class="admin-repair-log is-hidden"></div>
                         </div>
                     </div>
 

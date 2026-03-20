@@ -381,7 +381,7 @@
                             card_code: code,
                             id: row?.id || code,
                             name: row?.name || code,
-                            pack: row?.pack || '',
+                            pack: row?.pack || code.split('-')[0] || '',
                             color: row?.color || '',
                             type: row?.type || '',
                             level: Number.isFinite(level) ? level : (row?.level ?? ''),
@@ -1016,7 +1016,7 @@
                 usedCodes.add(code);
                 const mapped = {
                     card_code: code, id: row?.id || code, name: row?.name || code,
-                    pack: row?.pack || '', color: row?.color || '', type: row?.type || '',
+                    pack: row?.pack || code.split('-')[0] || '', color: row?.color || '', type: row?.type || '',
                     level: row?.level ?? '', play_cost: row?.play_cost ?? null,
                     rarity: row?.rarity || '', card_payload: row || {},
                 };
@@ -1534,7 +1534,7 @@
                 cardDetailsByCode.set(code, {
                     ...(cardDetailsByCode.get(code) || {}),
                     card_code: code, id: code, name: row?.name || code,
-                    pack: row?.pack || '', color: row?.color || '',
+                    pack: row?.pack || code.split('-')[0] || '', color: row?.color || '',
                     type: meta?.card_type || '', level: normalizeCardLevel(meta?.card_level),
                     card_payload: row?.card_payload || {},
                     is_digi_egg: normalizeBoolean(meta?.is_digi_egg),
@@ -1898,7 +1898,7 @@
             usedCodes.add(code);
             result.push({
                 card_code: code, id: row?.id || code, name: row?.name || code,
-                pack: row?.pack || '', color: row?.color || '', type: row?.type || '',
+                pack: row?.pack || code.split('-')[0] || '', color: row?.color || '', type: row?.type || '',
                 card_payload: row || {},
             });
         };

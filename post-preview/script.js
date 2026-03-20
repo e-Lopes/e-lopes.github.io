@@ -664,12 +664,7 @@ function saveCustomBackgrounds(list) {
 function initializeBackgroundSelector(selectedValue) {
     const custom = getCustomBackgrounds();
     const options = [...DEFAULT_BACKGROUND_OPTIONS, ...custom];
-    if (
-        selectedValue &&
-        !options.some((opt) => String(opt.value || '') === String(selectedValue))
-    ) {
-        options.push({ label: 'Format Background', value: selectedValue });
-    }
+
     const selects = ['postBackgroundSelect', 'templateBackgroundSelect']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
@@ -869,8 +864,11 @@ async function loadFormatBackgroundMap() {
             let defaultUrl = '';
             rows.forEach((row) => {
                 if (!row?.code || row?.is_active === false) return;
-                const backgroundUrl = String(row.background_url || '').trim();
-                const backgroundPath = String(row.background_path || '').trim();
+                // Normalize: strip legacy /formats/ sub-folder from both url and path
+                const backgroundUrl = String(row.background_url || '')
+                    .trim()
+                    .replace(/(\/storage\/v1\/object\/public\/[^/]+\/)formats\//, '$1');
+                const backgroundPath = String(row.background_path || '').trim().replace(/^formats\//, '');
                 const resolvedUrl =
                     backgroundUrl || buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, backgroundPath);
                 if (!resolvedUrl) return;
@@ -894,8 +892,19 @@ async function loadFormatBackgroundMap() {
 
 async function syncBackgroundWithTournamentFormat(data) {
     const formatCode = normalizeFormatCode(data?.format);
-    const formatBackgroundState = await loadFormatBackgroundMap();
-    const backgroundUrl = resolveFormatBackgroundUrl(formatCode, formatBackgroundState);
+    if (!formatCode) return;
+
+    // Fast path: match format code against known default options by label
+    const defaultMatch = DEFAULT_BACKGROUND_OPTIONS.find(
+        (opt) => opt.value && normalizeFormatCode(opt.label) === formatCode
+    );
+    let backgroundUrl = defaultMatch?.value || '';
+
+    // Fallback: query DB for format background
+    if (!backgroundUrl) {
+        const formatBackgroundState = await loadFormatBackgroundMap();
+        backgroundUrl = resolveFormatBackgroundUrl(formatCode, formatBackgroundState);
+    }
     if (!backgroundUrl) return;
 
     selectedBackgroundPath = backgroundUrl;
@@ -1610,7 +1619,8 @@ function bootTemplateEditorPageIfNeeded() {
             return;
         }
         const state = JSON.parse(raw);
-        if (state?.selectedBackgroundPath) {
+        const hasSavedBg = Boolean(state?.selectedBackgroundPath);
+        if (hasSavedBg) {
             selectedBackgroundPath = state.selectedBackgroundPath;
             initializeBackgroundSelector(selectedBackgroundPath);
         }
@@ -1621,12 +1631,15 @@ function bootTemplateEditorPageIfNeeded() {
         }
         if (state?.tournamentDataForCanvas) {
             setTournamentDataForCanvas(state.tournamentDataForCanvas);
-            openPostPreview().then(() => {
+            openPostPreview().then(async () => {
                 setPostTemplateEditorActive(true);
                 syncTemplateObjectSelect();
                 renderTemplateEditorOverlay();
                 const closeBottom = document.getElementById('btnPostModalCloseBottom');
                 if (closeBottom) closeBottom.textContent = 'Close Editor';
+                if (!hasSavedBg) {
+                    await syncBackgroundWithTournamentFormat(state.tournamentDataForCanvas);
+                }
             });
         } else {
             alert('No tournament loaded for template editor.');
@@ -1650,7 +1663,8 @@ function bootPostPreviewPageIfNeeded() {
             window.location.href = './index.html';
             return;
         }
-        if (state?.selectedBackgroundPath) {
+        const hasSavedBg = Boolean(state?.selectedBackgroundPath);
+        if (hasSavedBg) {
             selectedBackgroundPath = state.selectedBackgroundPath;
             initializeBackgroundSelector(selectedBackgroundPath);
         }
@@ -1661,10 +1675,13 @@ function bootPostPreviewPageIfNeeded() {
         }
         if (state?.tournamentDataForCanvas) {
             setTournamentDataForCanvas(state.tournamentDataForCanvas);
-            openPostPreview().then(() => {
+            openPostPreview().then(async () => {
                 setPostTemplateEditorActive(false);
                 const closeBottom = document.getElementById('btnPostModalCloseBottom');
                 if (closeBottom) closeBottom.textContent = 'Close Preview';
+                if (!hasSavedBg) {
+                    await syncBackgroundWithTournamentFormat(state.tournamentDataForCanvas);
+                }
             });
         } else {
             alert('No tournament loaded for preview.');
@@ -2221,17 +2238,32 @@ function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke, strokeWidth) {
 
 function loadImage(src) {
     return new Promise((resolve) => {
-        const image = new Image();
         const resolvedSrc = new URL(src, window.location.href).href;
-        const isHttpContext =
-            window.location.protocol === 'http:' || window.location.protocol === 'https:';
         const isHttpAsset = resolvedSrc.startsWith('http://') || resolvedSrc.startsWith('https://');
-        if (isHttpContext && isHttpAsset) {
-            image.crossOrigin = 'anonymous';
+
+        if (!isHttpAsset) {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = resolvedSrc;
+            return;
         }
-        image.onload = () => resolve(image);
-        image.onerror = () => resolve(null);
-        image.src = resolvedSrc;
+
+        // Fetch as blob to bypass CORS cache-poisoning issues.
+        // Public Supabase storage responds with Access-Control-Allow-Origin: *
+        // so fetch() succeeds; the resulting blob URL is same-origin → no canvas taint.
+        fetch(resolvedSrc)
+            .then((res) => (res.ok ? res.blob() : null))
+            .then((blob) => {
+                if (!blob) { resolve(null); return; }
+                const blobUrl = URL.createObjectURL(blob);
+                const image = new Image();
+                image._originalSrc = resolvedSrc;
+                image.onload = () => { URL.revokeObjectURL(blobUrl); resolve(image); };
+                image.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
+                image.src = blobUrl;
+            })
+            .catch(() => resolve(null));
     });
 }
 
@@ -2351,7 +2383,7 @@ function drawImageCoverInCircle(ctx, image, centerX, centerY, radius) {
     const size = radius * 2;
     // Match .card-image-wrapper feel: cover + extra zoom, anchored near top.
     const coverScale = Math.max(size / image.width, size / image.height);
-    const isWebp = /\.webp(?:$|\?)/i.test(String(image.currentSrc || image.src || ''));
+    const isWebp = /\.webp(?:$|\?)/i.test(String(image._originalSrc || image.currentSrc || image.src || ''));
     const scale = coverScale * (isWebp ? 1.95 : 1.95);
     const drawWidth = image.width * scale;
     const drawHeight = image.height * scale;

@@ -2236,7 +2236,7 @@ async function fetchCardsFromDigimonApi(codes) {
             card_code: code,
             id: row?.id || code,
             name: row?.name || code,
-            pack: row?.pack || '',
+            pack: row?.pack || code.split('-')[0] || '',
             color: row?.color || '',
             type: row?.type || '',
             card_payload: row || {}
