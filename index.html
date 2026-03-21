@@ -99,7 +99,7 @@
                     >
                         <path d="M12 5v14M5 12h14" />
                     </svg>
-                    Add
+                    Add Tournament
                 </button>
                 <div class="form-group filter-group">
                     <label for="filterStore">Store</label>
@@ -297,45 +297,56 @@
 
             <template id="decksContainerTemplate">
                 <div class="decks-container">
-                    <div class="page-header">
-                        <h1 class="page-title">Manage Decks</h1>
-                        <div class="header-actions">
-                            <div class="decks-total" id="decksTotalCount">Total: 0</div>
-                            <button id="btnOpenCreateDeckModal" class="btn-primary" type="button">
-                                <svg
-                                    class="btn-create-icon"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M12 5v14M5 12h14" />
-                                </svg>
-                                Add
-                            </button>
-                        </div>
+                    <!-- Row 1: add -->
+                    <div class="decks-row decks-row-add">
+                        <button id="btnOpenCreateDeckModal" class="btn-primary" type="button">
+                            <svg
+                                class="btn-create-icon"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                aria-hidden="true"
+                            >
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Add Deck
+                        </button>
                     </div>
 
-                    <div class="search-row">
-                        <div class="search-box">
-                            <input
-                                type="text"
-                                id="searchInput"
-                                class="search-input"
-                                placeholder="Search decks by name..."
-                            />
-                            <select
-                                id="deckRankMonthSelect"
-                                class="deck-month-select"
-                                title="Month filter"
-                                aria-label="Month filter"
-                            >
-                                <option value="">Latest month</option>
-                            </select>
+                    <!-- Row 2: search + month + view toggle -->
+                    <div class="decks-row decks-row-search">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="search-input decks-search-input"
+                            placeholder="Search decks by name..."
+                        />
+                        <select
+                            id="deckRankMonthSelect"
+                            class="deck-month-select decks-month-select"
+                            title="Month filter"
+                            aria-label="Month filter"
+                        >
+                            <option value="">Latest month</option>
+                        </select>
+                        <button
+                            type="button"
+                            id="viewToggleBtn"
+                            class="btn-view-toggle"
+                            title="Change view"
+                            aria-label="Change view"
+                        ></button>
+                    </div>
+
+                    <!-- Row 3: total + per page -->
+                    <div class="decks-row decks-row-meta">
+                        <span class="decks-total" id="decksTotalCount">Total: 0</span>
+                        <label class="decks-per-page-label">
+                            Per page
                             <select
                                 id="pageSizeSelect"
-                                class="page-size-select"
+                                class="page-size-select decks-page-size"
                                 title="Items per page"
                                 aria-label="Items per page"
                             >
@@ -346,15 +357,7 @@
                                 <option value="40">40</option>
                                 <option value="80">80</option>
                             </select>
-                        </div>
-
-                        <button
-                            type="button"
-                            id="viewToggleBtn"
-                            class="btn-view-toggle"
-                            title="Change view"
-                            aria-label="Change view"
-                        ></button>
+                        </label>
                     </div>
 
                     <div id="decksList" class="decks-grid">
@@ -391,45 +394,45 @@
 
             <template id="playersContainerTemplate">
                 <div class="players-container-embedded">
-                    <div class="page-header players-header">
-                        <div class="header-actions">
-                            <div class="stats-counter">Total: <span id="totalPlayersCount">0</span></div>
-                            <button type="button" id="submitBtn" class="btn-primary players-add-btn">
-                                <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                    <path d="M12 5v14M5 12h14"></path>
-                                </svg>
-                                <span>Add</span>
-                            </button>
-                            <input
-                                type="text"
-                                id="playerName"
-                                class="players-name-input"
-                                placeholder="Enter player name..."
-                                autocomplete="off"
-                            />
-                        </div>
+                    <!-- Row 1: cadastro -->
+                    <div class="players-row players-row-add">
+                        <button type="button" id="btnAddPlayer" class="btn-primary players-add-btn">
+                            <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                <path d="M12 5v14M5 12h14"></path>
+                            </svg>
+                            Add Player
+                        </button>
                     </div>
 
-                    <div class="search-container">
+                    <!-- Row 2: filtro -->
+                    <div class="players-row players-row-search">
                         <input
                             type="text"
                             id="searchInput"
-                            class="search-input"
+                            class="search-input players-search-input"
                             placeholder="Search players by name..."
                         />
-                        <select
-                            id="pageSizeSelect"
-                            class="page-size-select"
-                            title="Items per page"
-                            aria-label="Items per page"
-                        >
-                            <option value="5">5</option>
-                            <option value="10" selected>10</option>
-                            <option value="15">15</option>
-                            <option value="30">30</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
+                    </div>
+
+                    <!-- Row 3: contador + por página -->
+                    <div class="players-row players-row-meta">
+                        <span class="stats-counter">Total: <span id="totalPlayersCount">0</span></span>
+                        <label class="players-per-page-label">
+                            Per page
+                            <select
+                                id="pageSizeSelect"
+                                class="page-size-select players-page-size"
+                                title="Items per page"
+                                aria-label="Items per page"
+                            >
+                                <option value="5">5</option>
+                                <option value="10" selected>10</option>
+                                <option value="15">15</option>
+                                <option value="30">30</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div id="playersList" class="players-list">
@@ -745,7 +748,10 @@
 
         <div id="createModal" class="modal-overlay">
             <div class="modal-content">
-                <h2>New Tournament</h2>
+                <div class="modal-header">
+                    <h2>New Tournament</h2>
+                    <button type="button" id="btnCreateModalCloseX" class="player-modal-close" aria-label="Close">&times;</button>
+                </div>
                 <form id="createTournamentForm">
                     <div class="form-group">
                         <label>Bandai TCG+ OCR</label>
@@ -834,7 +840,10 @@
 
         <div id="editModal" class="modal-overlay">
             <div class="modal-content">
-                <h2>Edit Tournament</h2>
+                <div class="modal-header">
+                    <h2>Edit Tournament</h2>
+                    <button type="button" id="btnEditModalCloseX" class="player-modal-close" aria-label="Close">&times;</button>
+                </div>
                 <form id="editTournamentForm">
                     <div class="form-group">
                         <label>Bandai TCG+ OCR</label>
@@ -920,6 +929,27 @@
         <script src="torneios/list-tournaments/calendar-view/calendar.js"></script>
         <script src="torneios/list-tournaments/script.js"></script>
         <script src="torneios/edit-tournament/modal.js"></script>
+
+        <!-- Player add/edit modal — fora do container para position:fixed funcionar -->
+        <div id="playerModal" class="player-modal-overlay u-hidden" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
+            <div class="player-modal-box">
+                <div class="player-modal-header">
+                    <h3 id="playerModalTitle" class="player-modal-title">New Player</h3>
+                    <button type="button" id="playerModalCloseBtn" class="player-modal-close" aria-label="Close">&times;</button>
+                </div>
+                <input
+                    type="text"
+                    id="playerName"
+                    class="players-name-input player-modal-input"
+                    placeholder="Player name..."
+                    autocomplete="off"
+                />
+                <div class="player-modal-actions">
+                    <button type="button" id="playerModalCancelBtn" class="btn-cancel">Cancel</button>
+                    <button type="button" id="submitBtn" class="btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
 

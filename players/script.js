@@ -18,6 +18,7 @@ const PAGE_SIZE_STORAGE_KEY = 'playersPageSize';
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
 let itemsPerPage = getInitialPageSize();
 let playersPageInitialized = false;
+let playerModalKeydownAttached = false;
 let expandedPlayerId = null;
 let expandedHistoryEntryKey = null;
 const playerHistoryCache = new Map();
@@ -55,6 +56,20 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 3000);
 }
 
+function openPlayerModal(title = 'New Player') {
+    const modal = document.getElementById('playerModal');
+    const titleEl = document.getElementById('playerModalTitle');
+    if (titleEl) titleEl.textContent = title;
+    if (modal) modal.classList.remove('u-hidden');
+    const input = document.getElementById('playerName');
+    if (input) setTimeout(() => input.focus(), 50);
+}
+
+function closePlayerModal() {
+    const modal = document.getElementById('playerModal');
+    if (modal) modal.classList.add('u-hidden');
+}
+
 function setupEventListeners() {
     const pageSizeSelect = document.getElementById('pageSizeSelect');
     if (pageSizeSelect) {
@@ -69,10 +84,35 @@ function setupEventListeners() {
             }
         });
     }
+
+    const btnAddPlayer = document.getElementById('btnAddPlayer');
+    if (btnAddPlayer) {
+        btnAddPlayer.addEventListener('click', () => openPlayerModal('New Player'));
+    }
+
     const submitBtn = document.getElementById('submitBtn');
     if (submitBtn) {
-        setSubmitButtonLabel('Add');
         submitBtn.addEventListener('click', handleSubmit);
+    }
+
+    document.getElementById('playerModalCancelBtn')?.addEventListener('click', cancelEdit);
+    document.getElementById('playerModalCloseBtn')?.addEventListener('click', cancelEdit);
+
+    const playerModal = document.getElementById('playerModal');
+    if (playerModal) {
+        playerModal.addEventListener('click', (e) => {
+            if (e.target === playerModal) cancelEdit();
+        });
+    }
+
+    if (!playerModalKeydownAttached) {
+        playerModalKeydownAttached = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('playerModal');
+                if (modal && !modal.classList.contains('u-hidden')) cancelEdit();
+            }
+        });
     }
 
     const playerNameInput = document.getElementById('playerName');
@@ -151,16 +191,6 @@ function setupEventListeners() {
 
 }
 
-function setSubmitButtonLabel(label) {
-    const submitBtn = document.getElementById('submitBtn');
-    if (!submitBtn) return;
-    submitBtn.innerHTML = `
-        <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <path d="M12 5v14M5 12h14"></path>
-        </svg>
-        <span>${label}</span>
-    `;
-}
 
 async function loadPlayers() {
     const list = document.getElementById('playersList');
@@ -579,22 +609,15 @@ async function handleSubmit() {
 function editPlayer(id, name) {
     editingPlayerId = id;
     const nameInput = document.getElementById('playerName');
-    if (nameInput) {
-        nameInput.value = String(name || '');
-        nameInput.focus();
-    }
-
-    const submitBtn = document.getElementById('submitBtn');
-    if (submitBtn) setSubmitButtonLabel('Edit');
+    if (nameInput) nameInput.value = String(name || '');
+    openPlayerModal('Edit Player');
 }
 
 function cancelEdit() {
     editingPlayerId = null;
     const nameInput = document.getElementById('playerName');
     if (nameInput) nameInput.value = '';
-
-    const submitBtn = document.getElementById('submitBtn');
-    if (submitBtn) setSubmitButtonLabel('Add');
+    closePlayerModal();
 }
 
 async function deletePlayer(id, name) {

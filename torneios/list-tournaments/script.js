@@ -771,8 +771,16 @@ function bindStaticActions() {
     if (btnCreateCancel) {
         btnCreateCancel.addEventListener('click', closeCreateModal);
     }
+    const btnCreateModalCloseX = document.getElementById('btnCreateModalCloseX');
+    if (btnCreateModalCloseX) {
+        btnCreateModalCloseX.addEventListener('click', closeCreateModal);
+    }
     if (btnEditCancel) {
         btnEditCancel.addEventListener('click', closeEditModal);
+    }
+    const btnEditModalCloseX = document.getElementById('btnEditModalCloseX');
+    if (btnEditModalCloseX) {
+        btnEditModalCloseX.addEventListener('click', closeEditModal);
     }
 }
 

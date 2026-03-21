@@ -1610,8 +1610,9 @@ th {
 
 .btn-create-filter {
     height: 52px;
-    width: 104px;
-    min-width: 104px;
+    width: auto;
+    min-width: 0;
+    white-space: nowrap;
     border: none;
     border-radius: 10px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1619,7 +1620,7 @@ th {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 14px;
+    padding: 0 20px;
     font-weight: 700;
     letter-spacing: 0.2px;
     cursor: pointer;
@@ -1644,6 +1645,7 @@ th {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+    vertical-align: middle;
     stroke-width: 2.8;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -3195,6 +3197,23 @@ th {
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+.modal-content .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #667eea;
+}
+
+.modal-content .modal-header h2 {
+    margin: 0;
+    padding: 0;
+    border: none;
+    font-size: 1.8em;
+    color: #333;
 }
 
 .modal-content h2 {
@@ -6464,8 +6483,9 @@ body {
 
 .deck-colors-row-card .deck-color-chip,
 .deck-colors-row-card-inline .deck-color-chip {
-    width: 15px;
-    height: 15px;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #c9cfdb;
 }
 
 .deck-colors-row-card-below {
@@ -6473,8 +6493,9 @@ body {
 }
 
 .deck-colors-row-card-below .deck-color-chip {
-    width: 15px;
-    height: 15px;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #c9cfdb;
 }
 
 .deck-colors-row-table {
@@ -6685,15 +6706,212 @@ body {
     gap: 8px;
 }
 
-.players-header {
-    border-bottom: none;
-    padding-bottom: 0;
-    margin-bottom: 16px;
+/* Shared row pattern: Players + Decks */
+.players-row,
+.decks-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
-.players-header .header-actions {
-    width: 100%;
+.players-row-add,
+.decks-row-add {
+    margin-bottom: 10px;
     justify-content: flex-start;
+}
+
+.players-row-add .players-add-btn,
+.decks-row-add #btnOpenCreateDeckModal {
+    width: auto;
+}
+
+@media (max-width: 600px) {
+    .players-row-add .players-add-btn,
+    .decks-row-add #btnOpenCreateDeckModal {
+        width: 100% !important;
+        justify-content: center;
+    }
+}
+
+.players-row-search .players-search-input,
+.decks-row-search .decks-search-input {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-bottom: 0 !important;
+}
+
+.players-row-meta,
+.decks-row-meta {
+    margin-bottom: 14px;
+    justify-content: space-between;
+}
+
+/* Total na linha de meta: texto simples, sem box */
+.players-row-meta .stats-counter,
+.players-row-meta .stats-counter span,
+.decks-row-meta .decks-total {
+    height: auto !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+    font-size: 0.82rem !important;
+    color: #8f9bb4 !important;
+    font-weight: 500 !important;
+    font-style: normal !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    display: inline !important;
+}
+
+.players-per-page-label,
+.decks-per-page-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.82rem;
+    color: #8f9bb4;
+    white-space: nowrap;
+}
+
+.players-page-size,
+.players-per-page-label .players-page-size {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background: #162033 !important;
+    border: none !important;
+    border-bottom: 1px solid #4a5a7a !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: #a8b8d8 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    padding: 0 2px !important;
+    width: 36px !important;
+    min-width: unset !important;
+    max-width: unset !important;
+    height: auto !important;
+    cursor: pointer !important;
+}
+
+.players-page-size option,
+.decks-page-size option {
+    background: #1a2740 !important;
+    color: #d5def0 !important;
+}
+
+.decks-page-size,
+.decks-per-page-label .decks-page-size {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background: #162033 !important;
+    border: none !important;
+    border-bottom: 1px solid #4a5a7a !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: #a8b8d8 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    padding: 0 2px !important;
+    width: 36px !important;
+    min-width: unset !important;
+    max-width: unset !important;
+    height: auto !important;
+    cursor: pointer !important;
+}
+
+/* ---- Player modal ---- */
+.player-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.player-modal-box {
+    background: #1a2740;
+    border: 1px solid #374663;
+    border-radius: 14px;
+    padding: 28px 24px 20px;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.player-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.player-modal-title {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #d5def0;
+}
+
+.player-modal-close {
+    background: none;
+    border: none;
+    color: #8f9bb4;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.player-modal-close:hover {
+    color: #d5def0;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.player-modal-input {
+    width: 100% !important;
+    margin-bottom: 0 !important;
+}
+
+.player-modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.player-modal-actions .btn-cancel {
+    flex: 1 !important;
+    height: 44px !important;
+    background: #2a3a56 !important;
+    color: #c8d8f4 !important;
+    border: 1px solid #4a5a7a !important;
+    border-radius: 10px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    width: auto !important;
+    padding: 0 16px !important;
+}
+
+.player-modal-actions .btn-cancel:hover {
+    background: #344a6e !important;
+}
+
+.player-modal-actions .btn-primary {
+    flex: 1 !important;
+    height: 44px !important;
+    width: auto !important;
+    padding: 0 16px !important;
 }
 
 .players-name-input {
@@ -7021,35 +7239,6 @@ body {
         text-align: center;
     }
 
-    .players-header {
-        flex-direction: row;
-        align-items: center;
-    }
-
-    .players-header .header-actions {
-        width: 100%;
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .players-header .stats-counter {
-        width: auto;
-        min-width: 88px;
-        padding: 0 10px;
-    }
-
-    .players-header #submitBtn {
-        min-width: 88px;
-        padding: 0 12px;
-    }
-
-    .players-header .players-name-input {
-        width: auto;
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-
     .search-row {
         flex-direction: column;
     }
@@ -7295,9 +7484,7 @@ body {
 }
 
 #decksList.view-compact .deck-code {
-    font-size: 0.72em;
-    margin-bottom: 0;
-    padding: 4px 7px;
+    display: none !important;
 }
 
 #decksList.view-compact .deck-actions {
@@ -7371,10 +7558,7 @@ body {
     }
 
     #decksList.view-grid .deck-code {
-        margin-bottom: 0;
-        font-size: 0.78em;
-        max-width: 100%;
-        overflow-wrap: anywhere;
+        display: none !important;
     }
 
     #decksList.view-grid .deck-actions {
@@ -10097,7 +10281,6 @@ header {
     .search-input,
     .page-size-select,
     .players-name-input,
-    .decks-total,
     .total-players,
     .position-item,
     .registration-box,
@@ -10107,7 +10290,6 @@ header {
     .modal-content,
     .decklist-mvp-panel,
     .decklist-mvp-board,
-    .stats-counter,
     .statistics-card,
     .store-podium-card,
     .store-podium-item,
@@ -10516,7 +10698,6 @@ textarea::placeholder {
     .deck-name-line,
     .deck-code,
     .deck-colors-row,
-    .decks-total,
     .decks-list-controls,
     .deck-format-select,
     .deck-month-select,
@@ -10601,6 +10782,12 @@ textarea::placeholder {
     background: #162033 !important;
     color: #cfdaef !important;
     border-color: #374663 !important;
+}
+
+.player-history:empty {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: none !important;
 }
 
 .player-history-item {
@@ -12478,16 +12665,9 @@ textarea::placeholder {
         min-width: 0 !important;
     }
 
-    /* --- Players: input "Enter player name" em linha separada --- */
-    .players-header .header-actions {
-        flex-wrap: wrap !important;
-    }
-
-    .players-header .players-name-input {
-        flex: 1 1 100% !important;
+    /* --- Players: add-row ocupa largura total no mobile --- */
+    .players-add-row {
         width: 100% !important;
-        min-width: 0 !important;
-        order: 10 !important;
     }
 }
 
@@ -12527,10 +12707,11 @@ textarea::placeholder {
 }
 
 /* ============================================================
-   DECK COLOR CHIP — bolinha preta com contorno visível
+   DECK COLOR CHIP — contorno em todas as cores (padronizado)
 ============================================================ */
-.deck-color-chip.is-b {
-    box-shadow: inset 0 0 0 1.5px rgba(180, 190, 210, 0.7) !important;
+.deck-color-chip {
+    border: 2px solid rgba(180, 190, 210, 0.5) !important;
+    box-shadow: none !important;
 }
 
 /* ============================================================

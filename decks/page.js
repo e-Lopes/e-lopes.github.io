@@ -487,6 +487,12 @@ function applyViewMode() {
 
     ensureValidViewMode();
 
+    // Month filter only makes sense in list (table) view — hide it otherwise
+    const monthSelect = document.getElementById('deckRankMonthSelect');
+    if (monthSelect) {
+        monthSelect.style.display = currentView === 'list' ? '' : 'none';
+    }
+
     container.classList.remove('view-list', 'view-compact', 'view-grid');
     if (currentView === 'grid') {
         container.classList.add('view-grid');

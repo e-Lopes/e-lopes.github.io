@@ -13,7 +13,10 @@
     const MODAL_TEMPLATE = `
 <div id="createDeckModal" class="modal-overlay" aria-hidden="true" inert>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="createDeckTitle">
-        <h2 id="createDeckTitle">Create Deck</h2>
+        <div class="modal-header">
+            <h2 id="createDeckTitle">Create Deck</h2>
+            <button type="button" id="btnCloseCreateDeckModalX" class="player-modal-close" aria-label="Fechar">&times;</button>
+        </div>
         <form id="createDeckForm">
             <div class="form-group">
                 <label class="form-label" for="createDeckName">Deck Name*</label>
@@ -194,6 +197,8 @@
         }
 
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        const closeBtnX = document.getElementById('btnCloseCreateDeckModalX');
+        if (closeBtnX) closeBtnX.addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });

@@ -2,9 +2,11 @@
 
 ## Current Score
 
-**8.9 / 10**
+**9.4 / 10**
 
-All three previously blocking bugs resolved. Statistics module significantly improved: inline SVG charts (donut + bar), Top Cards coverage indicator, `v_deck_color_stats` SQL view replacing client-side aggregation, and a statistics loading spinner. Dark theme gaps in the statistics section and tournament details area addressed. CSS duplicate rules cleaned up. Score raised from 8.7 — the product now feels more complete and polished as a daily-use tool.
+UI consistency pass completed: Players and Decks sections now follow the same 3-row layout (Add button / Search+filters / Total+per-page). Players Add/Search confusion resolved via modal. Deck list color chips upgraded to match the Create Deck modal dots (22px, solid fill, clean border). Deck code hidden in compact/grid views. Month filter in Decks only shows when in table/stats view. Tournaments button relabeled "Add Tournament". Create Deck modal now has an X close button. All modal text translated to EN-US. Dark mode color leakage in `.stats-counter` and `.decks-total` fixed — both now display as plain muted text.
+
+Main gaps keeping the score below 9.5: statistics sparkline and per-deck card filter still pending, mobile statistics views not audited, store registration not yet in Admin.
 
 ---
 
@@ -17,6 +19,15 @@ All three previously blocking bugs resolved. Statistics module significantly imp
 ---
 
 ## Recent Wins (Mar 2026)
+
+**Session 3 (Mar 20, UI polish):**
+- **Players UX clarity** — Add Player now opens a modal (EN-US), search stays inline. Clear separation between registration and search. `[DONE]`
+- **Decks section standardized** — same 3-row layout as Players. Month filter hidden in compact/grid view (only visible in table/stats view). Deck code hidden in compact and grid view modes.
+- **Color chips upgraded** — deck list chips now match Create Deck modal dots: 22px, solid fill, `2px solid` border, same colors. Previously chips were 12–15px with inset box-shadow.
+- **Create Deck modal X button** — close button added to modal header, consistent with Player modal.
+- **Tournaments button** — relabeled from "Add" to "Add Tournament" for consistency.
+- **Dark mode leakage fixed** — `.stats-counter` and `.decks-total` removed from dark mode background selectors; both now render as plain muted text (`#8f9bb4`) without box styling.
+- **EN-US throughout** — Player modal, placeholders, and button labels fully translated.
 
 **Session 2 (Mar 20, late):**
 - **`v_deck_color_stats` SQL view created** — replaced full client-side aggregation (fetching all `tournament_results` + JS grouping on every load) with a proper PostgREST view. Month + format filters now work independently instead of being mutually exclusive. Migration: `database/migrations/20260320_create_v_deck_color_stats.sql`.
@@ -41,6 +52,14 @@ All three previously blocking bugs resolved. Statistics module significantly imp
 ---
 
 ## Priority Order
+
+> **Recommended next priorities (Mar 2026):**
+> 1. **Players UX clarity** — quick win, high usability impact, no new data needed
+> 2. **Statistics sparkline + top cards per deck** — most requested stats features, data already exists
+> 3. **Card image preview in Top Cards** — low effort, big UX improvement on mobile
+> 4. **Deckbuilder drag-and-drop** — medium effort, Web-only, improves power-user flow
+> 5. **Store registration in Admin** — unblocks organizers from needing DB access
+> 6. **Mobile statistics audit** — several views likely degrade on small screens
 
 ### P1 — Decklist data quality (repair legacy data)
 
@@ -123,6 +142,22 @@ Dark and light modes exist but have known leakage issues (dark styles bleeding i
 - Known gap: month filter in Meta por Formato only shows months with data for the auto-selected format. If a format (e.g., EX11) started in February, January data from other formats is hidden until the user clears the format filter. Acceptable behavior for now; consider a UX note or "show all months" option.
 - Target: zero "wrong theme color" reports after a full light + dark pass on all views.
 
+### P3 — Deckbuilder: drag-and-drop card reordering (Web only)
+
+Allow users to reorder cards within a decklist by dragging. Desktop/Web only — not expected on mobile.
+
+- Use HTML5 drag-and-drop API (no external library needed).
+- Persist the new order on save (already normalized by position column in `decklist_card_metadata`).
+- Visual affordance: drag handle icon on each card row, highlight drop target.
+
+### P3 — Players: UX clarity for Add vs. Search
+
+The current layout has "Enter player name" (Add flow) and "Search players by name" (filter flow) too close together, causing confusion about which does what.
+
+- Visually separate the two actions — e.g., move Add into a modal/drawer triggered by the "+ Add" button, keeping only Search visible inline.
+- Or: relabel and restructure so the distinction is immediately obvious (different visual weight, section headers, or grouping).
+- Goal: a first-time user should never confuse registration with search.
+
 ### P3 — Mobile UI/UX review
 
 The dashboard is usable on mobile but was not designed mobile-first. Several views degrade on small screens.
@@ -189,6 +224,7 @@ The project works well in vanilla JS. A full migration would be costly with litt
 ## Suggested Milestones
 
 1. **M1 (done):** Fix the three open bugs. Core flows unblocked. ✅
-2. **M2 (in progress):** Statistics improvements (charts, SQL view, coverage indicator). CSS dark theme Wave 1. ✅ partially done — remaining: legacy data repair job for `card_level`, light mode brightness pass.
-3. **M3 (mid term):** Admin store registration, mobile UX review, testing gates, operational readiness basics.
-4. **M4 (ongoing):** OCR improvements, product positioning, metrics.
+2. **M2 (done):** Statistics improvements (charts, SQL view, coverage indicator). CSS dark theme Wave 1. Admin Panel (format/meta CRUD, ban list). Mobile UX Wave 1 (nav, filters, deck list, pagination). ✅
+3. **M3 (next):** Players UX clarity. Statistics sparkline + per-deck card filter. Card preview in Top Cards. Deckbuilder drag-and-drop. Store registration in Admin.
+4. **M4 (mid term):** Mobile statistics audit. Light mode brightness pass. Legacy data repair for `card_level`. Testing gates, operational readiness basics.
+5. **M5 (ongoing):** OCR improvements, product positioning, metrics, i18n toggle.
