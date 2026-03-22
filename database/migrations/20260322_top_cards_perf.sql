@@ -25,16 +25,17 @@ DROP VIEW IF EXISTS public.v_top_cards_by_month;
 CREATE VIEW public.v_top_cards_by_month
 WITH (security_invoker = true)
 AS
+-- Note: card_type / card_level / is_digi_egg / is_staple live in
+-- decklist_card_metadata (moved there by 20260313_split_decklist_card_metadata).
+-- decklist_cards only holds card_code, qty, position, decklist_id.
+-- We aggregate counts in the base+agg CTEs, then join metadata once at the end
+-- on the already-grouped rows (one lookup per unique card_code per month).
 WITH base AS (
     SELECT
         date_trunc('month', tr.tournament_date::timestamp with time zone) AS month,
         tr.placement,
-        dl.id                                                              AS decklist_id,
-        dc.card_code,
-        dc.card_type,
-        dc.card_level,
-        dc.is_digi_egg,
-        dc.is_staple
+        dl.id    AS decklist_id,
+        dc.card_code
     FROM  public.tournament_results tr
     JOIN  public.decklists          dl  ON dl.tournament_result_id = tr.id
     JOIN  public.decklist_cards     dc  ON dc.decklist_id          = dl.id
@@ -44,28 +45,24 @@ agg AS (
     SELECT
         b.month,
         b.card_code,
-        MAX(b.card_type)  FILTER (WHERE b.card_type IS NOT NULL) AS card_type,
-        MAX(b.card_level)                                         AS card_level,
-        BOOL_OR(b.is_digi_egg)                                    AS is_digi_egg,
-        BOOL_OR(b.is_staple)                                      AS is_staple,
-        COUNT(DISTINCT b.decklist_id)                                               AS total,
-        COUNT(DISTINCT CASE WHEN b.placement = 1  THEN b.decklist_id END)           AS champion,
-        COUNT(DISTINCT CASE WHEN b.placement <= 2 THEN b.decklist_id END)           AS top2,
-        COUNT(DISTINCT CASE WHEN b.placement <= 3 THEN b.decklist_id END)           AS top3,
-        COUNT(DISTINCT CASE WHEN b.placement <= 4 THEN b.decklist_id END)           AS top4
+        COUNT(DISTINCT b.decklist_id)                                     AS total,
+        COUNT(DISTINCT CASE WHEN b.placement = 1  THEN b.decklist_id END) AS champion,
+        COUNT(DISTINCT CASE WHEN b.placement <= 2 THEN b.decklist_id END) AS top2,
+        COUNT(DISTINCT CASE WHEN b.placement <= 3 THEN b.decklist_id END) AS top3,
+        COUNT(DISTINCT CASE WHEN b.placement <= 4 THEN b.decklist_id END) AS top4
     FROM base b
     GROUP BY b.month, b.card_code
 )
 SELECT
     a.month,
     a.card_code,
-    -- card_name is resolved server-side; client no longer needs cards_cache or external API.
+    -- card_name resolved server-side; client no longer needs cards_cache or digimoncard.io.
     -- Falls back to card_code when decklist_card_metadata has no name yet.
-    COALESCE(NULLIF(trim(meta.name), ''), a.card_code)  AS card_name,
-    a.card_type,
-    a.card_level,
-    a.is_digi_egg,
-    a.is_staple,
+    COALESCE(NULLIF(trim(meta.name), ''), a.card_code) AS card_name,
+    meta.card_type,
+    meta.card_level,
+    COALESCE(meta.is_digi_egg, false) AS is_digi_egg,
+    COALESCE(meta.is_staple,   false) AS is_staple,
     a.total,
     a.champion,
     a.top2,
