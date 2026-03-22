@@ -2156,6 +2156,15 @@ async function enrichTopCardsWithCardName(rows) {
     const list = normalizeTopCardsRows(Array.isArray(rows) ? rows : []);
     if (!list.length) return [];
 
+    // If the DB view already provides card_name for every row (i.e. the name is
+    // non-empty and differs from the card code), skip the cards_cache fetch and
+    // the external digimoncard.io API calls entirely.
+    const allHaveNames = list.every((row) => {
+        const name = String(row?.card_name || '').trim();
+        return name && normalizeCardCodeForLookup(name) !== normalizeCardCodeForLookup(row?.card_code);
+    });
+    if (allHaveNames) return list;
+
     const byCode = new Map(topCardsNameCache);
     try {
         const cacheRows = await fetchAllCardsCacheRows();
