@@ -10208,6 +10208,48 @@ body.template-preview-page .post-toast {
     .meta-top-deck-trend {
         display: none;
     }
+
+    /* Bar charts: stack vertically on mobile */
+    .meta-evol-bars-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* Taller bars when full-width on mobile */
+    .meta-evol-canvas-bar {
+        height: 240px;
+    }
+
+    /* Scatter: shorter on mobile to reduce label congestion */
+    .meta-evol-canvas-scatter {
+        height: 340px;
+    }
+
+    /* Bump chart: slightly shorter on mobile */
+    .meta-evol-canvas-evol {
+        height: 360px;
+    }
+
+    /* Evolution header: stack title / legend / pills vertically */
+    .meta-evol-header.is-split {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .meta-evol-month-pills.is-inline {
+        justify-content: flex-start;
+    }
+
+    /* Smaller legend dots on mobile */
+    .meta-evol-legend {
+        gap: 6px;
+    }
+
+    .meta-evol-legend-item {
+        font-size: 0.68rem;
+        padding: 2px 4px;
+    }
 }
 
 /* Diversity gauge bar */

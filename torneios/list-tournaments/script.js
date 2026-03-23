@@ -3805,23 +3805,24 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                                 ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
                                 ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
                                 ctx.setLineDash([]);
-                                ctx.font = '600 10px sans-serif';
+                                const isMobile = chart.width < 480;
+                                ctx.font = `600 ${isMobile ? '9' : '10'}px sans-serif`;
                                 // top-right
                                 ctx.fillStyle = 'rgba(59,166,93,0.5)';
                                 ctx.textBaseline = 'top'; ctx.textAlign = 'right';
-                                ctx.fillText('Dominantes', right - 8, top + 6);
+                                ctx.fillText(isMobile ? 'Dom.' : 'Dominantes', right - 8, top + 6);
                                 // top-left
                                 ctx.fillStyle = 'rgba(47,115,217,0.4)';
                                 ctx.textAlign = 'left';
-                                ctx.fillText('Alta taxa, baixa pont.', left + 8, top + 6);
+                                ctx.fillText(isMobile ? 'Alta taxa' : 'Alta taxa, baixa pont.', left + 8, top + 6);
                                 // bottom-right
                                 ctx.fillStyle = 'rgba(226,190,47,0.4)';
                                 ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
-                                ctx.fillText('Alta pont., baixa taxa', right - 8, bottom - 6);
+                                ctx.fillText(isMobile ? 'Alta pont.' : 'Alta pont., baixa taxa', right - 8, bottom - 6);
                                 // bottom-left
                                 ctx.fillStyle = 'rgba(217,74,74,0.4)';
                                 ctx.textAlign = 'left';
-                                ctx.fillText('Baixo desempenho', left + 8, bottom - 6);
+                                ctx.fillText(isMobile ? 'Baixo' : 'Baixo desempenho', left + 8, bottom - 6);
                                 ctx.restore();
                             }
                         },
@@ -3830,8 +3831,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                             afterDatasetsDraw(chart) {
                                 const { ctx, chartArea: { left, right, top, bottom } } = chart;
                                 ctx.save();
-                                ctx.font = '11px sans-serif';
-                                const FONT_H = 13;
+                                const isMobile = chart.width < 480;
+                                ctx.font = `${isMobile ? '10' : '11'}px sans-serif`;
+                                const FONT_H = isMobile ? 12 : 13;
                                 const midX = (left + right) / 2;
                                 // Build label descriptors
                                 const labels = [];
@@ -4627,19 +4629,20 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                             ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
                             ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
                             ctx.setLineDash([]);
-                            ctx.font = '600 10px sans-serif';
+                            const isMobile = chart.width < 480;
+                            ctx.font = `600 ${isMobile ? '9' : '10'}px sans-serif`;
                             ctx.fillStyle = 'rgba(59,166,93,0.5)';
                             ctx.textBaseline = 'top'; ctx.textAlign = 'right';
-                            ctx.fillText('Dominantes', right - 8, top + 6);
+                            ctx.fillText(isMobile ? 'Dom.' : 'Dominantes', right - 8, top + 6);
                             ctx.fillStyle = 'rgba(47,115,217,0.4)';
                             ctx.textAlign = 'left';
-                            ctx.fillText('Alta taxa, baixa pont.', left + 8, top + 6);
+                            ctx.fillText(isMobile ? 'Alta taxa' : 'Alta taxa, baixa pont.', left + 8, top + 6);
                             ctx.fillStyle = 'rgba(226,190,47,0.4)';
                             ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
-                            ctx.fillText('Alta pont., baixa taxa', right - 8, bottom - 6);
+                            ctx.fillText(isMobile ? 'Alta pont.' : 'Alta pont., baixa taxa', right - 8, bottom - 6);
                             ctx.fillStyle = 'rgba(217,74,74,0.4)';
                             ctx.textAlign = 'left';
-                            ctx.fillText('Baixo desempenho', left + 8, bottom - 6);
+                            ctx.fillText(isMobile ? 'Baixo' : 'Baixo desempenho', left + 8, bottom - 6);
                             ctx.fillStyle = 'rgba(200,212,232,0.5)';
                             ctx.font = '10px sans-serif';
                             ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
@@ -4654,8 +4657,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                         afterDatasetsDraw(chart) {
                             const { ctx, chartArea: { left, right, top, bottom } } = chart;
                             ctx.save();
-                            ctx.font = '11px sans-serif';
-                            const FONT_H = 13;
+                            const isMobile = chart.width < 480;
+                            ctx.font = `${isMobile ? '10' : '11'}px sans-serif`;
+                            const FONT_H = isMobile ? 12 : 13;
                             const midX = (left + right) / 2;
                             const labels = [];
                             chart.data.datasets.forEach((ds, di) => {
