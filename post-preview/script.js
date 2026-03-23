@@ -2280,19 +2280,10 @@ function normalizeStoreName(name) {
 
 function resolveStoreIconPath(storeName) {
     const normalized = normalizeStoreName(storeName);
-    // Check bucket logos from DB first
     for (const [key, url] of storeLogoMap) {
         if (normalized.includes(key) || key.includes(normalized)) return url;
     }
-    // Fallback to local icons
-    if (normalized.includes('gladiator')) return '../icons/stores/Gladiators.png';
-    if (normalized.includes('cartinhas') || normalized.includes('celta'))
-        return '../icons/stores/ReiDasCartinhas.png';
-    if (normalized.includes('meruru')) return '../icons/stores/Meruru.svg';
-    if (normalized.includes('taverna')) return '../icons/stores/Taverna.png';
-    if (normalized.includes('tcgbr') || normalized.includes('tcg br'))
-        return '../icons/stores/TCGBR.png';
-    return '../icons/stores/images.png';
+    return '';
 }
 
 async function loadFirstAvailableImage(candidates) {

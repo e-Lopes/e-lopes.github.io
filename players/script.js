@@ -699,19 +699,10 @@ function normalizeStoreName(name) {
 
 function resolveStoreIcon(storeName) {
     const normalized = normalizeStoreName(storeName);
-    // Check bucket logos from DB first
     for (const [key, url] of storeLogoMap) {
         if (normalized.includes(key) || key.includes(normalized)) return url;
     }
-    // Fallback to local icons
-    const base = `${getAssetPrefix()}icons/stores/`;
-    if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
-    if (normalized.includes('cartinhas') || normalized.includes('celta'))
-        return `${base}ReiDasCartinhas.png`;
-    if (normalized.includes('meruru')) return `${base}Meruru.svg`;
-    if (normalized.includes('taverna')) return `${base}Taverna.png`;
-    if (normalized.includes('tcgbr') || normalized.includes('tcg br')) return `${base}TCGBR.png`;
-    return `${base}images.png`;
+    return '';
 }
 
 function parseDecklistEntries(rawText) {

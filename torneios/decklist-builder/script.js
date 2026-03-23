@@ -7,7 +7,9 @@
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
     const DIGIMON_ALL_CARDS_URL = 'https://digimoncard.io/api-public/getAllCards';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
-    const BLANK_MIDDLE_FALLBACK_BG = '../../icons/EX11.png';
+    const BLANK_MIDDLE_FALLBACK_BG = window.APP_CONFIG?.SUPABASE_URL
+        ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/EX11.png`
+        : '../../icons/EX11.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
 
     const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/;
@@ -533,7 +535,7 @@
 
     // ─── Card zoom metadata HTML ──────────────────────────────────────────────
 
-    function buildCardZoomMetadataHtml(code, details) {
+    function buildCardZoomMetadataHtml(_code, details) {
         const payload = details?.card_payload && typeof details.card_payload === 'object' ? details.card_payload : {};
 
         const firstPresent = (...values) =>
@@ -2354,18 +2356,6 @@
         if (!match) return null;
         const level = Number(match[1]);
         return Number.isFinite(level) ? level : null;
-    }
-
-    function summarizeDeckGroups(sourceEntries) {
-        const map = new Map();
-        (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry, index) => {
-            const info = getEntryGroupInfo(entry);
-            const current = map.get(info.key) || { key: info.key, label: info.label, count: 0, firstIndex: index };
-            current.count += Number(entry?.count) || 0;
-            if (index < current.firstIndex) current.firstIndex = index;
-            map.set(info.key, current);
-        });
-        return map;
     }
 
     function getMaxCopies(code) {

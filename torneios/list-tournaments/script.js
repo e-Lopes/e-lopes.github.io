@@ -49,10 +49,9 @@ const MONTH_NAMES_PT = [
 ];
 const DEFAULT_STATISTICS_VIEW = 'v_deck_stats';
 const STATISTICS_VIEWS = [
+    { value: 'meta_overview', label: 'Meta Overview' },
     { value: 'v_deck_representation', label: 'Representação de Decks' },
     { value: 'v_deck_stats', label: 'Estatísticas de Decks' },
-    { value: 'v_deck_color_stats', label: 'Estatísticas por Cor' },
-    { value: 'v_meta_by_month', label: 'Meta por Formato' },
     { value: 'v_top_cards_by_month', label: 'Top Cards' },
     { value: 'v_player_ranking', label: 'Ranking de Players' },
     { value: 'v_store_champions', label: 'Ranking por Loja' }
@@ -284,6 +283,8 @@ let currentStatisticsStapleFilter = '';
 let currentStatisticsDeckFilter = '';
 let statisticsTopCardsDeckNames = [];
 let statisticsDeckSparklineData = new Map();
+let statisticsColorData = [];
+let currentMetaOverviewPeriod = 'all';
 let hasManualMetaFormatSelection = false;
 let currentTopCardsPage = 1;
 let currentStoreChampionsPlayerQuery = '';
@@ -693,19 +694,10 @@ function normalizeStoreName(name) {
 
 function resolveStoreIcon(storeName) {
     const normalized = normalizeStoreName(storeName);
-    // Check bucket logos from DB first
     for (const [key, url] of storeLogoMap) {
         if (normalized.includes(key) || key.includes(normalized)) return url;
     }
-    // Fallback to local icons
-    const base = `${getAssetPrefix()}icons/stores/`;
-    if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
-    if (normalized.includes('cartinhas') || normalized.includes('celta'))
-        return `${base}ReiDasCartinhas.png`;
-    if (normalized.includes('meruru')) return `${base}Meruru.svg`;
-    if (normalized.includes('taverna')) return `${base}Taverna.png`;
-    if (normalized.includes('tcgbr') || normalized.includes('tcg br')) return `${base}TCGBR.png`;
-    return `${base}images.png`;
+    return '';
 }
 
 // ============================================================
@@ -1559,6 +1551,7 @@ async function mountStatisticsContainer() {
             currentTopCardsPage = 1;
             currentStoreChampionsPlayerQuery = '';
             areStoreChampionsCardsCollapsed = true;
+            currentMetaOverviewPeriod = 'all';
             saveStatisticsViewPreference(nextView);
             await loadAndRenderStatistics(nextView);
         });
@@ -1819,6 +1812,23 @@ async function loadAndRenderStatistics(viewName) {
 
             const rows = await response.json();
             statisticsViewData = await enrichTopCardsWithCardName(Array.isArray(rows) ? rows : []);
+            statisticsMonthlyRankingData = [];
+        } else if (viewName === 'meta_overview') {
+            const metaEndpoint = '/rest/v1/v_meta_by_month?select=*&limit=1000';
+            const colorEndpoint = '/rest/v1/v_deck_color_stats?select=*&limit=1000';
+            const [metaResponse, colorResponse] = await Promise.all([
+                window.supabaseApi
+                    ? window.supabaseApi.get(metaEndpoint)
+                    : fetch(`${SUPABASE_URL}${metaEndpoint}`, { headers }),
+                window.supabaseApi
+                    ? window.supabaseApi.get(colorEndpoint)
+                    : fetch(`${SUPABASE_URL}${colorEndpoint}`, { headers })
+            ]);
+            if (!metaResponse.ok) throw new Error(`Failed to load meta data (${metaResponse.status})`);
+            if (!colorResponse.ok) throw new Error(`Failed to load color data (${colorResponse.status})`);
+            const [metaRows, colorRows] = await Promise.all([metaResponse.json(), colorResponse.json()]);
+            statisticsViewData = Array.isArray(metaRows) ? metaRows : [];
+            statisticsColorData = Array.isArray(colorRows) ? colorRows : [];
             statisticsMonthlyRankingData = [];
         } else {
             const isDeckView =
@@ -2178,14 +2188,10 @@ async function enrichTopCardsWithCardName(rows) {
     const list = normalizeTopCardsRows(Array.isArray(rows) ? rows : []);
     if (!list.length) return [];
 
-    // If the DB view already provides card_name for every row (i.e. the name is
-    // non-empty and differs from the card code), skip the cards_cache fetch and
-    // the external digimoncard.io API calls entirely.
-    const allHaveNames = list.every((row) => {
-        const name = String(row?.card_name || '').trim();
-        return name && normalizeCardCodeForLookup(name) !== normalizeCardCodeForLookup(row?.card_code);
-    });
-    if (allHaveNames) return list;
+    // If the DB view returns a card_name column, trust the server-side resolution
+    // and skip the cards_cache fetch + external API calls entirely.
+    // (cards without metadata fall back to card_code in the view, which is fine.)
+    if (list.length > 0 && 'card_name' in list[0]) return list;
 
     const byCode = new Map(topCardsNameCache);
     try {
@@ -2397,6 +2403,8 @@ function aggregateMetaByDeckRows(rows) {
             format_rank: 0,
             ranking_points: 0,
             titles: 0,
+            top2_total: 0,
+            top3_total: 0,
             top4_total: 0,
             appearances: 0
         };
@@ -2407,6 +2415,8 @@ function aggregateMetaByDeckRows(rows) {
 
         existing.ranking_points += Number(source.ranking_points) || 0;
         existing.titles += Number(source.titles) || 0;
+        existing.top2_total += Number(source.top2_total) || 0;
+        existing.top3_total += Number(source.top3_total) || 0;
         existing.top4_total += Number(source.top4_total) || 0;
         existing.appearances += Number(source.appearances) || 0;
 
@@ -2457,6 +2467,8 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
     const previousBoard = host.querySelector('.store-champions-board');
     if (previousBoard) previousBoard.remove();
+    const previousMetaOverview = host.querySelector('.meta-overview-panel');
+    if (previousMetaOverview) previousMetaOverview.remove();
     const previousHighlights = host.querySelector('.statistics-highlights');
     if (previousHighlights) previousHighlights.remove();
     const previousTopCardsPagination = host.querySelector('.statistics-top-cards-pagination');
@@ -2724,6 +2736,30 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     if (viewName === 'v_meta_by_month' && !currentStatisticsFormatFilter) {
         filteredRows = aggregateMetaByDeckRows(filteredRows);
     }
+    if (viewName === 'meta_overview') {
+        // Apply period filter on top of any month/format filter already applied
+        const periodRows = applyMetaPeriodFilter(filteredRows, currentMetaOverviewPeriod);
+        const rawMetaRows = periodRows; // per-month, for sparklines + evolution
+        const aggregatedMeta = currentStatisticsFormatFilter
+            ? periodRows
+            : aggregateMetaByDeckRows(periodRows);
+        // Color data: apply same period + format filter
+        const filteredColor = applyMetaPeriodFilter(
+            statisticsColorData.filter((r) =>
+                !currentStatisticsFormatFilter ||
+                String(r?.format_code || '').trim() === currentStatisticsFormatFilter
+            ),
+            currentMetaOverviewPeriod
+        );
+        if (tableWrapper) tableWrapper.classList.add('is-hidden');
+        if (dataCard) dataCard.classList.add('is-hidden');
+        const chartArea = host.querySelector('#statisticsChartArea');
+        if (chartArea) { chartArea.classList.add('is-hidden'); chartArea.innerHTML = ''; }
+        host.querySelector('.meta-overview-panel')?.remove();
+        renderMetaOverview(host, aggregatedMeta, filteredColor, isStatisticsMobileViewport(), rawMetaRows);
+        if (status) status.textContent = '';
+        return;
+    }
     let topCardsTotalRows = 0;
     let topCardsTotalPages = 0;
     let isTopCardsPaginated = false;
@@ -2846,9 +2882,23 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         );
         if (tableWrapper) tableWrapper.classList.add('is-hidden');
         if (dataCard) dataCard.classList.add('is-hidden');
+        // Build attendance trend from already-loaded tournaments data
+        const storeAttendance = new Map(); // storeName → [{date, players}]
+        tournaments.forEach((t) => {
+            const name = t.store?.name ? String(t.store.name).trim() : null;
+            if (!name || !t.tournament_date) return;
+            if (!storeAttendance.has(name)) storeAttendance.set(name, []);
+            storeAttendance.get(name).push({
+                date: String(t.tournament_date),
+                players: Number(t.total_players) || 0
+            });
+        });
+        storeAttendance.forEach((entries) => entries.sort((a, b) => a.date.localeCompare(b.date)));
+
         renderStoreChampionsBoard(host, filteredRows, {
             isMobile: isStatisticsMobileViewport(),
-            collapsedByDefault: areStoreChampionsCardsCollapsed
+            collapsedByDefault: areStoreChampionsCardsCollapsed,
+            storeAttendance
         });
         if (status) status.textContent = '';
         return;
@@ -3255,9 +3305,539 @@ function moveCardPreviewPopover(popover, clientX, clientY) {
     popover.style.top = `${top}px`;
 }
 
+function applyMetaPeriodFilter(rows, period) {
+    if (!period || period === 'all' || !Array.isArray(rows)) return rows;
+    // period is a specific month key like '2026-03'
+    return rows.filter((r) => normalizeStatisticsMonthKey(r?.month) === period);
+}
+
+let _metaEvolutionChart = null;
+let _metaBarChart = null;
+let _metaDonutChart = null;
+
+function buildMetaEvolutionChartHtml(rawRows, topDecks) {
+    if (!Array.isArray(rawRows) || rawRows.length === 0 || !topDecks?.length) return '';
+
+    // Aggregate per (deck, month): composite score (for bar charts) + appearances (for meta share %)
+    const allMonths = new Set();
+    const monthTotals = new Map();          // month → total appearances
+    const deckMonthScore = new Map();       // deck → Map<month, composite score>
+    const deckMonthAppear = new Map();      // deck → Map<month, appearances>
+    rawRows.forEach((r) => {
+        const month = normalizeStatisticsMonthKey(r?.month);
+        const deck = String(r?.deck || '').trim();
+        const n = Number(r?.appearances) || 0;
+        if (!month || !deck) return;
+        allMonths.add(month);
+        monthTotals.set(month, (monthTotals.get(month) || 0) + n);
+        if (!deckMonthScore.has(deck)) deckMonthScore.set(deck, new Map());
+        if (!deckMonthAppear.has(deck)) deckMonthAppear.set(deck, new Map());
+        const prevScore = deckMonthScore.get(deck).get(month) || 0;
+        deckMonthScore.get(deck).set(month, prevScore + deckCompositeScore(r));
+        const prevAppear = deckMonthAppear.get(deck).get(month) || 0;
+        deckMonthAppear.get(deck).set(month, prevAppear + n);
+    });
+
+    const months = [...allMonths].sort();
+    if (months.length === 0) return '';
+
+    if (_metaEvolutionChart) { _metaEvolutionChart.destroy(); _metaEvolutionChart = null; }
+
+    const canvasId = `meta-evol-canvas-${Date.now()}`;
+    const tooltipDefaults = {
+        backgroundColor: '#1a2640',
+        borderColor: '#2d3f55',
+        borderWidth: 1,
+        titleColor: '#c8d4e8',
+        bodyColor: '#8fa4c8',
+        padding: 10,
+    };
+    const scaleDefaults = {
+        grid: { color: '#243450', drawTicks: false },
+        border: { color: '#2e4268' },
+    };
+
+    // ── Single month → horizontal bar chart ranked by score ────────────────
+    if (months.length === 1) {
+        const month = months[0];
+        const PT_MONTHS_BAR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const [by, bmo] = month.split('-').map(Number);
+        const monthLabel = `${PT_MONTHS_BAR[bmo - 1]}/${String(by).slice(2)}`;
+        const barData = [...deckMonthScore.entries()]
+            .map(([deck, mMap]) => ({ deck, score: mMap.get(month) || 0 }))
+            .filter((d) => d.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 12);
+
+        setTimeout(() => {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !window.Chart) return;
+            _metaEvolutionChart = new window.Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: barData.map((d) => d.deck),
+                    datasets: [{
+                        data: barData.map((d) => d.score),
+                        backgroundColor: barData.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length] + 'bb'),
+                        borderColor:     barData.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            ...tooltipDefaults,
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.parsed.x} pts`,
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ...scaleDefaults,
+                            ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
+                            beginAtZero: true,
+                        },
+                        y: {
+                            ...scaleDefaults,
+                            ticks: { color: '#c8d4e8', font: { size: 11 } },
+                        }
+                    }
+                }
+            });
+        }, 0);
+
+        return `<div class="meta-evolution-wrap stats-chart-wrap">
+            <div class="meta-evol-header">
+                <span class="meta-evol-title">Pontuação por Deck — ${monthLabel}</span>
+            </div>
+            <div class="meta-evol-canvas-wrap meta-evol-canvas-bar">
+                <canvas id="${canvasId}"></canvas>
+            </div>
+        </div>`;
+    }
+
+    // ── Multiple months → line chart evolution ─────────────────────────────
+    // Build deck list: top 3 per month (union), ordered by peak share desc, max 8 decks.
+    // This ensures breakout decks from any single month are represented.
+    const TOP_PER_MONTH = 5;
+    const MAX_LINES = 10;
+    const selectedDecks = new Set();
+
+    // Add top decks from each month (by meta share that month)
+    months.forEach((m) => {
+        const total = monthTotals.get(m) || 1;
+        const ranked = [...deckMonthAppear.entries()]
+            .map(([deck, mMap]) => ({ deck, share: (mMap.get(m) || 0) / total * 100 }))
+            .filter((d) => d.share > 0)
+            .sort((a, b) => b.share - a.share);
+        ranked.slice(0, TOP_PER_MONTH).forEach((d) => selectedDecks.add(d.deck));
+    });
+
+    // Sort selected decks by overall peak share, cap at MAX_LINES
+    const topNames = [...selectedDecks]
+        .map((deck) => {
+            const byAppear = deckMonthAppear.get(deck) || new Map();
+            const peak = Math.max(...months.map((m) => (byAppear.get(m) || 0) / (monthTotals.get(m) || 1) * 100));
+            return { deck, peak };
+        })
+        .sort((a, b) => b.peak - a.peak)
+        .slice(0, MAX_LINES)
+        .map((d) => d.deck);
+
+    const PT_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const fmtMonth = (m) => {
+        const [y, mo] = m.split('-').map(Number);
+        return `${PT_MONTHS[mo - 1]}/${String(y).slice(2)}`;
+    };
+    const labels = months.map(fmtMonth);
+
+    const datasets = topNames.map((deck, di) => {
+        const color = CHART_PALETTE[di % CHART_PALETTE.length];
+        const byAppear = deckMonthAppear.get(deck) || new Map();
+        return {
+            label: deck,
+            data: months.map((m) => {
+                const total = monthTotals.get(m) || 1;
+                return +((byAppear.get(m) || 0) / total * 100).toFixed(2);
+            }),
+            borderColor: color,
+            backgroundColor: color + '22',
+            pointBackgroundColor: color,
+            pointBorderColor: '#131e2e',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            borderWidth: 2.5,
+            tension: 0.3,
+            fill: false,
+        };
+    });
+
+    const legendId = `meta-evol-legend-${canvasId}`;
+    const monthPillsId = `meta-evol-months-${canvasId}`;
+
+    // Total score across all months for bar chart (computed before setTimeout so it's in closure scope)
+    const barData = [...deckMonthScore.entries()]
+        .map(([deck, mMap]) => ({ deck, score: [...mMap.values()].reduce((s, v) => s + v, 0) }))
+        .filter((d) => d.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 12);
+    const barCanvasId = `meta-bar-canvas-${canvasId}`;
+
+    setTimeout(() => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !window.Chart) return;
+        _metaEvolutionChart = new window.Chart(canvas, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        ...tooltipDefaults,
+                        callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` }
+                    }
+                },
+                scales: {
+                    x: { ...scaleDefaults, ticks: { color: '#6a7d9f', font: { size: 11 }, padding: 16 } },
+                    y: {
+                        ...scaleDefaults,
+                        ticks: { color: '#6a7d9f', font: { size: 11 }, padding: 16, callback: (v) => v + '%' },
+                        beginAtZero: true,
+                    }
+                }
+            }
+        });
+
+        // Wire up legend toggle clicks
+        const legendEl = document.getElementById(legendId);
+        if (legendEl) {
+            legendEl.querySelectorAll('.meta-evol-legend-item').forEach((item) => {
+                item.addEventListener('click', () => {
+                    const idx = Number(item.dataset.datasetIndex);
+                    const chart = _metaEvolutionChart;
+                    if (!chart) return;
+                    const meta = chart.getDatasetMeta(idx);
+                    meta.hidden = !meta.hidden;
+                    item.classList.toggle('is-muted', meta.hidden);
+                    chart.update();
+                });
+            });
+        }
+
+        // Wire up month pill toggles
+        const monthPillsEl = document.getElementById(monthPillsId);
+        const activeMonths = new Set(months);
+        if (monthPillsEl) {
+            monthPillsEl.querySelectorAll('.meta-evol-month-pill').forEach((pill) => {
+                pill.addEventListener('click', () => {
+                    const m = pill.dataset.month;
+                    if (activeMonths.has(m)) {
+                        if (activeMonths.size <= 1) return; // keep at least 1 month
+                        activeMonths.delete(m);
+                        pill.classList.remove('is-active');
+                    } else {
+                        activeMonths.add(m);
+                        pill.classList.add('is-active');
+                    }
+                    const chart = _metaEvolutionChart;
+                    if (!chart) return;
+                    const activeSorted = months.filter((mo) => activeMonths.has(mo));
+                    chart.data.labels = activeSorted.map(fmtMonth);
+                    chart.data.datasets.forEach((ds, di) => {
+                        const deck = topNames[di];
+                        const byAppear = deckMonthAppear.get(deck) || new Map();
+                        ds.data = activeSorted.map((mo) => {
+                            const total = monthTotals.get(mo) || 1;
+                            return +((byAppear.get(mo) || 0) / total * 100).toFixed(2);
+                        });
+                    });
+                    chart.update();
+                });
+            });
+        }
+
+        // Bar chart — total score across all months
+        if (_metaBarChart) { _metaBarChart.destroy(); _metaBarChart = null; }
+        const barCanvas = document.getElementById(barCanvasId);
+        if (barCanvas && window.Chart) {
+            _metaBarChart = new window.Chart(barCanvas, {
+                type: 'bar',
+                data: {
+                    labels: barData.map((d) => d.deck),
+                    datasets: [{
+                        data: barData.map((d) => d.score),
+                        backgroundColor: barData.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length] + 'bb'),
+                        borderColor:     barData.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            ...tooltipDefaults,
+                            callbacks: { label: (ctx) => ` ${ctx.parsed.x} pts` }
+                        }
+                    },
+                    scales: {
+                        x: { ...scaleDefaults, ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' }, beginAtZero: true },
+                        y: { ...scaleDefaults, ticks: { color: '#c8d4e8', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+    }, 0);
+
+    const legendItemsHtml = datasets.map((ds, i) =>
+        `<span class="meta-evol-legend-item" data-dataset-index="${i}" title="${escapeHtml(ds.label)}">
+            <span class="meta-evol-dot" style="background:${ds.borderColor}"></span>
+            <span>${escapeHtml(ds.label)}</span>
+        </span>`
+    ).join('');
+
+    const monthPillsHtml = months.map((m) =>
+        `<button type="button" class="meta-evol-month-pill is-active" data-month="${m}">${fmtMonth(m)}</button>`
+    ).join('');
+
+    return `<div class="meta-evolution-wrap stats-chart-wrap">
+        <div class="meta-evol-header">
+            <span class="meta-evol-title">Evolução do Meta</span>
+            <div class="meta-evol-legend" id="${legendId}">${legendItemsHtml}</div>
+        </div>
+        <div class="meta-evol-month-pills" id="${monthPillsId}">${monthPillsHtml}</div>
+        <div class="meta-evol-canvas-wrap">
+            <canvas id="${canvasId}"></canvas>
+        </div>
+        <div class="meta-evol-header" style="margin-top:20px">
+            <span class="meta-evol-title">Pontuação Total — Todos os Meses</span>
+        </div>
+        <div class="meta-evol-canvas-wrap meta-evol-canvas-bar">
+            <canvas id="${barCanvasId}"></canvas>
+        </div>
+    </div>`;
+}
+
+function deckCompositeScore(r) {
+    const top4   = Number(r?.top4_total)  || 0;
+    const top3   = Number(r?.top3_total)  || top4;
+    const top2   = Number(r?.top2_total)  || top3;
+    const titles = Number(r?.titles)      || 0;
+    return titles * 15 + (top2 - titles) * 10 + (top3 - top2) * 7 + (top4 - top3) * 5;
+}
+
+function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
+    const panel = document.createElement('div');
+    panel.className = 'meta-overview-panel';
+
+    // ── KPI strip ──────────────────────────────────────────────────────────
+    const allTournaments = Array.isArray(tournaments) ? tournaments : [];
+    const totalTournaments = currentMetaOverviewPeriod === 'all' || !currentMetaOverviewPeriod
+        ? allTournaments.length
+        : allTournaments.filter((t) => {
+            const d = String(t?.tournament_date || '');
+            return d.startsWith(currentMetaOverviewPeriod);
+        }).length;
+    const uniqueDecks = metaRows.length;
+    const topByScore = [...metaRows].sort((a, b) => deckCompositeScore(b) - deckCompositeScore(a));
+    const topDeckName = topByScore[0]?.deck ? escapeHtml(String(topByScore[0].deck)) : '—';
+    const allDataMonths = [...new Set(
+        (Array.isArray(statisticsViewData) ? statisticsViewData : [])
+            .map((r) => normalizeStatisticsMonthKey(r?.month)).filter(Boolean)
+    )];
+    const mesesDados = allDataMonths.length;
+    const kpiHtml = `<div class="meta-kpi-strip">
+        <div class="meta-kpi-card">
+            <span class="meta-kpi-value">${totalTournaments}</span>
+            <span class="meta-kpi-label">Torneios</span>
+        </div>
+        <div class="meta-kpi-card">
+            <span class="meta-kpi-value">${uniqueDecks}</span>
+            <span class="meta-kpi-label">Decks únicos</span>
+        </div>
+        <div class="meta-kpi-card">
+            <span class="meta-kpi-value meta-kpi-deck">${topDeckName}</span>
+            <span class="meta-kpi-label">Deck dominante</span>
+        </div>
+        <div class="meta-kpi-card">
+            <span class="meta-kpi-value">${mesesDados}</span>
+            <span class="meta-kpi-label">Meses de dados</span>
+        </div>
+    </div>`;
+
+    // ── Period filter buttons — one per month + Tudo ───────────────────────
+    const availableMonths = [...new Set(
+        (Array.isArray(statisticsViewData) ? statisticsViewData : [])
+            .map((r) => normalizeStatisticsMonthKey(r?.month)).filter(Boolean)
+    )].sort();
+    const monthBtnLabels = availableMonths.map((m) => {
+        const [year, month] = m.split('-');
+        const names = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        return { value: m, label: `${names[Number(month) - 1]}/${String(year).slice(2)}` };
+    });
+    const allPeriods = [...monthBtnLabels, { value: 'all', label: 'Tudo' }];
+    const periodHtml = `<div class="meta-period-bar">
+        ${allPeriods.map((p) => `<button type="button" class="meta-period-btn${currentMetaOverviewPeriod === p.value ? ' is-active' : ''}"
+            data-period="${p.value}">${p.label}</button>`).join('')}
+    </div>`;
+
+    // ── Charts ─────────────────────────────────────────────────────────────
+    // Compute previous month color rows for trend arrows
+    let prevColorRows = [];
+    if (currentMetaOverviewPeriod && currentMetaOverviewPeriod !== 'all') {
+        const [py, pm] = currentMetaOverviewPeriod.split('-').map(Number);
+        const prevDate = new Date(py, pm - 2, 1); // month - 2 because month is 1-based
+        const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+        prevColorRows = (Array.isArray(statisticsColorData) ? statisticsColorData : [])
+            .filter((r) => normalizeStatisticsMonthKey(r?.month) === prevKey);
+    }
+
+    const donutHtml = metaRows.length
+        ? buildMetaDonutChartHtml(metaRows)
+        : '<p class="meta-overview-empty">Sem dados de meta.</p>';
+    const colorHtml = colorRows.length
+        ? buildColorBarChartHtml(colorRows, prevColorRows)
+        : '<p class="meta-overview-empty">Sem dados de cores.</p>';
+
+    // ── Per-deck trend for top-deck sparklines + peak meta share ───────────
+    const trendByDeck = new Map();
+    const peakShareByDeck = new Map();
+    (Array.isArray(rawMetaRows) ? rawMetaRows : []).forEach((r) => {
+        const deck = String(r?.deck || '').trim();
+        if (!deck) return;
+        if (!trendByDeck.has(deck)) trendByDeck.set(deck, []);
+        trendByDeck.get(deck).push({ month: String(r?.month || ''), pct: Number(r?.appearances) || 0 });
+        const share = Number(r?.meta_share_percent) || 0;
+        if (share > (peakShareByDeck.get(deck) || 0)) peakShareByDeck.set(deck, share);
+    });
+    trendByDeck.forEach((arr) => arr.sort((a, b) => a.month.localeCompare(b.month)));
+
+    // ── Top 3 deck cards ───────────────────────────────────────────────────
+    // Sorted by composite score: 1st=15pts, 2nd=10pts, 3rd=7pts, 4th=5pts.
+    const sorted = [...metaRows].sort((a, b) => deckCompositeScore(b) - deckCompositeScore(a));
+    const total = sorted.reduce((s, r) => s + (Number(r?.appearances) || 0), 0);
+    const top3 = sorted.slice(0, 3);
+    const medals = ['🥇', '🥈', '🥉'];
+    const deckCardsHtml = top3.map((r, i) => {
+        const deckName = String(r?.deck || '-');
+        const appearances = Number(r?.appearances) || 0;
+        const peakShare = peakShareByDeck.get(deckName) || 0;
+        const color = CHART_PALETTE[i % CHART_PALETTE.length];
+        const sparkline = buildSparklineSvg(trendByDeck.get(deckName) || []);
+        const titles = Number(r?.titles) || 0;
+        const top4 = Number(r?.top4_total) || 0;
+        const score = deckCompositeScore(r).toFixed(1);
+        const top4Rate = appearances > 0 ? (top4 / appearances * 100).toFixed(0) : null;
+        const fmt = (v, suffix = '') => (v === null || v === '0' || v === 0) ? '—' : `${v}${suffix}`;
+        const peakLabel = currentMetaOverviewPeriod === 'all' || !currentMetaOverviewPeriod ? 'pico' : 'meta';
+        return `<div class="meta-top-deck-card">
+            <div class="meta-top-deck-header">
+                <span class="meta-top-deck-medal">${medals[i]}</span>
+                <span class="meta-top-deck-name">${escapeHtml(deckName)}</span>
+                <span class="meta-top-deck-pct" style="color:${color}" title="${peakLabel} de meta share">${peakShare.toFixed(1)}% <span class="meta-deck-pct-label">${peakLabel}</span></span>
+            </div>
+            <div class="meta-top-deck-body">
+                <div class="meta-top-deck-sparkline">${sparkline}</div>
+                <div class="meta-top-deck-scores">
+                    <span class="meta-top-deck-score-item"><span class="meta-score-label" title="1º=15pts · 2º=10pts · 3º=7pts · 4º=5pts">Score ⓘ</span><span class="meta-score-value">${score}</span></span>
+                    <span class="meta-top-deck-score-item"><span class="meta-score-label">Aparições</span><span class="meta-score-value">${appearances}</span></span>
+                    <span class="meta-top-deck-score-item"><span class="meta-score-label">Títulos</span><span class="meta-score-value">${fmt(titles)}</span></span>
+                    <span class="meta-top-deck-score-item"><span class="meta-score-label">Taxa Top4</span><span class="meta-score-value">${fmt(top4Rate, '%')}</span></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+    const topDecksSection = top3.length
+        ? `<div class="meta-top-decks"><span class="meta-top-decks-label">Top Decks</span>${deckCardsHtml}</div>`
+        : '';
+
+    // ── Meta Evolution chart ───────────────────────────────────────────────
+    const evolutionHtml = buildMetaEvolutionChartHtml(rawMetaRows, sorted);
+
+    // ── Assemble ───────────────────────────────────────────────────────────
+    const chartsHtml = isMobile
+        ? `<div class="meta-overview-tabs">
+                <button type="button" class="meta-tab-btn is-active" data-meta-tab="meta">Meta</button>
+                <button type="button" class="meta-tab-btn" data-meta-tab="cores">Cores</button>
+           </div>
+           <div class="meta-tab-panel" data-meta-panel="meta">${donutHtml}</div>
+           <div class="meta-tab-panel is-hidden" data-meta-panel="cores">${colorHtml}</div>`
+        : `<div class="meta-overview-grid">
+               <div class="meta-overview-col">${donutHtml}</div>
+               <div class="meta-overview-col">${colorHtml}</div>
+           </div>`;
+
+    panel.innerHTML = `${kpiHtml}${periodHtml}${chartsHtml}${topDecksSection}${evolutionHtml}`;
+    host.appendChild(panel);
+
+    // Tab switching (mobile)
+    panel.querySelectorAll('.meta-tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.metaTab;
+            panel.querySelectorAll('.meta-tab-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
+            panel.querySelectorAll('.meta-tab-panel').forEach((p) =>
+                p.classList.toggle('is-hidden', p.dataset.metaPanel !== target)
+            );
+        });
+    });
+
+    // Period filter
+    panel.querySelectorAll('.meta-period-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            currentMetaOverviewPeriod = btn.dataset.period || 'all';
+            renderStatisticsTable(statisticsViewData, 'meta_overview');
+        });
+    });
+}
+
+function buildAttendanceSparkline(entries) {
+    if (!Array.isArray(entries) || entries.length < 2) return '';
+    const values = entries.map((e) => e.players);
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    const range = max - min || 1;
+    const W = 80, H = 28, PAD = 2;
+    const coords = values.map((v, i) => {
+        const x = PAD + (i / (values.length - 1)) * (W - 2 * PAD);
+        const y = (H - PAD) - ((v - min) / range) * (H - 2 * PAD);
+        return [x.toFixed(1), y.toFixed(1)];
+    });
+    const polyline = coords.map((c) => c.join(',')).join(' ');
+    const lastX = coords[coords.length - 1][0];
+    const lastY = coords[coords.length - 1][1];
+    const trend = values[values.length - 1] - values[0];
+    const color = trend > 0 ? '#26de81' : trend < 0 ? '#fc5c65' : '#8fa8d4';
+    const lastVal = values[values.length - 1];
+    const avg = Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+    return `<div class="store-attendance-trend">
+        <span class="store-attendance-label">Jogadores (tendência)</span>
+        <div class="store-attendance-sparkwrap">
+            <svg class="stats-sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+                <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+                <circle cx="${lastX}" cy="${lastY}" r="2.2" fill="${color}"/>
+            </svg>
+            <span class="store-attendance-stats">último: ${lastVal} · média: ${avg}</span>
+        </div>
+    </div>`;
+}
+
 function renderStoreChampionsBoard(host, rows, options = {}) {
     const isMobile = options.isMobile === true;
     const collapsedByDefault = isMobile && options.collapsedByDefault === true;
+    const storeAttendance = options.storeAttendance instanceof Map ? options.storeAttendance : new Map();
     const grouped = new Map();
     rows.forEach((row) => {
         const store = String(row?.store || '').trim() || 'Unknown Store';
@@ -3313,6 +3893,9 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
                 })
                 .join('');
 
+            const attendanceEntries = storeAttendance.get(storeName) || [];
+            const attendanceHtml = buildAttendanceSparkline(attendanceEntries);
+
             card.innerHTML = `
                 <header class="store-podium-header">
                     <div class="store-podium-title-wrap">
@@ -3325,6 +3908,7 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
                             : ''
                     }
                 </header>
+                ${attendanceHtml}
                 <ol class="store-podium-list">
                     ${listHtml || '<li class="store-podium-item regular"><div class="store-podium-main">Sem dados</div></li>'}
                 </ol>
@@ -4109,30 +4693,59 @@ function buildMetaDonutChartHtml(rows) {
 
     const TOP_N = 7;
     const topRows = sorted.slice(0, TOP_N);
-    const othersCount = sorted.slice(TOP_N).reduce((sum, r) => sum + Number(r?.appearances || 0), 0);
+    const othersRows = sorted.slice(TOP_N);
+    const othersCount = othersRows.reduce((sum, r) => sum + Number(r?.appearances || 0), 0);
+    const othersDecks = othersRows.length;
     const segments = topRows.map((r, i) => ({
         label: String(r?.deck || r?.deck_name || '-'),
         value: Number(r?.appearances || 0),
         color: CHART_PALETTE[i % CHART_PALETTE.length]
     }));
-    if (othersCount > 0) segments.push({ label: 'Outros', value: othersCount, color: '#cbd5e1' });
+    if (othersCount > 0) segments.push({ label: `Outros (${othersDecks} decks)`, value: othersCount, color: '#cbd5e1' });
 
-    const R = 56, CX = 70, CY = 70, gap = 0.02;
-    let paths = '';
-    let angle = -Math.PI / 2;
-    segments.forEach((seg) => {
-        const sweep = (seg.value / total) * (Math.PI * 2 - gap * segments.length);
-        const x1 = CX + R * Math.cos(angle);
-        const y1 = CY + R * Math.sin(angle);
-        angle += sweep + gap;
-        const x2 = CX + R * Math.cos(angle);
-        const y2 = CY + R * Math.sin(angle);
-        const large = sweep > Math.PI ? 1 : 0;
-        paths += `<path d="M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z"
-            fill="${seg.color}" opacity="0.92"/>`;
-    });
-    // centre hole — use style so CSS variables work in inline SVG
-    paths += `<circle cx="${CX}" cy="${CY}" r="28" class="donut-hole"/>`;
+    const donutCanvasId = `meta-donut-canvas-${Date.now()}`;
+
+    if (_metaDonutChart) { _metaDonutChart.destroy(); _metaDonutChart = null; }
+
+    setTimeout(() => {
+        const canvas = document.getElementById(donutCanvasId);
+        if (!canvas || !window.Chart) return;
+        _metaDonutChart = new window.Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: segments.map((s) => s.label),
+                datasets: [{
+                    data: segments.map((s) => s.value),
+                    backgroundColor: segments.map((s) => s.color),
+                    borderColor: '#131e2e',
+                    borderWidth: 2,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '58%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a2640',
+                        borderColor: '#2d3f55',
+                        borderWidth: 1,
+                        titleColor: '#c8d4e8',
+                        bodyColor: '#8fa4c8',
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                return ` ${ctx.label}: ${pct}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }, 0);
 
     const legendItems = segments.map((seg) => {
         const pct = ((seg.value / total) * 100).toFixed(1);
@@ -4143,51 +4756,153 @@ function buildMetaDonutChartHtml(rows) {
         </span>`;
     }).join('');
 
+    // Herfindahl-Hirschman Index — uses all rows (not just top 7)
+    const hhi = sorted.reduce((sum, r) => {
+        const share = Number(r?.appearances || 0) / total;
+        return sum + share * share;
+    }, 0);
+    const effectiveDecks = hhi > 0 ? Math.round(1 / hhi) : sorted.length;
+    const hhiPct = Math.round(hhi * 100);
+
+    // Diversity levels — bar goes left=green (diverse) to right=red (concentrated)
+    // Cap display at 50% HHI; beyond that it's just "very concentrated"
+    const HHI_DISPLAY_MAX = 0.50;
+    const indicatorPct = Math.min(hhi / HHI_DISPLAY_MAX, 1) * 100;
+
+    const diversityLabel = hhi < 0.15 ? 'Muito diverso'
+        : hhi < 0.25 ? 'Diverso'
+        : hhi < 0.40 ? 'Moderado'
+        : 'Concentrado';
+    const diversityColor = hhi < 0.15 ? '#22c55e'
+        : hhi < 0.25 ? '#84cc16'
+        : hhi < 0.40 ? '#f59e0b'
+        : '#ef4444';
+    const diversityDesc = hhi < 0.15 ? 'muitos decks competitivos diferentes'
+        : hhi < 0.25 ? 'boa variedade de decks no meta'
+        : hhi < 0.40 ? 'alguns decks dominam o meta'
+        : 'um ou poucos decks dominam o meta';
+
+    // Threshold ticks — vertical marks above the bar
+    const t1 = 0.15 / HHI_DISPLAY_MAX * 100;
+    const t2 = 0.25 / HHI_DISPLAY_MAX * 100;
+    const t3 = 0.40 / HHI_DISPLAY_MAX * 100;
+    const ticks = [
+        { pct: t1, label: '15%' },
+        { pct: t2, label: '25%' },
+        { pct: t3, label: '40%' },
+    ];
+    const ticksHtml = ticks.map((t) =>
+        `<div class="meta-gauge-tick" style="left:${t.pct.toFixed(1)}%">
+            <div class="meta-gauge-tick-line"></div>
+            <span class="meta-gauge-tick-label">${t.label}</span>
+        </div>`
+    ).join('');
+
+    // Region labels centered between each pair of thresholds, overlaid on the bar
+    const regions = [
+        { label: 'Muito diverso', center: t1 / 2 },
+        { label: 'Diverso',       center: (t1 + t2) / 2 },
+        { label: 'Moderado',      center: (t2 + t3) / 2 },
+        { label: 'Concentrado',   center: (t3 + 100) / 2 },
+    ];
+    const regionsHtml = regions.map((rg) =>
+        `<span class="meta-gauge-region-label" style="left:${rg.center.toFixed(1)}%">${rg.label}</span>`
+    ).join('');
+
     return `<div class="stats-chart-wrap stats-donut-wrap">
-        <svg class="stats-donut-chart" viewBox="0 0 140 140" aria-hidden="true">${paths}</svg>
-        <div class="stats-chart-legend">${legendItems}</div>
+        <div class="meta-donut-top-row">
+            <div class="meta-donut-header">
+                <span class="meta-donut-title">Distribuição do Meta <span class="meta-donut-title-sub">(Meta Share)</span></span>
+                <span class="meta-donut-caption">ordenado por aparições</span>
+            </div>
+            <div class="meta-diversity-pill">
+                <span class="meta-diversity-pill-score" style="color:${diversityColor}">${diversityLabel} <span class="meta-diversity-pill-pct">(${hhiPct}%)</span></span>
+                <span class="meta-diversity-pill-detail">${diversityDesc}</span>
+                <span class="meta-diversity-pill-detail">~${effectiveDecks} decks competitivos</span>
+            </div>
+        </div>
+        <div class="meta-gauge-wrap">
+            <div class="meta-gauge-row">
+                <div class="meta-gauge-bar">
+                    <div class="meta-gauge-indicator" style="left:${indicatorPct.toFixed(1)}%">
+                        <div class="meta-gauge-indicator-dot" style="background:${diversityColor}"></div>
+                    </div>
+                    ${ticksHtml}
+                    ${regionsHtml}
+                </div>
+            </div>
+        </div>
+        <div class="meta-donut-body">
+            <div class="meta-donut-canvas-wrap">
+                <canvas id="${donutCanvasId}"></canvas>
+            </div>
+            <div class="stats-chart-legend">${legendItems}</div>
+        </div>
     </div>`;
 }
 
-function buildColorBarChartHtml(rows) {
-    // Aggregate by color_code across all months/formats in the current filtered set.
-    // usage_percent is averaged; titles and top4_total are summed.
-    const byCode = new Map();
-    rows.forEach((r) => {
-        const code = String(r?.color_code || '').toLowerCase();
-        if (!code) return;
-        const existing = byCode.get(code) || {
-            color_code: code,
-            color: String(r?.color || code.toUpperCase()),
-            usage_pct_sum: 0,
-            count: 0
-        };
-        existing.usage_pct_sum += Number(r?.usage_percent || 0);
-        existing.count += 1;
-        byCode.set(code, existing);
-    });
+function buildColorBarChartHtml(rows, prevRows = []) {
+    // Aggregate current period by color_code
+    const aggregate = (rowList) => {
+        const map = new Map();
+        rowList.forEach((r) => {
+            const code = String(r?.color_code || '').toLowerCase();
+            if (!code) return;
+            const e = map.get(code) || { color_code: code, color: String(r?.color || code.toUpperCase()), sum: 0, count: 0 };
+            e.sum += Number(r?.usage_percent || 0);
+            e.count += 1;
+            map.set(code, e);
+        });
+        return map;
+    };
+
+    const byCode = aggregate(rows);
+    const prevByCode = aggregate(prevRows);
 
     const sorted = Array.from(byCode.values())
-        .map((e) => ({ ...e, usage_percent: e.usage_pct_sum / e.count }))
+        .map((e) => ({ ...e, usage_percent: e.sum / e.count }))
         .sort((a, b) => b.usage_percent - a.usage_percent);
 
     if (!sorted.length) return '';
     const maxPct = Math.max(...sorted.map((r) => r.usage_percent), 1);
+    const hasPrev = prevByCode.size > 0;
 
     const bars = sorted.map((r) => {
         const pct = r.usage_percent;
         const barW = Math.max(2, (pct / maxPct) * 100);
         const fill = COLOR_CODE_PALETTE[r.color_code] || CHART_PALETTE[0];
+
+        let trendHtml = '';
+        if (hasPrev) {
+            const prev = prevByCode.get(r.color_code);
+            const prevPct = prev ? prev.sum / prev.count : null;
+            if (prevPct !== null) {
+                const diff = pct - prevPct;
+                if (Math.abs(diff) < 0.5) {
+                    trendHtml = `<span class="color-bar-trend neutral" title="Estável vs mês anterior">—</span>`;
+                } else if (diff > 0) {
+                    trendHtml = `<span class="color-bar-trend up" title="+${diff.toFixed(1)}% vs mês anterior">↑</span>`;
+                } else {
+                    trendHtml = `<span class="color-bar-trend down" title="${diff.toFixed(1)}% vs mês anterior">↓</span>`;
+                }
+            }
+        }
+
         return `<div class="color-bar-row">
             <span class="color-bar-label">${r.color}</span>
             <div class="color-bar-track">
                 <div class="color-bar-fill" style="width:${barW.toFixed(1)}%;background:${fill}"></div>
             </div>
             <span class="color-bar-pct">${pct.toFixed(1)}%</span>
+            ${trendHtml}
         </div>`;
     }).join('');
 
     return `<div class="stats-chart-wrap stats-color-bars-wrap">
+        <div class="color-bar-header">
+            <span class="color-bar-title">Distribuição por Cor</span>
+            <span class="color-bar-subtitle">% de aparições dos decks no Top 4 por cor${hasPrev ? ' · vs mês anterior' : ''}</span>
+        </div>
         <div class="stats-color-bars">${bars}</div>
     </div>`;
 }

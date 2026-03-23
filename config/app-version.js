@@ -7,12 +7,16 @@
     const THEME_LIGHT = 'light';
     const THEME_DARK = 'dark';
 
-    function normalizeTheme(_theme) {
-        return THEME_DARK;
+    function normalizeTheme(theme) {
+        return theme === THEME_LIGHT ? THEME_LIGHT : THEME_DARK;
     }
 
     function getStoredTheme() {
-        return THEME_DARK;
+        try {
+            return normalizeTheme(localStorage.getItem(STORAGE_KEY));
+        } catch (_) {
+            return THEME_DARK;
+        }
     }
 
     function persistTheme(theme) {
