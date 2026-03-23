@@ -77,6 +77,8 @@ function setupAdminActions() {
         if (action === 'delete-store') deleteStore(btn.dataset.id, btn.dataset.name);
         if (action === 'close-store-modal') closeStoreModal();
         if (action === 'clear-store-logo') clearStoreLogo();
+        if (action === 'browse-store-logos') toggleStoreBucketBrowser();
+        if (action === 'select-store-logo') selectStoreLogo(btn.dataset.url);
     });
 
     // Format form submit
@@ -794,6 +796,78 @@ function autoDetectFormatBackground(code) {
 function selectBucketImage(url, path) {
     setFormatBgPreview(url, url, path);
     const browser = document.getElementById('adminBucketBrowser');
+    if (browser) browser.classList.add('is-hidden');
+}
+
+// ============================================================
+// STORE BUCKET BROWSER
+// ============================================================
+async function toggleStoreBucketBrowser() {
+    const browser = document.getElementById('adminStoreBucketBrowser');
+    if (!browser) return;
+
+    if (!browser.classList.contains('is-hidden')) {
+        browser.classList.add('is-hidden');
+        return;
+    }
+
+    browser.classList.remove('is-hidden');
+    const grid = document.getElementById('adminStoreBucketImages');
+    if (!grid) return;
+
+    grid.innerHTML = '<p style="padding:12px;opacity:.6;">Loading…</p>';
+
+    try {
+        const res = await fetch(
+            `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/list/store-logos`,
+            {
+                method: 'POST',
+                headers: {
+                    apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prefix: 'stores/',
+                    limit: 200,
+                    offset: 0,
+                    sortBy: { column: 'name', order: 'asc' },
+                }),
+            }
+        );
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const files = await res.json();
+
+        if (!Array.isArray(files) || files.length === 0) {
+            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No logos found in store-logos/stores/ folder.</p>';
+            return;
+        }
+
+        const base = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/store-logos/stores/`;
+
+        grid.innerHTML = files
+            .filter((f) => f.name && !f.name.endsWith('/'))
+            .map((f) => {
+                const url = base + encodeURIComponent(f.name);
+                const safeName = escapeAdminHtml(f.name);
+                const safeUrl = escapeAdminHtml(url);
+                return `
+                <button type="button" class="admin-bucket-thumb" data-admin-action="select-store-logo"
+                    data-url="${safeUrl}" title="${safeName}">
+                    <img src="${safeUrl}" alt="${safeName}" loading="lazy" />
+                    <span class="admin-bucket-thumb-name">${safeName}</span>
+                </button>`;
+            })
+            .join('');
+    } catch (err) {
+        grid.innerHTML = `<p style="padding:12px;color:var(--color-danger,#e74c3c);">${escapeAdminHtml(err.message)}</p>`;
+    }
+}
+
+function selectStoreLogo(url) {
+    setStoreLogoPreview(url);
+    const browser = document.getElementById('adminStoreBucketBrowser');
     if (browser) browser.classList.add('is-hidden');
 }
 

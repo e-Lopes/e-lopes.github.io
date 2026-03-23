@@ -12501,9 +12501,15 @@ textarea::placeholder {
     background: #1e2d45;
 }
 
-#adminFormatModal .admin-bucket-browser {
+#adminFormatModal .admin-bucket-browser,
+#adminStoreModal .admin-bucket-browser {
     border-color: #3f4b68;
     background: #151e2e;
+}
+
+#adminStoreBucketBrowser .admin-bucket-thumb img {
+    object-fit: contain;
+    background: #1a2336;
 }
 
 #adminFormatModal input[type="checkbox"],

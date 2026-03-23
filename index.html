@@ -790,11 +790,15 @@
                                         <img id="adminStoreLogoPreview" alt="Store logo" style="max-height:80px;object-fit:contain;border-radius:8px;" />
                                         <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-store-logo" title="Remove logo">✕</button>
                                     </div>
-                                    <div style="display:flex;gap:8px;margin-top:6px;">
+                                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
                                         <label class="btn-secondary admin-upload-label">
                                             Upload logo
                                             <input type="file" id="adminStoreLogoFile" accept="image/*" style="display:none;" />
                                         </label>
+                                        <button type="button" class="btn-secondary" data-admin-action="browse-store-logos">Browse existing</button>
+                                    </div>
+                                    <div id="adminStoreBucketBrowser" class="admin-bucket-browser is-hidden">
+                                        <div id="adminStoreBucketImages" class="admin-bucket-grid"></div>
                                     </div>
                                     <p id="adminStoreLogoUploadStatus" class="admin-form-status" style="margin-top:4px;"></p>
                                 </div>
