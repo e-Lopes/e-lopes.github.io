@@ -38,6 +38,7 @@ const POST_PREVIEW_ZOOM_STORAGE_KEY = 'digistats.post-preview.zoom.v1';
 const POST_TYPE_OPTIONS = ['top4', 'distribution_results', 'blank_middle'];
 const FORMAT_BG_BUCKET = 'post-backgrounds';
 let formatBackgroundMapPromise = null;
+const storeLogoMap = new Map(); // normalized name → bucket URL
 let selectedPostType = loadSelectedPostType();
 let postPreviewZoom = loadPostPreviewZoom();
 
@@ -930,6 +931,9 @@ async function loadStores() {
         }
 
         const stores = await res.json();
+        stores.forEach((s) => {
+            if (s.logo_url) storeLogoMap.set(normalizeStoreName(s.name), s.logo_url);
+        });
         const select = document.getElementById('storeFilter');
 
         select.innerHTML = '<option value="">Select store...</option>';
@@ -2276,6 +2280,11 @@ function normalizeStoreName(name) {
 
 function resolveStoreIconPath(storeName) {
     const normalized = normalizeStoreName(storeName);
+    // Check bucket logos from DB first
+    for (const [key, url] of storeLogoMap) {
+        if (normalized.includes(key) || key.includes(normalized)) return url;
+    }
+    // Fallback to local icons
     if (normalized.includes('gladiator')) return '../icons/stores/Gladiators.png';
     if (normalized.includes('cartinhas') || normalized.includes('celta'))
         return '../icons/stores/ReiDasCartinhas.png';

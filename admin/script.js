@@ -5,9 +5,11 @@
 // ============================================================
 let adminFormats = [];
 let adminBanList = [];
+let adminStores = [];
 let adminBanNameMap = {}; // card_code -> name, from ban_list.card_name
 let adminBanListLoaded = false;
 let adminFormatsLoaded = false;
+let adminStoresLoaded = false;
 let adminActiveTab = 'formats';
 let _banPreviewDebounceTimer = null;
 
@@ -17,8 +19,10 @@ let _banPreviewDebounceTimer = null;
 window.initAdminPage = function () {
     adminFormats = [];
     adminBanList = [];
+    adminStores = [];
     adminBanListLoaded = false;
     adminFormatsLoaded = false;
+    adminStoresLoaded = false;
     adminActiveTab = 'formats';
     setupAdminActions();
     loadAdminFormats();
@@ -28,9 +32,11 @@ window.initAdminPage = function () {
 window.resetAdminPage = function () {
     adminFormats = [];
     adminBanList = [];
+    adminStores = [];
     adminBanNameMap = {};
     adminBanListLoaded = false;
     adminFormatsLoaded = false;
+    adminStoresLoaded = false;
 };
 
 // ============================================================
@@ -66,6 +72,11 @@ function setupAdminActions() {
         if (action === 'clear-format-bg') clearFormatBackground();
         if (action === 'repair-check') runRepairCheck();
         if (action === 'repair-run') runRepairRun();
+        if (action === 'create-store') openStoreModal(null);
+        if (action === 'edit-store') openStoreModal(btn.dataset.id);
+        if (action === 'delete-store') deleteStore(btn.dataset.id, btn.dataset.name);
+        if (action === 'close-store-modal') closeStoreModal();
+        if (action === 'clear-store-logo') clearStoreLogo();
     });
 
     // Format form submit
@@ -87,6 +98,36 @@ function setupAdminActions() {
     if (banModal) {
         banModal.addEventListener('click', (e) => {
             if (e.target === banModal) closeBanModal();
+        });
+    }
+    const storeModal = document.getElementById('adminStoreModal');
+    if (storeModal) {
+        storeModal.addEventListener('click', (e) => {
+            if (e.target === storeModal) closeStoreModal();
+        });
+    }
+
+    // Store form submit
+    const storeForm = document.getElementById('adminStoreForm');
+    if (storeForm) storeForm.addEventListener('submit', saveStore);
+
+    // Store logo file input
+    const storeLogoFile = document.getElementById('adminStoreLogoFile');
+    if (storeLogoFile) {
+        storeLogoFile.addEventListener('change', async () => {
+            const file = storeLogoFile.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('adminStoreLogoUploadStatus');
+            if (statusEl) statusEl.textContent = 'Uploading…';
+            try {
+                const storeName = (document.getElementById('adminStoreName')?.value.trim() || 'store')
+                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                const { url } = await uploadStoreLogo(file, storeName);
+                setStoreLogoPreview(url);
+                if (statusEl) statusEl.textContent = '';
+            } catch (err) {
+                if (statusEl) statusEl.textContent = `Upload error: ${err.message}`;
+            }
         });
     }
 
@@ -140,6 +181,7 @@ function switchAdminTab(tab) {
     container.querySelectorAll('[data-admin-panel]').forEach((panel) => {
         panel.classList.toggle('is-hidden', panel.dataset.adminPanel !== tab);
     });
+    if (tab === 'stores' && !adminStoresLoaded) loadAdminStores();
 }
 
 // ============================================================
@@ -1010,6 +1052,210 @@ async function runRepairRun() {
         if (runBtn) runBtn.disabled = false;
     }
     if (checkBtn) checkBtn.disabled = false;
+}
+
+// ============================================================
+// STORES
+// ============================================================
+async function loadAdminStores() {
+    const host = document.getElementById('adminStoresBody');
+    if (!host) return;
+    host.innerHTML = '<tr><td colspan="5" class="admin-loading"><div class="spinner"></div></td></tr>';
+
+    try {
+        const res = await fetch(
+            `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores?select=id,name,bandai_nick,logo_url,is_active&order=name.asc`,
+            { headers: window.createSupabaseHeaders() }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        adminStores = await res.json();
+        adminStoresLoaded = true;
+        renderAdminStores();
+    } catch (err) {
+        // Fallback: try without optional columns
+        try {
+            const res2 = await fetch(
+                `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores?select=id,name,bandai_nick&order=name.asc`,
+                { headers: window.createSupabaseHeaders() }
+            );
+            if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+            adminStores = await res2.json();
+            adminStoresLoaded = true;
+            renderAdminStores();
+        } catch (err2) {
+            host.innerHTML = `<tr><td colspan="5" class="admin-error">${escapeAdminHtml(err2.message)}</td></tr>`;
+        }
+    }
+}
+
+function renderAdminStores() {
+    const host = document.getElementById('adminStoresBody');
+    if (!host) return;
+
+    if (!adminStores.length) {
+        host.innerHTML = '<tr><td colspan="5" class="admin-empty">No stores registered yet.</td></tr>';
+        return;
+    }
+
+    host.innerHTML = adminStores
+        .map(
+            (s) => `
+        <tr>
+            <td>${s.logo_url ? `<img src="${escapeAdminHtml(s.logo_url)}" alt="${escapeAdminHtml(s.name)}" style="height:36px;object-fit:contain;border-radius:6px;display:block;" />` : '<span class="admin-dim">—</span>'}</td>
+            <td>${escapeAdminHtml(s.name || '—')}</td>
+            <td>${s.bandai_nick ? `<code>${escapeAdminHtml(s.bandai_nick)}</code>` : '<span class="admin-dim">—</span>'}</td>
+            <td>${s.is_active === false ? '<span class="admin-badge admin-badge--inactive">Inactive</span>' : '<span class="admin-badge admin-badge--active">Active</span>'}</td>
+            <td class="admin-actions-cell">
+                <button class="player-history-register-btn" data-admin-action="edit-store" data-id="${s.id}">Edit</button>
+                <button class="player-history-register-btn admin-btn-danger" data-admin-action="delete-store" data-id="${s.id}" data-name="${escapeAdminHtml(s.name)}">Delete</button>
+            </td>
+        </tr>
+    `
+        )
+        .join('');
+}
+
+function setStoreLogoPreview(url) {
+    const wrap = document.getElementById('adminStoreLogoPreviewWrap');
+    const img = document.getElementById('adminStoreLogoPreview');
+    const urlInput = document.getElementById('adminStoreLogoUrl');
+    if (!wrap || !img || !urlInput) return;
+    if (url) {
+        img.src = url;
+        wrap.style.display = 'flex';
+        urlInput.value = url;
+    } else {
+        img.src = '';
+        wrap.style.display = 'none';
+        urlInput.value = '';
+    }
+}
+
+function clearStoreLogo() {
+    setStoreLogoPreview('');
+    const fileInput = document.getElementById('adminStoreLogoFile');
+    if (fileInput) fileInput.value = '';
+}
+
+async function uploadStoreLogo(file, slug) {
+    const ext = file.name.split('.').pop().toLowerCase() || 'png';
+    const path = `stores/${slug}-${Date.now()}.${ext}`;
+    const bucket = 'store-logos';
+    const uploadUrl = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
+
+    const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-upsert': 'true',
+        },
+        body: file,
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || `Upload failed: HTTP ${res.status}`);
+    }
+
+    const publicUrl = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+    return { path, url: publicUrl };
+}
+
+function openStoreModal(id) {
+    const store = id ? adminStores.find((s) => s.id === id) : null;
+    const modal = document.getElementById('adminStoreModal');
+    if (!modal) return;
+
+    modal.querySelector('#adminStoreId').value = id || '';
+    modal.querySelector('#adminStoreName').value = store?.name || '';
+    modal.querySelector('#adminStoreBandaiNick').value = store?.bandai_nick || '';
+    modal.querySelector('#adminStoreIsActive').checked = store ? store.is_active !== false : true;
+    modal.querySelector('#adminStoreStatus').textContent = '';
+    modal.querySelector('#adminStoreLogoUploadStatus').textContent = '';
+    modal.querySelector('.admin-modal-title').textContent = id ? 'Edit Store' : 'New Store';
+
+    const fileInput = modal.querySelector('#adminStoreLogoFile');
+    if (fileInput) fileInput.value = '';
+    setStoreLogoPreview(store?.logo_url || '');
+
+    modal.classList.add('active');
+}
+
+function closeStoreModal() {
+    const modal = document.getElementById('adminStoreModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function saveStore(e) {
+    e.preventDefault();
+    const statusEl = document.getElementById('adminStoreStatus');
+    if (statusEl) statusEl.textContent = '';
+
+    const id = document.getElementById('adminStoreId')?.value;
+    const name = document.getElementById('adminStoreName')?.value.trim();
+    const bandai_nick = document.getElementById('adminStoreBandaiNick')?.value.trim() || null;
+    const logo_url = document.getElementById('adminStoreLogoUrl')?.value.trim() || null;
+    const is_active = document.getElementById('adminStoreIsActive')?.checked ?? true;
+
+    if (!name) {
+        if (statusEl) statusEl.textContent = 'Name is required.';
+        return;
+    }
+
+    const payload = { name, bandai_nick, logo_url, is_active };
+    const submitBtn = document.querySelector('#adminStoreForm [type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+        let res;
+        if (id) {
+            res = await fetch(
+                `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`,
+                {
+                    method: 'PATCH',
+                    headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+                    body: JSON.stringify(payload),
+                }
+            );
+        } else {
+            res = await fetch(
+                `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores`,
+                {
+                    method: 'POST',
+                    headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+                    body: JSON.stringify(payload),
+                }
+            );
+        }
+        if (!res.ok) {
+            const body = await res.text();
+            throw new Error(body || `HTTP ${res.status}`);
+        }
+        closeStoreModal();
+        adminStoresLoaded = false;
+        await loadAdminStores();
+    } catch (err) {
+        if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+async function deleteStore(id, name) {
+    if (!confirm(`Delete store "${name}"? This cannot be undone.`)) return;
+    try {
+        const res = await fetch(
+            `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`,
+            { method: 'DELETE', headers: window.createSupabaseHeaders() }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        adminStoresLoaded = false;
+        await loadAdminStores();
+    } catch (err) {
+        alert(`Error deleting store: ${err.message}`);
+    }
 }
 
 // ============================================================

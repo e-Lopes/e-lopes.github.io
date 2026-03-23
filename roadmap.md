@@ -2,11 +2,11 @@
 
 ## Current Score
 
-**9.4 / 10**
+**9.7 / 10**
 
-UI consistency pass completed: Players and Decks sections now follow the same 3-row layout (Add button / Search+filters / Total+per-page). Players Add/Search confusion resolved via modal. Deck list color chips upgraded to match the Create Deck modal dots (22px, solid fill, clean border). Deck code hidden in compact/grid views. Month filter in Decks only shows when in table/stats view. Tournaments button relabeled "Add Tournament". Create Deck modal now has an X close button. All modal text translated to EN-US. Dark mode color leakage in `.stats-counter` and `.decks-total` fixed — both now display as plain muted text.
+All M4 items completed: mobile statistics audit, store registration in Admin (+ store-logos bucket, logo upload), deckbuilder drag-and-drop, light mode brightness pass. Store icons now resolve from Supabase bucket (with local fallback). Icons folder cleaned up (removed icons/backgrounds/, icons/stores/ still used as fallback). Admin Stores tab matches Formats/Meta tab visual pattern.
 
-Main gaps keeping the score below 9.5: statistics sparkline and per-deck card filter still pending, mobile statistics views not audited, store registration not yet in Admin.
+Main gap to 9.8: migrate remaining `resolveStoreIcon` fallback to remove icons/stores/ once all stores have logo_url populated in DB. Then i18n toggle, format diversity score.
 
 ---
 
@@ -53,21 +53,20 @@ Main gaps keeping the score below 9.5: statistics sparkline and per-deck card fi
 
 ## Priority Order
 
-> **Recommended next priorities (Mar 2026):**
-> 1. **Players UX clarity** — quick win, high usability impact, no new data needed
-> 2. **Statistics sparkline + top cards per deck** — most requested stats features, data already exists
-> 3. **Card image preview in Top Cards** — low effort, big UX improvement on mobile
-> 4. **Deckbuilder drag-and-drop** — medium effort, Web-only, improves power-user flow
-> 5. **Store registration in Admin** — unblocks organizers from needing DB access
-> 6. **Mobile statistics audit** — several views likely degrade on small screens
+> **Recommended next priorities (Mar 2026, updated after audit):**
+> 1. **Mobile statistics audit** — statistics views are the most used section; several likely degrade on 375px
+> 2. **Store registration in Admin** — unblocks organizers from needing DB access
+> 3. **Deckbuilder drag-and-drop** — medium effort, Web-only, improves power-user flow
+> 4. **Light mode brightness pass** — quick CSS pass, reduces eye strain
+> 5. **Format health / diversity score** — low complexity, high analytical value
 
 ### P1 — Decklist data quality (repair legacy data)
 
 With the save bug fixed, new decklists will have correct `card_level`. But existing rows saved before the fix may still have `card_level = null`.
 
-- Add a one-time repair job/script to re-hydrate missing `card_type` / `card_level` in `decklist_card_metadata` for legacy decklists.
+- **[DONE]** `scripts/sync-card-metadata.js --update-decklist-cards` can re-hydrate `card_level` in `decklist_card_metadata` for legacy rows.
 - Add consistency checks to detect rows with missing metadata.
-- Verify `validate_decklist_limits` trigger works correctly with the extended table.
+- Verify `validate_decklist_limits` trigger works correctly with the extended table (migration exists at `database/migrations/20260314_fix_validate_decklist_limits.sql`, no automated test yet).
 
 ### P2 — Statistics improvements
 
@@ -80,10 +79,10 @@ See full details in `docs/statistics.md`.
 - **[DONE] Color stats bar chart** — horizontal bar chart for `v_deck_color_stats`, color-coded per color.
 - **[DONE] Top Cards coverage indicator** — empty state explains decklists must be registered; non-empty state shows card count + months covered.
 - **[DONE] Convert `v_deck_color_stats` to a real SQL view** — migration in `database/migrations/20260320_create_v_deck_color_stats.sql`. Month + format filters now work independently.
-- **Deck trend sparkline** — a small month-over-month line for each deck's meta share in the Deck Performance view. Tells the story of a deck rising or falling in the meta.
-- **Top cards per deck** — filter Top Cards by deck name to answer "what does a typical [Deck X] play?" Very natural question for a TCG player evaluating a deck.
-- **Card image preview in Top Cards** — the card code is shown but no image. A hover/tap preview with the card art would make the table dramatically more useful on mobile.
-- **Clarify Top Cards column names** — `champion/top2/top3/top4` are copy counts, not decklist counts. Rename to `copies_1st/copies_2nd/copies_3rd/copies_4th` or add a tooltip explaining the distinction.
+- **[DONE] Deck trend sparkline** — SVG sparkline per deck in Deck Performance view showing month-over-month meta share. `script.js` lines ~1806–1849.
+- **[DONE] Top cards per deck** — `#statisticsFilterDeck` filter on Top Cards view using `v_top_cards_by_deck` endpoint.
+- **[DONE] Card image preview in Top Cards** — hover/tap preview with card art via digimoncard.io API.
+- **[DONE] Clarify Top Cards column names** — columns renamed to `1st/2nd/3rd/4th` in the rendered table headers.
 
 **Medium-term (requires minor data model work):**
 
@@ -150,13 +149,9 @@ Allow users to reorder cards within a decklist by dragging. Desktop/Web only —
 - Persist the new order on save (already normalized by position column in `decklist_card_metadata`).
 - Visual affordance: drag handle icon on each card row, highlight drop target.
 
-### P3 — Players: UX clarity for Add vs. Search
+### P3 — Players: UX clarity for Add vs. Search — **[DONE]**
 
-The current layout has "Enter player name" (Add flow) and "Search players by name" (filter flow) too close together, causing confusion about which does what.
-
-- Visually separate the two actions — e.g., move Add into a modal/drawer triggered by the "+ Add" button, keeping only Search visible inline.
-- Or: relabel and restructure so the distinction is immediately obvious (different visual weight, section headers, or grouping).
-- Goal: a first-time user should never confuse registration with search.
+Add Player now opens a modal (EN-US). Search stays inline. 3-row layout matches Decks section.
 
 ### P3 — Mobile UI/UX review
 
@@ -225,6 +220,6 @@ The project works well in vanilla JS. A full migration would be costly with litt
 
 1. **M1 (done):** Fix the three open bugs. Core flows unblocked. ✅
 2. **M2 (done):** Statistics improvements (charts, SQL view, coverage indicator). CSS dark theme Wave 1. Admin Panel (format/meta CRUD, ban list). Mobile UX Wave 1 (nav, filters, deck list, pagination). ✅
-3. **M3 (next):** Players UX clarity. Statistics sparkline + per-deck card filter. Card preview in Top Cards. Deckbuilder drag-and-drop. Store registration in Admin.
-4. **M4 (mid term):** Mobile statistics audit. Light mode brightness pass. Legacy data repair for `card_level`. Testing gates, operational readiness basics.
+3. **M3 (done):** Players UX clarity ✅. Statistics sparkline ✅. Per-deck card filter ✅. Card preview in Top Cards ✅. Column names clarified ✅.
+4. **M4 (done):** Mobile statistics audit ✅. Store registration in Admin ✅ (+ store-logos bucket, logo upload). Deckbuilder drag-and-drop ✅. Light mode brightness pass ✅.
 5. **M5 (ongoing):** OCR improvements, product positioning, metrics, i18n toggle.

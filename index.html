@@ -567,6 +567,7 @@
                         <div class="admin-tabs">
                             <button type="button" class="admin-tab-btn is-active" data-admin-tab="formats">Formats / Meta</button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="banlist">Ban List</button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="stores">Stores</button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">Data Repair</button>
                         </div>
                     </div>
@@ -622,6 +623,31 @@
                                     </tr>
                                 </thead>
                                 <tbody id="adminBanListBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Stores panel -->
+                    <div data-admin-panel="stores" class="admin-panel is-hidden">
+                        <div class="admin-panel-header">
+                            <div>
+                                <h2 class="admin-panel-title">Stores</h2>
+                                <p class="admin-panel-desc">Manage tournament venues. Stores are available in the store selector when creating or editing tournaments.</p>
+                            </div>
+                            <button type="button" class="btn-primary" data-admin-action="create-store">+ New Store</button>
+                        </div>
+                        <div class="admin-table-wrapper">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Logo</th>
+                                        <th>Name</th>
+                                        <th>Bandai Nick</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminStoresBody"></tbody>
                             </table>
                         </div>
                     </div>
@@ -738,6 +764,50 @@
                                 <div class="modal-actions">
                                     <button type="submit" class="btn-save">Save</button>
                                     <button type="button" class="btn-cancel" data-admin-action="close-ban-modal">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Store Modal -->
+                    <div id="adminStoreModal" class="modal-overlay">
+                        <div class="modal-content">
+                            <h3 class="admin-modal-title">Store</h3>
+                            <form id="adminStoreForm">
+                                <input type="hidden" id="adminStoreId" />
+                                <input type="hidden" id="adminStoreLogoUrl" />
+                                <div class="form-group">
+                                    <label for="adminStoreName">Name <span class="required">*</span></label>
+                                    <input type="text" id="adminStoreName" placeholder="e.g. Card Kingdom SP" required autocomplete="off" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="adminStoreBandaiNick">Bandai Nick</label>
+                                    <input type="text" id="adminStoreBandaiNick" placeholder="Nickname used in Bandai TCG+ (optional)" autocomplete="off" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Store Logo</label>
+                                    <div class="admin-bg-selected-preview" id="adminStoreLogoPreviewWrap" style="display:none;">
+                                        <img id="adminStoreLogoPreview" alt="Store logo" style="max-height:80px;object-fit:contain;border-radius:8px;" />
+                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-store-logo" title="Remove logo">✕</button>
+                                    </div>
+                                    <div style="display:flex;gap:8px;margin-top:6px;">
+                                        <label class="btn-secondary admin-upload-label">
+                                            Upload logo
+                                            <input type="file" id="adminStoreLogoFile" accept="image/*" style="display:none;" />
+                                        </label>
+                                    </div>
+                                    <p id="adminStoreLogoUploadStatus" class="admin-form-status" style="margin-top:4px;"></p>
+                                </div>
+                                <div class="form-group" style="display:flex;gap:24px;align-items:center;">
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                        <input type="checkbox" id="adminStoreIsActive" />
+                                        Active
+                                    </label>
+                                </div>
+                                <p id="adminStoreStatus" class="admin-form-status"></p>
+                                <div class="modal-actions">
+                                    <button type="submit" class="btn-save">Save</button>
+                                    <button type="button" class="btn-cancel" data-admin-action="close-store-modal">Cancel</button>
                                 </div>
                             </form>
                         </div>

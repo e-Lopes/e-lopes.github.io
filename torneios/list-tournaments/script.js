@@ -293,6 +293,7 @@ const TOP_CARDS_PER_PAGE = 10;
 const topCardsNameCache = new Map();
 const topCardsNameLookupAttempted = new Set();
 let deckColorStatsSourceRows = [];
+const storeLogoMap = new Map(); // normalized name → bucket URL
 const DECK_COLOR_ORDER = ['r', 'u', 'b', 'w', 'g', 'y', 'p'];
 const DECK_COLOR_LABELS = {
     r: 'Red',
@@ -691,8 +692,13 @@ function normalizeStoreName(name) {
 }
 
 function resolveStoreIcon(storeName) {
-    const base = `${getAssetPrefix()}icons/stores/`;
     const normalized = normalizeStoreName(storeName);
+    // Check bucket logos from DB first
+    for (const [key, url] of storeLogoMap) {
+        if (normalized.includes(key) || key.includes(normalized)) return url;
+    }
+    // Fallback to local icons
+    const base = `${getAssetPrefix()}icons/stores/`;
     if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
     if (normalized.includes('cartinhas') || normalized.includes('celta'))
         return `${base}ReiDasCartinhas.png`;
@@ -705,11 +711,27 @@ function resolveStoreIcon(storeName) {
 // ============================================================
 // INIT - DOMContentLoaded
 // ============================================================
+async function loadStoreLogos() {
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/stores?select=name,logo_url&order=name.asc`,
+            { headers }
+        );
+        if (!res.ok) return;
+        const stores = await res.json();
+        stores.forEach((s) => {
+            if (s.logo_url) storeLogoMap.set(normalizeStoreName(s.name), s.logo_url);
+        });
+        window.__storeLogoMap = storeLogoMap;
+    } catch { /* silent — falls back to local icons */ }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     setupPerPageSelector();
     setupViewToggle();
     bindStaticActions();
     setupDashboardViewSwitching();
+    loadStoreLogos();
     await Promise.all([loadTournaments(), loadTournamentFormats()]);
     populateTournamentFormatSelect('createTournamentFormat');
     populateTournamentFormatSelect('editTournamentFormat');

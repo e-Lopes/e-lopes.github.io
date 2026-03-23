@@ -22,12 +22,28 @@ let playerModalKeydownAttached = false;
 let expandedPlayerId = null;
 let expandedHistoryEntryKey = null;
 const playerHistoryCache = new Map();
+const storeLogoMap = new Map(); // normalized name → bucket URL
+
+async function loadStoreLogos() {
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/stores?select=name,logo_url&order=name.asc`,
+            { headers }
+        );
+        if (!res.ok) return;
+        const stores = await res.json();
+        stores.forEach((s) => {
+            if (s.logo_url) storeLogoMap.set(normalizeStoreName(s.name), s.logo_url);
+        });
+    } catch { /* silent — falls back to local icons */ }
+}
 
 function initPlayersPage() {
     if (playersPageInitialized) return;
     if (!document.getElementById('playersList')) return;
 
     playersPageInitialized = true;
+    loadStoreLogos();
     loadPlayers();
     setupEventListeners();
 }
@@ -682,8 +698,13 @@ function normalizeStoreName(name) {
 }
 
 function resolveStoreIcon(storeName) {
-    const base = `${getAssetPrefix()}icons/stores/`;
     const normalized = normalizeStoreName(storeName);
+    // Check bucket logos from DB first
+    for (const [key, url] of storeLogoMap) {
+        if (normalized.includes(key) || key.includes(normalized)) return url;
+    }
+    // Fallback to local icons
+    const base = `${getAssetPrefix()}icons/stores/`;
     if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
     if (normalized.includes('cartinhas') || normalized.includes('celta'))
         return `${base}ReiDasCartinhas.png`;

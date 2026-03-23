@@ -7,7 +7,7 @@
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
     const DIGIMON_ALL_CARDS_URL = 'https://digimoncard.io/api-public/getAllCards';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
-    const BLANK_MIDDLE_FALLBACK_BG = '../../icons/backgrounds/EX11.png';
+    const BLANK_MIDDLE_FALLBACK_BG = '../../icons/EX11.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
 
     const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/;
@@ -80,6 +80,7 @@
 
     let entries = [];
     let context = { resultId: '', deck: '', player: '', store: '', date: '', format: '' };
+    let dragSrcIndex = -1;
 
     let cardSearchResults = [];
     let cardSearchPage = 1;
@@ -2088,7 +2089,7 @@
             return;
         }
 
-        board.innerHTML = entries.map((entry) => buildDeckCardHtml(entry)).join('');
+        board.innerHTML = entries.map((entry, i) => buildDeckCardHtml(entry, i)).join('');
 
         board.querySelectorAll('.decklist-builder-card img').forEach((img) => {
             img.addEventListener('error', () => {
@@ -2115,10 +2116,49 @@
             });
         });
 
+        // ─── Drag-and-drop reordering ─────────────────────────────────────────
+        board.querySelectorAll('.decklist-builder-card[data-index]').forEach((card) => {
+            const idx = Number(card.dataset.index);
+
+            card.addEventListener('dragstart', (e) => {
+                dragSrcIndex = idx;
+                card.classList.add('is-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            card.addEventListener('dragend', () => {
+                dragSrcIndex = -1;
+                board.querySelectorAll('.decklist-builder-card').forEach((c) => {
+                    c.classList.remove('is-dragging', 'is-drag-over');
+                });
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (idx !== dragSrcIndex) card.classList.add('is-drag-over');
+            });
+
+            card.addEventListener('dragleave', () => {
+                card.classList.remove('is-drag-over');
+            });
+
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                card.classList.remove('is-drag-over');
+                const src = dragSrcIndex;
+                if (src < 0 || src === idx) return;
+                const [moved] = entries.splice(src, 1);
+                entries.splice(idx, 0, moved);
+                setSaveStatus('');
+                render([]);
+            });
+        });
+
         hydrateCardMetadata(entries);
     }
 
-    function buildDeckCardHtml(entry) {
+    function buildDeckCardHtml(entry, index) {
         const badge = getCardRestrictionBadge(entry.code);
         const hideCount = badge?.type === 'restricted' && Number(entry.count) === 1;
         const badgeClass = hideCount ? 'is-in-deck is-in-count-slot' : 'is-in-deck';
@@ -2130,7 +2170,8 @@
             : `<div class="decklist-builder-count">${entry.count}</div>`;
 
         return `
-            <article class="decklist-builder-card" data-code="${escapeHtml(entry.code)}">
+            <article class="decklist-builder-card" data-code="${escapeHtml(entry.code)}" data-index="${index}" draggable="true">
+                <div class="decklist-builder-drag-handle" title="Drag to reorder">⠿</div>
                 ${countHtml}
                 <img src="${getCardImageUrl(entry.code)}" alt="${escapeHtml(entry.code)}" />
                 ${badgeHtml}

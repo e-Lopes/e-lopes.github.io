@@ -20,8 +20,16 @@
     }
 
     function resolveStoreIcon(storeName) {
-        const base = `${getAssetPrefix()}icons/stores/`;
         const normalized = normalizeStoreName(storeName);
+        // Check bucket logos from DB (set by parent list-tournaments script)
+        const map = window.__storeLogoMap;
+        if (map) {
+            for (const [key, url] of map) {
+                if (normalized.includes(key) || key.includes(normalized)) return url;
+            }
+        }
+        // Fallback to local icons
+        const base = `${getAssetPrefix()}icons/stores/`;
         if (normalized.includes('gladiator')) return `${base}Gladiators.png`;
         if (normalized.includes('cartinhas') || normalized.includes('celta'))
             return `${base}ReiDasCartinhas.png`;
