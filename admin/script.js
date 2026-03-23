@@ -817,40 +817,48 @@ async function toggleStoreBucketBrowser() {
 
     grid.innerHTML = '<p style="padding:12px;opacity:.6;">Loading…</p>';
 
-    try {
+    const bucketBase = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/store-logos/`;
+    const listHeaders = {
+        apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+    };
+
+    async function listPrefix(prefix) {
         const res = await fetch(
             `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/list/store-logos`,
             {
                 method: 'POST',
-                headers: {
-                    apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
-                    Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    prefix: 'stores/',
-                    limit: 200,
-                    offset: 0,
-                    sortBy: { column: 'name', order: 'asc' },
-                }),
+                headers: listHeaders,
+                body: JSON.stringify({ prefix, limit: 200, offset: 0, sortBy: { column: 'name', order: 'asc' } }),
             }
         );
+        if (!res.ok) return [];
+        const items = await res.json();
+        return Array.isArray(items) ? items : [];
+    }
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const files = await res.json();
+    try {
+        // Collect files from root AND stores/ subfolder (covers pre-loaded + admin-uploaded)
+        const [rootFiles, subFiles] = await Promise.all([listPrefix(''), listPrefix('stores/')]);
 
-        if (!Array.isArray(files) || files.length === 0) {
-            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No logos found in store-logos/stores/ folder.</p>';
+        const entries = [
+            ...rootFiles
+                .filter((f) => f.name && !f.name.endsWith('/') && f.id) // exclude directory entries
+                .map((f) => ({ name: f.name, url: bucketBase + encodeURIComponent(f.name) })),
+            ...subFiles
+                .filter((f) => f.name && !f.name.endsWith('/') && f.id)
+                .map((f) => ({ name: f.name, url: bucketBase + 'stores/' + encodeURIComponent(f.name) })),
+        ];
+
+        if (entries.length === 0) {
+            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No logos found in store-logos bucket.</p>';
             return;
         }
 
-        const base = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/store-logos/stores/`;
-
-        grid.innerHTML = files
-            .filter((f) => f.name && !f.name.endsWith('/'))
-            .map((f) => {
-                const url = base + encodeURIComponent(f.name);
-                const safeName = escapeAdminHtml(f.name);
+        grid.innerHTML = entries
+            .map(({ name, url }) => {
+                const safeName = escapeAdminHtml(name);
                 const safeUrl = escapeAdminHtml(url);
                 return `
                 <button type="button" class="admin-bucket-thumb" data-admin-action="select-store-logo"
