@@ -3,11 +3,11 @@
     const COLOR_OPTIONS = [
         { code: 'r', label: 'Red', className: 'is-red' },
         { code: 'u', label: 'Blue', className: 'is-blue' },
-        { code: 'b', label: 'Black', className: 'is-black' },
-        { code: 'w', label: 'White', className: 'is-white' },
-        { code: 'g', label: 'Green', className: 'is-green' },
         { code: 'y', label: 'Yellow', className: 'is-yellow' },
-        { code: 'p', label: 'Purple', className: 'is-purple' }
+        { code: 'g', label: 'Green', className: 'is-green' },
+        { code: 'b', label: 'Black', className: 'is-black' },
+        { code: 'p', label: 'Purple', className: 'is-purple' },
+        { code: 'w', label: 'White', className: 'is-white' }
     ];
     const COLOR_ORDER = COLOR_OPTIONS.map((item) => item.code);
     const MODAL_TEMPLATE = `

@@ -990,7 +990,7 @@ function getPlacementBadgeClass(value) {
 }
 
 function parseDeckColorsCsv(value) {
-    const allowed = ['r', 'u', 'b', 'w', 'g', 'y', 'p'];
+    const allowed = ['r', 'u', 'y', 'g', 'b', 'p', 'w'];
     const set = new Set(
         String(value || '')
             .split(',')
