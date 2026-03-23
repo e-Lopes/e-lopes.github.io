@@ -5,11 +5,29 @@
 
 BEGIN;
 
--- ─── 1. Add logo_url column to stores (idempotent) ───────────────────────────
+-- ─── 1. Add logo_url and is_active columns to stores (idempotent) ────────────
 ALTER TABLE public.stores
-    ADD COLUMN IF NOT EXISTS logo_url text;
+    ADD COLUMN IF NOT EXISTS logo_url  text,
+    ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 
 COMMIT;
+
+-- ─── 2. Populate logo_url from store-logos bucket (run after bucket upload) ──
+-- UPDATE public.stores
+-- SET logo_url = CASE
+--     WHEN lower(name) LIKE '%gladiator%'
+--         THEN 'https://<project>.supabase.co/storage/v1/object/public/store-logos/Gladiators.png'
+--     WHEN lower(name) LIKE '%cartinhas%' OR lower(name) LIKE '%celta%'
+--         THEN 'https://<project>.supabase.co/storage/v1/object/public/store-logos/ReiDasCartinhas.png'
+--     WHEN lower(name) LIKE '%meruru%'
+--         THEN 'https://<project>.supabase.co/storage/v1/object/public/store-logos/Meruru.svg'
+--     WHEN lower(name) LIKE '%taverna%'
+--         THEN 'https://<project>.supabase.co/storage/v1/object/public/store-logos/Taverna.png'
+--     WHEN lower(name) LIKE '%tcgbr%' OR lower(name) LIKE '%tcg br%'
+--         THEN 'https://<project>.supabase.co/storage/v1/object/public/store-logos/TCGBR.png'
+--     ELSE logo_url
+-- END
+-- WHERE logo_url IS NULL;
 
 -- ─── 2. Storage bucket — run separately in Supabase Dashboard or via API ─────
 --
