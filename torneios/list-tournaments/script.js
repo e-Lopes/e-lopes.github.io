@@ -3445,7 +3445,7 @@ const fmtMonthKey = (m) => {
     return `${PT_MONTHS_ABBR[mo - 1]}/${String(y).slice(2)}`;
 };
 
-function buildMetaEvolutionChartHtml(rawRows, topDecks) {
+function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
     if (!Array.isArray(rawRows) || rawRows.length === 0 || !topDecks?.length) return '';
 
     const MIN_TOP4_RATE_APPEARANCES_ALL = 5;
@@ -3534,7 +3534,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
             })
             .slice(0, 10);
         const barLabelsFull = barData.map((d) => String(d.deck || '').trim());
-        const barLabelsShort = barLabelsFull.map((name) => ellipsis(name, 16));
+        const barLabelsShort = barLabelsFull.map((name) => ellipsis(name, isMobile ? 10 : 16));
         const barMaxLabelLen = barLabelsFull.reduce((m, v) => Math.max(m, v.length), 0);
         const barLabelWidth = Math.min(260, Math.max(140, Math.round(barMaxLabelLen * 6.6)));
         const top4RateBase = (Array.isArray(topDecks) ? topDecks : [])
@@ -3557,7 +3557,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
             ? Math.min(...top4RateData.map((d) => d.appearances))
             : 0;
         const top4LabelsFull = top4RateData.map((d) => String(d.deck || '').trim());
-        const top4LabelsShort = top4RateData.map((d) => makeTop4Label(d.deck, d.appearances));
+        const top4LabelsShort = top4RateData.map((d) => ellipsis(String(d.deck || '').trim(), isMobile ? 10 : 16));
         const top4MaxLabelLen = top4LabelsFull.reduce((m, v) => Math.max(m, v.length), 0);
         const top4LabelWidth = Math.min(260, Math.max(140, Math.round(top4MaxLabelLen * 6.6)));
         const sharedLabelWidth = Math.max(barLabelWidth, top4LabelWidth);
@@ -3699,7 +3699,8 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                         if (!deck || score <= 0) return null;
                         return { x: score, y: Number(rate.toFixed(1)), origScore: score, origRate: Number(rate.toFixed(1)), deck, appearances };
                     })
-                    .filter(Boolean);
+                    .filter(Boolean)
+                    .slice(0, isMobile ? 12 : Infinity);
                 // Offset overlapping bubbles radially so they don't stack on top of each other
                 const posGroups = new Map();
                 scatterPoints.forEach((p, i) => {
@@ -3829,11 +3830,12 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                         {
                             id: 'scatterDeckLabels',
                             afterDatasetsDraw(chart) {
+                                if (isMobile) return;
                                 const { ctx, chartArea: { left, right, top, bottom } } = chart;
                                 ctx.save();
-                                const isMobile = chart.width < 480;
-                                ctx.font = `${isMobile ? '10' : '11'}px sans-serif`;
-                                const FONT_H = isMobile ? 12 : 13;
+                                const isMobileChart = chart.width < 480;
+                                ctx.font = `${isMobileChart ? '10' : '11'}px sans-serif`;
+                                const FONT_H = isMobileChart ? 12 : 13;
                                 const midX = (left + right) / 2;
                                 // Build label descriptors
                                 const labels = [];
@@ -3843,7 +3845,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                                     const pt = meta.data[0];
                                     const props = pt.getProps(['x', 'y'], true);
                                     const r = ds.pointRadius || 7;
-                                    const text = ellipsis(ds.label, 20);
+                                    const text = ellipsis(ds.label, isMobileChart ? 12 : 20);
                                     const textW = ctx.measureText(text).width;
                                     const isRight = props.x > midX;
                                     labels.push({
@@ -4137,8 +4139,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
         })
         .slice(0, 10);
     const barLabelsFullAll = barData.map((d) => String(d.deck || '').trim());
+    const barLabelsShortAll = barLabelsFullAll.map((name) => ellipsis(name, isMobile ? 10 : 16));
     const barMaxLabelLenAll = barLabelsFullAll.reduce((m, v) => Math.max(m, v.length), 0);
-    const barLabelWidthAll = Math.min(260, Math.max(140, Math.round(barMaxLabelLenAll * 6.6)));
+    const barLabelWidthAllRaw = Math.min(260, Math.max(140, Math.round(barMaxLabelLenAll * 6.6)));
     const barCanvasId = `meta-bar-canvas-${canvasId}`;
     const top4CanvasId = `meta-top4-canvas-${canvasId}`;
     const playerCanvasId = `meta-player-canvas-${canvasId}`;
@@ -4164,13 +4167,17 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
         ? Math.min(...top4RateData.map((d) => d.appearances))
         : 0;
     const top4LabelsFull = top4RateData.map((d) => String(d.deck || '').trim());
-    const top4LabelsShort = top4RateData.map((d) => makeTop4Label(d.deck, d.appearances));
+    const top4LabelsShort = top4RateData.map((d) => ellipsis(String(d.deck || '').trim(), isMobile ? 10 : 16));
     const top4MaxLabelLenAll = top4LabelsFull.reduce((m, v) => Math.max(m, v.length), 0);
-    const top4LabelWidthAll = Math.min(260, Math.max(140, Math.round(top4MaxLabelLenAll * 6.6)));
+    const top4LabelWidthAllRaw = Math.min(260, Math.max(140, Math.round(top4MaxLabelLenAll * 6.6)));
+    const sharedLabelWidthAll = Math.max(barLabelWidthAllRaw, top4LabelWidthAllRaw);
+    const barLabelWidthAll = sharedLabelWidthAll;
+    const top4LabelWidthAll = sharedLabelWidthAll;
 
     setTimeout(() => {
+        if (!isMobile) {
         const canvas = document.getElementById(canvasId);
-        if (!canvas || !window.Chart) return;
+        if (canvas && window.Chart) {
         _metaEvolutionChart = new window.Chart(canvas, {
             type: 'line',
             data: { labels, datasets },
@@ -4382,6 +4389,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                 });
             });
         }
+        } // end if (canvas && window.Chart)
+        } // end if (!isMobile)
+
+        if (!window.Chart) return;
 
         // Bar chart — total score across all months
         if (_metaBarChart) { _metaBarChart.destroy(); _metaBarChart = null; }
@@ -4390,7 +4401,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
             _metaBarChart = new window.Chart(barCanvas, {
                 type: 'bar',
                 data: {
-                    labels: barData.map((d) => ellipsis(d.deck, 16)),
+                    labels: barLabelsShortAll,
                     datasets: [{
                         data: barData.map((d) => d.score),
                         backgroundColor: (ctx) => getSoftDeckColor(barData[ctx.dataIndex]?.deck, ctx.dataIndex),
@@ -4523,7 +4534,8 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                     if (!deck || score <= 0) return null;
                     return { x: score, y: Number(rate.toFixed(1)), origScore: score, origRate: Number(rate.toFixed(1)), deck, appearances };
                 })
-                .filter(Boolean);
+                .filter(Boolean)
+                .slice(0, isMobile ? 12 : Infinity);
             // Offset overlapping bubbles radially so they don't stack on top of each other
             const posGroups = new Map();
             scatterPoints.forEach((p, i) => {
@@ -4655,11 +4667,12 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                     {
                         id: 'scatterDeckLabels',
                         afterDatasetsDraw(chart) {
+                            if (isMobile) return;
                             const { ctx, chartArea: { left, right, top, bottom } } = chart;
                             ctx.save();
-                            const isMobile = chart.width < 480;
-                            ctx.font = `${isMobile ? '10' : '11'}px sans-serif`;
-                            const FONT_H = isMobile ? 12 : 13;
+                            const isMobileChart = chart.width < 480;
+                            ctx.font = `${isMobileChart ? '10' : '11'}px sans-serif`;
+                            const FONT_H = isMobileChart ? 12 : 13;
                             const midX = (left + right) / 2;
                             const labels = [];
                             chart.data.datasets.forEach((ds, di) => {
@@ -4803,7 +4816,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
             });
         }
 
-        const wrap = document.getElementById(canvasId)?.closest('.meta-evolution-wrap');
+        const wrap = document.getElementById(barCanvasId)?.closest('.meta-evolution-wrap');
         if (wrap) {
             const btns = wrap.querySelectorAll('.meta-evol-tab-btn');
             const panels = wrap.querySelectorAll('.meta-evol-panel');
@@ -4826,6 +4839,42 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
                 });
             });
         }
+
+        // Sortable evolution table (mobile only)
+        if (isMobile && wrap) {
+            const table = wrap.querySelector('.meta-evol-table');
+            if (table) {
+                let sortCol = -1;
+                let sortAsc = true;
+                const ths = [...table.querySelectorAll('thead th')];
+                ths.forEach((th, i) => {
+                    if (i === 0) return; // skip deck name column
+                    th.classList.add('meta-evol-th-sortable');
+                    th.addEventListener('click', () => {
+                        if (sortCol === i) {
+                            sortAsc = !sortAsc;
+                        } else {
+                            sortCol = i;
+                            sortAsc = true;
+                        }
+                        ths.forEach((h, hi) => {
+                            h.classList.remove('sort-asc', 'sort-desc');
+                            if (hi === sortCol) h.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+                        });
+                        const tbody = table.querySelector('tbody');
+                        const rows = [...tbody.querySelectorAll('tr')];
+                        rows.sort((a, b) => {
+                            const aText = a.querySelectorAll('td')[i]?.textContent.trim() || '–';
+                            const bText = b.querySelectorAll('td')[i]?.textContent.trim() || '–';
+                            const aRank = aText === '–' ? 999 : parseInt(aText);
+                            const bRank = bText === '–' ? 999 : parseInt(bText);
+                            return sortAsc ? aRank - bRank : bRank - aRank;
+                        });
+                        rows.forEach((row) => tbody.appendChild(row));
+                    });
+                });
+            }
+        }
     }, 0);
 
     const legendItemsHtml = datasets.map((ds, i) =>
@@ -4838,6 +4887,34 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
     const monthPillsHtml = months.map((m) =>
         `<button type="button" class="meta-evol-month-pill is-active" data-month="${m}">${fmtMonthKey(m)}</button>`
     ).join('');
+
+    // Mobile evolution table: last 5 months, all decks that ranked in any shown month
+    const mobileEvolMonths = months.slice(-5);
+    const mobileEvolTableHtml = (() => {
+        const headers = mobileEvolMonths.map((m) => `<th>${fmtMonthKey(m)}</th>`).join('');
+        // Include all decks that have at least one rank in the shown months
+        const visibleDecks = bumpTopNames.filter((deck) => {
+            const rankMap = bumpRankByMonth.get(deck) || new Map();
+            return mobileEvolMonths.some((m) => rankMap.has(m));
+        });
+        const rows = visibleDecks.map((deck, di) => {
+            const color = bumpColors[bumpTopNames.indexOf(deck)];
+            const rankMap = bumpRankByMonth.get(deck) || new Map();
+            const cells = mobileEvolMonths.map((m) => {
+                const rank = rankMap.get(m);
+                const cls = rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : rank ? 'r4' : '';
+                return `<td class="meta-evol-rank${cls ? ' ' + cls : ''}">${rank ? rank + 'º' : '–'}</td>`;
+            }).join('');
+            return `<tr>
+                <td class="meta-evol-table-name"><span class="meta-evol-dot" style="background:${color}"></span>${escapeHtml(ellipsis(deck, 12))}</td>
+                ${cells}
+            </tr>`;
+        }).join('');
+        return `<table class="meta-evol-table">
+            <thead><tr><th class="deck-col">Deck</th>${headers}</tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    })();
 
     return `<div class="meta-evolution-wrap stats-chart-wrap">
         <div class="meta-evol-tabs">
@@ -4872,6 +4949,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
         </div>
         </div>
         <div class="meta-evol-panel is-hidden" data-evol-panel="evolucao">
+        ${isMobile ? `
+        <div class="meta-evol-header"><span class="meta-evol-title">Evolução do Meta</span><span class="meta-evol-sort-hint">Toque no mês para ordenar</span></div>
+        <div class="meta-evol-table-wrap">${mobileEvolTableHtml}</div>
+        ` : `
         <div class="meta-evol-header is-split">
             <span class="meta-evol-title">Evolução do Meta</span>
             <div class="meta-evol-legend" id="${legendId}">${legendItemsHtml}</div>
@@ -4880,6 +4961,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks) {
         <div class="meta-evol-canvas-wrap meta-evol-canvas-evol">
             <canvas id="${canvasId}"></canvas>
         </div>
+        `}
         </div>
         <div class="meta-evol-panel is-hidden" data-evol-panel="players">
             <div class="meta-evol-header" style="margin-top:20px">
@@ -5483,7 +5565,7 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
           : '';
 
     // ── Meta Evolution chart ───────────────────────────────────────────────
-    const evolutionHtml = buildMetaEvolutionChartHtml(rawMetaRows, sorted);
+    const evolutionHtml = buildMetaEvolutionChartHtml(rawMetaRows, sorted, isMobile);
 
     // ── Assemble ───────────────────────────────────────────────────────────
     const chartsHtml = isMobile
@@ -5517,7 +5599,7 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                     <div class="meta-deck-modal-pilots-wrap">
                         <div class="meta-deck-modal-section-label">Top Pilots</div>
                         <table class="meta-deck-pilots-table">
-                            <thead><tr><th>Player</th><th>Vezes</th><th>Títulos 🏆</th><th style="text-align:right">Pontos</th></tr></thead>
+                            <thead><tr><th>Player</th><th>Vezes</th><th style="white-space:nowrap">Títulos 🏆</th><th style="text-align:right">Pontos</th></tr></thead>
                             <tbody class="meta-deck-pilots-tbody">
                                 <tr><td colspan="4" class="meta-pilots-loading">Carregando...</td></tr>
                             </tbody>
@@ -5595,11 +5677,20 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
         const top4Rate = appearances > 0 ? (top4 / appearances * 100).toFixed(0) : '—';
         const score = deckCompositeScore(deckRow).toFixed(0);
 
-        // Last event from month rows
+        // Last event — prefer exact date from last_tournament_date, fall back to month label
+        const lastDateExact = deckMonthRows.length
+            ? deckMonthRows
+                .map((r) => String(r?.last_tournament_date || ''))
+                .filter(Boolean)
+                .sort()
+                .at(-1)
+            : null;
         const lastMonthRaw = deckMonthRows.length
             ? deckMonthRows.map((r) => String(r?.month || '')).sort().at(-1)
             : null;
-        const lastEventLabel = lastMonthRaw ? fmtMonthKey(lastMonthRaw) : '—';
+        const lastEventLabel = lastDateExact
+            ? formatDate(lastDateExact).slice(0, 5)
+            : lastMonthRaw ? fmtMonthKey(lastMonthRaw) : '—';
 
         if (modalStatsEl) {
             modalStatsEl.innerHTML = [
@@ -5608,7 +5699,7 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 { label: 'Aparições', value: appearances },
                 { label: 'Títulos 🏆', value: titles || '—' },
                 { label: 'Taxa Top4', value: top4Rate + (appearances > 0 ? '%' : '') },
-                { label: 'Último evento', value: lastEventLabel },
+                { label: 'Last Event', value: lastEventLabel },
             ].map((s) => `<div class="meta-deck-modal-stat"><span class="meta-deck-modal-stat-val">${s.value}</span><span class="meta-deck-modal-stat-label">${s.label}</span></div>`).join('');
         }
 
@@ -6889,7 +6980,8 @@ function buildMetaDonutChartHtml(rows) {
                         }
                     }
                 }
-            }
+            },
+            plugins: []
         });
     }, 0);
 

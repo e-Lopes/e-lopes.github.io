@@ -138,6 +138,24 @@
             </div>
         </div>
 
+        <div id="decklistClearModal" class="decklist-import-modal" aria-hidden="true">
+            <div class="decklist-import-dialog" role="dialog" aria-modal="true" aria-labelledby="decklistClearTitle">
+                <div class="decklist-import-header">
+                    <h2 id="decklistClearTitle">Clear Decklist</h2>
+                    <button type="button" id="btnDecklistClearClose" class="decklist-import-close" aria-label="Close">
+                        &times;
+                    </button>
+                </div>
+                <div class="decklist-import-body">
+                    <p>Are you sure you want to clear all cards from the decklist? This action cannot be undone.</p>
+                </div>
+                <div class="decklist-import-footer">
+                    <button type="button" id="btnDecklistClearCancel" class="btn-secondary">Cancel</button>
+                    <button type="button" id="btnDecklistClearConfirm" class="btn-danger">Clear Decklist</button>
+                </div>
+            </div>
+        </div>
+
         <div id="deckCardZoomModal" class="deck-card-zoom-modal" aria-hidden="true">
             <div class="deck-card-zoom-dialog" role="dialog" aria-modal="true" aria-label="Card zoom preview">
                 <button type="button" id="btnDeckCardZoomClose" class="deck-card-zoom-close" aria-label="Close preview">

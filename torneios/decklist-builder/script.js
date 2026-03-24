@@ -143,7 +143,10 @@
         on('btnDecklistBuilderAdd', 'click', () => addManualCode());
         on('btnDecklistBuilderSave', 'click', () => saveDecklist());
         on('btnDecklistBuilderSortCards', 'click', () => sortDeckCards());
-        on('btnDecklistBuilderClear', 'click', () => clearDecklist());
+        on('btnDecklistBuilderClear', 'click', () => openClearModal());
+        on('btnDecklistClearCancel', 'click', () => closeClearModal());
+        on('btnDecklistClearClose', 'click', () => closeClearModal());
+        on('btnDecklistClearConfirm', 'click', () => { closeClearModal(); clearDecklist(); });
         on('btnDecklistImportCancel', 'click', () => closeImportModal());
         on('btnDecklistImportClose', 'click', () => closeImportModal());
         on('btnDecklistImportConfirm', 'click', () => importDecklistFromModal());
@@ -151,6 +154,7 @@
         on('btnCardSearchReset', 'click', () => resetCardSearch());
 
         onModal('decklistImportModal', closeImportModal);
+        onModal('decklistClearModal', closeClearModal);
         onModal('deckCardZoomModal', closeCardZoomModal);
 
         on('btnDeckCardZoomClose', 'click', () => closeCardZoomModal());
@@ -172,7 +176,7 @@
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') { closeImportModal(); closeCardZoomModal(); }
+            if (e.key === 'Escape') { closeImportModal(); closeClearModal(); closeCardZoomModal(); }
         });
 
         const searchResultsRoot = document.getElementById('cardSearchResults');
@@ -287,6 +291,22 @@
 
     function closeImportModal() {
         const modal = document.getElementById('decklistImportModal');
+        if (!modal?.classList.contains('is-open')) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openClearModal() {
+        if (entries.length === 0) { setSaveStatus('Decklist is already empty.', 'warn'); return; }
+        const modal = document.getElementById('decklistClearModal');
+        if (!modal) return;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => document.getElementById('btnDecklistClearCancel')?.focus(), 0);
+    }
+
+    function closeClearModal() {
+        const modal = document.getElementById('decklistClearModal');
         if (!modal?.classList.contains('is-open')) return;
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
@@ -1282,7 +1302,6 @@
     }
 
     function clearDecklist() {
-        if (entries.length === 0) { setSaveStatus('Decklist is already empty.', 'warn'); return; }
         entries = [];
         setSaveStatus('');
         render([]);

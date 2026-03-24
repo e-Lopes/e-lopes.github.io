@@ -10,6 +10,11 @@ Main gap to 9.8: migrate remaining `resolveStoreIcon` fallback to remove icons/s
 
 ---
 
+- **[DONE]** Validação antes de dar clear list no deckbuilder — modal de confirmação com btn-danger.
+- **[DONE]** Trocar o clear decklist de lugar — movido para grupo esquerdo (junto com Sort by Level), longe do Save.
+- **[DONE]** UI mobile do Meta Overview — KPI 2x2, period buttons com tap target 36px, top deck cards ajustados.
+- **[DONE]** Modal "Último evento" mostra data exata do torneio — migration `20260323_add_last_tournament_date_to_v_meta_by_month.sql`.
+- Melhorar a parte de utilização da api publica no deckbuilder (search nao funcionando muito bem)
 ## 🟢 BUGS — Resolved (Mar 2026)
 
 - **[FIXED]** Register deck via player menu threw "This record has no result_id to save." — param name mismatch: `players/script.js` was sending `result` but deckbuilder read `resultId`. One-line fix.
@@ -86,7 +91,7 @@ See full details in `docs/statistics.md`.
 
 **Medium-term (requires minor data model work):**
 
-- **Format health / diversity score** — a single number (e.g. Herfindahl index on meta share) showing how diverse or concentrated the format is. Simple to compute from existing data, immediately useful for format analysis.
+- **[DONE] Format health / diversity score** — Herfindahl-Hirschman Index (HHI) computed from meta share. Shows diversity label (Muito diverso / Diverso / Moderado / Concentrado), color indicator, effective deck count, and description. `list-tournaments/script.js` line ~6909.
 - **Player deck profile** — on the player ranking, show which decks the player has used and their stats per deck (titles, top4s). Currently `unique_decks_used` is just a count.
 - **Consistency metric for decks** — a deck that makes top4 every other tournament is very different from one that spiked once. Something like "top4 streak" or "events since last top4" would reflect this.
 - **Store attendance trends** — tournament player count over time per store. Answers "is the local scene growing?"
