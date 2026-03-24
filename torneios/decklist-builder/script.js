@@ -31,6 +31,9 @@
     const CARD_SEARCH_LIMIT = 40;
     const CARD_SEARCH_PAGE_SIZE = 12;
     const CARD_SEARCH_MAX_RESULTS = 240;
+    const CARD_SEARCH_FIXED_COLS = 4;
+    const CARD_SEARCH_FIXED_ROWS = 3;
+    const CARD_IMAGE_RATIO = 88 / 63;
 
     // Cache TTLs
     const ALL_CARDS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;       // 6 hours
@@ -102,6 +105,8 @@
     const cardDetailsByCode = new Map();
     let cardHydrationToken = 0;
     let deckErrorAutoHideTimer = null;
+    let cardSearchLayoutTimer = null;
+    let cardSearchLayoutRaf = null;
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
 
@@ -109,10 +114,54 @@
         bindActions();
         render([]);
         renderCardSearchResults();
+        scheduleCardSearchResultsLayout();
+        window.addEventListener('resize', () => scheduleCardSearchResultsLayout(), { passive: true });
         await Promise.all([loadBanListFromDb(), loadCatalog()]);
         await applyContextFromQuery();
         populateSetFilterDropdown();
     });
+
+    function scheduleCardSearchResultsLayout() {
+        if (cardSearchLayoutTimer) { clearTimeout(cardSearchLayoutTimer); cardSearchLayoutTimer = null; }
+        cardSearchLayoutTimer = setTimeout(() => {
+            cardSearchLayoutTimer = null;
+            if (cardSearchLayoutRaf) { cancelAnimationFrame(cardSearchLayoutRaf); }
+            cardSearchLayoutRaf = requestAnimationFrame(() => {
+                cardSearchLayoutRaf = null;
+                applyCardSearchResultsFixedGridLayout();
+            });
+        }, 60);
+    }
+
+    function applyCardSearchResultsFixedGridLayout() {
+        const root = document.getElementById('cardSearchResults');
+        if (!root) return;
+        const scroll = root.querySelector('.decklist-search-results-scroll');
+        const grid = root.querySelector('.decklist-search-results-grid');
+        if (!scroll || !grid) return;
+
+        const getPx = (v) => {
+            const n = Number.parseFloat(String(v || '').replace('px', ''));
+            return Number.isFinite(n) ? n : 0;
+        };
+
+        const scrollStyles = getComputedStyle(scroll);
+        const padX = getPx(scrollStyles.paddingLeft) + getPx(scrollStyles.paddingRight);
+        const padY = getPx(scrollStyles.paddingTop) + getPx(scrollStyles.paddingBottom);
+        const width = Math.max(0, scroll.clientWidth - padX);
+
+        const gridStyles = getComputedStyle(grid);
+        const gapX = getPx(gridStyles.columnGap || gridStyles.gap);
+        const gapY = getPx(gridStyles.rowGap || gridStyles.gap);
+
+        const cardW = (width - gapX * (CARD_SEARCH_FIXED_COLS - 1)) / CARD_SEARCH_FIXED_COLS;
+        const cardH = cardW * CARD_IMAGE_RATIO;
+        if (!Number.isFinite(cardH) || cardH <= 0) return;
+
+        const totalH = CARD_SEARCH_FIXED_ROWS * cardH + gapY * (CARD_SEARCH_FIXED_ROWS - 1) + padY + 2;
+        scroll.style.height = `${Math.ceil(totalH)}px`;
+        grid.style.gridAutoRows = `${Math.ceil(cardH)}px`;
+    }
 
     // ─── Card catalog (fetched once from Storage bucket, cached in memory) ──────
 
@@ -2406,19 +2455,24 @@
         const pageItems = cardSearchResults.slice(start, start + CARD_SEARCH_PAGE_SIZE);
 
         const pagerHtml = totalPages > 1 ? `
-            <div class="decklist-search-pagination" aria-label="Search results pagination">
-                <button type="button" class="decklist-search-page-btn" data-search-page="prev" ${cardSearchPage <= 1 ? 'disabled' : ''} aria-label="Previous page">&lt;</button>
-                <span class="decklist-search-page-indicator">${cardSearchPage}/${totalPages}</span>
-                <button type="button" class="decklist-search-page-btn" data-search-page="next" ${cardSearchPage >= totalPages ? 'disabled' : ''} aria-label="Next page">&gt;</button>
+            <div class="decklist-search-results-pager">
+                <div class="decklist-search-pagination" aria-label="Search results pagination">
+                    <button type="button" class="decklist-search-page-btn" data-search-page="prev" ${cardSearchPage <= 1 ? 'disabled' : ''} aria-label="Previous page">&lt;</button>
+                    <span class="decklist-search-page-indicator">${cardSearchPage}/${totalPages}</span>
+                    <button type="button" class="decklist-search-page-btn" data-search-page="next" ${cardSearchPage >= totalPages ? 'disabled' : ''} aria-label="Next page">&gt;</button>
+                </div>
             </div>
         ` : '';
 
         root.innerHTML = `
-            ${pagerHtml}
-            <div class="decklist-search-results-grid">
-                ${pageItems.map((card) => buildSearchCardHtml(card)).join('')}
+            <div class="decklist-search-results-scroll">
+                <div class="decklist-search-results-grid">
+                    ${pageItems.map((card) => buildSearchCardHtml(card)).join('')}
+                </div>
             </div>
+            ${pagerHtml}
         `;
+        scheduleCardSearchResultsLayout();
 
         root.querySelectorAll('.decklist-search-card img').forEach((img) => {
             img.addEventListener('error', () => {

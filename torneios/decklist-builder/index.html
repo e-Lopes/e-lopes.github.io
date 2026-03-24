@@ -112,10 +112,7 @@
                     </div>
 
                     <aside class="decklist-builder-side">
-                        <section class="decklist-search-panel" aria-labelledby="decklistSearchTitle">
-                            <div class="decklist-search-header">
-                                <h2 id="decklistSearchTitle">Card Search</h2>
-                            </div>
+                        <section class="decklist-search-panel" aria-label="Card Search">
                             <div class="decklist-search-filters">
                                 <input type="text" id="cardSearchText" class="form-input filter-full" placeholder="Enter text..." />
 
@@ -176,7 +173,7 @@
                                     max="20"
                                     step="1"
                                 />
-                                <input type="text" id="cardSearchTrait" class="form-input" placeholder="Digi-Type (ex: Dragon)" />
+                                <input type="text" id="cardSearchTrait" class="form-input" placeholder="Trait (ex: Dragon)" />
                                 <input type="text" id="cardSearchCode" class="form-input filter-full" placeholder="Set (ex: BT1)" list="cardSearchCodeList" autocomplete="off" />
                                 <datalist id="cardSearchCodeList"></datalist>
                             </div>
@@ -184,7 +181,6 @@
                                 <button type="button" id="btnCardSearchReset" class="btn-secondary">Reset</button>
                                 <button type="button" id="btnCardSearch" class="btn-primary">Search</button>
                             </div>
-                            <div id="cardSearchStatus" class="decklist-search-status" aria-live="polite"></div>
                             <div id="cardSearchResults" class="decklist-search-results" aria-live="polite"></div>
                         </section>
                     </aside>
