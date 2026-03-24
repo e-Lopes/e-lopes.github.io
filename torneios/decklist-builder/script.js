@@ -12,6 +12,11 @@
         : '../../icons/EX11.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
 
+    const CATALOG_BUCKET_URL = window.APP_CONFIG?.SUPABASE_URL
+        ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/card-catalog/card-catalog.json`
+        : '';
+    const CATALOG_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
+
     const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/;
     const RAW_DECK_CODE_WITH_SUFFIX_PATTERN =
         /((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3})(?:_[A-Z0-9]+)?/i;
@@ -24,7 +29,7 @@
 
     // Card search pagination
     const CARD_SEARCH_LIMIT = 40;
-    const CARD_SEARCH_PAGE_SIZE = 6;
+    const CARD_SEARCH_PAGE_SIZE = 12;
     const CARD_SEARCH_MAX_RESULTS = 240;
 
     // Cache TTLs
@@ -91,6 +96,9 @@
     let allCardsIndexCache = null;
     let allCardsIndexCacheAt = 0;
 
+    let catalogCache = null;
+    let catalogCacheAt = 0;
+
     const cardDetailsByCode = new Map();
     let cardHydrationToken = 0;
     let deckErrorAutoHideTimer = null;
@@ -101,9 +109,63 @@
         bindActions();
         render([]);
         renderCardSearchResults();
-        await loadBanListFromDb();
+        await Promise.all([loadBanListFromDb(), loadCatalog()]);
         await applyContextFromQuery();
+        populateSetFilterDropdown();
     });
+
+    // ─── Card catalog (fetched once from Storage bucket, cached in memory) ──────
+
+    async function loadCatalog() {
+        const now = Date.now();
+        if (Array.isArray(catalogCache) && catalogCache.length && now - catalogCacheAt < CATALOG_CACHE_TTL_MS) {
+            return catalogCache;
+        }
+        if (!CATALOG_BUCKET_URL) return [];
+        try {
+            const res = await fetch(CATALOG_BUCKET_URL);
+            if (!res.ok) return [];
+            const data = await res.json();
+            catalogCache = Array.isArray(data) ? data : [];
+            catalogCacheAt = now;
+            return catalogCache;
+        } catch (_) {
+            return [];
+        }
+    }
+
+    // ─── Set filter dropdown (derived from catalog) ───────────────────────────
+
+    async function populateSetFilterDropdown() {
+        const datalist = document.getElementById('cardSearchCodeList');
+        if (!datalist) return;
+        try {
+            const catalog = await loadCatalog();
+            if (!catalog.length) return;
+
+            // Extract set prefix: everything before the trailing -digits
+            const prefixSet = new Set();
+            catalog.forEach(r => {
+                const m = String(r?.card_code || '').match(/^(.+)-\d+$/);
+                if (m) prefixSet.add(m[1]);
+            });
+
+            // Sort: group by series letter(s), then numerically within each group
+            const numSuffix = s => parseInt(s.replace(/\D/g, '') || '0', 10);
+            const sorted = Array.from(prefixSet).sort((a, b) => {
+                const sa = a.match(/^[A-Z]+/)?.[0] || '';
+                const sb = b.match(/^[A-Z]+/)?.[0] || '';
+                if (sa !== sb) return sa.localeCompare(sb);
+                return numSuffix(a) - numSuffix(b);
+            });
+
+            sorted.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                datalist.appendChild(opt);
+            });
+        } catch (_) {}
+    }
 
     // ─── Ban list from DB ─────────────────────────────────────────────────────
 
@@ -153,6 +215,50 @@
         on('btnCardSearch', 'click', () => performCardSearch());
         on('btnCardSearchReset', 'click', () => resetCardSearch());
 
+        // Chip / dot groups: single-select toggle + auto-search
+        ['cardSearchTypeGroup', 'cardSearchColorGroup', 'cardSearchColor2Group', 'cardSearchLevelGroup'].forEach(groupId => {
+            const group = document.getElementById(groupId);
+            if (!group) return;
+            group.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-value]');
+                if (!btn) return;
+                group.querySelectorAll('[data-value]').forEach(b => b.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                if (hasAnySearchFilter(getCardSearchFilters())) performCardSearch();
+            });
+        });
+
+        // Dynamic datalist: only show suggestions when the user has typed something
+        const setInput = document.getElementById('cardSearchCode');
+        const setDatalist = document.getElementById('cardSearchCodeList');
+        if (setInput && setDatalist) {
+            let allSetPrefixes = [];
+            // Grab prefixes once after catalog loads (populated by populateSetFilterDropdown)
+            setInput.addEventListener('focus', () => {
+                if (!allSetPrefixes.length) {
+                    allSetPrefixes = Array.from(setDatalist.querySelectorAll('option')).map(o => o.value);
+                }
+            });
+            setInput.addEventListener('input', () => {
+                const val = setInput.value.trim().toUpperCase();
+                // Snapshot full list once
+                if (!allSetPrefixes.length) {
+                    allSetPrefixes = Array.from(setDatalist.querySelectorAll('option')).map(o => o.value);
+                }
+                // Repopulate with only matching options (browser hides datalist when empty)
+                setDatalist.innerHTML = '';
+                if (val.length >= 1) {
+                    allSetPrefixes
+                        .filter(p => p.startsWith(val))
+                        .forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p;
+                            setDatalist.appendChild(opt);
+                        });
+                }
+            });
+        }
+
         onModal('decklistImportModal', closeImportModal);
         onModal('decklistClearModal', closeClearModal);
         onModal('deckCardZoomModal', closeCardZoomModal);
@@ -160,7 +266,9 @@
         on('btnDeckCardZoomClose', 'click', () => closeCardZoomModal());
         on('deckCardZoomImage', 'contextmenu', (e) => { e.preventDefault(); closeCardZoomModal(); });
 
-        on('cardSearchName', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
+        on('cardSearchText', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
+        on('cardSearchTrait', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
+        on('cardSearchCode', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
 
         on('cardSearchPlayCost', 'input', () => {
             const input = document.getElementById('cardSearchPlayCost');
@@ -477,7 +585,18 @@
         const normalized = normalizeDeckCode(code || '');
         if (!isValidDeckCode(normalized)) return;
 
-        image.src = getCardZoomImageUrl(normalized);
+        const [primaryImageUrl, fallbackImageUrl] = getCardZoomImageUrls(normalized);
+
+        let triedFallback = false;
+        image.onerror = () => {
+            if (!triedFallback && fallbackImageUrl && image.src !== fallbackImageUrl) {
+                triedFallback = true;
+                image.src = fallbackImageUrl;
+                return;
+            }
+        };
+
+        image.src = primaryImageUrl;
         image.alt = `Card preview ${normalized}`;
         if (metaTitle) metaTitle.textContent = normalized;
         if (metaBody) metaBody.innerHTML = '<div class="deck-card-zoom-meta-loading">Loading metadata...</div>';
@@ -501,7 +620,10 @@
         if (!modal) return;
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
-        if (image) image.src = '';
+        if (image) {
+            image.onerror = null;
+            image.src = '';
+        }
         if (metaTitle) metaTitle.textContent = '';
         if (metaBody) metaBody.innerHTML = '';
     }
@@ -648,9 +770,11 @@
         const text = serializeDecklist(entries);
         try {
             await navigator.clipboard.writeText(text);
-            setSaveStatus('Decklist copied to clipboard.', 'ok');
+            setSaveStatus('');
+            showToast('Decklist copied to clipboard.', 'ok');
         } catch {
-            setSaveStatus('Could not copy automatically.', 'warn');
+            setSaveStatus('');
+            showToast('Could not copy automatically.', 'warn');
             window.prompt('Copy this decklist manually:', text);
         }
     }
@@ -660,7 +784,8 @@
 
         const btn = document.getElementById('btnDecklistBuilderExportImage');
         if (btn) btn.disabled = true;
-        setSaveStatus('Generating decklist image...', 'info');
+        setSaveStatus('');
+        showToast('Generating image...', 'info', 5000);
 
         try {
             const canvas = await buildDeckImageCanvas(entries);
@@ -675,7 +800,8 @@
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            setSaveStatus('Image exported successfully.', 'ok');
+            setSaveStatus('');
+            showToast('Image exported successfully.', 'ok');
         } catch (error) {
             setSaveStatus('Failed to export image.', 'error');
             render([error?.message || 'Failed to export decklist image.']);
@@ -926,8 +1052,10 @@
             : `${IMAGE_BASE_URL}${code}.webp`;
     }
 
-    function getCardZoomImageUrl(rawCode) {
-        return `${LEGACY_IMAGE_BASE_URL}${normalizeDeckCode(rawCode || '')}.webp`;
+    function getCardZoomImageUrls(rawCode) {
+        const code = normalizeDeckCode(rawCode || '');
+        if (!code) return ['', ''];
+        return [`${LEGACY_IMAGE_BASE_URL}${code}.webp`, `${IMAGE_BASE_URL}${code}.webp`];
     }
 
     function loadImageWithCors(url) {
@@ -976,6 +1104,10 @@
 
     // ─── Card search ──────────────────────────────────────────────────────────
 
+    function getActiveChipValue(groupId) {
+        return String(document.querySelector(`#${groupId} [data-value].is-active`)?.dataset.value || '').trim();
+    }
+
     function getCardSearchFilters() {
         const rawPlayCost = String(document.getElementById('cardSearchPlayCost')?.value || '').trim();
         let playcost = '';
@@ -988,23 +1120,24 @@
             }
         }
         return {
-            n: String(document.getElementById('cardSearchName')?.value || '').trim(),
-            color: String(document.getElementById('cardSearchColor')?.value || '').trim(),
-            type: String(document.getElementById('cardSearchType')?.value || '').trim(),
-            level: String(document.getElementById('cardSearchLevel')?.value || '').trim(),
+            text:   String(document.getElementById('cardSearchText')?.value || '').trim(),
+            color:  getActiveChipValue('cardSearchColorGroup'),
+            color2: getActiveChipValue('cardSearchColor2Group'),
+            type:   getActiveChipValue('cardSearchTypeGroup'),
+            level:  getActiveChipValue('cardSearchLevelGroup'),
             playcost,
-            card: String(document.getElementById('cardSearchCode')?.value || '').trim().toUpperCase(),
+            trait: String(document.getElementById('cardSearchTrait')?.value || '').trim(),
+            card:  String(document.getElementById('cardSearchCode')?.value || '').trim().toUpperCase(),
         };
     }
 
     function hasAnySearchFilter(filters) {
-        return Boolean(filters && (filters.n || filters.color || filters.type || filters.level || filters.playcost || filters.card));
+        return Boolean(filters && (filters.text || filters.color || filters.color2 || filters.type || filters.level || filters.playcost || filters.trait || filters.card));
     }
 
     async function performCardSearch() {
         const filters = getCardSearchFilters();
         if (!hasAnySearchFilter(filters)) {
-            setCardSearchStatus('Provide at least one filter before searching.', 'warn');
             cardSearchResults = [];
             renderCardSearchResults();
             return;
@@ -1012,36 +1145,33 @@
 
         const btn = document.getElementById('btnCardSearch');
         if (btn) btn.disabled = true;
-        setCardSearchStatus('Searching cards...', 'info');
-
         try {
-            const setPrefixFilter = getSetPrefixCardFilter(filters);
-            let rows = [];
+            // DB is the primary source — full catalog is downloaded via Admin > Download Cards.
+            // API is only a fallback for cards not yet in the DB.
+            let rows = await fetchCardSearchRowsFromDb(filters);
 
-            rows = await fetchCardSearchRowsFromDb(filters);
-            if (!rows.length && setPrefixFilter) {
-                try { rows = await fetchCardSearchRowsBySetPrefix(filters, setPrefixFilter); }
-                catch { rows = []; }
-            }
             if (!rows.length) {
-                rows = await fetchCardSearchRows(filters);
+                const apiRows = await fetchCardSearchRowsMerged(filters);
+                rows = applyLocalCardSearchFilters(apiRows, filters);
             }
 
             const nowIso = new Date().toISOString();
             const usedCodes = new Set();
             const normalized = [];
-            const codePrefix = String(filters.card || '').trim().toUpperCase();
 
             rows.forEach((row) => {
-                const code = normalizeDeckCode(row?.id || row?.card || '');
-                if (!isValidDeckCode(code) || (codePrefix && !code.startsWith(codePrefix))) return;
-                if (usedCodes.has(code)) return;
+                const code = normalizeDeckCode(row?.card_code || row?.id || row?.card || '');
+                if (!isValidDeckCode(code) || usedCodes.has(code)) return;
                 usedCodes.add(code);
                 const mapped = {
                     card_code: code, id: row?.id || code, name: row?.name || code,
-                    pack: row?.pack || code.split('-')[0] || '', color: row?.color || '', type: row?.type || '',
-                    level: row?.level ?? '', play_cost: row?.play_cost ?? null,
-                    rarity: row?.rarity || '', card_payload: row || {},
+                    pack: row?.pack || code.split('-')[0] || '',
+                    color: row?.color || '',
+                    type: row?.card_type || row?.type || '',
+                    level: row?.card_level ?? row?.level ?? '',
+                    play_cost: row?.play_cost ?? null,
+                    rarity: row?.rarity || '',
+                    card_payload: row?.card_payload || row || {},
                 };
                 normalized.push(mapped);
                 cardDetailsByCode.set(code, { ...mapped, updated_at: nowIso });
@@ -1050,12 +1180,6 @@
             cardSearchResults = normalized;
             cardSearchPage = 1;
             renderCardSearchResults();
-            setCardSearchStatus(
-                normalized.length
-                    ? `${normalized.length} cards found. Click a card to include in the deck.`
-                    : 'No cards found for the current filters.',
-                normalized.length ? 'ok' : 'warn',
-            );
         } catch (error) {
             cardSearchResults = [];
             cardSearchPage = 1;
@@ -1071,27 +1195,63 @@
         }
     }
 
+    function resetChipGroup(groupId) {
+        const group = document.getElementById(groupId);
+        if (!group) return;
+        group.querySelectorAll('[data-value]').forEach(btn => btn.classList.remove('is-active'));
+        const first = group.querySelector('[data-value=""]');
+        if (first) first.classList.add('is-active');
+    }
+
     function resetCardSearch() {
-        ['cardSearchName', 'cardSearchColor', 'cardSearchType', 'cardSearchLevel', 'cardSearchPlayCost', 'cardSearchCode']
+        ['cardSearchText', 'cardSearchPlayCost', 'cardSearchTrait', 'cardSearchCode']
             .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['cardSearchTypeGroup', 'cardSearchColorGroup', 'cardSearchColor2Group', 'cardSearchLevelGroup']
+            .forEach(resetChipGroup);
         cardSearchResults = [];
         cardSearchPage = 1;
         renderCardSearchResults();
         setCardSearchStatus('');
     }
 
+    async function fetchCardSearchRowsMerged(filters) {
+        if (!filters.color2) return fetchCardSearchRows(filters);
+        // Run both color directions in parallel and merge
+        const invertedFilters = { ...filters, color: filters.color2, color2: filters.color };
+        const [rows1, rows2] = await Promise.all([
+            fetchCardSearchRows(filters),
+            fetchCardSearchRows(invertedFilters),
+        ]);
+        const seen = new Set();
+        const merged = [];
+        [...rows1, ...rows2].forEach((r) => {
+            const code = normalizeDeckCode(r?.id || r?.card || '');
+            if (code && !seen.has(code)) { seen.add(code); merged.push(r); }
+        });
+        return merged.slice(0, CARD_SEARCH_MAX_RESULTS);
+    }
+
     async function fetchCardSearchRows(filters) {
+        // If the only active filter is trait, the API has no useful param for it
+        // (digitype is omitted — exact match only). Skip the API call; DB covers this.
+        // filters.card is a set prefix (e.g. "BT1") — the public API doesn't support prefix search,
+        // so it's excluded here. Set filtering is handled by the DB query and the local codePrefix check.
+        const hasApiFilter = filters.text || filters.color || filters.type || filters.level || filters.playcost;
+        if (!hasApiFilter) return [];
+
         const allRows = [];
         let offset = 0, previousSignature = '';
 
         while (allRows.length < CARD_SEARCH_MAX_RESULTS) {
-            const params = new URLSearchParams({ sort: 'new', sortdirection: 'desc', limit: String(CARD_SEARCH_LIMIT), offset: String(offset) });
-            if (filters.n) params.set('n', filters.n);
+            const params = new URLSearchParams({ sort: 'card_number', sortdirection: 'asc', limit: String(CARD_SEARCH_LIMIT), offset: String(offset), series: 'Digimon Card Game' });
+            if (filters.text) params.set('n', filters.text);
             if (filters.color) params.set('color', filters.color);
             if (filters.type) params.set('type', filters.type);
             if (filters.level) params.set('level', filters.level);
             if (filters.playcost) params.set('playcost', filters.playcost);
-            if (filters.card) params.set('card', filters.card);
+            // Note: digitype omitted intentionally — API does exact match on primary field only,
+            // missing digi_type2/3/4. Local filter in applyLocalCardSearchFilters covers all 4 fields.
+            // filters.card (set prefix) intentionally not sent to API — no prefix search support.
 
             const res = await fetch(`${DIGIMON_CARD_API_URL}?${params}`);
             let payload = null;
@@ -1113,41 +1273,15 @@
     }
 
     async function fetchCardSearchRowsFromDb(filters) {
-        if (!SUPABASE_URL) return [];
-        const rows = [];
-        const limit = 1000;
-        let offset = 0;
+        // Primary source: in-memory catalog loaded from Storage bucket.
+        // Falls back to API (fetchCardSearchRowsMerged) if catalog is unavailable.
+        const catalog = await loadCatalog();
+        if (!catalog.length) return [];
 
-        while (rows.length < CARD_SEARCH_MAX_RESULTS) {
-            const params = new URLSearchParams({
-                select: 'card_code,id,name,pack,color,card_type,card_payload',
-                order: 'card_code.asc',
-                limit: String(Math.min(limit, CARD_SEARCH_MAX_RESULTS - rows.length)),
-                offset: String(offset),
-            });
-            if (filters.n) params.set('name', `ilike.*${filters.n}*`);
-            if (filters.color) params.set('color', `ilike.*${filters.color}*`);
-            if (filters.type) params.set('card_type', `ilike.*${filters.type}*`);
-            if (filters.card) params.set('card_code', `ilike.${filters.card}%`);
-
-            const endpoint = `/rest/v1/decklist_card_metadata?${params.toString()}`;
-            const response = window.supabaseApi
-                ? await window.supabaseApi.get(endpoint)
-                : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
-            if (!response.ok) break;
-            const payload = await response.json();
-            const batch = Array.isArray(payload) ? payload : [];
-            if (!batch.length) break;
-
-            const normalized = batch.map((row) => ({
-                ...row,
-                id: row?.id || row?.card_code,
-                card: row?.card_code,
-                type: row?.type || row?.card_type || '',
-            }));
-            rows.push(...normalized);
-            if (batch.length < limit) break;
-            offset += batch.length;
+        let rows = catalog;
+        if (filters.card) {
+            const prefix = filters.card.toUpperCase() + '-';
+            rows = rows.filter(r => String(r.card_code || '').toUpperCase().startsWith(prefix));
         }
 
         return applyLocalCardSearchFilters(rows, filters).slice(0, CARD_SEARCH_MAX_RESULTS);
@@ -1156,7 +1290,7 @@
     function getSetPrefixCardFilter(filters) {
         const raw = String(filters?.card || '').trim().toUpperCase();
         if (!raw || raw.includes(',')) return '';
-        if (!/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)$/.test(raw)) return '';
+        if (!/^[A-Z][A-Z0-9-]{0,9}$/.test(raw)) return '';
         return raw;
     }
 
@@ -1175,18 +1309,58 @@
     }
 
     function applyLocalCardSearchFilters(rows, filters) {
-        const name = String(filters?.n || '').trim().toLowerCase();
+        const text = String(filters?.text || '').trim().toLowerCase();
         const color = String(filters?.color || '').trim().toLowerCase();
+        const color2 = String(filters?.color2 || '').trim().toLowerCase();
         const type = String(filters?.type || '').trim().toLowerCase();
         const level = String(filters?.level || '').trim();
         const playcost = String(filters?.playcost || '').trim();
+        const trait = String(filters?.trait || '').trim().toLowerCase();
 
         return (Array.isArray(rows) ? rows : []).filter((row) => {
-            if (name && !String(row?.name || '').trim().toLowerCase().includes(name)) return false;
-            if (color && !String(row?.color || '').trim().toLowerCase().includes(color)) return false;
-            if (type && String(row?.type || '').trim().toLowerCase() !== type) return false;
-            if (level && String(row?.level ?? row?.card_payload?.level ?? '').trim() !== level) return false;
-            if (playcost && String(row?.play_cost ?? row?.card_payload?.play_cost ?? row?.card_payload?.playcost ?? '').trim() !== playcost) return false;
+            if (text) {
+                const p = row?.card_payload || row;
+                const haystack = [row?.name, p?.main_effect, p?.source_effect, p?.alt_effect, p?.digi_type, p?.digi_type2, p?.digi_type3, p?.digi_type4]
+                    .map(v => String(v || '').toLowerCase()).join(' ');
+                if (!haystack.includes(text)) return false;
+            }
+
+            if (color2) {
+                // Both colors must be present in either order (DB: color column; API: color/color2 fields)
+                const rc  = String(row?.color || row?.card_payload?.color || '').toLowerCase();
+                const rc2 = String(row?.card_payload?.color2 || row?.color2 || '').toLowerCase();
+                const fwd = rc.includes(color) && rc2.includes(color2);
+                const inv = rc.includes(color2) && rc2.includes(color);
+                if (!fwd && !inv) return false;
+            } else if (color) {
+                if (!String(row?.color || row?.card_payload?.color || '').trim().toLowerCase().includes(color)) return false;
+            }
+
+            if (type) {
+                // DB rows: card_type column. API rows: type field (may be 'digitama' for digi-egg)
+                const rowType = String(row?.card_type || row?.type || '').trim().toLowerCase();
+                const normalized = rowType === 'digitama' ? 'digi-egg' : rowType;
+                if (normalized !== type) return false;
+            }
+
+            if (level) {
+                // DB rows: card_level (integer). API rows: level field
+                const rowLevel = row?.card_level != null ? String(row.card_level) : String(row?.level ?? row?.card_payload?.level ?? '').trim();
+                if (rowLevel !== level) return false;
+            }
+
+            if (playcost) {
+                const p = row?.card_payload || row;
+                const rowCost = String(p?.play_cost ?? p?.playcost ?? row?.play_cost ?? '').trim();
+                if (rowCost !== playcost) return false;
+            }
+
+            if (trait) {
+                const p = row?.card_payload || row;
+                const fields = [p?.digi_type, p?.digi_type2, p?.digi_type3, p?.digi_type4];
+                if (!fields.some((t) => String(t || '').toLowerCase().includes(trait))) return false;
+            }
+
             return true;
         });
     }
@@ -1290,10 +1464,15 @@
             await hydrateCardMetadata(entries, { allowRerender: false });
             const prevOrder = entries.map((e) => e.code).join('|');
             const sorted = [...entries].sort(compareDeckEntries);
-            if (sorted.map((e) => e.code).join('|') === prevOrder) { setSaveStatus('Decklist is already sorted.', 'ok'); return; }
+            if (sorted.map((e) => e.code).join('|') === prevOrder) {
+                setSaveStatus('');
+                showToast('Decklist is already sorted.');
+                return;
+            }
             entries = sorted;
             render([]);
-            setSaveStatus('Cards sorted successfully.', 'ok');
+            setSaveStatus('');
+            showToast('Cards sorted successfully.', 'ok');
         } catch (error) {
             setSaveStatus(error?.message || 'Failed to sort cards.', 'error');
         } finally {
@@ -1305,6 +1484,7 @@
         entries = [];
         setSaveStatus('');
         render([]);
+        showToast('Decklist cleared.', 'ok');
     }
 
     function buildEntryMetaFromCard(card) {
@@ -1524,10 +1704,12 @@
             const saved = await saveDecklistStructured(context.resultId, entries);
             if (!saved) throw new Error('Auto-sort save failed.');
             await patchDecklistLegacy(context.resultId, text);
-            setSaveStatus('Decklist auto-sorted and saved.', 'ok');
+            setSaveStatus('');
+            showToast('Decklist auto-sorted and saved.', 'ok');
         } catch (error) {
             console.error('Auto-sort save failed:', error);
-            setSaveStatus('Auto-sort applied, but failed to save.', 'warn');
+            setSaveStatus('');
+            showToast('Auto-sort applied, but failed to save.', 'warn');
         }
     }
 
@@ -1605,7 +1787,8 @@
 
         const btn = document.getElementById('btnDecklistBuilderSave');
         if (btn) btn.disabled = true;
-        setSaveStatus('Saving decklist...', 'info');
+        setSaveStatus('');
+        showToast('Saving decklist...', 'info', 6000);
 
         // Ensure card metadata (type/level) is hydrated before persisting
         await hydrateCardMetadata(entries, { allowRerender: false });
@@ -1616,9 +1799,11 @@
             if (!saved) throw new Error('Failed to save normalized decklist.');
             await patchDecklistLegacy(context.resultId, text);
             render([]);
-            setSaveStatus('Decklist saved successfully.', 'ok');
+            setSaveStatus('');
+            showToast('Decklist saved successfully.', 'ok');
         } catch (error) {
-            setSaveStatus('Failed to save decklist.', 'error');
+            setSaveStatus('');
+            showToast('Failed to save decklist.', 'error', 4000);
             render([error?.message || 'Failed to save decklist.']);
         } finally {
             if (btn) btn.disabled = false;
@@ -2093,17 +2278,19 @@
 
     function render(errors) {
         const board = document.getElementById('decklistBuilderBoard');
-        const stats = document.getElementById('decklistBuilderStats');
         const breakdown = document.getElementById('decklistBuilderBreakdown');
         const errorBox = document.getElementById('decklistBuilderErrors');
-        if (!board || !stats || !errorBox) return;
+        if (!board || !errorBox) return;
 
         const counts = getDeckCounts(entries);
-        stats.textContent = `Card count: ${counts.total} (${counts.mainDeck}+${counts.digiEgg}) cards`;
-        if (breakdown) breakdown.innerHTML = buildDeckGroupBreakdownHtml(entries);
+        const statsLabel = `Card count: ${counts.total} (${counts.mainDeck}+${counts.digiEgg}) cards`;
+        if (breakdown) breakdown.innerHTML = buildDeckGroupBreakdownHtml(entries, statsLabel);
 
         if (errors.length) renderDeckErrors(errorBox, errors);
         else clearDeckErrors(errorBox);
+
+        // Refresh count badges on search results whenever deck changes
+        if (cardSearchResults.length) renderCardSearchResults();
 
         if (!entries.length) {
             board.innerHTML = '<div class="decklist-builder-empty">No cards yet.</div>';
@@ -2209,7 +2396,7 @@
         if (!root) return;
 
         if (!cardSearchResults.length) {
-            root.innerHTML = '<div class="decklist-search-empty">No search results yet.</div>';
+            root.innerHTML = '';
             return;
         }
 
@@ -2255,10 +2442,15 @@
         const badgeHtml = badge
             ? `<div class="decklist-card-restriction-badge is-in-search ${badgeSlotClass} is-${escapeHtml(badge.type)}" title="${escapeHtml(badge.title)}">${escapeHtml(badge.label)}</div>`
             : '';
+        const deckEntry = entries.find(e => normalizeDeckCode(e.code) === code);
+        const countHtml = deckEntry
+            ? `<div class="decklist-search-card-deck-count">&times;${deckEntry.count}</div>`
+            : '';
         return `
             <article class="decklist-search-card" data-code="${escapeHtml(code)}">
                 <img src="${getCardImageUrl(code)}" alt="${escapeHtml(card.name || code)}" />
                 ${badgeHtml}
+                ${countHtml}
                 <div class="decklist-search-card-code">${escapeHtml(code)}</div>
             </article>
         `;
@@ -2299,9 +2491,25 @@
         if (type) el.classList.add(`is-${type}`);
     }
 
+    let decklistToastTimer = null;
+    function showToast(message, type = 'info', durationMs = 2200) {
+        const el = document.getElementById('decklistToast');
+        if (!el) return;
+        if (decklistToastTimer) { clearTimeout(decklistToastTimer); decklistToastTimer = null; }
+        el.textContent = String(message || '').trim();
+        el.className = 'decklist-toast';
+        if (type) el.classList.add(`is-${type}`);
+        if (!el.textContent) return;
+        el.classList.add('is-open');
+        decklistToastTimer = setTimeout(() => {
+            el.classList.remove('is-open');
+            decklistToastTimer = null;
+        }, Math.max(900, Number(durationMs) || 2200));
+    }
+
     // ─── Breakdown chart ──────────────────────────────────────────────────────
 
-    function buildDeckGroupBreakdownHtml(sourceEntries) {
+    function buildDeckGroupBreakdownHtml(sourceEntries, statsLabel = '') {
         const m = getDeckBreakdownMetrics(sourceEntries);
         const typeItems = [
             { key: 'digi-egg', label: 'DigiEgg', value: m.digiEgg },
@@ -2321,6 +2529,7 @@
 
         return `
             <div class="decklist-builder-breakdown-chart">
+                ${statsLabel ? `<div class="decklist-builder-stats decklist-builder-breakdown-stats">${escapeHtml(statsLabel)}</div>` : ''}
                 <div class="decklist-builder-breakdown-group">
                     ${typeItems.map((i) => buildBreakdownBarItem(i, maxValue)).join('')}
                 </div>

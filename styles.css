@@ -2162,33 +2162,138 @@ th {
     margin-bottom: 16px;
 }
 
+body.decklist-builder-page .container {
+    max-width: 1600px;
+    width: 100%;
+    padding: 22px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.decklist-toast {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 140;
+    min-width: 220px;
+    max-width: min(420px, calc(100vw - 44px));
+    background: rgba(25, 38, 68, 0.92);
+    border: 1px solid rgba(129, 140, 248, 0.45);
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 180ms ease, transform 180ms ease;
+    pointer-events: none;
+}
+
+.decklist-toast.is-open {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.decklist-toast.is-ok {
+    border-color: rgba(34, 197, 94, 0.55);
+}
+
+.decklist-toast.is-warn {
+    border-color: rgba(245, 158, 11, 0.6);
+}
+
+.decklist-toast.is-error {
+    border-color: rgba(239, 68, 68, 0.65);
+}
+
+.decklist-toast.is-info {
+    border-color: rgba(129, 140, 248, 0.55);
+}
+
 .decklist-builder-header-main {
-    position: relative;
-    min-height: 44px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    gap: 14px 18px;
+    flex-wrap: wrap;
+    min-width: 0;
+    --decklist-builder-header-item-height: 44px;
+    min-height: var(--decklist-builder-header-item-height);
+}
+
+.decklist-builder-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    min-height: var(--decklist-builder-header-item-height);
+}
+
+.decklist-builder-header-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+    overflow-x: auto;
+    height: var(--decklist-builder-header-item-height);
+    padding-bottom: 0;
+}
+
+.decklist-builder-header-actions .decklist-builder-action-grid {
+    width: max-content;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+}
+
+.decklist-builder-header-actions .decklist-builder-action-btn {
+    height: var(--decklist-builder-header-item-height);
+    min-height: var(--decklist-builder-header-item-height);
+    padding: 0 10px;
+    font-size: 0.82rem;
+}
+
+.decklist-builder-actions .decklist-builder-meta {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    gap: 8px;
+    justify-content: end;
+    align-items: center;
 }
 
 .decklist-builder-header-main h1 {
     margin: 0;
-    text-align: center;
+    text-align: left;
+    height: var(--decklist-builder-header-item-height);
+    display: flex;
+    align-items: center;
+    line-height: 1;
+    font-size: 1.55rem;
+    letter-spacing: 0.2px;
 }
 
-.decklist-builder-back-nav {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
+body.decklist-builder-page .decklist-builder-back-nav.nav-button {
     margin: 0;
+    margin-top: 0;
+    box-sizing: border-box;
+    height: var(--decklist-builder-header-item-height);
+    padding: 0 18px;
+    flex: 0 0 auto;
 }
 
 .decklist-builder-meta {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-end;
+    align-items: center;
     gap: 8px;
-    margin-top: 10px;
+    margin: 0;
+    min-width: 0;
 }
 
 .decklist-builder-meta-pill {
@@ -2211,11 +2316,37 @@ th {
     border-radius: 12px;
     background: #f8f9ff;
     padding: 14px;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 @media (max-width: 1180px) {
-    .decklist-builder-workspace {
+    .decklist-builder-layout {
         grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+
+    .decklist-builder-stats-wrap,
+    .decklist-builder-actions,
+    .decklist-builder-main,
+    .decklist-builder-side {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .decklist-builder-actions {
+        justify-self: stretch;
+        justify-items: start;
+    }
+
+    .decklist-builder-action-grid {
+        width: 100%;
+    }
+
+    .decklist-builder-actions .decklist-builder-save-status {
+        text-align: left;
     }
 
     .decklist-search-results {
@@ -2252,36 +2383,99 @@ th {
     }
 }
 
-.decklist-builder-workspace {
+.decklist-builder-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    grid-template-columns: minmax(0, 1fr) auto minmax(420px, 480px);
     gap: 12px;
     align-items: start;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.decklist-builder-stats-wrap {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    max-width: 640px;
+    justify-self: start;
+}
+
+.decklist-builder-actions {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: start;
+    min-width: 0;
+    display: grid;
+    gap: 6px;
+    justify-items: end;
+}
+
+.decklist-builder-action-grid {
+    width: max-content;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+}
+
+.decklist-builder-action-btn {
+    height: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.decklist-builder-btn-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.decklist-builder-btn-icon svg {
+    width: 16px;
+    height: 16px;
 }
 
 .decklist-builder-main {
+    grid-column: 1 / span 2;
+    grid-row: 2;
     min-width: 0;
+    min-height: 0;
+    overflow: auto;
 }
 
 .decklist-builder-side {
+    grid-column: 3;
+    grid-row: 1 / span 2;
     min-width: 0;
+    min-height: 0;
+    align-self: stretch;
 }
 
 .decklist-builder-side .decklist-search-panel {
-    position: sticky;
-    top: 10px;
-    max-height: calc(100vh - 24px);
+    position: static;
+    max-height: none;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }
 
-.decklist-builder-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
+.decklist-builder-stats-wrap {
+    display: grid;
+    gap: 6px;
 }
 
 .decklist-builder-stats {
@@ -2294,24 +2488,7 @@ th {
     font-weight: 700;
 }
 
-.decklist-builder-stats-wrap {
-    display: grid;
-    gap: 6px;
-}
-
-.decklist-builder-stats-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
 #btnDecklistBuilderSortCards {
-    height: 30px;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 700;
     background: #eef2ff;
     border-color: #c9d6ff;
     color: #2f437f;
@@ -2322,11 +2499,6 @@ th {
 }
 
 #btnDecklistBuilderClear {
-    height: 30px;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 700;
     border-color: #e53935;
     color: #e53935;
     background: transparent;
@@ -2352,6 +2524,11 @@ th {
     grid-template-columns: 1fr auto 1fr;
     gap: 8px;
     align-items: end;
+}
+
+.decklist-builder-breakdown-stats {
+    grid-column: 1 / -1;
+    justify-self: flex-start;
 }
 
 .decklist-builder-breakdown-group {
@@ -2402,16 +2579,7 @@ th {
     text-align: center;
 }
 
-.decklist-builder-top-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
 #btnDecklistBuilderSave {
-    height: 38px;
-    white-space: nowrap;
-    padding: 0 14px;
     background: linear-gradient(135deg, #4f7bff, #5f46c9);
     border-color: #5367d8;
     box-shadow: 0 6px 14px rgba(83, 103, 216, 0.25);
@@ -2420,9 +2588,6 @@ th {
 #btnDecklistBuilderImport,
 #btnDecklistBuilderExport,
 #btnDecklistBuilderExportImage {
-    height: 38px;
-    white-space: nowrap;
-    padding: 0 12px;
     background: #eef2ff;
     border-color: #cfd9ff;
     color: #2f3f74;
@@ -2442,11 +2607,22 @@ th {
     color: #52618f;
 }
 
+.decklist-builder-actions .decklist-builder-save-status {
+    margin-bottom: 0;
+    text-align: right;
+}
+
 .decklist-builder-zoom-hint {
     margin-bottom: 8px;
     font-size: 0.76rem;
     font-weight: 700;
     color: #5870a9;
+}
+
+
+.decklist-builder-stats-wrap .decklist-builder-zoom-hint {
+    margin-bottom: 0;
+    margin-top: 6px;
 }
 
 .decklist-builder-save-status.is-ok {
@@ -2519,6 +2695,105 @@ th {
     min-width: 0;
 }
 
+.filter-full {
+    grid-column: 1 / -1;
+}
+
+/* ── Filter chips (Type / Level) ──────────────────────────── */
+.filter-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.filter-chip {
+    padding: 4px 11px;
+    border: 1.5px solid #c7d2f1;
+    border-radius: 20px;
+    background: #f7f8fc;
+    color: #3a4f8a;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    white-space: nowrap;
+}
+
+.filter-chip:hover {
+    background: #edf1ff;
+    border-color: #7f9fff;
+}
+
+.filter-chip.is-active {
+    background: #3b65e8;
+    border-color: #3b65e8;
+    color: #fff;
+}
+
+/* ── Color dot toggles ────────────────────────────────────── */
+.filter-dot-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-dot-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6878a8;
+    min-width: 20px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.filter-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2.5px solid transparent;
+    background: #d0d8f0;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.filter-dot:hover {
+    transform: scale(1.15);
+}
+
+.filter-dot.is-active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2.5px #3b65e8;
+    transform: scale(1.18);
+}
+
+/* "Any" button in color groups */
+.filter-color-all {
+    padding: 3px 9px;
+    border: 1.5px solid #c7d2f1;
+    border-radius: 20px;
+    background: #f7f8fc;
+    color: #3a4f8a;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.filter-color-all:hover {
+    background: #edf1ff;
+    border-color: #7f9fff;
+}
+
+.filter-color-all.is-active {
+    background: #3b65e8;
+    border-color: #3b65e8;
+    color: #fff;
+}
+
 .decklist-search-actions {
     margin-top: 10px;
     display: flex;
@@ -2560,6 +2835,31 @@ th {
     color: #a63232;
 }
 
+body.decklist-builder-page .decklist-search-results {
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.decklist-search-filter-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.decklist-search-filter-label {
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: #2f4a8f;
+    white-space: nowrap;
+}
+
+.decklist-search-filter-line .filter-chip-group {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .decklist-search-results {
     margin-top: 8px;
     display: flex;
@@ -2574,8 +2874,13 @@ th {
 
 .decklist-search-results-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+body.decklist-builder-page .decklist-search-results-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
 }
 
 .decklist-search-pagination {
@@ -2718,6 +3023,21 @@ th {
     padding: 2px 6px;
 }
 
+.decklist-search-card-deck-count {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(37, 90, 200, 0.92);
+    border: 1.5px solid rgba(150, 200, 255, 0.55);
+    border-radius: 8px;
+    padding: 2px 6px;
+    pointer-events: none;
+    z-index: 2;
+}
+
 .decklist-card-restriction-badge {
     position: absolute;
     top: 6px;
@@ -2820,9 +3140,17 @@ th {
 
 .decklist-builder-board {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 8px;
+    --decklist-builder-card-gap: 4px;
+    gap: var(--decklist-builder-card-gap);
+    --decklist-builder-card-width: clamp(
+        84px,
+        calc((100% - (6 * var(--decklist-builder-card-gap))) / 7),
+        150px
+    );
+    grid-template-columns: repeat(7, var(--decklist-builder-card-width));
     margin-top: 0;
+    align-content: start;
+    justify-content: center;
 }
 
 .decklist-builder-card {
@@ -2832,6 +3160,9 @@ th {
     overflow: hidden;
     background: #f5f7fc;
     transition: border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
 }
 
 .decklist-builder-card:hover {
@@ -4082,30 +4413,12 @@ th {
         grid-template-columns: minmax(0, 1fr) auto;
     }
 
-    .decklist-builder-top {
-        align-items: stretch;
-    }
-
     .decklist-builder-stats {
         align-self: flex-start;
     }
 
-    .decklist-builder-top-actions {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-    }
-
-    #btnDecklistBuilderImport,
-    #btnDecklistBuilderExport,
-    #btnDecklistBuilderExportImage,
-    #btnDecklistBuilderSave {
-        width: 100%;
-        height: 40px;
-        min-height: 40px;
-        padding-top: 0;
-        padding-bottom: 0;
+    .decklist-builder-action-grid {
+        width: max-content;
     }
 
     .decklist-builder-board {
@@ -4115,7 +4428,11 @@ th {
         margin-top: 10px;
     }
 
-    .decklist-builder-workspace {
+    .decklist-builder-card {
+        max-width: none;
+    }
+
+    .decklist-builder-layout {
         grid-template-columns: 1fr;
         gap: 8px;
     }
@@ -4182,7 +4499,15 @@ th {
     overflow: hidden;
 }
 
-.deck-card-zoom-dialog img {
+.deck-card-zoom-image-wrap {
+    width: 100%;
+    max-height: calc(92vh - 34px);
+    overflow: auto;
+    border-radius: 8px;
+    background: rgba(8, 18, 36, 0.4);
+}
+
+.deck-card-zoom-image-wrap img {
     width: 100%;
     height: auto;
     max-width: 100%;
@@ -11964,10 +12289,20 @@ textarea::placeholder {
     color: #9fb5df !important;
 }
 
-.decklist-builder-side .decklist-search-panel {
-    background: linear-gradient(180deg, #172238 0%, #131d30 100%) !important;
-    border-color: #334a73 !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+body.decklist-builder-page .decklist-builder-side {
+    background: linear-gradient(180deg, rgba(18, 28, 48, 0.92) 0%, rgba(14, 22, 38, 0.92) 100%) !important;
+    border-left: 1px solid rgba(51, 74, 115, 0.65) !important;
+    border-radius: 14px !important;
+    padding: 12px !important;
+    align-self: stretch !important;
+    min-height: 0 !important;
+}
+
+body.decklist-builder-page .decklist-builder-side .decklist-search-panel {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
 }
 
 .decklist-search-header h2,
@@ -12008,6 +12343,17 @@ textarea::placeholder {
     box-shadow: 0 0 0 3px rgba(91, 143, 227, 0.26) !important;
 }
 
+.decklist-search-panel .form-input:-webkit-autofill,
+.decklist-search-panel .form-input:-webkit-autofill:hover,
+.decklist-search-panel .form-input:-webkit-autofill:focus,
+.decklist-search-panel .form-input:autofill {
+    -webkit-text-fill-color: #dbe7ff !important;
+    caret-color: #dbe7ff !important;
+    border-color: #30476f !important;
+    box-shadow: 0 0 0 1000px #0f1728 inset !important;
+    -webkit-box-shadow: 0 0 0 1000px #0f1728 inset !important;
+}
+
 .decklist-search-panel select.form-input {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239db9e9' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
@@ -12020,6 +12366,34 @@ textarea::placeholder {
     background: #1a2740 !important;
     border-color: #3d5687 !important;
     color: #d5e3ff !important;
+}
+
+#btnDecklistBuilderSave {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-color: rgba(129, 140, 248, 0.35) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.18) !important;
+}
+
+#btnDecklistBuilderSave:hover {
+    filter: brightness(1.05);
+    box-shadow: 0 10px 24px rgba(102, 126, 234, 0.22) !important;
+    transform: none !important;
+}
+
+:is(#btnCardSearchReset) {
+    background: transparent !important;
+    border-color: rgba(61, 86, 135, 0.75) !important;
+    color: rgba(213, 227, 255, 0.9) !important;
+    box-shadow: none !important;
+}
+
+:is(#btnCardSearchReset):hover {
+    background: rgba(26, 39, 64, 0.45) !important;
+    border-color: rgba(74, 106, 166, 0.9) !important;
+    color: #e8f0ff !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
 
 #btnDecklistBuilderSortCards {
@@ -12143,6 +12517,58 @@ textarea::placeholder {
     background: rgba(10, 18, 33, 0.9) !important;
     border-color: rgba(134, 171, 231, 0.44) !important;
     color: #d9e8ff !important;
+}
+
+.filter-chip {
+    background: #1a2740 !important;
+    border-color: #30456a !important;
+    color: #a8c0e8 !important;
+}
+
+.filter-chip:hover {
+    background: #233a60 !important;
+    border-color: #5a7fc0 !important;
+}
+
+.filter-chip.is-active {
+    background: #2d5bc8 !important;
+    border-color: #4a7ae0 !important;
+    color: #fff !important;
+}
+
+.filter-dot-label {
+    color: #6888b8 !important;
+}
+
+.filter-dot[data-value=""] {
+    background: #2a3e61 !important;
+    border-color: #3d5887 !important;
+}
+
+.filter-dot[data-value=""].is-active {
+    border-color: #4a7ae0 !important;
+    box-shadow: 0 0 0 2.5px #4a7ae0 !important;
+}
+
+.filter-dot.is-active {
+    box-shadow: 0 0 0 2.5px #4a7ae0 !important;
+}
+
+.filter-color-all {
+    background: #1a2740 !important;
+    border-color: #30456a !important;
+    color: #a8c0e8 !important;
+}
+
+.filter-color-all:hover {
+    background: #233a60 !important;
+    border-color: #5a7fc0 !important;
+}
+
+.filter-color-all.is-active {
+    background: #2d5bc8 !important;
+    border-color: #4a7ae0 !important;
+    color: #fff !important;
 }
 
 .decklist-search-empty,

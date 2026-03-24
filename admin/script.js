@@ -72,6 +72,8 @@ function setupAdminActions() {
         if (action === 'clear-format-bg') clearFormatBackground();
         if (action === 'repair-check') runRepairCheck();
         if (action === 'repair-run') runRepairRun();
+        if (action === 'download-cards') runDownloadCards();
+        if (action === 'export-catalog') runExportCatalog();
         if (action === 'create-store') openStoreModal(null);
         if (action === 'edit-store') openStoreModal(btn.dataset.id);
         if (action === 'delete-store') deleteStore(btn.dataset.id, btn.dataset.name);
@@ -920,6 +922,20 @@ function clearFormatBackground() {
 const REPAIR_DIGIMON_API = 'https://digimoncard.io/api-public/search';
 let _repairIncompleteCodesCache = null;
 
+function deriveCardMeta(row) {
+    const typeRaw = String(row?.type || '').trim().toLowerCase();
+    const card_level = Number.isFinite(Number(row?.level)) && row?.level !== '' && row?.level !== null
+        ? Math.trunc(Number(row.level))
+        : null;
+    let card_type = null;
+    if (typeRaw === 'digi-egg' || typeRaw === 'digitama') card_type = 'Digi-Egg';
+    else if (typeRaw === 'digimon') card_type = 'Digimon';
+    else if (typeRaw === 'tamer')   card_type = 'Tamer';
+    else if (typeRaw === 'option')  card_type = 'Option';
+    const is_digi_egg = card_type === 'Digi-Egg';
+    return { card_type, card_level, is_digi_egg };
+}
+
 function repairLog(msg, type = 'info') {
     const log = document.getElementById('adminRepairLog');
     if (!log) return;
@@ -945,7 +961,7 @@ async function fetchRepairIncompleteCodes() {
     while (true) {
         const params = new URLSearchParams({
             select: 'card_code',
-            or: '(card_level.is.null,card_type.is.null,name.is.null,pack.is.null,pack.eq.)',
+            name: 'is.null',
             order: 'card_code.asc',
             limit: String(limit),
             offset: String(offset),
@@ -982,46 +998,76 @@ function repairProgressHide() {
 }
 
 async function fetchCardsFromDigimonApiAdmin(codes, onProgress) {
+    const CHUNK = 20;
+    const SLEEP_MS = 800;       // ~10 req/10s — safely under the 15/10s limit
+    const SLEEP_MISSED_MS = 400; // individual retries are smaller; 400ms keeps them safe too
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
     const result = [];
     const usedCodes = new Set();
     const pushRow = (row) => {
         const code = String(row?.id || row?.card || '').trim().toUpperCase();
         if (!code || usedCodes.has(code)) return;
         usedCodes.add(code);
+        const { card_type, card_level, is_digi_egg } = deriveCardMeta(row);
         result.push({
             card_code: code,
             id: row?.id || code,
             name: row?.name || null,
             pack: row?.pack || code.split('-')[0] || null,
             color: row?.color || null,
+            card_type,
+            card_level,
+            is_digi_egg,
             card_payload: row || {},
         });
     };
+
     const chunks = [];
-    for (let i = 0; i < codes.length; i += 20) chunks.push(codes.slice(i, i + 20));
+    for (let i = 0; i < codes.length; i += CHUNK) chunks.push(codes.slice(i, i + CHUNK));
 
     let processed = 0;
-    for (const chunk of chunks) {
+    let ci = 0;
+    while (ci < chunks.length) {
+        const chunk = chunks[ci];
         try {
-            const q = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2) });
+            const q = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2), series: 'Digimon Card Game' });
             const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+            if (res.status === 429) {
+                repairLog(`Rate limited no chunk ${ci + 1} — aguardando 10s…`, 'warn');
+                await sleep(10000);
+                continue; // retry same chunk
+            }
             if (res.ok) {
                 const rows = await res.json();
                 if (Array.isArray(rows)) rows.forEach(pushRow);
             }
         } catch (_) {}
+
+        await sleep(SLEEP_MS);
+
+        // Individual retry for cards not found in the batch
         const missed = chunk.filter(c => !usedCodes.has(c));
         for (const code of missed) {
             try {
-                const q = new URLSearchParams({ card: code, limit: '1' });
+                const q = new URLSearchParams({ card: code, limit: '1', series: 'Digimon Card Game' });
                 const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
-                if (res.ok) {
+                if (res.status === 429) {
+                    repairLog(`Rate limited (individual retry ${code}) — aguardando 10s…`, 'warn');
+                    await sleep(10000);
+                    // retry this code once more
+                    const res2 = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+                    if (res2.ok) { const rows = await res2.json(); if (Array.isArray(rows)) rows.forEach(pushRow); }
+                } else if (res.ok) {
                     const rows = await res.json();
                     if (Array.isArray(rows)) rows.forEach(pushRow);
                 }
             } catch (_) {}
+            await sleep(SLEEP_MISSED_MS);
         }
+
         processed += chunk.length;
+        ci++;
         if (onProgress) onProgress(processed, codes.length, result.length);
     }
     return result;
@@ -1096,32 +1142,37 @@ async function runRepairRun() {
             );
         });
 
-        repairLog(`API retornou dados para ${fetched.length} / ${codes.length} carta(s).`, 'info');
+        repairLog(`API retornou dados para ${fetched.length} / ${codes.length} carta(s).`, fetched.length ? 'info' : 'warn');
 
-        if (!fetched.length) {
-            repairProgressHide();
-            repairLog('Nenhum dado retornado pela API. Nada foi atualizado.', 'warn');
-            if (runBtn) runBtn.disabled = false;
-            if (checkBtn) checkBtn.disabled = false;
-            return;
-        }
+        // For codes the API couldn't find, save a stub so they stop appearing as incomplete
+        const fetchedCodes = new Set(fetched.map(r => r.card_code));
+        const stubs = codes
+            .filter(c => !fetchedCodes.has(c))
+            .map(c => ({
+                card_code: c,
+                id: c,
+                name: c,           // use card_code as name so name IS NOT NULL
+                pack: c.split('-')[0] || null,
+                color: null,
+                card_type: null,   // genuinely unknown
+                card_level: null,
+                is_digi_egg: false,
+                card_payload: {},
+            }));
 
-        repairProgressShow('Salvando no banco…', 70, `0 / ${fetched.length} salvas`);
+        const allToUpsert = [...fetched, ...stubs];
+        repairProgressShow('Salvando no banco…', 70, `0 / ${allToUpsert.length} salvas`);
 
-        await upsertRepairRows(fetched, (done, total) => {
-            const pct = 70 + (done / total) * 30; // upsert = 70-100%
-            repairProgressShow(
-                'Salvando no banco…',
-                pct,
-                `${done} / ${total} salvas`
-            );
+        await upsertRepairRows(allToUpsert, (done, total) => {
+            const pct = 70 + (done / total) * 30;
+            repairProgressShow('Salvando no banco…', pct, `${done} / ${total} salvas`);
         });
 
-        repairProgressShow('Concluído!', 100, `${fetched.length} registro(s) atualizados`);
+        repairProgressShow('Concluído!', 100, `${allToUpsert.length} registro(s) atualizados`);
 
-        const missed = codes.length - fetched.length;
+        const missed = stubs.length;
         repairLog(
-            `Pronto. ${fetched.length} registro(s) atualizados.${missed ? ` ${missed} código(s) não encontrados na API.` : ''}`,
+            `Pronto. ${fetched.length} registro(s) atualizados pela API.${missed ? ` ${missed} não encontrado(s) na API — salvo(s) com registro mínimo.` : ''}`,
             'success'
         );
 
@@ -1134,6 +1185,354 @@ async function runRepairRun() {
         if (runBtn) runBtn.disabled = false;
     }
     if (checkBtn) checkBtn.disabled = false;
+}
+
+// ============================================================
+// DOWNLOAD CARDS
+// ============================================================
+const DIGIMON_ALL_CARDS_API = 'https://digimoncard.io/api-public/getAllCards';
+const DL_CHUNK_SIZE = 20;
+const DL_SLEEP_MS = 800;
+
+function downloadLog(msg, type = 'info') {
+    const log = document.getElementById('adminDownloadLog');
+    if (!log) return;
+    log.classList.remove('is-hidden');
+    const line = document.createElement('div');
+    line.className = `admin-repair-log-line admin-repair-log-${type}`;
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+function downloadLogClear() {
+    const log = document.getElementById('adminDownloadLog');
+    if (log) { log.innerHTML = ''; log.classList.add('is-hidden'); }
+}
+
+function downloadProgressShow(label, pct, detail) {
+    const wrap = document.getElementById('adminDownloadProgress');
+    const labelEl = document.getElementById('adminDownloadProgressLabel');
+    const pctEl = document.getElementById('adminDownloadProgressPct');
+    const bar = document.getElementById('adminDownloadProgressBar');
+    const detailEl = document.getElementById('adminDownloadProgressDetail');
+    if (!wrap) return;
+    wrap.classList.remove('is-hidden');
+    if (labelEl) labelEl.textContent = label;
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+    if (bar) bar.style.width = `${Math.min(100, pct)}%`;
+    if (detailEl && detail != null) detailEl.textContent = detail;
+}
+
+function downloadProgressHide() {
+    const wrap = document.getElementById('adminDownloadProgress');
+    if (wrap) wrap.classList.add('is-hidden');
+}
+
+async function runDownloadCards() {
+    const runBtn = document.getElementById('adminDownloadRunBtn');
+    const statusEl = document.getElementById('adminDownloadStatus');
+    if (runBtn) runBtn.disabled = true;
+    downloadLogClear();
+    downloadProgressShow('Buscando lista de cartas…', 0, '');
+
+    try {
+        // Step 1: fetch all card numbers from getAllCards
+        const params = new URLSearchParams({ series: 'Digimon Card Game', sort: 'card_number', sortdirection: 'asc' });
+        const allRes = await fetch(`${DIGIMON_ALL_CARDS_API}?${params}`);
+        if (!allRes.ok) throw new Error(`getAllCards falhou: HTTP ${allRes.status}`);
+        const allRows = await allRes.json();
+        if (!Array.isArray(allRows)) throw new Error('Resposta inesperada do getAllCards');
+        const allCodes = allRows.map(r => String(r?.cardnumber || '').trim().toUpperCase()).filter(Boolean);
+        downloadLog(`${allCodes.length} cartas encontradas na API.`, 'info');
+
+        if (!allCodes.length) {
+            downloadProgressHide();
+            if (runBtn) runBtn.disabled = false;
+            return;
+        }
+
+        // Step 2: fetch existing card_codes from DB and skip them
+        downloadProgressShow('Verificando banco de dados…', 5, '');
+        const base = window.APP_CONFIG.SUPABASE_URL;
+        const hdrs = window.createSupabaseHeaders();
+        const existingCodes = new Set();
+        let offset = 0;
+        const PAGE = 1000;
+        while (true) {
+            const q = new URLSearchParams({ select: 'card_code', order: 'card_code.asc', limit: String(PAGE), offset: String(offset) });
+            const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
+            if (!res.ok) throw new Error(`Erro ao ler banco: HTTP ${res.status}`);
+            const batch = await res.json();
+            if (!Array.isArray(batch) || !batch.length) break;
+            batch.forEach(r => { const c = String(r?.card_code || '').trim().toUpperCase(); if (c) existingCodes.add(c); });
+            if (batch.length < PAGE) break;
+            offset += PAGE;
+        }
+        const codes = allCodes.filter(c => !existingCodes.has(c));
+        downloadLog(`${existingCodes.size} já no banco — ${codes.length} novas a baixar.`, 'info');
+
+        if (!codes.length) {
+            downloadProgressShow('Concluído!', 100, 'Nenhuma carta nova.');
+            downloadLog('Catálogo já está atualizado. Nenhuma carta nova para baixar.', 'success');
+            if (statusEl) statusEl.textContent = `Catálogo atualizado — ${existingCodes.size} cartas no banco.`;
+            if (runBtn) runBtn.disabled = false;
+            return;
+        }
+
+        // Build a name lookup from getAllCards so we can save minimal records as fallback
+        const codeToName = new Map();
+        allRows.forEach(r => {
+            const c = String(r?.cardnumber || '').trim().toUpperCase();
+            if (c) codeToName.set(c, String(r?.name || '').trim() || null);
+        });
+
+        // Step 4: chunk and fetch metadata for new codes only
+        const chunks = [];
+        for (let i = 0; i < codes.length; i += DL_CHUNK_SIZE) chunks.push(codes.slice(i, i + DL_CHUNK_SIZE));
+
+        const fetched = [];
+        const usedCodes = new Set();
+        let failedChunks = 0;
+        let i = 0;
+
+        while (i < chunks.length) {
+            const chunk = chunks[i];
+            const pct = (i / chunks.length) * 70;
+            downloadProgressShow('Buscando metadados na API…', pct, `chunk ${i + 1}/${chunks.length} · ${fetched.length} cartas`);
+
+            try {
+                const q = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2), series: 'Digimon Card Game' });
+                const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+                if (res.status === 429) {
+                    downloadLog(`Rate limited no chunk ${i + 1} — aguardando 10s…`, 'warn');
+                    await new Promise(r => setTimeout(r, 10000));
+                    continue; // retry same chunk without incrementing i
+                }
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (Array.isArray(rows)) {
+                        rows.forEach(row => {
+                            const code = String(row?.id || row?.card || '').trim().toUpperCase();
+                            if (!code || usedCodes.has(code)) return;
+                            usedCodes.add(code);
+                            const { card_type, card_level, is_digi_egg } = deriveCardMeta(row);
+                            fetched.push({
+                                card_code: code,
+                                id: row?.id || code,
+                                name: row?.name || null,
+                                pack: row?.pack || code.split('-')[0] || null,
+                                color: row?.color || null,
+                                card_type,
+                                card_level,
+                                is_digi_egg,
+                                card_payload: row || {},
+                            });
+                        });
+                    }
+                } else {
+                    failedChunks++;
+                }
+            } catch (_) {
+                failedChunks++;
+            }
+
+            if ((i + 1) % 10 === 0 || i + 1 === chunks.length) {
+                downloadLog(`Progresso: ${i + 1}/${chunks.length} chunks · ${fetched.length} cartas`, 'info');
+            }
+
+            await new Promise(r => setTimeout(r, DL_SLEEP_MS));
+            i++;
+        }
+
+        downloadLog(
+            `API retornou metadados para ${fetched.length} carta(s).${failedChunks ? ` ${failedChunks} chunk(s) falharam.` : ''}`,
+            failedChunks ? 'warn' : 'info'
+        );
+
+        // Fallback: for codes not returned by the search API, save a minimal record
+        // using the name from getAllCards so they at least exist in the DB.
+        const fallback = [];
+        codes.forEach(code => {
+            if (usedCodes.has(code)) return;
+            const name = codeToName.get(code) || null;
+            fallback.push({
+                card_code: code,
+                id: code,
+                name,
+                pack: code.split('-')[0] || null,
+                color: null,
+                card_type: null,
+                card_level: null,
+                is_digi_egg: false,
+                card_payload: name ? { id: code, name } : {},
+            });
+        });
+        if (fallback.length) {
+            downloadLog(`${fallback.length} carta(s) sem metadados na API — salvas com registro mínimo (nome + código).`, 'warn');
+            fetched.push(...fallback);
+        }
+
+        if (!fetched.length) {
+            downloadProgressHide();
+            downloadLog('Nenhum dado retornado pela API.', 'warn');
+            if (statusEl) statusEl.textContent = 'Nenhuma carta baixada. Tente novamente.';
+            if (runBtn) runBtn.disabled = false;
+            return;
+        }
+
+        // Step 5: upsert to DB
+        downloadProgressShow('Salvando no banco…', 70, `0 / ${fetched.length} salvas`);
+        await upsertRepairRows(fetched, (done, total) => {
+            const pct = 70 + (done / total) * 30;
+            downloadProgressShow('Salvando no banco…', pct, `${done} / ${total} salvas`);
+        });
+
+        downloadProgressShow('Concluído!', 100, `${fetched.length} carta(s) salvas`);
+        downloadLog(`Pronto. ${fetched.length} carta(s) salvas em decklist_card_metadata.`, 'success');
+        if (statusEl) statusEl.textContent = `Última sincronização: ${fetched.length} cartas salvas. Busca no Deck Builder atualizada.`;
+    } catch (err) {
+        downloadProgressHide();
+        downloadLog(`Erro: ${err.message}`, 'error');
+        if (statusEl) statusEl.textContent = 'Erro durante o download. Veja o log abaixo.';
+    } finally {
+        if (runBtn) runBtn.disabled = false;
+    }
+}
+
+// ============================================================
+// EXPORT CATALOG
+// ============================================================
+const CATALOG_BUCKET = 'card-catalog';
+const CATALOG_FILE   = 'card-catalog.json';
+
+function exportLog(msg, type = 'info') {
+    const log = document.getElementById('adminExportLog');
+    if (!log) return;
+    log.classList.remove('is-hidden');
+    const line = document.createElement('div');
+    line.className = `admin-repair-log-line admin-repair-log-${type}`;
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+function exportLogClear() {
+    const log = document.getElementById('adminExportLog');
+    if (log) { log.innerHTML = ''; log.classList.add('is-hidden'); }
+}
+
+function exportProgressShow(label, pct, detail) {
+    const wrap    = document.getElementById('adminExportProgress');
+    const labelEl = document.getElementById('adminExportProgressLabel');
+    const pctEl   = document.getElementById('adminExportProgressPct');
+    const bar     = document.getElementById('adminExportProgressBar');
+    const detailEl= document.getElementById('adminExportProgressDetail');
+    if (!wrap) return;
+    wrap.classList.remove('is-hidden');
+    if (labelEl)  labelEl.textContent  = label;
+    if (pctEl)    pctEl.textContent    = `${Math.round(pct)}%`;
+    if (bar)      bar.style.width      = `${Math.min(100, pct)}%`;
+    if (detailEl && detail != null) detailEl.textContent = detail;
+}
+
+function exportProgressHide() {
+    const wrap = document.getElementById('adminExportProgress');
+    if (wrap) wrap.classList.add('is-hidden');
+}
+
+async function runExportCatalog() {
+    const runBtn  = document.getElementById('adminExportRunBtn');
+    const statusEl= document.getElementById('adminExportStatus');
+    if (runBtn) runBtn.disabled = true;
+    exportLogClear();
+    exportProgressShow('Lendo banco de dados…', 0, '');
+
+    const base = window.APP_CONFIG.SUPABASE_URL;
+    const hdrs = window.createSupabaseHeaders();
+
+    try {
+        // Step 1: fetch all cards (lightweight — only fields needed for search/display)
+        const allCards = [];
+        const PAGE = 1000;
+        let offset = 0;
+        while (true) {
+            const q = new URLSearchParams({
+                select: 'card_code,name,pack,color,card_type,card_level,card_payload',
+                order:  'card_code.asc',
+                limit:  String(PAGE),
+                offset: String(offset),
+            });
+            const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
+            if (!res.ok) throw new Error(`Erro ao ler banco: HTTP ${res.status}`);
+            const batch = await res.json();
+            if (!Array.isArray(batch) || !batch.length) break;
+            allCards.push(...batch);
+            exportProgressShow('Lendo banco de dados…', Math.min(45, (allCards.length / 5000) * 45), `${allCards.length} cartas lidas…`);
+            if (batch.length < PAGE) break;
+            offset += PAGE;
+        }
+        exportLog(`${allCards.length} cartas lidas do banco.`, 'info');
+
+        // Step 2: build lightweight catalog (extract only needed fields from payload)
+        exportProgressShow('Gerando catálogo…', 50, '');
+        const catalog = allCards.map(r => {
+            const p = r.card_payload || {};
+            return {
+                card_code:  r.card_code,
+                name:       r.name       || null,
+                pack:       r.pack       || null,
+                color:      r.color      || null,
+                color2:     p.color2     || null,
+                card_type:  r.card_type  || null,
+                card_level: r.card_level ?? null,
+                digi_type:  p.digi_type  || null,
+                digi_type2: p.digi_type2 || null,
+                digi_type3: p.digi_type3 || null,
+                digi_type4: p.digi_type4 || null,
+                play_cost:  p.play_cost  ?? p.playcost ?? null,
+                main_effect:   p.main_effect   || null,
+                source_effect: p.source_effect || null,
+                alt_effect:    p.alt_effect    || null,
+                img:        p.img        || null,
+            };
+        });
+
+        const json = JSON.stringify(catalog);
+        const sizeKb = (new TextEncoder().encode(json).byteLength / 1024).toFixed(1);
+        exportLog(`Catálogo gerado: ${catalog.length} cartas, ${sizeKb} KB.`, 'info');
+
+        // Step 3: upload to Supabase Storage
+        exportProgressShow('Fazendo upload para o bucket…', 70, '');
+        const uploadRes = await fetch(
+            `${base}/storage/v1/object/${CATALOG_BUCKET}/${CATALOG_FILE}`,
+            {
+                method: 'POST',
+                headers: {
+                    ...hdrs,
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'public, max-age=86400',
+                    'x-upsert': 'true',
+                },
+                body: json,
+            }
+        );
+
+        if (!uploadRes.ok) {
+            const detail = await uploadRes.text().catch(() => '');
+            throw new Error(`Upload falhou: HTTP ${uploadRes.status} — ${detail}`);
+        }
+
+        exportProgressShow('Concluído!', 100, `${catalog.length} cartas exportadas`);
+        exportLog(`Pronto. Arquivo disponível em: ${base}/storage/v1/object/public/${CATALOG_BUCKET}/${CATALOG_FILE}`, 'success');
+        if (statusEl) statusEl.textContent = `Última exportação: ${catalog.length} cartas · ${sizeKb} KB.`;
+    } catch (err) {
+        exportProgressHide();
+        exportLog(`Erro: ${err.message}`, 'error');
+        if (statusEl) statusEl.textContent = 'Erro durante o export. Veja o log abaixo.';
+    } finally {
+        if (runBtn) runBtn.disabled = false;
+    }
 }
 
 // ============================================================

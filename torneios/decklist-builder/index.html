@@ -9,50 +9,103 @@
         <link rel="stylesheet" href="../../styles/components/utilities.css" />
         <link rel="stylesheet" href="../../styles/components/states.css" />
     </head>
-    <body>
+    <body class="decklist-builder-page">
         <div class="container">
             <header class="decklist-builder-header">
                 <div class="decklist-builder-header-main">
-                    <a href="../../index.html" class="nav-button decklist-builder-back-nav">
-                        <span>&larr; Back to Dashboard</span>
-                    </a>
-                    <h1>Deck Builder</h1>
-                </div>
-                <div id="decklistBuilderMeta" class="decklist-builder-meta" aria-live="polite"></div>
-            </header>
-
-            <section class="decklist-builder-panel">
-                <div class="decklist-builder-top">
-                    <div class="decklist-builder-stats-wrap">
-                        <div class="decklist-builder-stats-row">
-                            <div id="decklistBuilderStats" class="decklist-builder-stats">0 cards</div>
-                            <button type="button" id="btnDecklistBuilderSortCards" class="btn-secondary">
-                                Sort by Level
+                    <div class="decklist-builder-header-left">
+                        <a href="../../index.html" class="nav-button decklist-builder-back-nav">
+                            <span>&larr; Back to Dashboard</span>
+                        </a>
+                        <h1>Deck Builder</h1>
+                    </div>
+                    <div class="decklist-builder-header-actions" aria-label="Deck actions">
+                        <div class="decklist-builder-action-grid" role="group" aria-label="Deck actions">
+                            <button type="button" id="btnDecklistBuilderClear" class="btn-secondary decklist-builder-action-btn">
+                                <span class="decklist-builder-btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 6h18"></path>
+                                        <path d="M8 6V4h8v2"></path>
+                                        <path d="M6 6l1 14h10l1-14"></path>
+                                        <path d="M10 11v6"></path>
+                                        <path d="M14 11v6"></path>
+                                    </svg>
+                                </span>
+                                <span>Clear Decklist</span>
                             </button>
-                            <button type="button" id="btnDecklistBuilderClear" class="btn-secondary">
-                                Clear Decklist
+                            <button type="button" id="btnDecklistBuilderImport" class="btn-secondary decklist-builder-action-btn">
+                                <span class="decklist-builder-btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 3v12"></path>
+                                        <path d="m7 10 5 5 5-5"></path>
+                                        <path d="M5 21h14"></path>
+                                    </svg>
+                                </span>
+                                <span>Import decklist</span>
+                            </button>
+                            <button type="button" id="btnDecklistBuilderExport" class="btn-secondary decklist-builder-action-btn">
+                                <span class="decklist-builder-btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 21V9"></path>
+                                        <path d="m17 14-5-5-5 5"></path>
+                                        <path d="M5 3h14"></path>
+                                    </svg>
+                                </span>
+                                <span>Export decklist</span>
+                            </button>
+                            <button type="button" id="btnDecklistBuilderExportImage" class="btn-secondary decklist-builder-action-btn">
+                                <span class="decklist-builder-btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                                        <circle cx="8.5" cy="10" r="1.5"></circle>
+                                        <path d="m21 15-5-5L5 21"></path>
+                                    </svg>
+                                </span>
+                                <span>Export image</span>
+                            </button>
+                            <button type="button" id="btnDecklistBuilderSortCards" class="btn-secondary decklist-builder-action-btn">
+                                <span class="decklist-builder-btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 6h10"></path>
+                                        <path d="M3 12h7"></path>
+                                        <path d="M3 18h4"></path>
+                                        <path d="m14 16 3 3 3-3"></path>
+                                        <path d="M17 7v12"></path>
+                                        <path d="m14 10 3-3 3 3"></path>
+                                    </svg>
+                                </span>
+                                <span>Sort by Level</span>
+                            </button>
+                            <button type="button" id="btnDecklistBuilderSave" class="btn-primary decklist-builder-action-btn">
+                                <span class="decklist-builder-btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                        <path d="M17 21v-8H7v8"></path>
+                                        <path d="M7 3v5h8"></path>
+                                    </svg>
+                                </span>
+                                <span>Save</span>
                             </button>
                         </div>
-                        <div id="decklistBuilderBreakdown" class="decklist-builder-breakdown" aria-live="polite"></div>
-                    </div>
-                    <div class="decklist-builder-top-actions">
-                        <button type="button" id="btnDecklistBuilderImport" class="btn-secondary">
-                            Import decklist
-                        </button>
-                        <button type="button" id="btnDecklistBuilderExport" class="btn-secondary">
-                            Export decklist
-                        </button>
-                        <button type="button" id="btnDecklistBuilderExportImage" class="btn-secondary">
-                            Export image
-                        </button>
-                        <button type="button" id="btnDecklistBuilderSave" class="btn-primary">
-                            Save
-                        </button>
                     </div>
                 </div>
-                <div id="decklistBuilderSaveStatus" class="decklist-builder-save-status" aria-live="polite"></div>
-                <div class="decklist-builder-zoom-hint">Tip: right-click a card to preview full art or close the preview.</div>
-                <div class="decklist-builder-workspace">
+            </header>
+
+            <div id="decklistToast" class="decklist-toast" aria-live="polite" aria-atomic="true"></div>
+
+            <section class="decklist-builder-panel">
+                <div class="decklist-builder-layout">
+                    <div class="decklist-builder-stats-wrap">
+                        <div id="decklistBuilderBreakdown" class="decklist-builder-breakdown" aria-live="polite"></div>
+                    </div>
+
+                    <div class="decklist-builder-actions">
+                        <div id="decklistBuilderMeta" class="decklist-builder-meta" aria-live="polite"></div>
+                        <div class="decklist-builder-zoom-hint">Tips: Right-click a card to preview full art or close the preview.</div>
+                        <div class="decklist-builder-zoom-hint">You can also drag and drop cards to reorder them in the decklist.</div>
+                        <div id="decklistBuilderSaveStatus" class="decklist-builder-save-status" aria-live="polite"></div>
+                    </div>
+
                     <div class="decklist-builder-main">
                         <div id="decklistBuilderErrors" class="decklist-builder-errors" role="status"></div>
                         <div id="decklistBuilderBoard" class="decklist-builder-board" aria-live="polite"></div>
@@ -64,34 +117,56 @@
                                 <h2 id="decklistSearchTitle">Card Search</h2>
                             </div>
                             <div class="decklist-search-filters">
-                                <input type="text" id="cardSearchName" class="form-input" placeholder="Name (ex: Agumon)" />
-                                <select id="cardSearchColor" class="form-input">
-                                    <option value="">Color: All</option>
-                                    <option value="Red">&#128308; R</option>
-                                    <option value="Blue">&#128309; U</option>
-                                    <option value="Yellow">&#128993; Y</option>
-                                    <option value="Green">&#128994; G</option>
-                                    <option value="White">&#9898; W</option>
-                                    <option value="Black">&#9899; B</option>
-                                    <option value="Purple">&#128995; P</option>
-                                </select>
-                                <select id="cardSearchType" class="form-input">
-                                    <option value="">Type: All</option>
-                                    <option value="Digimon">Digimon</option>
-                                    <option value="Digi-Egg">DigiEgg</option>
-                                    <option value="Tamer">Tamer</option>
-                                    <option value="Option">Option</option>
-                                </select>
-                                <select id="cardSearchLevel" class="form-input">
-                                    <option value="">Level: All</option>
-                                    <option value="0">0</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                    <option value="6">6</option>
-                                    <option value="7">7</option>
-                                </select>
+                                <input type="text" id="cardSearchText" class="form-input filter-full" placeholder="Enter text..." />
+
+                                <div class="decklist-search-filter-line filter-full">
+                                    <span class="filter-dot-label">Type:</span>
+                                    <div class="filter-chip-group" id="cardSearchTypeGroup" role="group" aria-label="Card type">
+                                        <button type="button" class="filter-chip is-active" data-value="">All</button>
+                                        <button type="button" class="filter-chip" data-value="Digimon">Digimon</button>
+                                        <button type="button" class="filter-chip" data-value="Digi-Egg">DigiEgg</button>
+                                        <button type="button" class="filter-chip" data-value="Tamer">Tamer</button>
+                                        <button type="button" class="filter-chip" data-value="Option">Option</button>
+                                    </div>
+                                </div>
+
+                                <div class="filter-dot-group filter-full" id="cardSearchColorGroup" role="group" aria-label="Color 1">
+                                    <span class="filter-dot-label">Color 1:</span>
+                                    <button type="button" class="filter-color-all is-active" data-value="">Any</button>
+                                    <button type="button" class="filter-dot" data-value="Red"    aria-label="Red"    title="Red"    style="background:#e53935;"></button>
+                                    <button type="button" class="filter-dot" data-value="Blue"   aria-label="Blue"   title="Blue"   style="background:#1e88e5;"></button>
+                                    <button type="button" class="filter-dot" data-value="Yellow" aria-label="Yellow" title="Yellow" style="background:#f9a825;"></button>
+                                    <button type="button" class="filter-dot" data-value="Green"  aria-label="Green"  title="Green"  style="background:#43a047;"></button>
+                                    <button type="button" class="filter-dot" data-value="White"  aria-label="White"  title="White"  style="background:#e8e8e8; border:2px solid #aaa;"></button>
+                                    <button type="button" class="filter-dot" data-value="Black"  aria-label="Black"  title="Black"  style="background:#212121;"></button>
+                                    <button type="button" class="filter-dot" data-value="Purple" aria-label="Purple" title="Purple" style="background:#7b1fa2;"></button>
+                                </div>
+
+                                <div class="filter-dot-group filter-full" id="cardSearchColor2Group" role="group" aria-label="Color 2">
+                                    <span class="filter-dot-label">Color 2:</span>
+                                    <button type="button" class="filter-color-all is-active" data-value="">Any</button>
+                                    <button type="button" class="filter-dot" data-value="Red"    aria-label="Red"    title="Red"    style="background:#e53935;"></button>
+                                    <button type="button" class="filter-dot" data-value="Blue"   aria-label="Blue"   title="Blue"   style="background:#1e88e5;"></button>
+                                    <button type="button" class="filter-dot" data-value="Yellow" aria-label="Yellow" title="Yellow" style="background:#f9a825;"></button>
+                                    <button type="button" class="filter-dot" data-value="Green"  aria-label="Green"  title="Green"  style="background:#43a047;"></button>
+                                    <button type="button" class="filter-dot" data-value="White"  aria-label="White"  title="White"  style="background:#e8e8e8; border:2px solid #aaa;"></button>
+                                    <button type="button" class="filter-dot" data-value="Black"  aria-label="Black"  title="Black"  style="background:#212121;"></button>
+                                    <button type="button" class="filter-dot" data-value="Purple" aria-label="Purple" title="Purple" style="background:#7b1fa2;"></button>
+                                </div>
+
+                                <div class="decklist-search-filter-line filter-full">
+                                    <span class="filter-dot-label">Level:</span>
+                                    <div class="filter-chip-group" id="cardSearchLevelGroup" role="group" aria-label="Level">
+                                        <button type="button" class="filter-chip is-active" data-value="">Lv: All</button>
+                                        <button type="button" class="filter-chip" data-value="2">Lv 2</button>
+                                        <button type="button" class="filter-chip" data-value="3">Lv 3</button>
+                                        <button type="button" class="filter-chip" data-value="4">Lv 4</button>
+                                        <button type="button" class="filter-chip" data-value="5">Lv 5</button>
+                                        <button type="button" class="filter-chip" data-value="6">Lv 6</button>
+                                        <button type="button" class="filter-chip" data-value="7">Lv 7</button>
+                                    </div>
+                                </div>
+                                    
                                 <input
                                     type="number"
                                     id="cardSearchPlayCost"
@@ -101,7 +176,9 @@
                                     max="20"
                                     step="1"
                                 />
-                                <input type="text" id="cardSearchCode" class="form-input" placeholder="Code (ex: BT24)" />
+                                <input type="text" id="cardSearchTrait" class="form-input" placeholder="Digi-Type (ex: Dragon)" />
+                                <input type="text" id="cardSearchCode" class="form-input filter-full" placeholder="Set (ex: BT1)" list="cardSearchCodeList" autocomplete="off" />
+                                <datalist id="cardSearchCodeList"></datalist>
                             </div>
                             <div class="decklist-search-actions">
                                 <button type="button" id="btnCardSearchReset" class="btn-secondary">Reset</button>
@@ -162,7 +239,9 @@
                     &times;
                 </button>
                 <div class="deck-card-zoom-content">
-                    <img id="deckCardZoomImage" src="" alt="Card preview" />
+                    <div id="deckCardZoomImageWrap" class="deck-card-zoom-image-wrap">
+                        <img id="deckCardZoomImage" src="" alt="Card preview" />
+                    </div>
                     <div class="deck-card-zoom-meta">
                         <div id="deckCardZoomMetaTitle" class="deck-card-zoom-meta-title">Loading...</div>
                         <div id="deckCardZoomMetaBody" class="deck-card-zoom-meta-body"></div>

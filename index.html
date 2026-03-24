@@ -682,6 +682,48 @@
                                 <div id="adminRepairProgressDetail" class="admin-repair-progress-detail"></div>
                             </div>
                             <div id="adminRepairLog" class="admin-repair-log is-hidden"></div>
+
+                            <div class="admin-repair-row">
+                                <div>
+                                    <strong>Download Cards</strong>
+                                    <p class="admin-panel-desc" id="adminDownloadStatus">Sincroniza o catálogo completo de cartas da API pública para <code>decklist_card_metadata</code>. Melhora os resultados de busca no Deck Builder.</p>
+                                </div>
+                                <div class="admin-repair-actions">
+                                    <button type="button" class="btn-primary" id="adminDownloadRunBtn" data-admin-action="download-cards">Download All Cards</button>
+                                </div>
+                            </div>
+                            <div id="adminDownloadProgress" class="admin-repair-progress is-hidden">
+                                <div class="admin-repair-progress-header">
+                                    <span id="adminDownloadProgressLabel">Aguardando…</span>
+                                    <span id="adminDownloadProgressPct">0%</span>
+                                </div>
+                                <div class="admin-repair-progress-track">
+                                    <div id="adminDownloadProgressBar" class="admin-repair-progress-bar" style="width:0%"></div>
+                                </div>
+                                <div id="adminDownloadProgressDetail" class="admin-repair-progress-detail"></div>
+                            </div>
+                            <div id="adminDownloadLog" class="admin-repair-log is-hidden"></div>
+
+                            <div class="admin-repair-row">
+                                <div>
+                                    <strong>Export Catalog</strong>
+                                    <p class="admin-panel-desc" id="adminExportStatus">Gera <code>card-catalog.json</code> com os metadados de todas as cartas e faz upload para o bucket <code>card-catalog</code> no Supabase Storage.</p>
+                                </div>
+                                <div class="admin-repair-actions">
+                                    <button type="button" class="btn-primary" id="adminExportRunBtn" data-admin-action="export-catalog">Export Catalog</button>
+                                </div>
+                            </div>
+                            <div id="adminExportProgress" class="admin-repair-progress is-hidden">
+                                <div class="admin-repair-progress-header">
+                                    <span id="adminExportProgressLabel">Aguardando…</span>
+                                    <span id="adminExportProgressPct">0%</span>
+                                </div>
+                                <div class="admin-repair-progress-track">
+                                    <div id="adminExportProgressBar" class="admin-repair-progress-bar" style="width:0%"></div>
+                                </div>
+                                <div id="adminExportProgressDetail" class="admin-repair-progress-detail"></div>
+                            </div>
+                            <div id="adminExportLog" class="admin-repair-log is-hidden"></div>
                         </div>
                     </div>
 

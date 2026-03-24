@@ -1,36 +1,43 @@
 #!/usr/bin/env node
 
 /**
- * Bulk metadata sync for Digimon cards.
+ * Bulk metadata sync for Digimon cards → decklist_card_metadata.
  *
- * What it does:
- * 1) Reads all distinct card_code from public.decklist_cards
- * 2) Fetches card metadata from https://digimoncard.io/api-public/search
- * 3) Upserts into public.cards_cache
- * 4) (Optional) updates public.decklist_cards metadata fields by card_code
+ * Modes:
+ *   --all-cards          Fetch ALL cards from the public API (getAllCards) and upsert.
+ *                        Use this to build a full card catalog in the DB.
+ *   (default)            Only sync cards already present in decklist_cards table.
+ *
+ * Options:
+ *   --chunk=20           Cards per API request (default 20, max ~50 before URL gets long)
+ *   --sleep=800          Delay between API requests in ms (default 800 — stays under 15 req/10s)
+ *   --dry-run            Fetch and log without writing to DB
  *
  * Required env vars:
- * - SUPABASE_URL
- * - SUPABASE_KEY (or SUPABASE_ANON_KEY)
+ *   SUPABASE_URL
+ *   SUPABASE_KEY  (or SUPABASE_ANON_KEY)
  *
- * Optional flags:
- * - --update-decklist-cards  (also PATCH card_type/card_level/is_digi_egg in decklist_cards)
- * - --chunk=20               (API lookup chunk size)
- * - --sleep=120              (delay between API calls in ms)
+ * Usage examples:
+ *   node scripts/sync-card-metadata.js --all-cards
+ *   node scripts/sync-card-metadata.js --all-cards --chunk=15 --sleep=1000
+ *   node scripts/sync-card-metadata.js                        # only registered decklist cards
  */
 
-const DIGIMON_API_URL = 'https://digimoncard.io/api-public/search';
-const DEFAULT_CHUNK = 20;
-const DEFAULT_SLEEP_MS = 120;
-const REST_PAGE_SIZE = 1000;
+const DIGIMON_API_URL     = 'https://digimoncard.io/api-public/search';
+const DIGIMON_ALL_CARDS   = 'https://digimoncard.io/api-public/getAllCards';
+const SERIES              = 'Digimon Card Game';
+const DEFAULT_CHUNK       = 20;
+const DEFAULT_SLEEP_MS    = 800;
+const REST_PAGE_SIZE      = 1000;
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
 const SUPABASE_KEY = String(process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
 
-const argv = process.argv.slice(2);
-const shouldUpdateDecklistCards = argv.includes('--update-decklist-cards');
-const chunkSize = getNumericFlag('--chunk', DEFAULT_CHUNK);
-const sleepMs = getNumericFlag('--sleep', DEFAULT_SLEEP_MS);
+const argv             = process.argv.slice(2);
+const allCardsMode     = argv.includes('--all-cards');
+const dryRun           = argv.includes('--dry-run');
+const chunkSize        = getNumericFlag('--chunk', DEFAULT_CHUNK);
+const sleepMs          = getNumericFlag('--sleep', DEFAULT_SLEEP_MS);
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('Missing SUPABASE_URL or SUPABASE_KEY/SUPABASE_ANON_KEY env vars.');
@@ -38,230 +45,223 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 const headers = {
-    apikey: SUPABASE_KEY,
+    apikey: SUPABASE_URL.includes('supabase') ? SUPABASE_KEY : undefined,
     Authorization: `Bearer ${SUPABASE_KEY}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    Prefer: 'return=minimal',
 };
 
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
 async function main() {
-    console.log('[sync] starting...');
-    console.log(`[sync] mode: ${shouldUpdateDecklistCards ? 'cache + decklist_cards' : 'cache only'}`);
-    const codes = await fetchDistinctDecklistCodes();
+    console.log(`[sync] mode: ${allCardsMode ? 'ALL CARDS (full catalog)' : 'registered decklist cards only'}`);
+    if (dryRun) console.log('[sync] DRY RUN — nothing will be written to DB');
+
+    let codes;
+    if (allCardsMode) {
+        codes = await fetchAllCardNumbers();
+    } else {
+        codes = await fetchDistinctDecklistCodes();
+    }
+
     if (codes.length === 0) {
-        console.log('[sync] no card codes found in decklist_cards.');
+        console.log('[sync] no card codes found. Exiting.');
         return;
     }
-    console.log(`[sync] distinct card codes: ${codes.length}`);
+    console.log(`[sync] total card codes to sync: ${codes.length}`);
 
-    const rowsFromApi = await fetchMetadataFromApi(codes, chunkSize, sleepMs);
-    if (rowsFromApi.length === 0) {
-        console.log('[sync] no metadata returned from API.');
+    const rows = await fetchMetadataFromApi(codes, chunkSize, sleepMs);
+    console.log(`[sync] API returned metadata for ${rows.length} cards`);
+
+    if (!rows.length) {
+        console.log('[sync] nothing to upsert.');
         return;
     }
-    console.log(`[sync] api rows: ${rowsFromApi.length}`);
 
-    await upsertCardsCache(rowsFromApi);
-    console.log('[sync] cards_cache upsert done.');
-
-    if (shouldUpdateDecklistCards) {
-        await patchDecklistCardsMetadata(rowsFromApi);
-        console.log('[sync] decklist_cards metadata update done.');
+    if (dryRun) {
+        console.log('[sync] sample row:', JSON.stringify(rows[0], null, 2));
+        console.log(`[sync] dry run complete — would upsert ${rows.length} rows`);
+        return;
     }
 
-    console.log('[sync] finished.');
+    await upsertCardMetadata(rows);
+    console.log(`[sync] done — ${rows.length} rows upserted into decklist_card_metadata`);
 }
 
-function getNumericFlag(flag, fallback) {
-    const found = argv.find((arg) => arg.startsWith(`${flag}=`));
-    if (!found) return fallback;
-    const value = Number(found.split('=')[1]);
-    if (!Number.isFinite(value) || value <= 0) return fallback;
-    return Math.trunc(value);
+// ─── Fetch card numbers ────────────────────────────────────────────────────────
+
+async function fetchAllCardNumbers() {
+    console.log('[sync] fetching full card list from getAllCards...');
+    const params = new URLSearchParams({ series: SERIES, sort: 'card_number', sortdirection: 'asc' });
+    const res = await fetch(`${DIGIMON_ALL_CARDS}?${params}`);
+    if (!res.ok) throw new Error(`getAllCards failed: HTTP ${res.status}`);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) throw new Error('getAllCards returned unexpected format');
+    const codes = rows
+        .map((r) => normalizeCode(r?.cardnumber || ''))
+        .filter(Boolean);
+    console.log(`[sync] getAllCards: ${codes.length} cards found`);
+    return codes;
 }
 
 async function fetchDistinctDecklistCodes() {
+    console.log('[sync] fetching distinct card codes from decklist_cards...');
     const result = new Set();
     let offset = 0;
-
     while (true) {
         const query = new URLSearchParams({
             select: 'card_code',
             order: 'card_code.asc',
             limit: String(REST_PAGE_SIZE),
-            offset: String(offset)
+            offset: String(offset),
         });
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/decklist_cards?${query.toString()}`, { headers });
-        if (!res.ok) {
-            throw new Error(`Failed to fetch decklist_cards: HTTP ${res.status}`);
-        }
-        const rows = await res.json();
-        if (!Array.isArray(rows) || rows.length === 0) break;
-        rows.forEach((row) => {
-            const code = normalizeCode(row?.card_code || '');
-            if (code) result.add(code);
-        });
-        if (rows.length < REST_PAGE_SIZE) break;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/decklist_cards?${query}`, { headers });
+        if (!res.ok) throw new Error(`decklist_cards fetch failed: HTTP ${res.status}`);
+        const batch = await res.json();
+        if (!Array.isArray(batch) || !batch.length) break;
+        batch.forEach((r) => { const c = normalizeCode(r?.card_code); if (c) result.add(c); });
+        if (batch.length < REST_PAGE_SIZE) break;
         offset += REST_PAGE_SIZE;
     }
-
     return Array.from(result);
 }
+
+// ─── Fetch metadata from public API ───────────────────────────────────────────
 
 async function fetchMetadataFromApi(codes, size, waitMs) {
     const out = [];
     const chunks = chunkArray(codes, size);
+    let failedChunks = 0;
 
-    for (let i = 0; i < chunks.length; i += 1) {
+    for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
         const params = new URLSearchParams({
             card: chunk.join(','),
-            limit: String(chunk.length)
+            limit: String(chunk.length),
+            series: SERIES,
         });
-        const res = await fetch(`${DIGIMON_API_URL}?${params.toString()}`);
-        if (!res.ok) {
-            console.warn(`[sync] API chunk ${i + 1}/${chunks.length} failed: HTTP ${res.status}`);
-            await sleep(waitMs);
-            continue;
+
+        let rows = [];
+        try {
+            const res = await fetch(`${DIGIMON_API_URL}?${params}`);
+            if (res.status === 429) {
+                console.warn(`[sync] rate limited on chunk ${i + 1} — waiting 10s...`);
+                await sleep(10000);
+                i--; // retry same chunk
+                continue;
+            }
+            if (!res.ok) {
+                console.warn(`[sync] chunk ${i + 1}/${chunks.length} failed: HTTP ${res.status}`);
+                failedChunks++;
+            } else {
+                const payload = await res.json();
+                rows = Array.isArray(payload) ? payload : [];
+            }
+        } catch (err) {
+            console.warn(`[sync] chunk ${i + 1} network error: ${err.message}`);
+            failedChunks++;
         }
-        const rows = await res.json();
-        if (Array.isArray(rows)) {
-            rows.forEach((row) => {
-                const code = normalizeCode(row?.id || row?.card || '');
-                if (!code) return;
-                out.push({
-                    card_code: code,
-                    id: row?.id || code,
-                    name: row?.name || code,
-                    pack: row?.pack || '',
-                    color: row?.color || '',
-                    type: row?.type || '',
-                    card_payload: row || {},
-                    ...deriveDecklistMetadata(row)
-                });
+
+        rows.forEach((row) => {
+            const code = normalizeCode(row?.id || row?.card || '');
+            if (!code) return;
+            const derived = deriveMeta(row);
+            out.push({
+                card_code:    code,
+                id:           row?.id || code,
+                name:         row?.name || code,
+                pack:         row?.pack || row?.set_name?.[0] || '',
+                color:        row?.color || '',
+                card_type:    derived.card_type,
+                card_level:   derived.card_level,
+                card_payload: row || {},
             });
-        }
+        });
+
         if ((i + 1) % 10 === 0 || i + 1 === chunks.length) {
-            console.log(`[sync] API progress ${i + 1}/${chunks.length}`);
+            console.log(`[sync] API progress: ${i + 1}/${chunks.length} chunks · ${out.length} cards so far`);
         }
+
         await sleep(waitMs);
     }
 
+    if (failedChunks > 0) console.warn(`[sync] ${failedChunks} chunks failed — those cards were skipped`);
+
+    // Dedup by card_code (last write wins)
     const dedup = new Map();
-    out.forEach((row) => {
-        dedup.set(row.card_code, row);
-    });
+    out.forEach((r) => dedup.set(r.card_code, r));
     return Array.from(dedup.values());
 }
 
-function deriveDecklistMetadata(row) {
-    const typeNorm = normalizeType(row?.type);
-    const level = normalizeLevel(row?.level);
-    const isDigiEgg = typeNorm === 'digi-egg';
+// ─── Upsert into decklist_card_metadata ───────────────────────────────────────
 
-    let cardType = null;
-    if (typeNorm === 'digi-egg') cardType = 'Digi-Egg';
-    else if (typeNorm === 'digimon') cardType = 'Digimon';
-    else if (typeNorm === 'tamer') cardType = 'Tamer';
-    else if (typeNorm === 'option') cardType = 'Option';
-
-    return { card_type: cardType, card_level: level, is_digi_egg: isDigiEgg };
-}
-
-function normalizeType(value) {
-    const text = String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/_/g, '-')
-        .replace(/\s+/g, '-');
-    if (text === 'digi-egg' || text === 'digitama') return 'digi-egg';
-    if (text === 'digimon') return 'digimon';
-    if (text === 'tamer') return 'tamer';
-    if (text === 'option') return 'option';
-    return '';
-}
-
-function normalizeLevel(value) {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? Math.trunc(numeric) : null;
-}
-
-async function upsertCardsCache(rows) {
+async function upsertCardMetadata(rows) {
     const nowIso = new Date().toISOString();
-    const payload = rows.map((row) => ({
-        card_code: row.card_code,
-        id: row.id,
-        name: row.name,
-        pack: row.pack,
-        color: row.color,
-        type: row.type,
-        card_payload: row.card_payload || {},
-        updated_at: nowIso
+    const payload = rows.map((r) => ({
+        card_code:    r.card_code,
+        id:           r.id,
+        name:         r.name,
+        pack:         r.pack,
+        color:        r.color,
+        card_type:    r.card_type,
+        card_level:   r.card_level,
+        card_payload: r.card_payload,
+        updated_at:   nowIso,
     }));
 
     const chunks = chunkArray(payload, 500);
-    for (let i = 0; i < chunks.length; i += 1) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/cards_cache?on_conflict=card_code`, {
-            method: 'POST',
-            headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
-            body: JSON.stringify(chunks[i])
-        });
+    for (let i = 0; i < chunks.length; i++) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/decklist_card_metadata?on_conflict=card_code`,
+            {
+                method: 'POST',
+                headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
+                body: JSON.stringify(chunks[i]),
+            }
+        );
         if (!res.ok) {
             const body = await res.text();
-            throw new Error(`cards_cache upsert failed (chunk ${i + 1}/${chunks.length}): HTTP ${res.status} ${body}`);
+            throw new Error(`upsert failed (chunk ${i + 1}/${chunks.length}): HTTP ${res.status} — ${body}`);
         }
+        console.log(`[sync] upserted chunk ${i + 1}/${chunks.length} (${chunks[i].length} rows)`);
     }
 }
 
-async function patchDecklistCardsMetadata(rows) {
-    let ok = 0;
-    let failed = 0;
-    for (let i = 0; i < rows.length; i += 1) {
-        const row = rows[i];
-        const code = row.card_code;
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/decklist_cards?card_code=eq.${encodeURIComponent(code)}`,
-            {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify({
-                    card_type: row.card_type,
-                    card_level: row.card_level,
-                    is_digi_egg: row.is_digi_egg
-                })
-            }
-        );
-        if (res.ok) ok += 1;
-        else {
-            failed += 1;
-            const body = await res.text();
-            console.warn(`[sync] patch failed for ${code}: HTTP ${res.status} ${body}`);
-        }
-        if ((i + 1) % 100 === 0 || i + 1 === rows.length) {
-            console.log(`[sync] patch progress ${i + 1}/${rows.length} (ok=${ok}, failed=${failed})`);
-        }
-    }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function deriveMeta(row) {
+    const typeRaw = String(row?.type || '').trim().toLowerCase();
+    const card_level = Number.isFinite(Number(row?.level)) ? Math.trunc(Number(row?.level)) : null;
+    let card_type = null;
+    if (typeRaw === 'digi-egg' || typeRaw === 'digitama') card_type = 'Digi-Egg';
+    else if (typeRaw === 'digimon') card_type = 'Digimon';
+    else if (typeRaw === 'tamer')   card_type = 'Tamer';
+    else if (typeRaw === 'option')  card_type = 'Option';
+    return { card_type, card_level };
 }
 
 function normalizeCode(value) {
-    return String(value || '')
-        .trim()
-        .toUpperCase();
+    return String(value || '').trim().toUpperCase();
 }
 
 function chunkArray(items, size) {
     const out = [];
-    for (let i = 0; i < items.length; i += size) {
-        out.push(items.slice(i, i + size));
-    }
+    for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
     return out;
+}
+
+function getNumericFlag(flag, fallback) {
+    const found = argv.find((a) => a.startsWith(`${flag}=`));
+    if (!found) return fallback;
+    const n = Number(found.split('=')[1]);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : fallback;
 }
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-main().catch((error) => {
-    console.error('[sync] fatal:', error?.message || error);
+main().catch((err) => {
+    console.error('[sync] fatal:', err?.message || err);
     process.exit(1);
 });
-

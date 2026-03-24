@@ -14,6 +14,7 @@ Main gap to 9.8: migrate remaining `resolveStoreIcon` fallback to remove icons/s
 - **[DONE]** Trocar o clear decklist de lugar — movido para grupo esquerdo (junto com Sort by Level), longe do Save.
 - **[DONE]** UI mobile do Meta Overview — KPI 2x2, period buttons com tap target 36px, top deck cards ajustados.
 - **[DONE]** Modal "Último evento" mostra data exata do torneio — migration `20260323_add_last_tournament_date_to_v_meta_by_month.sql`.
+- **[DONE]** Mobile Meta "Tudo" — bar charts alinhados (sharedLabelWidth a partir de full labels), gráfico de evolução substituído por tabela sortável (clique no mês para ordenar), visual da tabela espelha TOP PILOTS.
 - Melhorar a parte de utilização da api publica no deckbuilder (search nao funcionando muito bem)
 ## 🟢 BUGS — Resolved (Mar 2026)
 
