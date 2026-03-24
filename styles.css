@@ -2677,6 +2677,62 @@ body.decklist-builder-page .decklist-builder-back-nav.nav-button {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
+.decklist-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: nowrap;
+}
+
+.decklist-search-bar .form-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.decklist-search-bar .decklist-search-actions {
+    margin-top: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.decklist-search-bar .decklist-search-actions .btn-secondary,
+.decklist-search-bar .decklist-search-actions .btn-primary {
+    flex: 0 0 auto;
+}
+
+#btnCardSearch.btn-icon-only {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#btnCardSearch.btn-icon-only svg {
+    width: 16px;
+    height: 16px;
+}
+
+#btnCardSearchReset.btn-icon-only {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#btnCardSearchReset.btn-icon-only svg {
+    width: 16px;
+    height: 16px;
+}
+
 .decklist-search-header h2 {
     margin: 0;
     font-size: 1.02rem;
@@ -3942,6 +3998,55 @@ body.decklist-builder-page .decklist-search-card img {
 /* ============================================================
    MEDIA QUERIES
 ============================================================ */
+@media (max-width: 1180px) {
+    body.decklist-builder-page .container {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+
+    .decklist-builder-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+
+    .decklist-builder-stats-wrap,
+    .decklist-builder-actions,
+    .decklist-builder-main,
+    .decklist-builder-side {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .decklist-builder-actions {
+        justify-self: stretch;
+        justify-items: start;
+    }
+
+    .decklist-builder-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        height: auto;
+        overflow: visible;
+    }
+
+    .decklist-builder-action-grid {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .decklist-builder-action-btn {
+        width: 100%;
+    }
+
+    .decklist-builder-side .decklist-search-panel {
+        position: static;
+        max-height: none;
+    }
+}
+
 @media (max-width: 768px) {
     body {
         font-size: 14px;
@@ -4449,14 +4554,118 @@ body.decklist-builder-page .decklist-search-card img {
         align-self: flex-start;
     }
 
-    .decklist-builder-action-grid {
-        width: max-content;
+    body.decklist-builder-page .container {
+        padding: 8px;
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+
+    .decklist-builder-header {
+        margin-bottom: 12px;
+    }
+
+    .decklist-builder-header-main {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .decklist-builder-header-left {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: center;
+    }
+
+    body.decklist-builder-page .decklist-builder-back-nav.nav-button {
+        width: 100%;
+        justify-content: center;
+        padding: 6px 6px;
+        font-size: 0.72rem;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        line-height: 1;
+        align-self: center;
+    }
+
+    .decklist-builder-header-main h1 {
+        margin: 0;
+        height: auto;
+        font-size: 1.05rem;
+        text-align: center;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        min-height: 32px;
+    }
+
+    .decklist-builder-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        height: auto;
+        overflow: visible;
+    }
+
+    .decklist-builder-header-actions .decklist-builder-action-grid {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .decklist-builder-action-btn {
+        width: 100%;
+        height: auto;
+        min-height: 30px;
+        padding: 3px 4px;
+        font-size: 0.62rem;
+        white-space: normal;
+        text-align: center;
+    }
+
+    .decklist-builder-btn-icon,
+    .decklist-builder-btn-icon svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .decklist-builder-action-btn {
+        flex-direction: column;
+        gap: 2px;
+        line-height: 1;
+    }
+
+    #btnDecklistBuilderSave {
+        grid-column: auto;
+    }
+
+    .decklist-builder-actions {
+        justify-items: start;
+        width: 100%;
+    }
+
+    .decklist-builder-meta {
+        justify-content: flex-start;
+    }
+
+    .decklist-builder-meta-pill {
+        font-size: 0.78rem;
+    }
+
+    .decklist-builder-zoom-hint {
+        font-size: 0.74rem;
     }
 
     .decklist-builder-board {
-        grid-template-columns: repeat(2, minmax(0, 148px));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         justify-content: center;
-        gap: 6px;
+        gap: 4px;
         margin-top: 10px;
     }
 
@@ -4469,6 +4678,52 @@ body.decklist-builder-page .decklist-search-card img {
         gap: 8px;
     }
 
+    .decklist-builder-stats-wrap,
+    .decklist-builder-actions,
+    .decklist-builder-main,
+    .decklist-builder-side {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .decklist-builder-side {
+        grid-row: 1;
+    }
+
+    .decklist-builder-main {
+        grid-row: 2;
+    }
+
+    .decklist-builder-stats-wrap,
+    .decklist-builder-actions {
+        display: none;
+    }
+
+    .decklist-builder-zoom-hint {
+        display: none;
+    }
+
+    .decklist-builder-drag-handle {
+        width: 18px;
+        height: 18px;
+        font-size: 0.7rem;
+    }
+
+    .decklist-builder-count {
+        top: 4px;
+        right: 4px;
+        min-width: 28px;
+        height: 28px;
+        font-size: 0.85rem;
+        padding: 0 6px;
+    }
+
+    .decklist-builder-stepper-btn {
+        width: 26px;
+        height: 26px;
+        font-size: 0.95rem;
+    }
+
     .decklist-builder-side .decklist-search-panel {
         position: static;
         top: auto;
@@ -4478,10 +4733,84 @@ body.decklist-builder-page .decklist-search-card img {
 
     .decklist-search-panel {
         margin-top: 0;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .decklist-search-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 0;
     }
 
     .decklist-search-filters {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: none;
+    }
+
+    .decklist-search-filter-line {
+        align-items: flex-start;
+    }
+
+    .filter-dot-group {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .filter-dot-label {
+        flex-basis: 100%;
+        text-align: left;
+    }
+
+    .decklist-search-actions {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: nowrap;
+    }
+
+    .decklist-search-actions .btn-secondary,
+    .decklist-search-actions .btn-primary {
+        flex: 0 0 auto;
+        height: 28px;
+        min-height: 28px;
+        padding: 0 8px;
+        font-size: 0.66rem;
+    }
+
+    #btnCardSearch {
+        width: auto;
+    }
+
+    #btnCardSearch.btn-icon-only {
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
+    }
+
+    #btnCardSearch.btn-icon-only svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    #cardSearchText.form-input {
+        height: 28px;
+        font-size: 0.7rem;
+        padding: 0 10px;
+    }
+
+    #btnCardSearchReset.btn-icon-only {
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
+    }
+
+    #btnCardSearchReset.btn-icon-only svg {
+        width: 14px;
+        height: 14px;
     }
 
     .decklist-search-results {
@@ -4489,6 +4818,11 @@ body.decklist-builder-page .decklist-search-card img {
         min-height: 0;
         flex: 0 0 auto;
         overflow: visible;
+    }
+
+    body.decklist-builder-page .decklist-search-results-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
     }
 
     #cardSearchColor.form-input {

@@ -31,7 +31,7 @@
                                         <path d="M14 11v6"></path>
                                     </svg>
                                 </span>
-                                <span>Clear Decklist</span>
+                                <span>Clear</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderImport" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -41,7 +41,7 @@
                                         <path d="M5 21h14"></path>
                                     </svg>
                                 </span>
-                                <span>Import decklist</span>
+                                <span>Import</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderExport" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -51,7 +51,7 @@
                                         <path d="M5 3h14"></path>
                                     </svg>
                                 </span>
-                                <span>Export decklist</span>
+                                <span>Export</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderExportImage" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -61,7 +61,7 @@
                                         <path d="m21 15-5-5L5 21"></path>
                                     </svg>
                                 </span>
-                                <span>Export image</span>
+                                <span>Image</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderSortCards" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -74,7 +74,7 @@
                                         <path d="m14 10 3-3 3 3"></path>
                                     </svg>
                                 </span>
-                                <span>Sort by Level</span>
+                                <span>Sort</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderSave" class="btn-primary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -113,9 +113,26 @@
 
                     <aside class="decklist-builder-side">
                         <section class="decklist-search-panel" aria-label="Card Search">
-                            <div class="decklist-search-filters">
-                                <input type="text" id="cardSearchText" class="form-input filter-full" placeholder="Enter text..." />
+                            <div class="decklist-search-bar">
+                                <input type="text" id="cardSearchText" class="form-input" placeholder="Enter text..." />
+                                <button type="button" id="btnCardSearch" class="btn-primary btn-icon-only" aria-label="Search" title="Search">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="7"></circle>
+                                        <path d="M21 21l-4.35-4.35"></path>
+                                    </svg>
+                                </button>
+                                <div class="decklist-search-actions">
+                                    <button type="button" id="btnCardSearchReset" class="btn-secondary btn-icon-only" aria-label="Reset search" title="Reset search">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M6 6l12 12"></path>
+                                            <path d="M18 6l-12 12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
 
+                            <div class="decklist-search-filters">
+                                
                                 <div class="decklist-search-filter-line filter-full">
                                     <span class="filter-dot-label">Type:</span>
                                     <div class="filter-chip-group" id="cardSearchTypeGroup" role="group" aria-label="Card type">
@@ -176,10 +193,6 @@
                                 <input type="text" id="cardSearchTrait" class="form-input" placeholder="Trait (ex: Dragon)" />
                                 <input type="text" id="cardSearchCode" class="form-input filter-full" placeholder="Set (ex: BT1)" list="cardSearchCodeList" autocomplete="off" />
                                 <datalist id="cardSearchCodeList"></datalist>
-                            </div>
-                            <div class="decklist-search-actions">
-                                <button type="button" id="btnCardSearchReset" class="btn-secondary">Reset</button>
-                                <button type="button" id="btnCardSearch" class="btn-primary">Search</button>
                             </div>
                             <div id="cardSearchResults" class="decklist-search-results" aria-live="polite"></div>
                         </section>

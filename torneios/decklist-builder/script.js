@@ -108,6 +108,18 @@
     let cardSearchLayoutTimer = null;
     let cardSearchLayoutRaf = null;
 
+    function getCardSearchGridConfig() {
+        const isMobile = window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : false;
+        if (isMobile) {
+            return { cols: 4, rows: 1, pageSize: 4 };
+        }
+        return {
+            cols: CARD_SEARCH_FIXED_COLS,
+            rows: CARD_SEARCH_FIXED_ROWS,
+            pageSize: CARD_SEARCH_PAGE_SIZE,
+        };
+    }
+
     // ─── Boot ─────────────────────────────────────────────────────────────────
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -115,7 +127,10 @@
         render([]);
         renderCardSearchResults();
         scheduleCardSearchResultsLayout();
-        window.addEventListener('resize', () => scheduleCardSearchResultsLayout(), { passive: true });
+        window.addEventListener('resize', () => {
+            renderCardSearchResults();
+            scheduleCardSearchResultsLayout();
+        }, { passive: true });
         await Promise.all([loadBanListFromDb(), loadCatalog()]);
         await applyContextFromQuery();
         populateSetFilterDropdown();
@@ -154,11 +169,12 @@
         const gapX = getPx(gridStyles.columnGap || gridStyles.gap);
         const gapY = getPx(gridStyles.rowGap || gridStyles.gap);
 
-        const cardW = (width - gapX * (CARD_SEARCH_FIXED_COLS - 1)) / CARD_SEARCH_FIXED_COLS;
+        const { cols, rows } = getCardSearchGridConfig();
+        const cardW = (width - gapX * (cols - 1)) / cols;
         const cardH = cardW * CARD_IMAGE_RATIO;
         if (!Number.isFinite(cardH) || cardH <= 0) return;
 
-        const totalH = CARD_SEARCH_FIXED_ROWS * cardH + gapY * (CARD_SEARCH_FIXED_ROWS - 1) + padY + 2;
+        const totalH = rows * cardH + gapY * (rows - 1) + padY + 2;
         scroll.style.height = `${Math.ceil(totalH)}px`;
         grid.style.gridAutoRows = `${Math.ceil(cardH)}px`;
     }
@@ -359,7 +375,8 @@
         if (pageControl) {
             const dir = String(pageControl.getAttribute('data-search-page') || '');
             const total = cardSearchResults.length;
-            const totalPages = Math.max(1, Math.ceil(total / CARD_SEARCH_PAGE_SIZE));
+            const { pageSize } = getCardSearchGridConfig();
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
             if (dir === 'prev') cardSearchPage = Math.max(1, cardSearchPage - 1);
             if (dir === 'next') cardSearchPage = Math.min(totalPages, cardSearchPage + 1);
             renderCardSearchResults();
@@ -2449,10 +2466,11 @@
             return;
         }
 
-        const totalPages = Math.max(1, Math.ceil(cardSearchResults.length / CARD_SEARCH_PAGE_SIZE));
+        const { pageSize } = getCardSearchGridConfig();
+        const totalPages = Math.max(1, Math.ceil(cardSearchResults.length / pageSize));
         cardSearchPage = Math.max(1, Math.min(totalPages, cardSearchPage));
-        const start = (cardSearchPage - 1) * CARD_SEARCH_PAGE_SIZE;
-        const pageItems = cardSearchResults.slice(start, start + CARD_SEARCH_PAGE_SIZE);
+        const start = (cardSearchPage - 1) * pageSize;
+        const pageItems = cardSearchResults.slice(start, start + pageSize);
 
         const pagerHtml = totalPages > 1 ? `
             <div class="decklist-search-results-pager">
