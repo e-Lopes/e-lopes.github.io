@@ -5,9 +5,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Decklist Builder - Digimon TCG</title>
         <link rel="icon" type="image/png" href="../../icons/favicon/favicon.png" />
-        <link rel="stylesheet" href="../../styles.css?v=2026-03-24-1" />
-        <link rel="stylesheet" href="../../styles/components/utilities.css?v=2026-03-24-1" />
-        <link rel="stylesheet" href="../../styles/components/states.css?v=2026-03-24-1" />
+        <link rel="stylesheet" href="../../styles.css?v=2026.03.27.1" />
+        <link rel="stylesheet" href="../../styles/components/utilities.css?v=2026.03.27.1" />
+        <link rel="stylesheet" href="../../styles/components/states.css?v=2026.03.27.1" />
     </head>
     <body class="decklist-builder-page">
         <div class="container">
@@ -190,7 +190,6 @@
                                     max="20"
                                     step="1"
                                 />
-                                <input type="text" id="cardSearchTrait" class="form-input" placeholder="Trait (ex: Dragon)" />
                                 <input type="text" id="cardSearchCode" class="form-input filter-full" placeholder="Set (ex: BT1)" list="cardSearchCodeList" autocomplete="off" />
                                 <datalist id="cardSearchCodeList"></datalist>
                             </div>
@@ -242,6 +241,24 @@
             </div>
         </div>
 
+        <div id="decklistSaveWarningModal" class="decklist-import-modal" aria-hidden="true">
+            <div class="decklist-import-dialog" role="dialog" aria-modal="true" aria-labelledby="decklistSaveWarningTitle">
+                <div class="decklist-import-header">
+                    <h2 id="decklistSaveWarningTitle">Incomplete Deck</h2>
+                    <button type="button" id="btnDecklistSaveWarningClose" class="decklist-import-close" aria-label="Close">
+                        &times;
+                    </button>
+                </div>
+                <div class="decklist-import-body">
+                    <p id="decklistSaveWarningMsg"></p>
+                </div>
+                <div class="decklist-import-footer">
+                    <button type="button" id="btnDecklistSaveWarningCancel" class="btn-secondary">Cancel</button>
+                    <button type="button" id="btnDecklistSaveWarningConfirm" class="btn-primary">Save Anyway</button>
+                </div>
+            </div>
+        </div>
+
         <div id="deckCardZoomModal" class="deck-card-zoom-modal" aria-hidden="true">
             <div class="deck-card-zoom-dialog" role="dialog" aria-modal="true" aria-label="Card zoom preview">
                 <button type="button" id="btnDeckCardZoomClose" class="deck-card-zoom-close" aria-label="Close preview">
@@ -259,9 +276,9 @@
             </div>
         </div>
 
-        <script src="../../config/supabase.js"></script>
-        <script src="../../config/app-version.js"></script>
-        <script src="script.js"></script>
-        <script src="../../config/register-sw.js"></script>
+        <script src="../../config/supabase.js?v=2026.03.27.1"></script>
+        <script src="../../config/app-version.js?v=2026.03.27.1"></script>
+        <script src="script.js?v=2026.03.27.1"></script>
+        <script src="../../config/register-sw.js?v=2026.03.27.1"></script>
     </body>
 </html>

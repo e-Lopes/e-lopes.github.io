@@ -5,7 +5,6 @@
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com//card_images/digimon/';
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
-    const DIGIMON_ALL_CARDS_URL = 'https://digimoncard.io/api-public/getAllCards';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const BLANK_MIDDLE_FALLBACK_BG = window.APP_CONFIG?.SUPABASE_URL
         ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/EX11.png`
@@ -36,7 +35,6 @@
     const CARD_IMAGE_RATIO = 88 / 63;
 
     // Cache TTLs
-    const ALL_CARDS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;       // 6 hours
     const CARD_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
     // Legacy image overrides
@@ -95,9 +93,6 @@
     let cardSearchResults = [];
     let cardSearchPage = 1;
     let cardSearchStatusAutoHideTimer = null;
-
-    let allCardsIndexCache = null;
-    let allCardsIndexCacheAt = 0;
 
     let catalogCache = null;
     let catalogCacheAt = 0;
@@ -277,6 +272,9 @@
         on('btnDecklistImportCancel', 'click', () => closeImportModal());
         on('btnDecklistImportClose', 'click', () => closeImportModal());
         on('btnDecklistImportConfirm', 'click', () => importDecklistFromModal());
+        on('btnDecklistSaveWarningClose', 'click', () => closeSaveWarningModal());
+        on('btnDecklistSaveWarningCancel', 'click', () => closeSaveWarningModal());
+        on('btnDecklistSaveWarningConfirm', 'click', () => { closeSaveWarningModal(); performSave(); });
         on('btnCardSearch', 'click', () => performCardSearch());
         on('btnCardSearchReset', 'click', () => resetCardSearch());
 
@@ -326,13 +324,13 @@
 
         onModal('decklistImportModal', closeImportModal);
         onModal('decklistClearModal', closeClearModal);
+        onModal('decklistSaveWarningModal', closeSaveWarningModal);
         onModal('deckCardZoomModal', closeCardZoomModal);
 
         on('btnDeckCardZoomClose', 'click', () => closeCardZoomModal());
         on('deckCardZoomImage', 'contextmenu', (e) => { e.preventDefault(); closeCardZoomModal(); });
 
         on('cardSearchText', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
-        on('cardSearchTrait', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
         on('cardSearchCode', 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performCardSearch(); } });
 
         on('cardSearchPlayCost', 'input', () => {
@@ -481,6 +479,23 @@
 
     function closeClearModal() {
         const modal = document.getElementById('decklistClearModal');
+        if (!modal?.classList.contains('is-open')) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openSaveWarningModal(msg) {
+        const modal = document.getElementById('decklistSaveWarningModal');
+        if (!modal) return;
+        const msgEl = document.getElementById('decklistSaveWarningMsg');
+        if (msgEl) msgEl.innerHTML = msg.split('\n').map(l => `<span>${l}</span>`).join('<br>');
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => document.getElementById('btnDecklistSaveWarningCancel')?.focus(), 0);
+    }
+
+    function closeSaveWarningModal() {
+        const modal = document.getElementById('decklistSaveWarningModal');
         if (!modal?.classList.contains('is-open')) return;
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
@@ -1192,13 +1207,12 @@
             type:   getActiveChipValue('cardSearchTypeGroup'),
             level:  getActiveChipValue('cardSearchLevelGroup'),
             playcost,
-            trait: String(document.getElementById('cardSearchTrait')?.value || '').trim(),
             card:  String(document.getElementById('cardSearchCode')?.value || '').trim().toUpperCase(),
         };
     }
 
     function hasAnySearchFilter(filters) {
-        return Boolean(filters && (filters.text || filters.color || filters.color2 || filters.type || filters.level || filters.playcost || filters.trait || filters.card));
+        return Boolean(filters && (filters.text || filters.color || filters.color2 || filters.type || filters.level || filters.playcost || filters.card));
     }
 
     async function performCardSearch() {
@@ -1270,7 +1284,7 @@
     }
 
     function resetCardSearch() {
-        ['cardSearchText', 'cardSearchPlayCost', 'cardSearchTrait', 'cardSearchCode']
+        ['cardSearchText', 'cardSearchPlayCost', 'cardSearchCode']
             .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
         ['cardSearchTypeGroup', 'cardSearchColorGroup', 'cardSearchColor2Group', 'cardSearchLevelGroup']
             .forEach(resetChipGroup);
@@ -1298,10 +1312,9 @@
     }
 
     async function fetchCardSearchRows(filters) {
-        // If the only active filter is trait, the API has no useful param for it
-        // (digitype is omitted — exact match only). Skip the API call; DB covers this.
         // filters.card is a set prefix (e.g. "BT1") — the public API doesn't support prefix search,
         // so it's excluded here. Set filtering is handled by the DB query and the local codePrefix check.
+        // Text filter uses the API 'n' param (name search only); trait/effect matching is done locally.
         const hasApiFilter = filters.text || filters.color || filters.type || filters.level || filters.playcost;
         if (!hasApiFilter) return [];
 
@@ -1353,27 +1366,6 @@
         return applyLocalCardSearchFilters(rows, filters).slice(0, CARD_SEARCH_MAX_RESULTS);
     }
 
-    function getSetPrefixCardFilter(filters) {
-        const raw = String(filters?.card || '').trim().toUpperCase();
-        if (!raw || raw.includes(',')) return '';
-        if (!/^[A-Z][A-Z0-9-]{0,9}$/.test(raw)) return '';
-        return raw;
-    }
-
-    async function fetchAllCardsIndex() {
-        const now = Date.now();
-        if (Array.isArray(allCardsIndexCache) && allCardsIndexCache.length && now - allCardsIndexCacheAt < ALL_CARDS_CACHE_TTL_MS) {
-            return allCardsIndexCache;
-        }
-        const params = new URLSearchParams({ series: 'Digimon Card Game', sort: 'card_number', sortdirection: 'asc' });
-        const res = await fetch(`${DIGIMON_ALL_CARDS_URL}?${params}`);
-        if (!res.ok) throw new Error(`Failed to load all cards index (${res.status}).`);
-        const rows = await res.json();
-        allCardsIndexCache = Array.isArray(rows) ? rows : [];
-        allCardsIndexCacheAt = now;
-        return allCardsIndexCache;
-    }
-
     function applyLocalCardSearchFilters(rows, filters) {
         const text = String(filters?.text || '').trim().toLowerCase();
         const color = String(filters?.color || '').trim().toLowerCase();
@@ -1381,12 +1373,11 @@
         const type = String(filters?.type || '').trim().toLowerCase();
         const level = String(filters?.level || '').trim();
         const playcost = String(filters?.playcost || '').trim();
-        const trait = String(filters?.trait || '').trim().toLowerCase();
 
         return (Array.isArray(rows) ? rows : []).filter((row) => {
             if (text) {
                 const p = row?.card_payload || row;
-                const haystack = [row?.name, p?.main_effect, p?.source_effect, p?.alt_effect, p?.digi_type, p?.digi_type2, p?.digi_type3, p?.digi_type4]
+                const haystack = [row?.name, p?.main_effect, p?.source_effect, p?.alt_effect, p?.digi_type, p?.digitype, p?.digi_type2, p?.digi_type3, p?.digi_type4]
                     .map(v => String(v || '').toLowerCase()).join(' ');
                 if (!haystack.includes(text)) return false;
             }
@@ -1421,31 +1412,8 @@
                 if (rowCost !== playcost) return false;
             }
 
-            if (trait) {
-                const p = row?.card_payload || row;
-                const fields = [p?.digi_type, p?.digi_type2, p?.digi_type3, p?.digi_type4];
-                if (!fields.some((t) => String(t || '').toLowerCase().includes(trait))) return false;
-            }
-
             return true;
         });
-    }
-
-    async function fetchCardSearchRowsBySetPrefix(filters, setPrefix) {
-        const index = await fetchAllCardsIndex();
-        const prefix = `${String(setPrefix || '').toUpperCase()}-`;
-        const codes = [];
-        const seen = new Set();
-
-        (Array.isArray(index) ? index : []).forEach((row) => {
-            const code = normalizeDeckCode(String(row?.cardnumber || row?.card_number || row?.id || '').trim());
-            if (!code || !code.startsWith(prefix) || seen.has(code)) return;
-            seen.add(code);
-            codes.push(code);
-        });
-
-        if (!codes.length) return [];
-        return applyLocalCardSearchFilters(await fetchCardsFromDigimonApi(codes), filters);
     }
 
     function setCardSearchStatus(message, type = '', options = {}) {
@@ -1851,6 +1819,16 @@
         const validation = validateAggregatedEntries(entries);
         if (validation.errors.length) { render(validation.errors); return; }
 
+        const counts = getDeckCounts(entries);
+        if (counts.total < 54) {
+            openSaveWarningModal(`Your deck only has ${counts.total} card${counts.total !== 1 ? 's' : ''} (${counts.mainDeck} main + ${counts.digiEgg} egg).\nA full deck is 50 main + at least 4 eggs. Save anyway?`);
+            return;
+        }
+
+        await performSave();
+    }
+
+    async function performSave() {
         const btn = document.getElementById('btnDecklistBuilderSave');
         if (btn) btn.disabled = true;
         setSaveStatus('');

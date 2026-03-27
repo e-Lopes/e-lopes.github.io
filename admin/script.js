@@ -958,10 +958,10 @@ async function fetchRepairIncompleteCodes() {
     const out = [];
     const limit = 1000;
     let offset = 0;
+    // Fetch card_code + name for all records so we can detect stubs where name === card_code
     while (true) {
         const params = new URLSearchParams({
-            select: 'card_code',
-            name: 'is.null',
+            select: 'card_code,name',
             order: 'card_code.asc',
             limit: String(limit),
             offset: String(offset),
@@ -970,7 +970,12 @@ async function fetchRepairIncompleteCodes() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const rows = await res.json();
         if (!Array.isArray(rows) || !rows.length) break;
-        rows.forEach(r => out.push(r.card_code));
+        rows.forEach(r => {
+            const code = String(r.card_code || '').trim().toUpperCase();
+            const name = String(r.name || '').trim();
+            // Incomplete if name is missing OR name was set to the card code (stub record)
+            if (!name || name === code) out.push(code);
+        });
         if (rows.length < limit) break;
         offset += limit;
     }
@@ -1260,17 +1265,22 @@ async function runDownloadCards() {
         let offset = 0;
         const PAGE = 1000;
         while (true) {
-            const q = new URLSearchParams({ select: 'card_code', order: 'card_code.asc', limit: String(PAGE), offset: String(offset) });
+            const q = new URLSearchParams({ select: 'card_code,name', order: 'card_code.asc', limit: String(PAGE), offset: String(offset) });
             const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
             if (!res.ok) throw new Error(`Erro ao ler banco: HTTP ${res.status}`);
             const batch = await res.json();
             if (!Array.isArray(batch) || !batch.length) break;
-            batch.forEach(r => { const c = String(r?.card_code || '').trim().toUpperCase(); if (c) existingCodes.add(c); });
+            batch.forEach(r => {
+                const c = String(r?.card_code || '').trim().toUpperCase();
+                const n = String(r?.name || '').trim();
+                // Only skip if the record has a real name (not null and not equal to card code = not a stub)
+                if (c && n && n !== c) existingCodes.add(c);
+            });
             if (batch.length < PAGE) break;
             offset += PAGE;
         }
         const codes = allCodes.filter(c => !existingCodes.has(c));
-        downloadLog(`${existingCodes.size} já no banco — ${codes.length} novas a baixar.`, 'info');
+        downloadLog(`${existingCodes.size} já no banco com nome real — ${codes.length} a baixar (novas + stubs sem nome).`, 'info');
 
         if (!codes.length) {
             downloadProgressShow('Concluído!', 100, 'Nenhuma carta nova.');
@@ -1486,7 +1496,7 @@ async function runExportCatalog() {
                 color2:     p.color2     || null,
                 card_type:  r.card_type  || null,
                 card_level: r.card_level ?? null,
-                digi_type:  p.digi_type  || null,
+                digi_type:  p.digi_type  || p.digitype  || null,
                 digi_type2: p.digi_type2 || null,
                 digi_type3: p.digi_type3 || null,
                 digi_type4: p.digi_type4 || null,

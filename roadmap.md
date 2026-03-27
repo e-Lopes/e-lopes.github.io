@@ -2,28 +2,33 @@
 
 ## Current Score
 
-**9.7 / 10**
+**9.75 / 10**
 
-imediato: O botao de Expandir Lojas deve aparecer apenas se a estatistica de ranking por loja estiver selecionada
+- Cache busting agora consistente em todos os assets (CSS/JS com `?v=`, SW `v10`).
+- Bug da choice restriction (EX7-064 tratada como limitada a 1) corrigido.
+- Mobile do deckbuilder com melhorias: zoom modal scrollável, textarea do import menor, botão de fechar maior.
+- Aviso antes de salvar deck incompleto (< 54 cartas no main deck).
 
-futuro: mudar o icone se a carta é staple ou não na estatistica de Top Cards
+Pending immediate: O botão de Expandir Lojas deve aparecer apenas se a estatística de ranking por loja estiver selecionada (feito mas precisa de revisão).
 
-
-
-All M4 items completed: mobile statistics audit, store registration in Admin (+ store-logos bucket, logo upload), deckbuilder drag-and-drop, light mode brightness pass. Store icons now resolve from Supabase bucket (with local fallback). Icons folder cleaned up (removed icons/backgrounds/, icons/stores/ still used as fallback). Admin Stores tab matches Formats/Meta tab visual pattern.
-
-Main gap to 9.8: migrate remaining `resolveStoreIcon` fallback to remove icons/stores/ once all stores have logo_url populated in DB. Then i18n toggle, format diversity score.
+Main gap to 9.8: API search do deckbuilder com qualidade inconsistente, migrate `resolveStoreIcon` fallback para remover `icons/stores/` quando todas as lojas tiverem `logo_url`, i18n toggle.
 
 ---
+- [] Criar outra opção/ jeito mais fácil de abrir deckbuilder e selecionar onde salvar
+- [] Melhorar a parte de utilização da api pública no deckbuilder (search não funcionando muito bem)
 
 - **[DONE]** Validação antes de dar clear list no deckbuilder — modal de confirmação com btn-danger.
 - **[DONE]** Trocar o clear decklist de lugar — movido para grupo esquerdo (junto com Sort by Level), longe do Save.
 - **[DONE]** UI mobile do Meta Overview — KPI 2x2, period buttons com tap target 36px, top deck cards ajustados.
 - **[DONE]** Modal "Último evento" mostra data exata do torneio — migration `20260323_add_last_tournament_date_to_v_meta_by_month.sql`.
 - **[DONE]** Mobile Meta "Tudo" — bar charts alinhados (sharedLabelWidth a partir de full labels), gráfico de evolução substituído por tabela sortável (clique no mês para ordenar), visual da tabela espelha TOP PILOTS.
-- Melhorar a parte de utilização da api publica no deckbuilder (search nao funcionando muito bem)
+- **[DONE]** Cache busting — `?v=2026.03.27.1` em todos os assets CSS/JS locais de todos os HTMLs, `app-version.js` atualizado, SW bumped para `v10`.
+- **[DONE]** Save warning — modal de aviso ao tentar salvar deck com menos de 54 cartas no main deck. Botões Cancel / Save Anyway.
+- **[DONE]** Mobile deckbuilder — zoom modal scrollável (imagem 55vh + meta abaixo), botão de fechar do zoom 36×36px, textarea do import reduzida (140px) para botões ficarem visíveis em mobile.
+
 ## 🟢 BUGS — Resolved (Mar 2026)
 
+- **[FIXED]** Choice restriction (EX7-064 / EX2-007) tratada como limitada a 1 cópia — cartas com `restriction = 'choice-restricted'` na ban_list eram incorretamente adicionadas ao `RESTRICTED_CODES`. Removido `|| row.restriction === 'choice-restricted'` da condição em `script.js`. A lógica de choice restriction (grupo hardcoded) permanece intacta.
 - **[FIXED]** Register deck via player menu threw "This record has no result_id to save." — param name mismatch: `players/script.js` was sending `result` but deckbuilder read `resultId`. One-line fix.
 - **[FIXED]** `card_level` not saving in `decklist_card_metadata` — `saveDecklist()` was not hydrating card metadata before persisting. Added `await hydrateCardMetadata()` before save. Also enriched upsert to include `name`, `pack`, `color`, `card_payload`.
 - **[FIXED]** Cards in deckbuilder search results cropped at third row — `.decklist-search-results` had `overflow: hidden`; changed to `overflow-y: auto`.
@@ -31,6 +36,12 @@ Main gap to 9.8: migrate remaining `resolveStoreIcon` fallback to remove icons/s
 ---
 
 ## Recent Wins (Mar 2026)
+
+**Session 4 (Mar 27, bugs + mobile + UX):**
+- **Choice restriction bug** — EX7-064 incorretamente limitada a 1 cópia pela ban_list; corrigido isolando o código de choice restriction do código de limited.
+- **Cache busting consistente** — todos os HTMLs agora têm `?v=2026.03.27.1` em CSS e JS locais. SW bumped para `v10`. Usuários não precisam mais limpar cache manualmente após deploy.
+- **Save warning** — novo modal "Incomplete Deck" abre quando main deck < 54 cartas, com opção Cancel ou Save Anyway. `saveDecklist` → `saveDecklist` + `performSave` para permitir o fluxo de confirmação.
+- **Deckbuilder mobile audit e fixes** — zoom modal: imagem limitada a 55vh, meta panel scrollável abaixo; import textarea: `min-height` 220px → 140px em mobile; botão close do zoom: 30px → 36px para touch target adequado.
 
 **Session 3 (Mar 20, UI polish):**
 - **Players UX clarity** — Add Player now opens a modal (EN-US), search stays inline. Clear separation between registration and search. `[DONE]`
@@ -65,12 +76,12 @@ Main gap to 9.8: migrate remaining `resolveStoreIcon` fallback to remove icons/s
 
 ## Priority Order
 
-> **Recommended next priorities (Mar 2026, updated after audit):**
-> 1. **Mobile statistics audit** — statistics views are the most used section; several likely degrade on 375px
-> 2. **Store registration in Admin** — unblocks organizers from needing DB access
-> 3. **Deckbuilder drag-and-drop** — medium effort, Web-only, improves power-user flow
-> 4. **Light mode brightness pass** — quick CSS pass, reduces eye strain
-> 5. **Format health / diversity score** — low complexity, high analytical value
+> **Recommended next priorities (Mar 2026, updated after Session 4):**
+> 1. **Deckbuilder API search quality** — search nem sempre retorna resultados esperados; investigar parâmetros da API pública e melhorar matching
+> 2. **Store icon migration** — migrate `resolveStoreIcon` fallback; remove `icons/stores/` after all stores have `logo_url` in DB
+> 3. **Expandir Lojas button** — visível apenas quando ranking por loja estiver selecionado (feito, precisa revisão)
+> 4. **i18n toggle PT-BR / EN-US** — baixa complexidade agora, aumenta após crescimento do codebase
+> 5. **Format health / diversity score** — baixa complexidade, alto valor analítico
 
 ### P1 — Decklist data quality (repair legacy data)
 
@@ -165,19 +176,25 @@ Allow users to reorder cards within a decklist by dragging. Desktop/Web only —
 
 Add Player now opens a modal (EN-US). Search stays inline. 3-row layout matches Decks section.
 
-### P3 — Mobile UI/UX review
+### P3 — Mobile UI/UX review — **[PARTIAL]**
 
 The dashboard is usable on mobile but was not designed mobile-first. Several views degrade on small screens.
 
-- Audit every statistics view on 375px and 414px widths.
+**Done (deckbuilder, Mar 27):**
+- Zoom modal scrollável: imagem 55vh + meta panel abaixo, sem conteúdo cortado.
+- Import textarea: min-height 220px → 140px em mobile (botões Cancel/Confirm visíveis).
+- Botão close do zoom: 30px → 36px (touch target melhor).
+- Breakpoints do deckbuilder já cobrem 1180px e 760px; gaps em 480px/414px são não-críticos para o fluxo atual.
+
+**Remaining:**
+- Audit statistics views on 375px and 414px widths.
 - Identify tables that overflow horizontally and add horizontal scroll or column hiding.
 - Review tap target sizes (buttons, toggles, pagination) — minimum 44×44px.
-- Check tournament expansion card layout, player history modal, and deckbuilder search on mobile.
-- Produce a prioritized list of regressions vs. polish items before implementing.
+- Check tournament expansion card layout and player history modal on mobile.
 
 ### P3 — CSS and design system cleanup
 
-- `styles.css` is over 11k lines — high risk of regressions.
+- `styles.css` is over 15k lines — high risk of regressions.
 - Split into modular files with clear ownership per section.
 - Replace ad-hoc colors with shared tokens; reduce `!important` usage.
 - Target: eliminate "dark style leaking into light mode" class of bugs.
@@ -197,7 +214,7 @@ The dashboard is usable on mobile but was not designed mobile-first. Several vie
 
 ### P6 — Operational readiness
 
-- Release checklist: cache busting, PWA manifest, schema migration notes.
+- **[DONE]** Cache busting — versioning (`?v=`) consistente em todos os assets, SW cache version bumped. Deploy now auto-invalidates without manual cache clear.
 - Basic monitoring for OCR API (failure rate, parse quality).
 - Usage metrics: tournaments created per month, decklists saved.
 
@@ -234,4 +251,4 @@ The project works well in vanilla JS. A full migration would be costly with litt
 2. **M2 (done):** Statistics improvements (charts, SQL view, coverage indicator). CSS dark theme Wave 1. Admin Panel (format/meta CRUD, ban list). Mobile UX Wave 1 (nav, filters, deck list, pagination). ✅
 3. **M3 (done):** Players UX clarity ✅. Statistics sparkline ✅. Per-deck card filter ✅. Card preview in Top Cards ✅. Column names clarified ✅.
 4. **M4 (done):** Mobile statistics audit ✅. Store registration in Admin ✅ (+ store-logos bucket, logo upload). Deckbuilder drag-and-drop ✅. Light mode brightness pass ✅.
-5. **M5 (ongoing):** OCR improvements, product positioning, metrics, i18n toggle.
+5. **M5 (ongoing):** API search quality, store icon migration, i18n toggle, deckbuilder UX (abrir/selecionar destino), statistics mobile audit restante.

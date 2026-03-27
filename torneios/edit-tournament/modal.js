@@ -953,40 +953,75 @@ async function editTournamentFormSubmit(e) {
             throw new Error(`Erro ao salvar torneio (${res.status})`);
         }
 
-        for (const id of editOriginalResultIds) {
+        // Preserve existing row IDs so decklists linked via result_id are not lost.
+        // Strategy: PATCH existing rows, INSERT new ones, DELETE removed ones.
+        const updatedIds = new Set(editResults.map((r) => r.id).filter(Boolean));
+        const toDeleteIds = editOriginalResultIds.filter((id) => !updatedIds.has(id));
+
+        // PATCH existing rows (preserves IDs → decklists stay linked)
+        for (let i = 0; i < editResults.length; i++) {
+            const row = editResults[i];
+            if (!row.id) continue;
+            const patchRes = await fetch(
+                `${modalSupabaseUrl}/rest/v1/tournament_results?id=eq.${encodeURIComponent(row.id)}`,
+                {
+                    method: 'PATCH',
+                    headers: modalHeaders,
+                    body: JSON.stringify({
+                        tournament_id: editingTournamentId,
+                        store_id: updated.store_id,
+                        tournament_date: updated.tournament_date,
+                        total_players: updated.total_players,
+                        placement: i + 1,
+                        deck_id: row.deck_id || null,
+                        player_id: row.player_id,
+                    })
+                }
+            );
+            if (!patchRes.ok) {
+                const errorText = await patchRes.text();
+                throw new Error(`Erro ao atualizar resultado (id=${row.id}, HTTP ${patchRes.status}): ${errorText}`);
+            }
+        }
+
+        // DELETE rows that were removed in the edit
+        for (const id of toDeleteIds) {
             await fetch(
                 `${modalSupabaseUrl}/rest/v1/tournament_results?id=eq.${encodeURIComponent(id)}`,
-                {
-                    method: 'DELETE',
-                    headers: modalHeaders
-                }
+                { method: 'DELETE', headers: modalHeaders }
             );
         }
 
-        const resultsPayload = editResults.map((row, index) => ({
-            tournament_id: editingTournamentId,
-            store_id: updated.store_id,
-            tournament_date: updated.tournament_date,
-            total_players: updated.total_players,
-            placement: index + 1,
-            deck_id: row.deck_id || null,
-            player_id: row.player_id
-        }));
+        // INSERT new rows (rows without an original id)
+        const toInsert = editResults
+            .map((row, index) => ({ row, placement: index + 1 }))
+            .filter(({ row }) => !row.id);
 
-        const resultsRes = await fetch(`${modalSupabaseUrl}/rest/v1/tournament_results`, {
-            method: 'POST',
-            headers: modalHeaders,
-            body: JSON.stringify(resultsPayload)
-        });
+        if (toInsert.length) {
+            const resultsPayload = toInsert.map(({ row, placement }) => ({
+                tournament_id: editingTournamentId,
+                store_id: updated.store_id,
+                tournament_date: updated.tournament_date,
+                total_players: updated.total_players,
+                placement,
+                deck_id: row.deck_id || null,
+                player_id: row.player_id,
+            }));
 
-        if (!resultsRes.ok) {
-            const errorText = await resultsRes.text();
-            console.error('Erro ao salvar results:', resultsRes.status, errorText);
-            const friendlyMessage =
-                typeof window.getFriendlyResultsSaveErrorMessage === 'function'
-                    ? window.getFriendlyResultsSaveErrorMessage(resultsRes.status, errorText)
-                    : `Erro ao salvar tournament_results (${resultsRes.status})`;
-            throw new Error(friendlyMessage);
+            const resultsRes = await fetch(`${modalSupabaseUrl}/rest/v1/tournament_results`, {
+                method: 'POST',
+                headers: modalHeaders,
+                body: JSON.stringify(resultsPayload)
+            });
+
+            if (!resultsRes.ok) {
+                const errorText = await resultsRes.text();
+                const friendlyMessage =
+                    typeof window.getFriendlyResultsSaveErrorMessage === 'function'
+                        ? window.getFriendlyResultsSaveErrorMessage(resultsRes.status, errorText)
+                        : `Erro ao salvar tournament_results (${resultsRes.status})`;
+                throw new Error(friendlyMessage);
+            }
         }
 
         closeEditModal();
