@@ -1897,7 +1897,10 @@
             if (!isValidDeckCode(code)) return;
             const meta = getDecklistCardMetadata(entry);
             const details = cardDetailsByCode.get(code) || {};
-            const current = rowsByCode.get(code) || { card_code: code, card_type: null, card_level: null, is_digi_egg: false };
+            const current = rowsByCode.get(code) || {
+                card_code: code, id: null, name: null, pack: null, color: null,
+                card_type: null, card_level: null, is_digi_egg: false, card_payload: null,
+            };
             if (meta.cardType) current.card_type = meta.cardType;
             if (Number.isFinite(meta.cardLevel)) current.card_level = meta.cardLevel;
             if (meta.isDigiEgg) current.is_digi_egg = true;
