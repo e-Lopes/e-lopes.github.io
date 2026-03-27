@@ -1568,12 +1568,14 @@
         const temp = [];
         const errors = [];
 
+        // Suffix group: handles _AA, -AA, C, SR, etc. appended to the card number
+        const SUFFIX = '(?:[_-][A-Z][A-Z0-9]*|[A-Z]+)?';
         // Matches: "4 CardName BT1-001" or "4 BT1-001"
-        const PATTERN_QTY_NAME_CODE = /^(\d{1,2})\s+.*?((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*$/i;
+        const PATTERN_QTY_NAME_CODE = new RegExp(`^(\\d{1,2})\\s+.*?((?:BT\\d{1,2}|EX\\d{1,2}|ST\\d{1,2}|RB\\d{1,2}|AD\\d{1,2}|LM|P)-\\d{1,3}${SUFFIX})\\s*$`, 'i');
         // Matches: "4 (BT1-001)"
-        const PATTERN_QTY_PAREN = /^(\d{1,2})\s*\(\s*((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)\s*\)\s*$/i;
+        const PATTERN_QTY_PAREN = new RegExp(`^(\\d{1,2})\\s*\\(\\s*((?:BT\\d{1,2}|EX\\d{1,2}|ST\\d{1,2}|RB\\d{1,2}|AD\\d{1,2}|LM|P)-\\d{1,3}${SUFFIX})\\s*\\)\\s*$`, 'i');
         // Matches: "BT1-001" (single bare code)
-        const PATTERN_SINGLE_CODE = /^((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}(?:_[A-Z0-9]+)?)$/i;
+        const PATTERN_SINGLE_CODE = new RegExp(`^((?:BT\\d{1,2}|EX\\d{1,2}|ST\\d{1,2}|RB\\d{1,2}|AD\\d{1,2}|LM|P)-\\d{1,3}${SUFFIX})$`, 'i');
 
         lines.forEach((line, index) => {
             const raw = String(line || '').trim();
@@ -1891,6 +1893,24 @@
     }
 
     async function upsertDecklistCardMetadata(sourceEntries) {
+        // Fetch API data for any codes not yet in the local cache with a rich payload,
+        // so card_payload is always populated (the column is NOT NULL in the DB).
+        const allCodes = (Array.isArray(sourceEntries) ? sourceEntries : [])
+            .map((e) => normalizeDeckCode(e?.code || '')).filter(isValidDeckCode);
+        const missingCodes = [...new Set(allCodes)].filter((code) => {
+            const p = cardDetailsByCode.get(code)?.card_payload;
+            return !hasRichApiPayload(p);
+        });
+        if (missingCodes.length) {
+            const fetched = await fetchCardsFromDigimonApi(missingCodes);
+            const nowIso = new Date().toISOString();
+            fetched.forEach((row) => {
+                const code = normalizeDeckCode(row?.card_code || row?.id || '');
+                if (!code) return;
+                cardDetailsByCode.set(code, { ...(cardDetailsByCode.get(code) || {}), ...row, card_code: code, updated_at: nowIso });
+            });
+        }
+
         const rowsByCode = new Map();
         (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry) => {
             const code = normalizeDeckCode(entry?.code || '');
@@ -1899,7 +1919,7 @@
             const details = cardDetailsByCode.get(code) || {};
             const current = rowsByCode.get(code) || {
                 card_code: code, id: null, name: null, pack: null, color: null,
-                card_type: null, card_level: null, is_digi_egg: false, card_payload: null,
+                card_type: null, card_level: null, is_digi_egg: false, card_payload: {},
             };
             if (meta.cardType) current.card_type = meta.cardType;
             if (Number.isFinite(meta.cardLevel)) current.card_level = meta.cardLevel;
