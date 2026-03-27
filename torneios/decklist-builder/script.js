@@ -2076,8 +2076,9 @@
             .trim().toUpperCase()
             .replace(/^["'\[()]+/, '')
             .replace(/["'\](),;:.]+$/, '')
-            .replace(/_.+$/, '')           // strip _AA, _P, etc.
-            .replace(/-[A-Z][A-Z0-9]*$/, ''); // strip -AA, -P, etc.
+            .replace(/_.+$/, '')              // strip _AA, _P, etc.
+            .replace(/-[A-Z][A-Z0-9]*$/, '') // strip -AA, -P, etc.
+            .replace(/(-\d+)[A-Z]+$/, '$1'); // strip BT4-104C → BT4-104
     }
 
     // ─── Sorting ──────────────────────────────────────────────────────────────
