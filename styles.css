@@ -11983,12 +11983,6 @@ body.template-preview-page .post-toast {
     line-height: normal;
 }
 
-.statistics-toggle-stores {
-    display: none !important;
-    height: 44px;
-    min-width: 140px;
-}
-
 .statistics-player-search:focus {
     outline: none;
     border-color: #8fa7ef;
@@ -12167,20 +12161,6 @@ body.template-preview-page .post-toast {
     color: #6e3f1e;
 }
 
-.store-podium-toggle {
-    border: 1px solid #ccd9ff;
-    background: #f7faff;
-    color: #2f4788;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 0.78rem;
-    font-weight: 700;
-}
-
-.store-podium-card.is-collapsed .store-podium-list {
-    display: none;
-}
-
 @media (max-width: 1280px) {
     .store-champions-board {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -12348,13 +12328,6 @@ body.template-preview-page .post-toast {
 
     .statistics-highlights {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .statistics-toggle-stores {
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
     }
 
     .store-champions-board {

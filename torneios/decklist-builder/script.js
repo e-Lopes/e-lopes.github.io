@@ -252,7 +252,7 @@
                 if (!code) continue;
                 if (row.restriction === 'banned') {
                     BANNED_CODES.add(code);
-                } else if (row.restriction === 'limited' || row.restriction === 'choice-restricted') {
+                } else if (row.restriction === 'limited') {
                     RESTRICTED_CODES.add(code);
                 }
             }

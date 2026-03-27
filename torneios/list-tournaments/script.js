@@ -291,7 +291,6 @@ let hasManualMetaFormatSelection = false;
 let hasManualMetaPeriodSelection = false;
 let currentTopCardsPage = 1;
 let currentStoreChampionsPlayerQuery = '';
-let areStoreChampionsCardsCollapsed = true;
 const stapleTogglePendingCodes = new Set();
 const TOP_CARDS_PER_PAGE = 10;
 const topCardsNameCache = new Map();
@@ -1555,7 +1554,6 @@ async function mountStatisticsContainer() {
             hasManualMetaPeriodSelection = false;
             currentTopCardsPage = 1;
             currentStoreChampionsPlayerQuery = '';
-            areStoreChampionsCardsCollapsed = true;
             currentMetaOverviewPeriod = 'all';
             saveStatisticsViewPreference(nextView);
             await loadAndRenderStatistics(nextView);
@@ -1687,14 +1685,6 @@ async function mountStatisticsContainer() {
         });
     }
 
-    const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
-    if (toggleStoreCardsButton) {
-        toggleStoreCardsButton.addEventListener('click', () => {
-            areStoreChampionsCardsCollapsed = !areStoreChampionsCardsCollapsed;
-            renderStatisticsTable(statisticsViewData, currentStatisticsView);
-        });
-    }
-
     window.addEventListener('resize', handleStatisticsViewportChange);
 
     statisticsViewMounted = true;
@@ -1718,7 +1708,6 @@ function unmountStatisticsContainer() {
     hasManualMetaPeriodSelection = false;
     currentTopCardsPage = 1;
     currentStoreChampionsPlayerQuery = '';
-    areStoreChampionsCardsCollapsed = true;
     window.removeEventListener('resize', handleStatisticsViewportChange);
 }
 
@@ -2539,7 +2528,6 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const deckDatalist = host.querySelector('#statisticsDeckDatalist') ||
         document.getElementById('statisticsDeckDatalist');
     const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
-    const toggleStoreCardsButton = host.querySelector('#btnToggleStoreCards');
     const previousBoard = host.querySelector('.store-champions-board');
     if (previousBoard) previousBoard.remove();
     const previousMetaOverview = host.querySelector('.meta-overview-panel');
@@ -2603,9 +2591,6 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     if (playerSearchInput) {
         playerSearchInput.classList.add('is-hidden');
         playerSearchInput.value = '';
-    }
-    if (toggleStoreCardsButton) {
-        toggleStoreCardsButton.classList.add('is-hidden');
     }
     if (secondaryControls) {
         secondaryControls.classList.add('is-hidden');
@@ -2931,18 +2916,6 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             playerSearchInput.classList.remove('is-hidden');
             playerSearchInput.value = currentStoreChampionsPlayerQuery;
         }
-        const isMobile = isStatisticsMobileViewport();
-        if (toggleStoreCardsButton) {
-            if (isMobile) {
-                toggleStoreCardsButton.classList.remove('is-hidden');
-                toggleStoreCardsButton.textContent = areStoreChampionsCardsCollapsed
-                    ? 'Expandir lojas'
-                    : 'Recolher lojas';
-            } else {
-                areStoreChampionsCardsCollapsed = false;
-                toggleStoreCardsButton.classList.add('is-hidden');
-            }
-        }
         filteredRows = filterStoreChampionsRowsByPlayer(filteredRows, currentStoreChampionsPlayerQuery);
     }
 
@@ -2953,8 +2926,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             (monthFilterSelect && !monthFilterSelect.classList.contains('is-hidden')) ||
             (dateFilterSelect && !dateFilterSelect.classList.contains('is-hidden')) ||
             (stapleFilterSelect && !stapleFilterSelect.classList.contains('is-hidden')) ||
-            (playerSearchInput && !playerSearchInput.classList.contains('is-hidden')) ||
-            (toggleStoreCardsButton && !toggleStoreCardsButton.classList.contains('is-hidden'));
+            (playerSearchInput && !playerSearchInput.classList.contains('is-hidden'));
         secondaryControls.classList.toggle('is-hidden', !hasVisibleSecondaryControl);
     }
 
@@ -3015,8 +2987,6 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         storeAttendance.forEach((entries) => entries.sort((a, b) => a.date.localeCompare(b.date)));
 
         renderStoreChampionsBoard(host, filteredRows, {
-            isMobile: isStatisticsMobileViewport(),
-            collapsedByDefault: areStoreChampionsCardsCollapsed,
             storeAttendance
         });
         if (status) status.textContent = '';
@@ -6024,8 +5994,6 @@ function buildAttendanceSparkline(entries) {
 }
 
 function renderStoreChampionsBoard(host, rows, options = {}) {
-    const isMobile = options.isMobile === true;
-    const collapsedByDefault = isMobile && options.collapsedByDefault === true;
     const storeAttendance = options.storeAttendance instanceof Map ? options.storeAttendance : new Map();
     const grouped = new Map();
     rows.forEach((row) => {
@@ -6053,7 +6021,6 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
 
             const card = document.createElement('article');
             card.className = 'store-podium-card';
-            if (collapsedByDefault) card.classList.add('is-collapsed');
 
             const iconSrc = resolveStoreIcon(storeName);
             const listHtml = sorted
@@ -6091,11 +6058,6 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
                         <img src="${escapeHtml(iconSrc)}" alt="${escapeHtml(storeName)}" class="store-podium-icon" loading="lazy" />
                         <h3>${escapeHtml(storeName)}</h3>
                     </div>
-                    ${
-                        isMobile
-                            ? `<button type="button" class="store-podium-toggle">${collapsedByDefault ? 'Expandir' : 'Recolher'}</button>`
-                            : ''
-                    }
                 </header>
                 ${attendanceHtml}
                 <ol class="store-podium-list">
@@ -6108,15 +6070,6 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
 
     host.appendChild(board);
 
-    board.querySelectorAll('.store-podium-toggle').forEach((button) => {
-        button.addEventListener('click', () => {
-            const card = button.closest('.store-podium-card');
-            if (!card) return;
-            const nextCollapsed = !card.classList.contains('is-collapsed');
-            card.classList.toggle('is-collapsed', nextCollapsed);
-            button.textContent = nextCollapsed ? 'Expandir' : 'Recolher';
-        });
-    });
 }
 
 function prettifyStatisticsColumn(column, viewName = '') {

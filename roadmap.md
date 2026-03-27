@@ -4,7 +4,11 @@
 
 **9.7 / 10**
 
-Arrumar deckbuilder para mobile (ui totalmente bagunçada)
+imediato: O botao de Expandir Lojas deve aparecer apenas se a estatistica de ranking por loja estiver selecionada
+
+futuro: mudar o icone se a carta é staple ou não na estatistica de Top Cards
+
+
 
 All M4 items completed: mobile statistics audit, store registration in Admin (+ store-logos bucket, logo upload), deckbuilder drag-and-drop, light mode brightness pass. Store icons now resolve from Supabase bucket (with local fallback). Icons folder cleaned up (removed icons/backgrounds/, icons/stores/ still used as fallback). Admin Stores tab matches Formats/Meta tab visual pattern.
 
