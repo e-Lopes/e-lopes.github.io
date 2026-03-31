@@ -3,6 +3,14 @@
 ## Current Score
 
 **9.75 / 10**
+-Trocar o endpoint o ocr para o app deployed no vercel:
+https://vercel.com/e-lopes-projects/digimon-ocr-api
+Deployment
+digimon-ocr-edpvif839-e-lopes-projects.vercel.app
+Domains
+digimon-ocr-api.vercel.app
+
+Escrever um arquivo de documentação do que precisa ser feito ainda em termos da funcionalidade do OCR
 
 - Cache busting agora consistente em todos os assets (CSS/JS com `?v=`, SW `v10`).
 - Bug da choice restriction (EX7-064 tratada como limitada a 1) corrigido.

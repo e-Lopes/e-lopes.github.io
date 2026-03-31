@@ -7,8 +7,8 @@
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const BLANK_MIDDLE_FALLBACK_BG = window.APP_CONFIG?.SUPABASE_URL
-        ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/EX11.png`
-        : '../../icons/EX11.png';
+        ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/AD01.png`
+        : '../../icons/AD01.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
 
     const CATALOG_BUCKET_URL = window.APP_CONFIG?.SUPABASE_URL
@@ -428,6 +428,14 @@
         const root = document.getElementById('decklistBuilderMeta');
         if (!root) return;
 
+        const PILL_ICONS = {
+            Deck: `<svg class="pill-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="10" height="8" rx="1.5"/><path d="M4 4V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1"/></svg>`,
+            Player: `<svg class="pill-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 13.5c0-2.485 2.462-4.5 5.5-4.5s5.5 2.015 5.5 4.5"/></svg>`,
+            Store: `<svg class="pill-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5 3.5 2h9L14 6.5"/><path d="M2 6.5h12v7.5H2z"/><path d="M6 14v-4h4v4"/></svg>`,
+            Date: `<svg class="pill-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 7h12"/><path d="M5 1v3M11 1v3"/></svg>`,
+            Format: `<svg class="pill-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4h8M2 8h6M2 12h4"/><circle cx="12" cy="10" r="2.5"/><path d="M14 12.5 15.5 14"/></svg>`,
+        };
+
         const items = [
             { label: 'Deck', value: meta.deck || '-' },
             { label: 'Player', value: meta.player || '-' },
@@ -437,7 +445,7 @@
         ];
 
         root.innerHTML = items
-            .map((i) => `<div class="decklist-builder-meta-pill"><strong>${escapeHtml(i.label)}:</strong> ${escapeHtml(i.value)}</div>`)
+            .map((i) => `<div class="decklist-builder-meta-pill">${PILL_ICONS[i.label] || ''}<span class="pill-label">${escapeHtml(i.label)}</span><span class="pill-value">${escapeHtml(i.value)}</span></div>`)
             .join('');
     }
 

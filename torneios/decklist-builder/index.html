@@ -101,8 +101,10 @@
 
                     <div class="decklist-builder-actions">
                         <div id="decklistBuilderMeta" class="decklist-builder-meta" aria-live="polite"></div>
-                        <div class="decklist-builder-zoom-hint">Tips: Right-click a card to preview full art or close the preview.</div>
-                        <div class="decklist-builder-zoom-hint">You can also drag and drop cards to reorder them in the decklist.</div>
+                        <div class="decklist-builder-zoom-hint">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hint-icon"><circle cx="8" cy="8" r="6"/><path d="M8 7v4"/><circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none"/></svg>
+                            Right-click to preview full art &middot; Drag to reorder
+                        </div>
                         <div id="decklistBuilderSaveStatus" class="decklist-builder-save-status" aria-live="polite"></div>
                     </div>
 
@@ -190,7 +192,7 @@
                                     max="20"
                                     step="1"
                                 />
-                                <input type="text" id="cardSearchCode" class="form-input filter-full" placeholder="Set (ex: BT1)" list="cardSearchCodeList" autocomplete="off" />
+                                <input type="text" id="cardSearchCode" class="form-input" placeholder="Set (ex: BT1)" list="cardSearchCodeList" autocomplete="off" />
                                 <datalist id="cardSearchCodeList"></datalist>
                             </div>
                             <div id="cardSearchResults" class="decklist-search-results" aria-live="polite"></div>

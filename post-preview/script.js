@@ -85,12 +85,7 @@ function buildPublicBucketObjectUrl(bucketName, objectPath) {
     return `${SUPABASE_URL}/storage/v1/object/public/${bucketName}/${cleanPath}`;
 }
 
-const DEFAULT_BACKGROUND_OPTIONS = [
-    { label: 'None', value: '' },
-    { label: 'EX11', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'EX11.png') },
-    { label: 'BT23', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT23.png') },
-    { label: 'BT24', value: buildPublicBucketObjectUrl(FORMAT_BG_BUCKET, 'BT24.png') }
-];
+const DEFAULT_BACKGROUND_OPTIONS = [{ label: 'None', value: '' }];
 const INSTAGRAM_DEFAULT_LAYOUT = {
     logo: { x: 80, y: 74, w: 540, h: 198 },
     title: { x: 634, y: 82, w: 338, h: 182, titleOffsetY: 82, dateOffsetY: 136, dateMaxWidth: 302 },
@@ -169,8 +164,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupCollapsibleSidebarSections();
     setupDistributionPieControls();
     setupDistributionResultsColumnLimitControl();
-    bootTemplateEditorPageIfNeeded();
-    bootPostPreviewPageIfNeeded();
+    await bootTemplateEditorPageIfNeeded();
+    await bootPostPreviewPageIfNeeded();
 });
 
 function setupEventListeners() {
@@ -662,9 +657,10 @@ function saveCustomBackgrounds(list) {
     }
 }
 
-function initializeBackgroundSelector(selectedValue) {
+async function initializeBackgroundSelector(selectedValue) {
     const custom = getCustomBackgrounds();
-    const options = [...DEFAULT_BACKGROUND_OPTIONS, ...custom];
+    const formatMap = await loadFormatBackgroundMap();
+    const options = [...DEFAULT_BACKGROUND_OPTIONS, ...(formatMap.options || []), ...custom];
 
     const selects = ['postBackgroundSelect', 'templateBackgroundSelect']
         .map((id) => document.getElementById(id))
@@ -685,7 +681,7 @@ function initializeBackgroundSelector(selectedValue) {
             ? selectedValue
             : options.some((o) => o.value === selectedBackgroundPath)
               ? selectedBackgroundPath
-              : DEFAULT_BACKGROUND_OPTIONS[1].value;
+              : (formatMap.options?.[0]?.value ?? '');
     selectedBackgroundPath = nextValue;
     syncBackgroundSelectors();
 }
@@ -788,7 +784,7 @@ async function onCustomBackgroundUpload(event) {
         deduped.push({ label: createdFormat.code, value: createdFormat.backgroundUrl });
         saveCustomBackgrounds(deduped.slice(-20));
 
-        initializeBackgroundSelector(createdFormat.backgroundUrl);
+        await initializeBackgroundSelector(createdFormat.backgroundUrl);
         if (tournamentDataForCanvas) {
             tournamentDataForCanvas.format = createdFormat.code;
             updatePostPreviewMeta();
@@ -862,12 +858,12 @@ async function loadFormatBackgroundMap() {
             if (!Array.isArray(rows)) return { byCode: {}, defaultUrl: '' };
 
             const byCode = {};
+            const options = [];
             let defaultUrl = '';
             rows.forEach((row) => {
                 if (!row?.code || row?.is_active === false) return;
-                // Normalize: strip legacy /formats/ sub-folder from both url and path
-                const backgroundUrl = String(row.background_url || '')
-                    .trim()
+                // Strip legacy /formats/ sub-folder prefix from DB records that predate bucket restructure
+                const backgroundUrl = String(row.background_url || '').trim()
                     .replace(/(\/storage\/v1\/object\/public\/[^/]+\/)formats\//, '$1');
                 const backgroundPath = String(row.background_path || '').trim().replace(/^formats\//, '');
                 const resolvedUrl =
@@ -877,14 +873,16 @@ async function loadFormatBackgroundMap() {
                 const code = normalizeFormatCode(row.code);
                 byCode[code] = resolvedUrl;
                 byCode[normalizeFormatMapKey(code)] = resolvedUrl;
+                options.push({ label: row.code, value: resolvedUrl });
                 if (row?.is_default === true) {
                     defaultUrl = resolvedUrl;
                 }
             });
 
-            return { byCode, defaultUrl };
+            options.sort((a, b) => a.label.localeCompare(b.label));
+            return { byCode, defaultUrl, options };
         } catch (_) {
-            return { byCode: {}, defaultUrl: '' };
+            return { byCode: {}, defaultUrl: '', options: [] };
         }
     })();
 
@@ -895,21 +893,12 @@ async function syncBackgroundWithTournamentFormat(data) {
     const formatCode = normalizeFormatCode(data?.format);
     if (!formatCode) return;
 
-    // Fast path: match format code against known default options by label
-    const defaultMatch = DEFAULT_BACKGROUND_OPTIONS.find(
-        (opt) => opt.value && normalizeFormatCode(opt.label) === formatCode
-    );
-    let backgroundUrl = defaultMatch?.value || '';
-
-    // Fallback: query DB for format background
-    if (!backgroundUrl) {
-        const formatBackgroundState = await loadFormatBackgroundMap();
-        backgroundUrl = resolveFormatBackgroundUrl(formatCode, formatBackgroundState);
-    }
+    const formatBackgroundState = await loadFormatBackgroundMap();
+    const backgroundUrl = resolveFormatBackgroundUrl(formatCode, formatBackgroundState);
     if (!backgroundUrl) return;
 
     selectedBackgroundPath = backgroundUrl;
-    initializeBackgroundSelector(backgroundUrl);
+    await initializeBackgroundSelector(backgroundUrl);
     updatePostPreviewMeta();
     if (tournamentDataForCanvas) {
         await drawPostCanvas();
@@ -1612,7 +1601,7 @@ function setupTemplateSyncListeners() {
     });
 }
 
-function bootTemplateEditorPageIfNeeded() {
+async function bootTemplateEditorPageIfNeeded() {
     if (!isTemplateEditorPage()) return;
     enableDedicatedTemplateEditorLayout();
     try {
@@ -1626,7 +1615,7 @@ function bootTemplateEditorPageIfNeeded() {
         const hasSavedBg = Boolean(state?.selectedBackgroundPath);
         if (hasSavedBg) {
             selectedBackgroundPath = state.selectedBackgroundPath;
-            initializeBackgroundSelector(selectedBackgroundPath);
+            await initializeBackgroundSelector(selectedBackgroundPath);
         }
         if (POST_TYPE_OPTIONS.includes(state?.selectedPostType)) {
             selectedPostType = state.selectedPostType;
@@ -1655,7 +1644,7 @@ function bootTemplateEditorPageIfNeeded() {
     }
 }
 
-function bootPostPreviewPageIfNeeded() {
+async function bootPostPreviewPageIfNeeded() {
     if (isTemplateEditorPage() || !isPostPreviewPage()) return;
     enableDedicatedPostPreviewLayout();
     try {
@@ -1670,7 +1659,7 @@ function bootPostPreviewPageIfNeeded() {
         const hasSavedBg = Boolean(state?.selectedBackgroundPath);
         if (hasSavedBg) {
             selectedBackgroundPath = state.selectedBackgroundPath;
-            initializeBackgroundSelector(selectedBackgroundPath);
+            await initializeBackgroundSelector(selectedBackgroundPath);
         }
         if (POST_TYPE_OPTIONS.includes(state?.selectedPostType)) {
             selectedPostType = state.selectedPostType;

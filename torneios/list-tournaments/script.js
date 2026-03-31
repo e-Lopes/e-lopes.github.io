@@ -7468,6 +7468,7 @@ async function openCreateTournamentModal(defaultDate = '') {
 
     // Carrega dados base para o modal
     try {
+        tournamentFormatsLoaded = false; // força re-fetch para garantir o default atualizado
         await Promise.all([
             loadStoresToCreate(),
             loadPlayersToCreate(),

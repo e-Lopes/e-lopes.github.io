@@ -8,6 +8,7 @@
 
 The "New Tournament" modal supports uploading a screenshot from the Bandai TCG+ app. The image is sent to an OCR API that extracts player results, store name, and tournament date automatically.
 
+## Swagger Link: https://e-lopes-digimon-ocr-api.hf.space/docs#/
 ---
 
 ## API

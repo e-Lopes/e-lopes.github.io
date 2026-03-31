@@ -61,6 +61,7 @@ function setupAdminActions() {
         if (action === 'create-format') openFormatModal(null);
         if (action === 'edit-format') openFormatModal(id);
         if (action === 'set-default-format') setDefaultFormat(id);
+        if (action === 'toggle-format-active') toggleFormatActive(id);
         if (action === 'delete-format') deleteFormat(id, btn.dataset.name);
         if (action === 'add-ban') openBanModal(null);
         if (action === 'edit-ban') openBanModal(btn.dataset.code);
@@ -231,6 +232,7 @@ function renderAdminFormats() {
             <td class="admin-actions-cell">
                 ${!f.is_default ? `<button class="player-history-register-btn" data-admin-action="set-default-format" data-id="${f.id}">Set Default</button>` : ''}
                 <button class="player-history-register-btn" data-admin-action="edit-format" data-id="${f.id}">Edit</button>
+                <button class="player-history-register-btn${f.is_active ? ' admin-btn-warn' : ''}" data-admin-action="toggle-format-active" data-id="${f.id}">${f.is_active ? 'Deactivate' : 'Activate'}</button>
                 ${!f.is_default ? `<button class="player-history-register-btn admin-btn-danger" data-admin-action="delete-format" data-id="${f.id}" data-name="${escapeAdminHtml(f.name || f.code)}">Delete</button>` : ''}
             </td>
         </tr>
@@ -258,13 +260,13 @@ function openFormatModal(id) {
 
     // Set existing background if any, otherwise try to auto-detect from code
     if (format?.background_url) {
-        // Normalize: strip legacy /formats/ sub-path so URL points to bucket root
-        const normalizedUrl = format.background_url.replace(
+        // Strip legacy /formats/ prefix from DB records that predate bucket restructure
+        const bgUrl = format.background_url.replace(
             /(\/storage\/v1\/object\/public\/[^/]+\/)formats\//,
             '$1'
         );
-        const normalizedPath = (format.background_path || '').replace(/^formats\//, '');
-        setFormatBgPreview(normalizedUrl, normalizedUrl, normalizedPath || null);
+        const bgPath = (format.background_path || '').replace(/^formats\//, '');
+        setFormatBgPreview(bgUrl, bgUrl, bgPath || null);
     } else {
         clearFormatBackground();
         if (format?.code) autoDetectFormatBackground(format.code);
@@ -308,10 +310,10 @@ async function saveFormat(e) {
             const uploaded = await uploadFormatBackground(file, code);
             payload.background_path = uploaded.path;
             payload.background_url = uploaded.url;
-        } else if (existingBgUrl) {
-            // Existing image selected from bucket browser
-            payload.background_url = existingBgUrl;
-            payload.background_path = existingBgPath || null;
+        } else {
+            // Use existing value or empty string if cleared
+            payload.background_url = existingBgUrl || '';
+            payload.background_path = existingBgPath || '';
         }
 
         const headers = {
@@ -319,6 +321,8 @@ async function saveFormat(e) {
             'Content-Type': 'application/json',
             Prefer: 'return=representation',
         };
+
+        if (isDefault) await clearOtherDefaults(id || null);
 
         const url = id
             ? `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`
@@ -342,6 +346,17 @@ async function saveFormat(e) {
     }
 }
 
+async function clearOtherDefaults(excludeId) {
+    const filter = excludeId
+        ? `is_default=eq.true&id=neq.${excludeId}`
+        : 'is_default=eq.true';
+    await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?${filter}`, {
+        method: 'PATCH',
+        headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ is_default: false }),
+    });
+}
+
 async function setDefaultFormat(id) {
     if (!id) return;
     const headers = {
@@ -349,6 +364,7 @@ async function setDefaultFormat(id) {
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
     };
+    await clearOtherDefaults(id);
     const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`, {
         method: 'PATCH',
         headers,
@@ -362,17 +378,57 @@ async function setDefaultFormat(id) {
     await loadAdminFormats();
 }
 
-async function deleteFormat(id, name) {
+async function toggleFormatActive(id) {
     if (!id) return;
-    if (!confirm(`Delete format "${name}"? This cannot be undone.`)) return;
+    const format = adminFormats.find((f) => f.id === id);
+    if (!format) return;
+    const newActive = !format.is_active;
     const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`, {
-        method: 'DELETE',
-        headers: window.createSupabaseHeaders(),
+        method: 'PATCH',
+        headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ is_active: newActive }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(`Failed to delete: ${err.message || res.status}`);
+        alert(`Failed to update: ${err.message || res.status}`);
         return;
+    }
+    await loadAdminFormats();
+}
+
+async function deleteFormat(id, name) {
+    if (!id) return;
+    const wasDefault = adminFormats.find((f) => f.id === id)?.is_default === true;
+    if (!confirm(`Delete format "${name}"? This cannot be undone.\n\nIf this format is linked to tournaments, use "Deactivate" instead.`)) return;
+    const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { ...window.createSupabaseHeaders(), Prefer: 'count=exact' },
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err.message || err.details || `HTTP ${res.status}`;
+        const isFk = msg.toLowerCase().includes('foreign key') || msg.toLowerCase().includes('violates');
+        alert(`Failed to delete: ${msg}${isFk ? '\n\nThis format is referenced by tournaments. Use "Deactivate" instead.' : ''}`);
+        return;
+    }
+    // count=exact: Content-Range header is "*/N" where N = rows affected
+    const contentRange = res.headers.get('Content-Range') || '';
+    const deleted = parseInt(contentRange.replace('*/', ''), 10);
+    if (!isNaN(deleted) && deleted === 0) {
+        alert('Nothing was deleted. This is likely blocked by a RLS policy on the formats table.\n\nPlease delete directly via the Supabase dashboard, or use "Deactivate" instead.');
+        return;
+    }
+    // If the deleted format was the default, promote the most recently created remaining format
+    if (wasDefault) {
+        const remaining = adminFormats.filter((f) => f.id !== id);
+        const newest = remaining.reduce((a, b) => ((a?.id || 0) > (b?.id || 0) ? a : b), null);
+        if (newest?.id) {
+            await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${newest.id}`, {
+                method: 'PATCH',
+                headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ is_default: true }),
+            });
+        }
     }
     await loadAdminFormats();
 }
@@ -733,7 +789,7 @@ async function toggleBucketBrowser() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    prefix: 'formats/',
+                    prefix: '',
                     limit: 200,
                     offset: 0,
                     sortBy: { column: 'name', order: 'asc' },
@@ -745,18 +801,18 @@ async function toggleBucketBrowser() {
         const files = await res.json();
 
         if (!Array.isArray(files) || files.length === 0) {
-            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No images found in formats/ folder.</p>';
+            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No images found in bucket.</p>';
             return;
         }
 
-        const base = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/formats/`;
+        const base = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/`;
 
         grid.innerHTML = files
             .filter((f) => f.name && !f.name.endsWith('/'))
             .map((f) => {
                 const url = base + encodeURIComponent(f.name);
-                const displayName = f.name; // just the filename, e.g. "BT23.png"
-                const fullPath = `formats/${f.name}`;
+                const displayName = f.name;
+                const fullPath = f.name;
                 const safeName = escapeAdminHtml(displayName);
                 const safeUrl = escapeAdminHtml(url);
                 const safePath = escapeAdminHtml(fullPath);
@@ -887,21 +943,22 @@ function setFormatBgPreview(src, url, path) {
     const urlInput = document.getElementById('adminFormatBgUrl');
     const pathInput = document.getElementById('adminFormatBgPath');
 
-    if (wrap) wrap.style.display = src ? 'flex' : 'none';
+    // Always remove leftover fallback label from a previous error
+    if (wrap) {
+        wrap.querySelectorAll('.admin-bg-fallback-label').forEach((el) => el.remove());
+        wrap.style.display = src ? 'flex' : 'none';
+    }
     if (img) {
-        img.style.display = '';
+        img.style.display = src ? '' : 'none';
         img.alt = 'Selected background';
         img.onerror = () => {
             console.warn('[adminBgPreview] failed to load:', src);
             img.style.display = 'none';
             if (wrap) {
-                let fl = wrap.querySelector('.admin-bg-fallback-label');
-                if (!fl) {
-                    fl = document.createElement('span');
-                    fl.className = 'admin-bg-fallback-label';
-                    wrap.insertBefore(fl, wrap.firstChild);
-                }
+                const fl = document.createElement('span');
+                fl.className = 'admin-bg-fallback-label';
                 fl.textContent = path || (src ? src.split('/').pop() : '');
+                wrap.insertBefore(fl, wrap.firstChild);
             }
         };
         img.src = src || '';
