@@ -17,7 +17,7 @@ let editResults = [];
 let editOriginalResultIds = [];
 let editOcrSelectedFiles = [];
 let editOcrImportInProgress = false;
-const editOcrApiBaseUrl = 'https://e-lopes-digimon-ocr-api.hf.space';
+const editOcrApiBaseUrl = 'https://digimon-ocr-api.vercel.app';
 
 function normalizeEditPlayerNameInput(value) {
     return String(value || '')
@@ -228,6 +228,8 @@ async function loadEditFormData(id) {
         document.getElementById('editTotalPlayers').value = '0';
         document.getElementById('editInstagramLink').value = data.instagram_link || '';
 
+        // Reset cache so format default reflects current DB state
+        if (typeof tournamentFormatsLoaded !== 'undefined') tournamentFormatsLoaded = false;
         const formatLoaderPromise =
             typeof loadTournamentFormats === 'function' ? loadTournamentFormats() : Promise.resolve();
         await Promise.all([

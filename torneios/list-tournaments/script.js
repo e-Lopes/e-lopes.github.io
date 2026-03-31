@@ -26,7 +26,7 @@ const DASHBOARD_VIEW_STORAGE_KEY = 'dashboardActiveView';
 const STATS_VIEW_STORAGE_KEY = 'dashboardStatisticsView';
 const STATS_COLUMN_WIDTHS_STORAGE_KEY = 'dashboardStatisticsColumnWidths';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
-const OCR_API_BASE_URL = 'https://e-lopes-digimon-ocr-api.hf.space';
+const OCR_API_BASE_URL = 'https://digimon-ocr-api.vercel.app';
 const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
 const ENABLE_TOP_CARDS_API_LOOKUP = window.APP_CONFIG?.ENABLE_TOP_CARDS_API_LOOKUP !== false;
 const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
