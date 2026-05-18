@@ -1,6 +1,7 @@
 (function () {
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+    const FANDOM_BASE_URL = 'https://digimoncardgame.fandom.com/wiki/Special:FilePath/';
     const COLOR_OPTIONS = [
         { code: 'r', label: 'Red', className: 'is-red' },
         { code: 'u', label: 'Blue', className: 'is-blue' },
@@ -99,47 +100,53 @@
         return rows.some((r) => String(r.id) !== String(excludeDeckId));
     }
 
-    function isBlobBlank(blob) {
+    async function fetchCardImageBlob(src) {
+        let blob;
+        try {
+            const res = await fetch(src);
+            if (!res.ok) return null;
+            blob = await res.blob();
+        } catch { return null; }
         return new Promise((resolve) => {
             const url = URL.createObjectURL(blob);
             const img = new Image();
             img.onload = () => {
                 URL.revokeObjectURL(url);
                 try {
-                    const cv = document.createElement('canvas');
-                    cv.width = 8; cv.height = 8;
-                    const ctx = cv.getContext('2d');
-                    ctx.drawImage(img, 0, 0, 8, 8);
-                    const { data } = ctx.getImageData(0, 0, 8, 8);
+                    const check = document.createElement('canvas');
+                    check.width = 8; check.height = 8;
+                    check.getContext('2d').drawImage(img, 0, 0, 8, 8);
+                    const { data } = check.getContext('2d').getImageData(0, 0, 8, 8);
                     let r = 0, g = 0, b = 0;
                     const px = data.length / 4;
                     for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
-                    resolve((r / px) > 245 && (g / px) > 245 && (b / px) > 245);
-                } catch { resolve(false); }
+                    if ((r / px) > 245 && (g / px) > 245 && (b / px) > 245) { resolve(null); return; }
+                    const cv = document.createElement('canvas');
+                    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+                    cv.getContext('2d').drawImage(img, 0, 0);
+                    cv.toBlob((webpBlob) => resolve(webpBlob || blob), 'image/webp', 0.92);
+                } catch { resolve(blob); }
             };
-            img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
             img.src = url;
         });
     }
 
     async function uploadDeckImageToStorage(supabaseUrl, headers, deckCode) {
         const candidates = [
+            `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${deckCode}-Sample.png`,
             `${IMAGE_BASE_URL}${deckCode}.webp`,
             `${IMAGE_BASE_URL}${deckCode}.jpg`,
             `${LEGACY_IMAGE_BASE_URL}${deckCode}.webp`,
         ];
         let blob = null;
         for (const src of candidates) {
-            try {
-                const res = await fetch(src);
-                if (!res.ok) continue;
-                const candidate = await res.blob();
-                if (await isBlobBlank(candidate)) continue;
-                blob = candidate;
-                break;
-            } catch (_) {}
+            console.log(`[deck-image] tentando: ${src}`);
+            blob = await fetchCardImageBlob(src);
+            if (blob) { console.log(`[deck-image] sucesso: ${src} (${blob.size} bytes)`); break; }
+            else console.warn(`[deck-image] falhou: ${src}`);
         }
-        if (!blob) return null;
+        if (!blob) { console.error(`[deck-image] nenhuma fonte funcionou para ${deckCode}`); return null; }
         const uploadRes = await fetch(
             `${supabaseUrl}/storage/v1/object/deck-images/${encodeURIComponent(deckCode)}.webp`,
             {
@@ -261,7 +268,7 @@
                 previewImage.removeAttribute('src');
                 return;
             }
-            previewImage.src = IMAGE_BASE_URL + code + '.webp';
+            previewImage.src = FANDOM_BASE_URL + code + '-Sample.png';
             preview.style.display = 'flex';
         };
 
@@ -277,7 +284,10 @@
         if (previewImage && preview) {
             previewImage.addEventListener('error', () => {
                 const src = previewImage.getAttribute('src') || '';
-                if (src.startsWith(IMAGE_BASE_URL)) {
+                if (src.startsWith(FANDOM_BASE_URL)) {
+                    const code = src.slice(FANDOM_BASE_URL.length).replace(/-Sample\.png$/, '');
+                    previewImage.src = IMAGE_BASE_URL + code + '.webp';
+                } else if (src.startsWith(IMAGE_BASE_URL)) {
                     const code = src.slice(IMAGE_BASE_URL.length).replace(/\.webp$/, '');
                     previewImage.src = LEGACY_IMAGE_BASE_URL + code + '.webp';
                 } else {

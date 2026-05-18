@@ -2821,7 +2821,14 @@ async function drawDistributionAndResultsContent(ctx, width, height, data, layou
     const fallbackImage = (deckName) =>
         `https://via.placeholder.com/420x420/5f75b9/ffffff?text=${encodeURIComponent(String(deckName || 'Deck').slice(0, 10))}`;
     const pieImages = await Promise.all(
-        pieRows.map((row) => loadImage(row.image_url || fallbackImage(row.deck)))
+        pieRows.map(async (row) => {
+            const code = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i)?.[1]?.toUpperCase();
+            if (code) {
+                const img = await loadDeckCardImage(code);
+                if (img) return img;
+            }
+            return row.image_url ? loadImage(row.image_url) : loadImage(fallbackImage(row.deck));
+        })
     );
 
     pieRows.forEach((row, index) => {
@@ -3143,11 +3150,15 @@ function normalizeDeckCodeForBlankMiddle(value) {
 }
 
 async function loadDeckCardImage(code) {
-    // digimoncard.io: use fetch→blob so it works on canvas if CORS headers are present
-    for (const src of [
+    const supabaseUrl = window.APP_CONFIG?.SUPABASE_URL || '';
+    const candidates = [
+        supabaseUrl ? `${supabaseUrl}/storage/v1/object/public/deck-images/${encodeURIComponent(code)}.webp?t=${Date.now()}` : null,
+        `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${code}-Sample.png`,
         `https://images.digimoncard.io/images/cards/${code}.webp`,
         `https://images.digimoncard.io/images/cards/${code}.jpg`,
-    ]) {
+    ].filter(Boolean);
+
+    for (const src of candidates) {
         const result = await loadImage(src);
         if (result && !isDeckCardImageBlank(result)) return result;
     }

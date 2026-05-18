@@ -1817,11 +1817,7 @@ async function runSyncCardsFull() {
         syncLog(`${toFetch.length} cartas faltantes ou incompletas no catálogo.`, toFetch.length ? 'warn' : 'info');
 
         if (!toFetch.length && !fixedCount) {
-            syncProgressShow('Catálogo já completo!', 100, '');
-            syncLog('Nenhuma carta precisa ser atualizada.', 'success');
-            if (statusEl) statusEl.textContent = 'Catálogo já está completo.';
-            if (runBtn) runBtn.disabled = false;
-            return;
+            syncLog('Nenhuma carta precisa ser atualizada.', 'info');
         }
 
         // Step 4: batch-fetch metadata (20 per request)
@@ -1937,25 +1933,37 @@ async function runSyncCardsFull() {
     }
 }
 
-async function isBlobBlank(blob) {
+async function fetchCardImageBlob(src) {
+    let blob;
+    try {
+        const res = await fetch(src);
+        if (!res.ok) return null;
+        blob = await res.blob();
+    } catch { return null; }
+
     return new Promise((resolve) => {
         const url = URL.createObjectURL(blob);
         const img = new Image();
         img.onload = () => {
             URL.revokeObjectURL(url);
             try {
-                const cv = document.createElement('canvas');
-                cv.width = 8; cv.height = 8;
-                const ctx = cv.getContext('2d');
-                ctx.drawImage(img, 0, 0, 8, 8);
-                const { data } = ctx.getImageData(0, 0, 8, 8);
+                // Blank check
+                const check = document.createElement('canvas');
+                check.width = 8; check.height = 8;
+                check.getContext('2d').drawImage(img, 0, 0, 8, 8);
+                const { data } = check.getContext('2d').getImageData(0, 0, 8, 8);
                 let r = 0, g = 0, b = 0;
                 const px = data.length / 4;
                 for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
-                resolve((r / px) > 245 && (g / px) > 245 && (b / px) > 245);
-            } catch { resolve(false); }
+                if ((r / px) > 245 && (g / px) > 245 && (b / px) > 245) { resolve(null); return; }
+                // Convert to WebP
+                const cv = document.createElement('canvas');
+                cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+                cv.getContext('2d').drawImage(img, 0, 0);
+                cv.toBlob((webpBlob) => resolve(webpBlob || blob), 'image/webp', 0.92);
+            } catch { resolve(blob); }
         };
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
         img.src = url;
     });
 }
@@ -1965,17 +1973,17 @@ async function syncDeckImages(onProgress) {
     const hdrs = window.createSupabaseHeaders();
     const storagePrefix = `${base}/storage/v1/object/public/deck-images/`;
 
-    // Load all deck_images not yet in Supabase Storage
     const res = await fetch(
         `${base}/rest/v1/deck_images?select=id,image_url&limit=1000`,
         { headers: hdrs }
     );
-    if (!res.ok) return { done: 0, failed: 0 };
+    if (!res.ok) { syncLog(`syncDeckImages: erro ao ler deck_images (HTTP ${res.status})`, 'warn'); return { done: 0, failed: 0 }; }
     const rows = await res.json();
     const toMigrate = (Array.isArray(rows) ? rows : []).filter(r =>
         r.image_url && !String(r.image_url).startsWith(storagePrefix)
     );
 
+    syncLog(`${toMigrate.length} deck(s) para migrar imagem para o Storage.`, 'info');
     if (!toMigrate.length) return { done: 0, failed: 0 };
 
     let done = 0, failed = 0;
@@ -1985,27 +1993,22 @@ async function syncDeckImages(onProgress) {
         if (onProgress) onProgress(i, toMigrate.length);
 
         const codeMatch = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i);
-        if (!codeMatch) { failed++; continue; }
+        if (!codeMatch) { syncLog(`  sem código válido em: ${row.image_url}`, 'warn'); failed++; continue; }
         const code = codeMatch[1].toUpperCase();
 
         const candidates = [
             `https://images.digimoncard.io/images/cards/${code}.webp`,
             `https://images.digimoncard.io/images/cards/${code}.jpg`,
+            `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${code}-Sample.png`,
             `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`,
         ];
 
         let blob = null;
         for (const src of candidates) {
-            try {
-                const r = await fetch(src);
-                if (!r.ok) continue;
-                const b = await r.blob();
-                if (await isBlobBlank(b)) continue;
-                blob = b;
-                break;
-            } catch (_) {}
+            blob = await fetchCardImageBlob(src);
+            if (blob) break;
         }
-        if (!blob) { failed++; continue; }
+        if (!blob) { syncLog(`  ${code}: nenhuma imagem válida encontrada nos CDNs`, 'warn'); failed++; continue; }
 
         const uploadRes = await fetch(
             `${base}/storage/v1/object/deck-images/${encodeURIComponent(code)}.webp`,
@@ -2014,13 +2017,17 @@ async function syncDeckImages(onProgress) {
                 headers: {
                     apikey: hdrs.apikey,
                     Authorization: hdrs.Authorization,
-                    'Content-Type': blob.type || 'image/webp',
+                    'Content-Type': 'image/webp',
                     'x-upsert': 'true',
                 },
                 body: blob,
             }
         );
-        if (!uploadRes.ok) { failed++; continue; }
+        if (!uploadRes.ok) {
+            const detail = await uploadRes.text().catch(() => '');
+            syncLog(`  ${code}: upload falhou (HTTP ${uploadRes.status}) — ${detail}`, 'warn');
+            failed++; continue;
+        }
 
         const newUrl = `${storagePrefix}${encodeURIComponent(code)}.webp`;
         await fetch(`${base}/rest/v1/deck_images?id=eq.${row.id}`, {
@@ -2029,6 +2036,7 @@ async function syncDeckImages(onProgress) {
             body: JSON.stringify({ image_url: newUrl }),
         });
 
+        syncLog(`  ${code}: ✓ migrado`, 'info');
         done++;
         await new Promise(r => setTimeout(r, 150));
     }
