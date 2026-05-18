@@ -1,0 +1,30 @@
+name: Weekly Card Sync
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'   # toda segunda-feira às 04:00 UTC (01:00 BRT)
+  workflow_dispatch:        # permite disparar manualmente pela aba Actions
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/Sao_Paulo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Sync cards & export catalog
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: npm run cards:sync-all

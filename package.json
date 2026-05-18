@@ -9,7 +9,8 @@
         "format": "prettier --write \"**/*.{js,css,html,md,json}\"",
         "db:snapshot": "powershell -ExecutionPolicy Bypass -File scripts/export-supabase-schema.ps1",
         "cards:sync-metadata": "node scripts/sync-card-metadata.js",
-        "cards:sync-metadata:apply": "node scripts/sync-card-metadata.js --update-decklist-cards"
+        "cards:sync-metadata:apply": "node scripts/sync-card-metadata.js --update-decklist-cards",
+        "cards:sync-all": "node scripts/sync-all.js"
     },
     "devDependencies": {
         "eslint": "^9.20.1",

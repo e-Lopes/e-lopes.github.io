@@ -1,7 +1,8 @@
 {
 const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://vllqakohumoinpdwnsqa.supabase.co';
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
-const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
+const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
 const headers = window.createSupabaseHeaders
     ? window.createSupabaseHeaders()
     : {
@@ -25,7 +26,7 @@ let pageSize = getInitialPageSize();
 let currentSearchTerm = '';
 let decksPageInitialized = false;
 let decklistMvpEntries = [];
-const DECK_CODE_PATTERN = /^[A-Z]{1,3}\d{0,2}-\d{1,3}$/;
+const DECK_CODE_PATTERN = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/;
 let deckRankRows = [];
 let deckRankLookup = new Map();
 let deckRankMonths = [];
@@ -303,14 +304,16 @@ function renderDecklistMvpBoard(errors = []) {
         .join('');
 
     board.querySelectorAll('.decklist-mvp-card img').forEach((img) => {
-        img.addEventListener(
-            'error',
-            () => {
-                const code = img.closest('.decklist-mvp-card')?.dataset.code || 'CODE';
-                img.src = `https://via.placeholder.com/220x308/667eea/ffffff?text=${encodeURIComponent(code)}`;
-            },
-            { once: true }
-        );
+        img.addEventListener('error', () => {
+            const code = img.closest('.decklist-mvp-card')?.dataset.code || 'CODE';
+            const legacyUrl = `${LEGACY_IMAGE_BASE_URL}${code}.webp`;
+            const placeholderUrl = `https://via.placeholder.com/220x308/667eea/ffffff?text=${encodeURIComponent(code)}`;
+            if (img.src !== legacyUrl && img.src !== placeholderUrl) {
+                img.src = legacyUrl;
+            } else if (img.src !== placeholderUrl) {
+                img.src = placeholderUrl;
+            }
+        });
     });
 }
 
@@ -1558,7 +1561,8 @@ function renderDeckHistoryCardsHtml(cards) {
         const qty = Number(card.qty) || 1;
         const candidates = [
             `${IMAGE_BASE_URL}${code}.webp`,
-            `${IMAGE_BASE_URL}${code}.png`,
+            `${IMAGE_BASE_URL}${code}.jpg`,
+            `${LEGACY_IMAGE_BASE_URL}${code}.webp`,
             `https://card-list.prodigi.dev/images/cards/${code}.webp`,
             `https://card-list.prodigi.dev/images/cards/${code}.png`
         ];

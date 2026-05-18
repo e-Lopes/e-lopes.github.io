@@ -75,6 +75,7 @@ function setupAdminActions() {
         if (action === 'repair-run') runRepairRun();
         if (action === 'download-cards') runDownloadCards();
         if (action === 'export-catalog') runExportCatalog();
+        if (action === 'sync-cards-full') runSyncCardsFull();
         if (action === 'create-store') openStoreModal(null);
         if (action === 'edit-store') openStoreModal(btn.dataset.id);
         if (action === 'delete-store') deleteStore(btn.dataset.id, btn.dataset.name);
@@ -83,6 +84,8 @@ function setupAdminActions() {
         if (action === 'browse-store-logos') toggleStoreBucketBrowser();
         if (action === 'select-store-logo') selectStoreLogo(btn.dataset.url);
     });
+
+    injectSyncCardsSection();
 
     // Format form submit
     const formatForm = document.getElementById('adminFormatForm');
@@ -981,7 +984,7 @@ let _repairIncompleteCodesCache = null;
 
 function deriveCardMeta(row) {
     const typeRaw = String(row?.type || '').trim().toLowerCase();
-    const card_level = Number.isFinite(Number(row?.level)) && row?.level !== '' && row?.level !== null
+    let card_level = Number.isFinite(Number(row?.level)) && row?.level !== '' && row?.level !== null
         ? Math.trunc(Number(row.level))
         : null;
     let card_type = null;
@@ -989,6 +992,9 @@ function deriveCardMeta(row) {
     else if (typeRaw === 'digimon') card_type = 'Digimon';
     else if (typeRaw === 'tamer')   card_type = 'Tamer';
     else if (typeRaw === 'option')  card_type = 'Option';
+    else if (typeRaw === 'dual')    card_type = 'Dual';
+    // Option, Tamer, Dual have no meaningful level — normalize null to 0 for consistency
+    if ((card_type === 'Option' || card_type === 'Tamer' || card_type === 'Dual') && card_level === null) card_level = 0;
     const is_digi_egg = card_type === 'Digi-Egg';
     return { card_type, card_level, is_digi_egg };
 }
@@ -1597,6 +1603,327 @@ async function runExportCatalog() {
         exportProgressHide();
         exportLog(`Erro: ${err.message}`, 'error');
         if (statusEl) statusEl.textContent = 'Erro durante o export. Veja o log abaixo.';
+    } finally {
+        if (runBtn) runBtn.disabled = false;
+    }
+}
+
+// ============================================================
+// SYNC CARDS (CATÁLOGO COMPLETO)
+// ============================================================
+
+// Only codes matching this pattern are valid DCG cards (excludes BO-, MO-, etc.)
+const SYNC_VALID_CODE_RE = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/;
+
+function injectSyncCardsSection() {
+    if (document.getElementById('adminSyncCardsSection')) return;
+
+    // Hide the individual legacy sections — Sync & Export replaces all three
+    const legacyIds = [
+        'adminRepairRunBtn', 'adminRepairMissingCount',
+        'adminDownloadRunBtn', 'adminDownloadStatus',
+        'adminExportRunBtn',  'adminExportStatus',
+    ];
+    const hiddenSections = new Set();
+    legacyIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const section = el.closest('[class*="admin-section"]')
+            || el.closest('[class*="section"]')
+            || el.closest('[class*="w-layout"]')
+            || el.parentElement?.parentElement;
+        if (section && !hiddenSections.has(section)) {
+            section.style.display = 'none';
+            hiddenSections.add(section);
+        }
+    });
+
+    // Inject unified section after the last hidden one (or at end of container)
+    const lastHidden = [...hiddenSections].at(-1);
+    const container  = document.getElementById('adminContainer');
+
+    const section = document.createElement('div');
+    section.id = 'adminSyncCardsSection';
+    section.style.cssText = 'padding:20px;border:1px solid #1e293b;border-radius:8px;background:#0f172a;color:#f1f5f9';
+    section.innerHTML = `
+        <h3 style="margin:0 0 4px;font-size:1rem;font-weight:600;color:#f1f5f9">Sync Cards</h3>
+        <p style="margin:0 0 14px;font-size:.85rem;color:#94a3b8">
+            Busca novos sets no <code style="background:#1e293b;padding:1px 4px;border-radius:3px">getAllCards</code>,
+            baixa os metadados das cartas faltantes/incompletas e exporta o catálogo atualizado.
+        </p>
+        <button id="adminSyncRunBtn" class="player-history-register-btn" data-admin-action="sync-cards-full">
+            Sync &amp; Export
+        </button>
+        <div id="adminSyncStatus" style="margin-top:10px;font-size:.85rem;color:#94a3b8"></div>
+        <div id="adminSyncProgress" style="margin-top:12px;display:none">
+            <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px;color:#cbd5e1">
+                <span id="adminSyncProgressLabel"></span>
+                <span id="adminSyncProgressPct"></span>
+            </div>
+            <div style="height:8px;background:#1e293b;border-radius:4px;overflow:hidden">
+                <div id="adminSyncProgressBar" style="height:100%;width:0%;background:#6366f1;transition:width .3s"></div>
+            </div>
+            <div id="adminSyncProgressDetail" style="margin-top:4px;font-size:.75rem;color:#64748b"></div>
+        </div>
+        <div id="adminSyncLog" style="margin-top:12px;max-height:180px;overflow-y:auto;font-size:.78rem;font-family:monospace;background:#020617;color:#e2e8f0;border-radius:6px;padding:10px;display:none"></div>
+    `;
+
+    if (lastHidden && lastHidden.parentElement) {
+        lastHidden.parentElement.insertBefore(section, lastHidden.nextSibling);
+    } else if (container) {
+        container.appendChild(section);
+    }
+}
+
+function syncLog(msg, type = 'info') {
+    const log = document.getElementById('adminSyncLog');
+    if (!log) return;
+    log.style.display = 'block';
+    const colors = { info: '#94a3b8', warn: '#fbbf24', error: '#f87171', success: '#4ade80' };
+    const line = document.createElement('div');
+    line.style.color = colors[type] || colors.info;
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+function syncLogClear() {
+    const log = document.getElementById('adminSyncLog');
+    if (log) { log.innerHTML = ''; log.style.display = 'none'; }
+}
+
+function syncProgressShow(label, pct, detail) {
+    const wrap = document.getElementById('adminSyncProgress');
+    if (wrap) wrap.style.display = 'block';
+    const el = (id) => document.getElementById(id);
+    if (el('adminSyncProgressLabel')) el('adminSyncProgressLabel').textContent = label;
+    if (el('adminSyncProgressPct')) el('adminSyncProgressPct').textContent = `${Math.round(pct)}%`;
+    if (el('adminSyncProgressBar')) el('adminSyncProgressBar').style.width = `${Math.min(100, pct)}%`;
+    if (detail != null && el('adminSyncProgressDetail')) el('adminSyncProgressDetail').textContent = detail;
+}
+
+function syncProgressHide() {
+    const wrap = document.getElementById('adminSyncProgress');
+    if (wrap) wrap.style.display = 'none';
+}
+
+async function fixCardTypesFromPayload() {
+    const base = window.APP_CONFIG.SUPABASE_URL;
+    const hdrs = window.createSupabaseHeaders();
+    const toUpdate = [];
+    let offset = 0;
+    const PAGE = 1000;
+
+    while (true) {
+        const q = new URLSearchParams({
+            select: 'card_code,card_payload',
+            card_type: 'is.null',
+            order: 'card_code.asc',
+            limit: String(PAGE),
+            offset: String(offset),
+        });
+        const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
+        if (!res.ok) break;
+        const batch = await res.json();
+        if (!Array.isArray(batch) || !batch.length) break;
+        batch.forEach(r => {
+            const { card_type, is_digi_egg } = deriveCardMeta(r.card_payload || {});
+            if (card_type) toUpdate.push({ card_code: r.card_code, card_type, is_digi_egg });
+        });
+        if (batch.length < PAGE) break;
+        offset += PAGE;
+    }
+
+    if (!toUpdate.length) return 0;
+
+    const CHUNK = 500;
+    for (let i = 0; i < toUpdate.length; i += CHUNK) {
+        const res = await fetch(
+            `${base}/rest/v1/decklist_card_metadata?on_conflict=card_code`,
+            {
+                method: 'POST',
+                headers: { ...hdrs, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+                body: JSON.stringify(toUpdate.slice(i, i + CHUNK)),
+            }
+        );
+        if (!res.ok) {
+            const detail = await res.text().catch(() => '');
+            throw new Error(`Patch card_type falhou: HTTP ${res.status} — ${detail}`);
+        }
+    }
+    return toUpdate.length;
+}
+
+async function runSyncCardsFull() {
+    const runBtn = document.getElementById('adminSyncRunBtn');
+    const statusEl = document.getElementById('adminSyncStatus');
+    if (runBtn) runBtn.disabled = true;
+    syncLogClear();
+    syncProgressShow('Buscando lista de cartas da API…', 0, '');
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    try {
+        // Step 1: getAllCards → complete code list
+        const allRes = await fetch(
+            `${DIGIMON_ALL_CARDS_API}?series=${encodeURIComponent('Digimon Card Game')}&sort=card_number&sortdirection=asc`
+        );
+        if (!allRes.ok) throw new Error(`getAllCards falhou: HTTP ${allRes.status}`);
+        const allRows = await allRes.json();
+        if (!Array.isArray(allRows)) throw new Error('Resposta inesperada do getAllCards');
+
+        // Filter to valid DCG card codes only (excludes BO-, MO-, etc.)
+        const allCodes = allRows
+            .map(r => String(r?.cardnumber || '').trim().toUpperCase())
+            .filter(c => c && SYNC_VALID_CODE_RE.test(c));
+        syncLog(`${allCodes.length} códigos válidos encontrados no getAllCards.`, 'info');
+
+        // Step 2: load current catalog JSON (bypass cache)
+        syncProgressShow('Carregando catálogo atual…', 8, '');
+        const catalogUrl = window.APP_CONFIG?.SUPABASE_URL
+            ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/card-catalog/card-catalog.json`
+            : '';
+        const catalogMap = new Map();
+        if (catalogUrl) {
+            try {
+                const catRes = await fetch(`${catalogUrl}?_=${Date.now()}`);
+                if (catRes.ok) {
+                    const catData = await catRes.json();
+                    if (Array.isArray(catData)) {
+                        catData.forEach(r => {
+                            const code = String(r?.card_code || '').toUpperCase();
+                            if (code) catalogMap.set(code, r);
+                        });
+                    }
+                }
+            } catch (_) {}
+        }
+        syncLog(`${catalogMap.size} cartas no catálogo atual.`, 'info');
+
+        // Step 3: fix card_type derivable from existing card_payload (no API call)
+        syncProgressShow('Verificando card_type no banco…', 12, '');
+        const fixedCount = await fixCardTypesFromPayload();
+        if (fixedCount) syncLog(`${fixedCount} registro(s) com card_type corrigido a partir do payload.`, 'info');
+
+        // Step 4: find which codes still need fetching from API
+        // Incomplete = not in catalog OR name is missing/equals card_code (stub)
+        const toFetch = allCodes.filter(code => {
+            const entry = catalogMap.get(code);
+            if (!entry) return true;
+            const name = String(entry?.name || '').trim();
+            return !name || name === code;
+        });
+
+        syncLog(`${toFetch.length} cartas faltantes ou incompletas no catálogo.`, toFetch.length ? 'warn' : 'info');
+
+        if (!toFetch.length && !fixedCount) {
+            syncProgressShow('Catálogo já completo!', 100, '');
+            syncLog('Nenhuma carta precisa ser atualizada.', 'success');
+            if (statusEl) statusEl.textContent = 'Catálogo já está completo.';
+            if (runBtn) runBtn.disabled = false;
+            return;
+        }
+
+        // Step 4: batch-fetch metadata (20 per request)
+        const CHUNK = 20;
+        const fetched = [];
+        const usedCodes = new Set();
+
+        const pushRow = (row) => {
+            const code = String(row?.id || row?.card || '').trim().toUpperCase();
+            if (!code || usedCodes.has(code)) return;
+            usedCodes.add(code);
+            const { card_type, card_level, is_digi_egg } = deriveCardMeta(row);
+            fetched.push({
+                card_code: code, id: row?.id || code, name: row?.name || null,
+                pack: row?.pack || code.split('-')[0] || null, color: row?.color || null,
+                card_type, card_level, is_digi_egg, card_payload: row || {},
+            });
+        };
+
+        for (let i = 0; i < toFetch.length; i += CHUNK) {
+            const chunk = toFetch.slice(i, i + CHUNK);
+            const pct = 10 + (i / toFetch.length) * 65;
+            syncProgressShow(
+                'Buscando metadados na API…',
+                pct,
+                `${i} / ${toFetch.length} · ${fetched.length} encontradas`
+            );
+
+            let retries = 0;
+            while (retries < 3) {
+                try {
+                    const q = new URLSearchParams({
+                        card: chunk.join(','),
+                        limit: String(chunk.length * 2),
+                        series: 'Digimon Card Game',
+                    });
+                    const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+                    if (res.status === 429) {
+                        syncLog(`Rate limited (chunk ${Math.floor(i / CHUNK) + 1}) — aguardando 10s…`, 'warn');
+                        await sleep(10000);
+                        retries++;
+                        continue;
+                    }
+                    if (res.ok) {
+                        const rows = await res.json();
+                        if (Array.isArray(rows)) rows.forEach(pushRow);
+                    }
+                    break;
+                } catch (_) { retries++; }
+            }
+            await sleep(800);
+        }
+
+        // Step 5: retry missed codes 1-by-1
+        const missed = toFetch.filter(c => !usedCodes.has(c));
+        if (missed.length) {
+            syncLog(`${missed.length} cartas não encontradas no batch — buscando 1 a 1…`, 'warn');
+            for (let i = 0; i < missed.length; i++) {
+                const code = missed[i];
+                const pct = 75 + (i / missed.length) * 15;
+                syncProgressShow('Buscando 1 a 1…', pct, `${i + 1} / ${missed.length} · ${code}`);
+                try {
+                    const q = new URLSearchParams({ card: code, limit: '2', series: 'Digimon Card Game' });
+                    const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+                    if (res.status === 429) {
+                        await sleep(10000);
+                        const res2 = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
+                        if (res2.ok) { const rows = await res2.json(); if (Array.isArray(rows)) rows.forEach(pushRow); }
+                    } else if (res.ok) {
+                        const rows = await res.json();
+                        if (Array.isArray(rows)) rows.forEach(pushRow);
+                    }
+                } catch (_) {}
+                await sleep(400);
+            }
+        }
+
+        if (toFetch.length) syncLog(`API retornou dados para ${fetched.length} / ${toFetch.length} carta(s).`, 'info');
+
+        // Step 6: upsert to DB
+        if (fetched.length) {
+            syncProgressShow('Salvando no banco…', 90, `0 / ${fetched.length}`);
+            await upsertRepairRows(fetched, (done, total) => {
+                const pct = 90 + (done / total) * 5;
+                syncProgressShow('Salvando no banco…', pct, `${done} / ${total}`);
+            });
+            syncLog(`${fetched.length} registro(s) salvos em decklist_card_metadata.`, 'success');
+        }
+
+        // Step 7: auto Export Catalog
+        syncProgressShow('Exportando catálogo…', 96, '');
+        syncLog('Exportando catálogo atualizado…', 'info');
+        await runExportCatalog();
+
+        syncProgressShow('Concluído!', 100, `${fetched.length} cartas atualizadas`);
+        syncLog(`Sync completo. ${fetched.length} cartas atualizadas, catálogo exportado.`, 'success');
+        if (statusEl) statusEl.textContent = `Última sync: ${fetched.length} carta(s) atualizadas + catálogo exportado.`;
+
+    } catch (err) {
+        syncProgressHide();
+        syncLog(`Erro: ${err.message}`, 'error');
+        if (statusEl) statusEl.textContent = 'Erro durante o sync. Veja o log.';
     } finally {
         if (runBtn) runBtn.disabled = false;
     }

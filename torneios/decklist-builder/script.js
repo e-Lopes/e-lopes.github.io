@@ -5,6 +5,7 @@
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com//card_images/digimon/';
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
+    const DIGIMON_ALL_CARDS_API = 'https://digimoncard.io/api-public/getAllCards';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
     const BLANK_MIDDLE_FALLBACK_BG = window.APP_CONFIG?.SUPABASE_URL
         ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/AD01.png`
@@ -1239,7 +1240,16 @@
             let rows = await fetchCardSearchRowsFromDb(filters);
 
             if (!rows.length) {
-                const apiRows = await fetchCardSearchRowsMerged(filters);
+                const onlySetFilter = filters.card &&
+                    !filters.text && !filters.color && !filters.color2 &&
+                    !filters.type && !filters.level && !filters.playcost;
+                let apiRows;
+                if (onlySetFilter) {
+                    // getAllCards gives the complete code list for the set; batch-fetch details.
+                    apiRows = await fetchAllCardsBySetFromApi(filters.card);
+                } else {
+                    apiRows = await fetchCardSearchRowsMerged(filters);
+                }
                 rows = applyLocalCardSearchFilters(apiRows, filters);
             }
 
@@ -1320,17 +1330,21 @@
     }
 
     async function fetchCardSearchRows(filters) {
-        // filters.card is a set prefix (e.g. "BT1") — the public API doesn't support prefix search,
-        // so it's excluded here. Set filtering is handled by the DB query and the local codePrefix check.
+        // filters.card is a set prefix (e.g. "BT25") — the public API doesn't support prefix search,
+        // so it's excluded here. Set filtering is applied locally via applyLocalCardSearchFilters.
         // Text filter uses the API 'n' param (name search only); trait/effect matching is done locally.
         const hasApiFilter = filters.text || filters.color || filters.type || filters.level || filters.playcost;
-        if (!hasApiFilter) return [];
+        if (!hasApiFilter && !filters.card) return [];
+
+        // When the set filter is active, sort descending so the newest sets come first.
+        // The catalog handles older sets; the API fallback is only needed for sets not yet synced.
+        const sortDirection = filters.card ? 'desc' : 'asc';
 
         const allRows = [];
         let offset = 0, previousSignature = '';
 
         while (allRows.length < CARD_SEARCH_MAX_RESULTS) {
-            const params = new URLSearchParams({ sort: 'card_number', sortdirection: 'asc', limit: String(CARD_SEARCH_LIMIT), offset: String(offset), series: 'Digimon Card Game' });
+            const params = new URLSearchParams({ sort: 'card_number', sortdirection: sortDirection, limit: String(CARD_SEARCH_LIMIT), offset: String(offset), series: 'Digimon Card Game' });
             if (filters.text) params.set('n', filters.text);
             if (filters.color) params.set('color', filters.color);
             if (filters.type) params.set('type', filters.type);
@@ -1339,6 +1353,7 @@
             // Note: digitype omitted intentionally — API does exact match on primary field only,
             // missing digi_type2/3/4. Local filter in applyLocalCardSearchFilters covers all 4 fields.
             // filters.card (set prefix) intentionally not sent to API — no prefix search support.
+            // Applied locally in applyLocalCardSearchFilters.
 
             const res = await fetch(`${DIGIMON_CARD_API_URL}?${params}`);
             let payload = null;
@@ -1357,6 +1372,49 @@
         }
 
         return allRows.slice(0, CARD_SEARCH_MAX_RESULTS);
+    }
+
+    // Fetches all cards from a set by: (1) listing all card codes via getAllCards,
+    // (2) filtering by set prefix, (3) batch-fetching details via search?card=...
+    // Used when only the set filter is active and the catalog doesn't have the set yet.
+    async function fetchAllCardsBySetFromApi(setPrefix) {
+        const allRes = await fetch(
+            `${DIGIMON_ALL_CARDS_API}?series=${encodeURIComponent('Digimon Card Game')}&sort=card_number&sortdirection=asc`
+        );
+        if (!allRes.ok) return [];
+        let allCards;
+        try { allCards = await allRes.json(); } catch { return []; }
+        if (!Array.isArray(allCards)) return [];
+
+        const prefix = setPrefix.toUpperCase() + '-';
+        const setCodes = allCards
+            .filter(c => String(c.cardnumber || '').toUpperCase().startsWith(prefix))
+            .map(c => String(c.cardnumber));
+
+        if (!setCodes.length) return [];
+
+        const CHUNK_SIZE = 20;
+        const details = [];
+        for (let i = 0; i < setCodes.length; i += CHUNK_SIZE) {
+            const chunk = setCodes.slice(i, i + CHUNK_SIZE);
+            const params = new URLSearchParams({
+                card: chunk.join(','),
+                series: 'Digimon Card Game',
+                limit: String(chunk.length),
+                sort: 'card_number',
+                sortdirection: 'asc',
+            });
+            const res = await fetch(`${DIGIMON_CARD_API_URL}?${params}`);
+            if (!res.ok) continue;
+            let data;
+            try { data = await res.json(); } catch { continue; }
+            if (Array.isArray(data)) details.push(...data);
+            if (i + CHUNK_SIZE < setCodes.length) {
+                await new Promise(r => setTimeout(r, 800));
+            }
+        }
+
+        return details;
     }
 
     async function fetchCardSearchRowsFromDb(filters) {
@@ -1381,8 +1439,14 @@
         const type = String(filters?.type || '').trim().toLowerCase();
         const level = String(filters?.level || '').trim();
         const playcost = String(filters?.playcost || '').trim();
+        const cardPrefix = String(filters?.card || '').trim().toUpperCase();
 
         return (Array.isArray(rows) ? rows : []).filter((row) => {
+            if (cardPrefix) {
+                const rowCode = String(row?.card_code || row?.id || row?.card || '').toUpperCase();
+                if (!rowCode.startsWith(cardPrefix + '-')) return false;
+            }
+
             if (text) {
                 const p = row?.card_payload || row;
                 const haystack = [row?.name, p?.main_effect, p?.source_effect, p?.alt_effect, p?.digi_type, p?.digitype, p?.digi_type2, p?.digi_type3, p?.digi_type4]
@@ -1703,6 +1767,7 @@
             : { key: 'digimon', label: 'Digimon' };
         if (type === 'tamer') return { key: 'tamer', label: 'Tamers' };
         if (type === 'option') return { key: 'option', label: 'Options' };
+        if (type === 'dual') return { key: 'dual', label: 'Dual' };
         return { key: 'other', label: 'Other' };
     }
 
@@ -2067,6 +2132,7 @@
         if (v === 'digimon') return 'digimon';
         if (v === 'tamer') return 'tamer';
         if (v === 'option') return 'option';
+        if (v === 'dual') return 'dual';
         return '';
     }
 

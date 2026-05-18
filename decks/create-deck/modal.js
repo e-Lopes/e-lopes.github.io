@@ -1,5 +1,6 @@
 (function () {
-    const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
+    const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
+    const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const COLOR_OPTIONS = [
         { code: 'r', label: 'Red', className: 'is-red' },
         { code: 'u', label: 'Blue', className: 'is-blue' },
@@ -66,7 +67,7 @@
     }
 
     function isValidDeckCode(code) {
-        const pattern = /^[A-Z]{1,3}\d{0,2}-\d{1,3}$/;
+        const pattern = /^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/;
         return pattern.test(code);
     }
 
@@ -199,9 +200,6 @@
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
         const closeBtnX = document.getElementById('btnCloseCreateDeckModalX');
         if (closeBtnX) closeBtnX.addEventListener('click', closeModal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
 
         if (codeInput) {
             codeInput.addEventListener('input', () => {
@@ -212,7 +210,13 @@
 
         if (previewImage && preview) {
             previewImage.addEventListener('error', () => {
-                preview.style.display = 'none';
+                const src = previewImage.getAttribute('src') || '';
+                if (src.startsWith(IMAGE_BASE_URL)) {
+                    const code = src.slice(IMAGE_BASE_URL.length).replace(/\.webp$/, '');
+                    previewImage.src = LEGACY_IMAGE_BASE_URL + code + '.webp';
+                } else {
+                    preview.style.display = 'none';
+                }
             });
             previewImage.addEventListener('load', () => {
                 if (previewImage.getAttribute('src')) {

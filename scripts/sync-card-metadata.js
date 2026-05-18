@@ -237,6 +237,8 @@ function deriveMeta(row) {
     else if (typeRaw === 'digimon') card_type = 'Digimon';
     else if (typeRaw === 'tamer')   card_type = 'Tamer';
     else if (typeRaw === 'option')  card_type = 'Option';
+    else if (typeRaw === 'dual')    card_type = 'Dual';
+    if ((card_type === 'Option' || card_type === 'Tamer' || card_type === 'Dual') && card_level === null) card_level = 0;
     return { card_type, card_level };
 }
 
