@@ -85,8 +85,40 @@
         return rows.length > 0;
     }
 
+    async function uploadDeckImageToStorage(supabaseUrl, headers, deckCode) {
+        const candidates = [
+            `${IMAGE_BASE_URL}${deckCode}.webp`,
+            `${IMAGE_BASE_URL}${deckCode}.jpg`,
+            `${LEGACY_IMAGE_BASE_URL}${deckCode}.webp`,
+        ];
+        let blob = null;
+        for (const src of candidates) {
+            try {
+                const res = await fetch(src);
+                if (res.ok) { blob = await res.blob(); break; }
+            } catch (_) {}
+        }
+        if (!blob) return null;
+        const uploadRes = await fetch(
+            `${supabaseUrl}/storage/v1/object/deck-images/${encodeURIComponent(deckCode)}.webp`,
+            {
+                method: 'POST',
+                headers: {
+                    apikey: headers.apikey,
+                    Authorization: headers.Authorization,
+                    'Content-Type': blob.type || 'image/webp',
+                    'x-upsert': 'true',
+                },
+                body: blob,
+            }
+        );
+        if (!uploadRes.ok) return null;
+        return `${supabaseUrl}/storage/v1/object/public/deck-images/${encodeURIComponent(deckCode)}.webp`;
+    }
+
     async function createDeck(supabaseUrl, headers, deckName, deckCode, deckColorsCsv) {
-        const imageUrl = IMAGE_BASE_URL + deckCode + '.webp';
+        const storedUrl = await uploadDeckImageToStorage(supabaseUrl, headers, deckCode);
+        const imageUrl = storedUrl || (IMAGE_BASE_URL + deckCode + '.webp');
 
         const deckRes = await fetch(`${supabaseUrl}/rest/v1/decks`, {
             method: 'POST',

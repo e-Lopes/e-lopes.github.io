@@ -2097,7 +2097,10 @@ async function drawPlacementRow(
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
-    const image = entry?.image_url ? await loadImage(entry.image_url) : null;
+    const _avatarCode = String(entry?.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i)?.[1]?.toUpperCase();
+    const image = _avatarCode
+        ? await loadDeckCardImage(_avatarCode)
+        : (entry?.image_url ? await loadImage(entry.image_url) : null);
     if (image) {
         drawImageCoverInCircle(ctx, image, avatarX, avatarY, avatarImageRadius);
     }
@@ -3140,13 +3143,40 @@ function normalizeDeckCodeForBlankMiddle(value) {
 }
 
 async function loadDeckCardImage(code) {
-    return new Promise((resolve) => {
-        const image = new Image();
-        image.crossOrigin = 'anonymous';
-        image.onload = () => resolve(image);
-        image.onerror = () => resolve(null);
-        image.src = `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`;
+    // digimoncard.io: use fetch→blob so it works on canvas if CORS headers are present
+    for (const src of [
+        `https://images.digimoncard.io/images/cards/${code}.webp`,
+        `https://images.digimoncard.io/images/cards/${code}.jpg`,
+    ]) {
+        const result = await loadImage(src);
+        if (result && !isDeckCardImageBlank(result)) return result;
+    }
+
+    // egmanevents: confirmed CORS, but returns white image for sets it doesn't have yet
+    const egma = await new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload  = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`;
     });
+    if (egma && !isDeckCardImageBlank(egma)) return egma;
+
+    return null;
+}
+
+function isDeckCardImageBlank(img) {
+    try {
+        const cv = document.createElement('canvas');
+        cv.width = 8; cv.height = 8;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, 8, 8);
+        const { data } = ctx.getImageData(0, 0, 8, 8);
+        let r = 0, g = 0, b = 0;
+        const px = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i+1]; b += data[i+2]; }
+        return (r / px) > 245 && (g / px) > 245 && (b / px) > 245;
+    } catch { return false; }
 }
 
 function setPostTemplateEditorActive(active) {
