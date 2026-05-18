@@ -292,6 +292,23 @@
             });
         });
 
+        // Inject "Dual" chip into the type group if not already present
+        const typeGroup = document.getElementById('cardSearchTypeGroup');
+        if (typeGroup && !typeGroup.querySelector('[data-value="dual"]')) {
+            const reference = typeGroup.querySelector('[data-value="option"]') || typeGroup.lastElementChild;
+            const template  = typeGroup.querySelector('[data-value="option"]') || typeGroup.querySelector('[data-value]');
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.dataset.value = 'dual';
+            chip.textContent = 'Dual';
+            if (template) chip.className = template.className.replace(/\bis-active\b/g, '').trim();
+            if (reference && reference.nextSibling) {
+                typeGroup.insertBefore(chip, reference.nextSibling);
+            } else {
+                typeGroup.appendChild(chip);
+            }
+        }
+
         // Dynamic datalist: only show suggestions when the user has typed something
         const setInput = document.getElementById('cardSearchCode');
         const setDatalist = document.getElementById('cardSearchCodeList');
