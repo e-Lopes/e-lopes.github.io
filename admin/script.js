@@ -1912,13 +1912,21 @@ async function runSyncCardsFull() {
         }
 
         // Step 7: auto Export Catalog
-        syncProgressShow('Exportando catálogo…', 96, '');
+        syncProgressShow('Exportando catálogo…', 95, '');
         syncLog('Exportando catálogo atualizado…', 'info');
         await runExportCatalog();
 
-        syncProgressShow('Concluído!', 100, `${fetched.length} cartas atualizadas`);
-        syncLog(`Sync completo. ${fetched.length} cartas atualizadas, catálogo exportado.`, 'success');
-        if (statusEl) statusEl.textContent = `Última sync: ${fetched.length} carta(s) atualizadas + catálogo exportado.`;
+        // Step 8: sync deck images to Storage
+        syncProgressShow('Sincronizando imagens de decks…', 97, '');
+        syncLog('Migrando imagens de decks para o Storage…', 'info');
+        const { done: imgDone, failed: imgFailed } = await syncDeckImages((i, total) => {
+            syncProgressShow('Sincronizando imagens de decks…', 97 + (i / total) * 2, `${i} / ${total}`);
+        });
+        syncLog(`${imgDone} imagem(ns) de deck migrada(s) para o Storage.${imgFailed ? ` ${imgFailed} falhou.` : ''}`, imgFailed ? 'warn' : 'info');
+
+        syncProgressShow('Concluído!', 100, `${fetched.length} cartas · ${imgDone} imagens`);
+        syncLog(`Sync completo. ${fetched.length} cartas atualizadas, catálogo exportado, ${imgDone} imagens migradas.`, 'success');
+        if (statusEl) statusEl.textContent = `Última sync: ${fetched.length} carta(s) · ${imgDone} imagem(ns) · catálogo exportado.`;
 
     } catch (err) {
         syncProgressHide();
@@ -1927,6 +1935,106 @@ async function runSyncCardsFull() {
     } finally {
         if (runBtn) runBtn.disabled = false;
     }
+}
+
+async function isBlobBlank(blob) {
+    return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            try {
+                const cv = document.createElement('canvas');
+                cv.width = 8; cv.height = 8;
+                const ctx = cv.getContext('2d');
+                ctx.drawImage(img, 0, 0, 8, 8);
+                const { data } = ctx.getImageData(0, 0, 8, 8);
+                let r = 0, g = 0, b = 0;
+                const px = data.length / 4;
+                for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
+                resolve((r / px) > 245 && (g / px) > 245 && (b / px) > 245);
+            } catch { resolve(false); }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+        img.src = url;
+    });
+}
+
+async function syncDeckImages(onProgress) {
+    const base = window.APP_CONFIG.SUPABASE_URL;
+    const hdrs = window.createSupabaseHeaders();
+    const storagePrefix = `${base}/storage/v1/object/public/deck-images/`;
+
+    // Load all deck_images not yet in Supabase Storage
+    const res = await fetch(
+        `${base}/rest/v1/deck_images?select=id,image_url&limit=1000`,
+        { headers: hdrs }
+    );
+    if (!res.ok) return { done: 0, failed: 0 };
+    const rows = await res.json();
+    const toMigrate = (Array.isArray(rows) ? rows : []).filter(r =>
+        r.image_url && !String(r.image_url).startsWith(storagePrefix)
+    );
+
+    if (!toMigrate.length) return { done: 0, failed: 0 };
+
+    let done = 0, failed = 0;
+
+    for (let i = 0; i < toMigrate.length; i++) {
+        const row = toMigrate[i];
+        if (onProgress) onProgress(i, toMigrate.length);
+
+        const codeMatch = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i);
+        if (!codeMatch) { failed++; continue; }
+        const code = codeMatch[1].toUpperCase();
+
+        const candidates = [
+            `https://images.digimoncard.io/images/cards/${code}.webp`,
+            `https://images.digimoncard.io/images/cards/${code}.jpg`,
+            `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`,
+        ];
+
+        let blob = null;
+        for (const src of candidates) {
+            try {
+                const r = await fetch(src);
+                if (!r.ok) continue;
+                const b = await r.blob();
+                if (await isBlobBlank(b)) continue;
+                blob = b;
+                break;
+            } catch (_) {}
+        }
+        if (!blob) { failed++; continue; }
+
+        const uploadRes = await fetch(
+            `${base}/storage/v1/object/deck-images/${encodeURIComponent(code)}.webp`,
+            {
+                method: 'POST',
+                headers: {
+                    apikey: hdrs.apikey,
+                    Authorization: hdrs.Authorization,
+                    'Content-Type': blob.type || 'image/webp',
+                    'x-upsert': 'true',
+                },
+                body: blob,
+            }
+        );
+        if (!uploadRes.ok) { failed++; continue; }
+
+        const newUrl = `${storagePrefix}${encodeURIComponent(code)}.webp`;
+        await fetch(`${base}/rest/v1/deck_images?id=eq.${row.id}`, {
+            method: 'PATCH',
+            headers: { ...hdrs, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_url: newUrl }),
+        });
+
+        done++;
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    if (onProgress) onProgress(toMigrate.length, toMigrate.length);
+    return { done, failed };
 }
 
 // ============================================================

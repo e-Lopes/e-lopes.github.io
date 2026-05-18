@@ -99,6 +99,29 @@
         return rows.some((r) => String(r.id) !== String(excludeDeckId));
     }
 
+    function isBlobBlank(blob) {
+        return new Promise((resolve) => {
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                try {
+                    const cv = document.createElement('canvas');
+                    cv.width = 8; cv.height = 8;
+                    const ctx = cv.getContext('2d');
+                    ctx.drawImage(img, 0, 0, 8, 8);
+                    const { data } = ctx.getImageData(0, 0, 8, 8);
+                    let r = 0, g = 0, b = 0;
+                    const px = data.length / 4;
+                    for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
+                    resolve((r / px) > 245 && (g / px) > 245 && (b / px) > 245);
+                } catch { resolve(false); }
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+            img.src = url;
+        });
+    }
+
     async function uploadDeckImageToStorage(supabaseUrl, headers, deckCode) {
         const candidates = [
             `${IMAGE_BASE_URL}${deckCode}.webp`,
@@ -109,7 +132,11 @@
         for (const src of candidates) {
             try {
                 const res = await fetch(src);
-                if (res.ok) { blob = await res.blob(); break; }
+                if (!res.ok) continue;
+                const candidate = await res.blob();
+                if (await isBlobBlank(candidate)) continue;
+                blob = candidate;
+                break;
             } catch (_) {}
         }
         if (!blob) return null;
