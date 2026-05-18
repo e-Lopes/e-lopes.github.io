@@ -142,12 +142,106 @@ Node script:
 - `npm run test` -> Node test runner
 - `npm run format` -> Prettier
 - `npm run db:snapshot` -> export schema/roles
-- `npm run cards:sync-metadata` -> sync card metadata
+- `npm run cards:sync-metadata` -> sync card metadata (legacy)
+- `npm run cards:sync-all` -> full sync: getAllCards → metadata → catalog → deck images
 
 DB snapshot workflow:
 - `database/README.md` explains how to export schema and roles
 
-## 11) Documentation map
+## 11) Card image pipeline (deck images)
+
+### Storage bucket
+- Bucket: `deck-images` (Supabase Storage, public)
+- File pattern: `{CARD_CODE}.webp` (e.g. `BT24-030.webp`)
+- URL pattern: `{SUPABASE_URL}/storage/v1/object/public/deck-images/{CODE}.webp`
+- All `deck_images.image_url` records should point to this bucket (not CDN)
+
+### Image source priority (all flows)
+1. Supabase Storage bucket (CORS guaranteed, canvas-safe)
+2. Fandom: `https://digimoncardgame.fandom.com/wiki/Special:FilePath/{CODE}-Sample.png`
+3. digimoncard.io: `https://images.digimoncard.io/images/cards/{CODE}.webp`
+4. egmanevents: `https://deckbuilder.egmanevents.com/card_images/digimon/{CODE}.webp`
+
+### CORS constraint
+- `<img>` tags: load from any CDN without restriction (display only)
+- `fetch()` / canvas export: requires `Access-Control-Allow-Origin: *`
+  - egmanevents: CORS open ✓
+  - Fandom / digimoncard.io: CORS blocked from browser ✗
+- **Edge Function** (`supabase/functions/upload-card-image/`) runs server-side,
+  no CORS restriction — used for all saves and sync migrations
+
+### Upload flow (Create/Edit Deck)
+1. Calls Edge Function `POST /functions/v1/upload-card-image` with `{ code }`
+2. Function fetches image server-side → uploads to bucket → returns public URL
+3. `deck_images.image_url` saved as Storage URL
+4. Fallback: browser-side `fetch()` to egmanevents (works for older sets)
+
+### Edge Function: `upload-card-image`
+- File: `supabase/functions/upload-card-image/index.ts`
+- Deploy: `SUPABASE_ACCESS_TOKEN=<token> supabase functions deploy upload-card-image`
+- Blank check: rejects images < 5KB (egmanevents white placeholder for missing sets)
+- Requires `SUPABASE_SERVICE_ROLE_KEY` env var (set in Supabase Dashboard → Functions)
+
+### Post Preview / Deck Distribution
+- `loadDeckCardImage(code)` in `post-preview/script.js`: bucket → Fandom → card.io → egmanevents
+- `loadImage()` uses fetch→blob URL to make any URL canvas-safe
+- `isDeckCardImageBlank()` rejects white/blank images from CDN via pixel sampling
+- Cache-bust `?t=Date.now()` on bucket URL prevents stale 404 caching
+
+## 12) Admin tools
+
+### Sync Cards (Sync & Export)
+Single button replacing Data Repair + Download Cards + Export Catalog.
+Steps:
+1. `getAllCards` → valid DCG codes (regex: `/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/`)
+2. Load catalog JSON (Supabase Storage `card-catalog/card-catalog.json`)
+3. Fix `card_type` from existing `card_payload` for null records (no API call)
+4. Batch-fetch incomplete/missing cards from digimoncard.io API (chunks of 20)
+5. Retry missed codes 1-by-1
+6. Upsert to `decklist_card_metadata`
+7. Export catalog JSON to Storage
+8. Sync `deck_images` to bucket via Edge Function
+
+Injected via JS into the Admin page (no Webflow edit needed).
+
+### Card types supported
+`Digi-Egg`, `Digimon`, `Tamer`, `Option`, `Dual` (new type as of BT25 era)
+- `card_level` for Option/Tamer/Dual is normalized to `0` (not null)
+
+### Valid card code regex
+```
+/^(?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3}$/
+```
+Used in: deckbuilder DECK_CODE_PATTERN, admin SYNC_VALID_CODE_RE, Edge Function validation, all modal isValidDeckCode.
+
+## 13) Automated weekly sync (GitHub Actions)
+
+File: `.github/workflows/weekly-sync.yml`
+- Schedule: every Monday 04:00 UTC (01:00 BRT)
+- Manual trigger: GitHub Actions tab → "Run workflow"
+- Runs: `npm run cards:sync-all`
+- Required secrets: `SUPABASE_URL`, `SUPABASE_KEY` (service role key)
+
+`scripts/sync-all.js` steps:
+1. `getAllCards` → filter valid DCG codes
+2. Compare with DB (skip complete records)
+3. Batch-fetch metadata from digimoncard.io API
+4. Upsert to `decklist_card_metadata`
+5. Export `card-catalog.json` to Supabase Storage
+6. Sync `deck_images` via Edge Function (new sets auto-migrated)
+
+## 14) Deckbuilder set filter (card search)
+
+When user types a set prefix (e.g. `BT25`) in the card code field:
+1. `fetchCardSearchRowsFromDb`: filters local catalog by prefix → if found, returns
+2. If catalog misses the set: `fetchAllCardsBySetFromApi(setPrefix)`
+   - Calls `getAllCards` → filters by prefix → batch-fetches details
+3. `applyLocalCardSearchFilters`: also filters API results by `cardPrefix`
+
+`fetchCardSearchRows` (API fallback with other filters):
+- `sortDirection = filters.card ? 'desc' : 'asc'` (newest sets first when set filter active)
+
+## 15) Documentation map
 - `README.md` (overview)
 - `roadmap.md` (project state)
 - `CONTEXT.md` (this file — LLM/engineer onboarding)
