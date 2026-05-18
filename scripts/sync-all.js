@@ -89,12 +89,21 @@ async function main() {
     }
 
     // Step 5: export catalog to Supabase Storage
-    console.log('\n[5/5] Exporting catalog JSON to Supabase Storage…');
+    console.log('\n[5/6] Exporting catalog JSON to Supabase Storage…');
     if (!dryRun) {
         const count = await exportCatalog();
-        console.log(`[5/5] Catalog exported — ${count} cards`);
+        console.log(`[5/6] Catalog exported — ${count} cards`);
     } else {
-        console.log('[5/5] DRY RUN — skipping catalog export.');
+        console.log('[5/6] DRY RUN — skipping catalog export.');
+    }
+
+    // Step 6: sync deck images to Storage via Edge Function
+    console.log('\n[6/6] Syncing deck images to Storage…');
+    if (!dryRun) {
+        const { done: imgDone, skipped: imgSkipped, failed: imgFailed } = await syncDeckImages();
+        console.log(`[6/6] Deck images: ${imgDone} migrated, ${imgSkipped} already in Storage, ${imgFailed} failed`);
+    } else {
+        console.log('[6/6] DRY RUN — skipping deck image sync.');
     }
 
     console.log(`\n[sync-all] Done. ${upserted} new/updated cards, catalog exported.`);
@@ -332,6 +341,59 @@ function chunkArray(arr, size) {
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+// ─── Step 6: sync deck images ─────────────────────────────────────────────────
+
+async function syncDeckImages() {
+    const storagePrefix = `${SUPABASE_URL}/storage/v1/object/public/deck-images/`;
+    const edgeFnUrl = `${SUPABASE_URL}/functions/v1/upload-card-image`;
+
+    // Load deck_images not yet in Storage
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/deck_images?select=id,image_url&limit=1000`,
+        { headers: dbHeaders }
+    );
+    if (!res.ok) { console.warn(`[deck-images] failed to read deck_images: HTTP ${res.status}`); return { done: 0, skipped: 0, failed: 0 }; }
+    const rows = await res.json();
+
+    const toMigrate = (Array.isArray(rows) ? rows : []).filter(r =>
+        r.image_url && !String(r.image_url).startsWith(storagePrefix)
+    );
+    const skipped = rows.length - toMigrate.length;
+
+    if (!toMigrate.length) return { done: 0, skipped, failed: 0 };
+
+    let done = 0, failed = 0;
+    for (const row of toMigrate) {
+        const codeMatch = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i);
+        if (!codeMatch) { failed++; continue; }
+        const code = codeMatch[1].toUpperCase();
+
+        try {
+            const efRes = await fetch(edgeFnUrl, {
+                method: 'POST',
+                headers: { ...dbHeaders, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code }),
+            });
+            if (!efRes.ok) { console.warn(`  ${code}: edge function failed (${efRes.status})`); failed++; continue; }
+            const { url } = await efRes.json();
+            if (!url) { failed++; continue; }
+
+            await fetch(`${SUPABASE_URL}/rest/v1/deck_images?id=eq.${row.id}`, {
+                method: 'PATCH',
+                headers: { ...dbHeaders, Prefer: 'return=minimal' },
+                body: JSON.stringify({ image_url: url }),
+            });
+            console.log(`  ${code}: ✓`);
+            done++;
+        } catch (err) {
+            console.warn(`  ${code}: error — ${err.message}`);
+            failed++;
+        }
+        await sleep(100);
+    }
+    return { done, skipped, failed };
 }
 
 main().catch(err => {

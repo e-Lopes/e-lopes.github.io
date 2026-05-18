@@ -1996,49 +1996,49 @@ async function syncDeckImages(onProgress) {
         if (!codeMatch) { syncLog(`  sem código válido em: ${row.image_url}`, 'warn'); failed++; continue; }
         const code = codeMatch[1].toUpperCase();
 
-        const candidates = [
-            `https://images.digimoncard.io/images/cards/${code}.webp`,
-            `https://images.digimoncard.io/images/cards/${code}.jpg`,
-            `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${code}-Sample.png`,
-            `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`,
-        ];
-
-        let blob = null;
-        for (const src of candidates) {
-            blob = await fetchCardImageBlob(src);
-            if (blob) break;
-        }
-        if (!blob) { syncLog(`  ${code}: nenhuma imagem válida encontrada nos CDNs`, 'warn'); failed++; continue; }
-
-        const uploadRes = await fetch(
-            `${base}/storage/v1/object/deck-images/${encodeURIComponent(code)}.webp`,
-            {
+        // Try Edge Function first (server-side, sem CORS, funciona para todos os sets)
+        let newUrl = null;
+        try {
+            const efRes = await fetch(`${base}/functions/v1/upload-card-image`, {
                 method: 'POST',
-                headers: {
-                    apikey: hdrs.apikey,
-                    Authorization: hdrs.Authorization,
-                    'Content-Type': 'image/webp',
-                    'x-upsert': 'true',
-                },
-                body: blob,
+                headers: { ...hdrs, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code }),
+            });
+            if (efRes.ok) {
+                const { url } = await efRes.json();
+                newUrl = url || null;
             }
-        );
-        if (!uploadRes.ok) {
-            const detail = await uploadRes.text().catch(() => '');
-            syncLog(`  ${code}: upload falhou (HTTP ${uploadRes.status}) — ${detail}`, 'warn');
-            failed++; continue;
+        } catch (_) {}
+
+        // Fallback browser-side (egmanevents com CORS)
+        if (!newUrl) {
+            const blob = await fetchCardImageBlob(
+                `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`
+            );
+            if (blob) {
+                const uploadRes = await fetch(
+                    `${base}/storage/v1/object/deck-images/${encodeURIComponent(code)}.webp`,
+                    {
+                        method: 'POST',
+                        headers: { apikey: hdrs.apikey, Authorization: hdrs.Authorization, 'Content-Type': 'image/webp', 'x-upsert': 'true' },
+                        body: blob,
+                    }
+                );
+                if (uploadRes.ok) newUrl = `${storagePrefix}${encodeURIComponent(code)}.webp`;
+            }
         }
 
-        const newUrl = `${storagePrefix}${encodeURIComponent(code)}.webp`;
+        if (!newUrl) { syncLog(`  ${code}: nenhuma fonte funcionou`, 'warn'); failed++; continue; }
+
         await fetch(`${base}/rest/v1/deck_images?id=eq.${row.id}`, {
             method: 'PATCH',
             headers: { ...hdrs, 'Content-Type': 'application/json' },
             body: JSON.stringify({ image_url: newUrl }),
         });
 
-        syncLog(`  ${code}: ✓ migrado`, 'info');
+        syncLog(`  ${code}: ✓`, 'info');
         done++;
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 100));
     }
 
     if (onProgress) onProgress(toMigrate.length, toMigrate.length);
