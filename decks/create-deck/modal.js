@@ -118,7 +118,25 @@
         });
     }
 
+    async function uploadDeckImageViaEdgeFunction(supabaseUrl, headers, deckCode) {
+        try {
+            const res = await fetch(`${supabaseUrl}/functions/v1/upload-card-image`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: deckCode }),
+            });
+            if (!res.ok) return null;
+            const { url } = await res.json();
+            return url || null;
+        } catch { return null; }
+    }
+
     async function uploadDeckImageToStorage(supabaseUrl, headers, deckCode) {
+        // Edge Function: server-side, sem CORS, funciona para todos os sets
+        const edgeUrl = await uploadDeckImageViaEdgeFunction(supabaseUrl, headers, deckCode);
+        if (edgeUrl) return edgeUrl;
+
+        // Fallback browser-side (funciona para sets disponíveis no egmanevents)
         const candidates = [
             `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${deckCode}-Sample.png`,
             `${IMAGE_BASE_URL}${deckCode}.webp`,
