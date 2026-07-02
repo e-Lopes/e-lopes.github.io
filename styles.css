@@ -305,8 +305,8 @@ button.nav-button {
 .deck-card-image {
     width: 100%;
     object-fit: cover;
-    transform: scale(1.9);
-    transform-origin: center 11%;
+    transform: scale(2.3);
+    transform-origin: center 20%;
 }
 
 /* Nome do Jogador (Menor e sutil) */
@@ -1988,8 +1988,8 @@ th {
 .details-deck-card-image {
     width: 100%;
     object-fit: cover;
-    transform: scale(1.9);
-    transform-origin: center 11%;
+    transform: scale(2.3);
+    transform-origin: center 20%;
 }
 
 .results-mini {
@@ -6769,8 +6769,8 @@ button.nav-button:disabled:active {
 .deck-card-image {
     width: 100%;
     object-fit: cover;
-    transform: scale(1.9);
-    transform-origin: center 11%;
+    transform: scale(2.3);
+    transform-origin: center 20%;
 }
 
 /* Nome do Jogador (Menor e sutil) */
@@ -7243,8 +7243,8 @@ body {
 .deck-thumb-image {
     width: 100%;
     object-fit: cover;
-    transform: scale(1.9);
-    transform-origin: center 15%;
+    transform: scale(2.3);
+    transform-origin: center 20%;
     display: block;
 }
 
