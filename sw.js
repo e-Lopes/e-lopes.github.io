@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -120,6 +120,5 @@ async function cacheFirst(request) {
         return new Response('Offline', { status: 503, statusText: 'Offline' });
     }
 }
-
 
 

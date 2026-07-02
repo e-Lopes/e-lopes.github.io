@@ -3224,15 +3224,20 @@ function bindStatisticsCardPreview(root) {
         const el = event.currentTarget;
         const code = String(el?.getAttribute('data-card-preview-code') || '').trim();
         if (!code) return;
-        const primary = `${IMAGE_BASE_URL}${encodeURIComponent(code)}.webp`;
-        const fallback = `https://images.digimoncard.io/images/cards/${encodeURIComponent(code)}.png`;
+        const candidates = getStatisticsCardPreviewImageCandidates(code);
+        if (!candidates.length) return;
+
+        let candidateIndex = 0;
         img.onerror = () => {
-            if (img.dataset.fallback === '1') return;
-            img.dataset.fallback = '1';
-            img.src = fallback;
+            candidateIndex += 1;
+            if (candidateIndex >= candidates.length) {
+                popover.classList.remove('is-visible');
+                img.removeAttribute('src');
+                return;
+            }
+            img.src = candidates[candidateIndex];
         };
-        img.dataset.fallback = '';
-        img.src = primary;
+        img.src = candidates[candidateIndex];
         popover.classList.add('is-visible');
         moveCardPreviewPopover(popover, event.clientX, event.clientY);
     };
@@ -3250,6 +3255,17 @@ function bindStatisticsCardPreview(root) {
         el.addEventListener('mouseleave', hide);
         el.addEventListener('blur', hide);
     });
+}
+
+function getStatisticsCardPreviewImageCandidates(code) {
+    const encodedCode = encodeURIComponent(String(code || '').trim().toUpperCase());
+    if (!encodedCode) return [];
+
+    return [
+        `https://images.digimoncard.io/images/cards/${encodedCode}.webp`,
+        `https://images.digimoncard.io/images/cards/${encodedCode}.jpg`,
+        `${IMAGE_BASE_URL}${encodedCode}.webp`,
+    ];
 }
 
 function normalizeStatisticsStapleState(value) {
