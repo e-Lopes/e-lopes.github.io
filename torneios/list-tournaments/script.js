@@ -8012,7 +8012,7 @@ function savePieState(tournamentId, rootElement) {
         state[deck] = {
             x: parseFloat(slice.dataset.x || '50'),
             y: parseFloat(slice.dataset.y || '13'),
-            zoom: parseFloat(slice.dataset.zoom || '195')
+            zoom: parseFloat(slice.dataset.minZoom || slice.dataset.zoom || '120')
         };
     });
 
@@ -8038,14 +8038,21 @@ function setupInteractivePieSlices(rootElement, tournamentId) {
         const safeX = clamp(saved?.x ?? slice.dataset.x ?? 50, 0, 100, 50);
         const safeY = clamp(saved?.y ?? slice.dataset.y ?? 13, 0, 100, 13);
         const minZoom = clamp(slice.dataset.minZoom || 120, 80, 420, 120);
-        const maxZoom = clamp(slice.dataset.maxZoom || 420, minZoom, 500, 420);
-        const safeZoom = clamp(saved?.zoom ?? slice.dataset.zoom ?? 195, minZoom, maxZoom, 195);
+        const safeZoom = minZoom;
 
         slice.dataset.x = String(safeX);
         slice.dataset.y = String(safeY);
         slice.dataset.zoom = String(safeZoom);
         slice.style.backgroundPosition = `${safeX}% ${safeY}%`;
         slice.style.backgroundSize = `${safeZoom}%`;
+        slice.addEventListener(
+            'wheel',
+            (event) => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            },
+            { capture: true, passive: false }
+        );
 
         slice.onpointerdown = (e) => {
             slice.style.zIndex = String(++topZ);
@@ -8085,18 +8092,7 @@ function setupInteractivePieSlices(rootElement, tournamentId) {
             slice.addEventListener('pointercancel', onUp);
         };
 
-        slice.onwheel = (e) => {
-            e.preventDefault();
-            let currentZoom = parseFloat(slice.dataset.zoom || '220');
-            const minZoom = parseFloat(slice.dataset.minZoom || '120');
-            const maxZoom = parseFloat(slice.dataset.maxZoom || '420');
-            currentZoom += e.deltaY < 0 ? 8 : -8;
-            if (currentZoom < minZoom) currentZoom = minZoom;
-            if (currentZoom > maxZoom) currentZoom = maxZoom;
-            slice.dataset.zoom = String(currentZoom);
-            slice.style.backgroundSize = `${currentZoom}%`;
-            savePieState(tournamentId, rootElement);
-        };
+        slice.onwheel = null;
     });
 }
 

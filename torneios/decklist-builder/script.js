@@ -3,7 +3,7 @@
     // ─── Constants ────────────────────────────────────────────────────────────
 
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
-    const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com//card_images/digimon/';
+    const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
     const DIGIMON_ALL_CARDS_API = 'https://digimoncard.io/api-public/getAllCards';
     const DIGISTATS_LOGO_URL = '../../icons/logo.png';
@@ -97,6 +97,8 @@
 
     let catalogCache = null;
     let catalogCacheAt = 0;
+    let formatBackgroundCache = null;
+    const cardImageUploadCache = new Map();
 
     const cardDetailsByCode = new Map();
     let cardHydrationToken = 0;
@@ -895,6 +897,7 @@
         showToast('Generating image...', 'info', 5000);
 
         try {
+            await hydrateCardMetadata(entries, { allowRerender: false });
             const canvas = await buildDeckImageCanvas(entries);
             const filename = buildDeckImageFilename();
             const blob = await canvasToBlob(canvas);
@@ -1089,7 +1092,7 @@
     }
 
     async function drawDeckImageBackground(ctx, width, height) {
-        const bg = await loadBackgroundImage(getBlankMiddleTemplateBackgroundPath());
+        const bg = await loadBackgroundImage(await resolveDeckImageBackgroundPath());
         if (bg) {
             drawImageCover(ctx, bg, 0, 0, width, height);
         } else {
@@ -1140,16 +1143,124 @@
     // ─── Image loading ────────────────────────────────────────────────────────
 
     async function loadCardImage(code) {
-        for (const url of getExportCardImageUrls(normalizeDeckCode(code || ''))) {
+        const normalized = normalizeDeckCode(code || '');
+        if (!normalized) return null;
+
+        for (const url of getExportCardImageUrls(normalized)) {
             const img = await loadImageWithCors(url);
             if (img) return img;
         }
+
+        const uploadedUrl = await uploadCardImageForExport(normalized);
+        if (uploadedUrl) {
+            const uploadedImg = await loadImageWithCors(uploadedUrl);
+            if (uploadedImg) return uploadedImg;
+        }
+
+        for (const url of getExternalExportCardImageUrls(normalized)) {
+            const img = await loadImageWithCors(url);
+            if (img) return img;
+        }
+
         return null;
     }
 
     function getExportCardImageUrls(code) {
         if (!code) return [];
-        return [`${LEGACY_IMAGE_BASE_URL}${code}.webp`, `${IMAGE_BASE_URL}${code}.webp`];
+        const encodedCode = encodeURIComponent(code);
+        const storageUrl = SUPABASE_URL
+            ? `${SUPABASE_URL}/storage/v1/object/public/deck-images/${encodedCode}.webp`
+            : '';
+        const metadataUrls = getCardMetadataImageUrls(code);
+        return Array.from(new Set([storageUrl, ...metadataUrls].filter(Boolean)));
+    }
+
+    function getExternalExportCardImageUrls(code) {
+        if (!code) return [];
+        const encodedCode = encodeURIComponent(code);
+        const guessedUrls = [
+            `${IMAGE_BASE_URL}${encodedCode}.webp`,
+            `${IMAGE_BASE_URL}${encodedCode}.jpg`,
+            `${LEGACY_IMAGE_BASE_URL}${encodedCode}.webp`,
+            `${LEGACY_IMAGE_BASE_URL}${encodedCode}.png`,
+            `https://card-list.prodigi.dev/images/cards/${encodedCode}.webp`,
+            `https://card-list.prodigi.dev/images/cards/${encodedCode}.png`,
+            `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${encodedCode}-Sample.png`,
+        ];
+        return Array.from(new Set(guessedUrls.filter(Boolean)));
+    }
+
+    async function uploadCardImageForExport(code) {
+        const normalized = normalizeDeckCode(code || '');
+        if (!normalized || !SUPABASE_URL) return '';
+        if (cardImageUploadCache.has(normalized)) return cardImageUploadCache.get(normalized);
+
+        try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/upload-card-image`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: normalized }),
+            });
+            if (!res.ok) {
+                cardImageUploadCache.set(normalized, '');
+                return '';
+            }
+            const payload = await res.json();
+            const url = String(payload?.url || '').trim();
+            cardImageUploadCache.set(normalized, url);
+            return url;
+        } catch {
+            cardImageUploadCache.set(normalized, '');
+            return '';
+        }
+    }
+
+    function getCardMetadataImageUrls(code, sourceDetails = null) {
+        const normalized = normalizeDeckCode(code || '');
+        const details = sourceDetails || cardDetailsByCode.get(normalized) || {};
+        const payload = details?.card_payload && typeof details.card_payload === 'object' ? details.card_payload : {};
+        const candidates = [
+            details.image_url,
+            details.imageUrl,
+            details.card_image,
+            details.cardImage,
+            details.img_url,
+            details.img,
+            payload.image_url,
+            payload.imageUrl,
+            payload.card_image,
+            payload.cardImage,
+            payload.img_url,
+            payload.img,
+            payload.image,
+            payload.card_img,
+            payload.cardImageUrl,
+            payload.card_image_url,
+            Array.isArray(payload.images) ? payload.images[0] : '',
+            Array.isArray(payload.card_images) ? payload.card_images[0] : '',
+        ];
+
+        return candidates.flatMap((value) => normalizeImageUrlCandidate(value));
+    }
+
+    function normalizeImageUrlCandidate(value) {
+        if (!value) return [];
+        if (typeof value === 'string') return [value.trim()].filter(Boolean);
+        if (typeof value !== 'object') return [];
+
+        return [
+            value.url,
+            value.src,
+            value.image_url,
+            value.imageUrl,
+            value.card_image,
+            value.cardImage,
+            value.small,
+            value.large,
+            value.full,
+        ]
+            .map((item) => String(item || '').trim())
+            .filter(Boolean);
     }
 
     function getCardImageUrl(rawCode) {
@@ -1197,6 +1308,62 @@
             if (String(state?.selectedPostType || '') === 'blank_middle' && path) return path;
         } catch { /* ignore */ }
         return BLANK_MIDDLE_FALLBACK_BG;
+    }
+
+    async function resolveDeckImageBackgroundPath() {
+        const formatBackground = await getFormatBackgroundUrl(context.format);
+        return formatBackground || getBlankMiddleTemplateBackgroundPath();
+    }
+
+    async function getFormatBackgroundUrl(formatCode) {
+        const normalizedCode = normalizeFormatCode(formatCode);
+        if (!normalizedCode || !SUPABASE_URL) return '';
+
+        if (!formatBackgroundCache) {
+            formatBackgroundCache = await fetchFormatBackgroundMap();
+        }
+
+        return formatBackgroundCache.get(normalizedCode) || '';
+    }
+
+    async function fetchFormatBackgroundMap() {
+        const map = new Map();
+        try {
+            const select = 'code,background_path,background_url,is_active';
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/formats?select=${encodeURIComponent(select)}`, {
+                headers,
+            });
+            if (!res.ok) return map;
+
+            const rows = await res.json();
+            if (!Array.isArray(rows)) return map;
+
+            rows.forEach((row) => {
+                if (!row?.code || row?.is_active === false) return;
+                const code = normalizeFormatCode(row.code);
+                const url = resolveFormatBackgroundUrl(row);
+                if (code && url) map.set(code, url);
+            });
+        } catch {
+            // Background is cosmetic; fall back to the local/default template.
+        }
+        return map;
+    }
+
+    function resolveFormatBackgroundUrl(row) {
+        const backgroundUrl = String(row?.background_url || '')
+            .trim()
+            .replace(/(\/storage\/v1\/object\/public\/[^/]+\/)formats\//, '$1');
+        if (backgroundUrl) return backgroundUrl;
+
+        const backgroundPath = String(row?.background_path || '').trim().replace(/^formats\//, '');
+        if (!backgroundPath || !SUPABASE_URL) return '';
+
+        return `${SUPABASE_URL}/storage/v1/object/public/post-backgrounds/${encodeURI(backgroundPath)}`;
+    }
+
+    function normalizeFormatCode(value) {
+        return String(value || '').trim().toUpperCase();
     }
 
     function canvasToBlob(canvas) {
@@ -1935,8 +2102,8 @@
             if (!saved) throw new Error('Failed to save normalized decklist.');
             await patchDecklistLegacy(context.resultId, text);
             render([]);
-            setSaveStatus('');
-            showToast('Decklist saved successfully.', 'ok');
+            setSaveStatus('Decklist saved successfully.', 'ok');
+            showToast('Decklist saved successfully.', 'ok', 3500);
         } catch (error) {
             setSaveStatus('');
             showToast('Failed to save decklist.', 'error', 4000);
@@ -2309,7 +2476,7 @@
             const inList = chunk.join(',');
             const endpoint =
                 `/rest/v1/${DECKLIST_CARD_META_TABLE}` +
-                `?select=card_code,card_type,card_level,is_digi_egg,is_staple&card_code=in.(${encodeURIComponent(inList)})`;
+                `?select=card_code,card_type,card_level,is_digi_egg,is_staple,card_payload&card_code=in.(${encodeURIComponent(inList)})`;
             const response = window.supabaseApi
                 ? await window.supabaseApi.get(endpoint)
                 : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
@@ -2356,9 +2523,47 @@
         const level = normalizeCardLevel(meta?.level);
         const isEgg = normalizeBoolean(meta?.is_digi_egg);
 
+        if (!getCardMetadataImageUrls(meta?.card_code || meta?.id || 'unknown', meta).length) return true;
         if (!type && !isEgg) return true;
         if (type === 'digimon' && !Number.isFinite(level)) return true;
         return false;
+    }
+
+    async function hydrateCardMetadataFromCatalog(codes) {
+        const uniqueCodes = [...new Set((Array.isArray(codes) ? codes : [])
+            .map((code) => normalizeDeckCode(code))
+            .filter(isValidDeckCode))];
+        if (!uniqueCodes.length) return;
+
+        const catalog = await loadCatalog();
+        if (!catalog.length) return;
+
+        const wanted = new Set(uniqueCodes);
+        const nowIso = new Date().toISOString();
+        catalog.forEach((row) => {
+            const code = normalizeDeckCode(row?.card_code || row?.id || row?.card || row?.cardnumber || '');
+            if (!wanted.has(code)) return;
+
+            const existing = cardDetailsByCode.get(code) || {};
+            const payload = row?.card_payload && typeof row.card_payload === 'object' ? row.card_payload : row || {};
+            const level = normalizeCardLevel(row?.card_level ?? row?.level ?? payload?.level ?? existing?.level);
+            cardDetailsByCode.set(code, {
+                ...existing,
+                card_code: code,
+                id: row?.id || existing?.id || code,
+                name: row?.name || payload?.name || existing?.name || code,
+                pack: row?.pack || payload?.pack || existing?.pack || code.split('-')[0] || '',
+                color: row?.color || payload?.color || existing?.color || '',
+                type: row?.card_type || row?.type || payload?.type || existing?.type || '',
+                level: Number.isFinite(level) ? level : existing?.level ?? '',
+                image_url: row?.image_url || payload?.image_url || existing?.image_url || '',
+                card_payload: {
+                    ...(existing?.card_payload && typeof existing.card_payload === 'object' ? existing.card_payload : {}),
+                    ...payload,
+                },
+                updated_at: nowIso,
+            });
+        });
     }
 
     async function hydrateCardMetadata(sourceEntries, options = {}) {
@@ -2388,17 +2593,25 @@
                 const code = normalizeDeckCode(row?.card_code || '');
                 if (!code) return;
                 const existing = cardDetailsByCode.get(code) || {};
+                const existingPayload =
+                    existing?.card_payload && typeof existing.card_payload === 'object' ? existing.card_payload : {};
+                const rowPayload =
+                    row?.card_payload && typeof row.card_payload === 'object' ? row.card_payload : {};
                 cardDetailsByCode.set(code, {
                     ...existing,
                     card_code: code,
                     type: row?.card_type || existing?.type || '',
                     level: normalizeCardLevel(row?.card_level ?? existing?.level),
                     is_digi_egg: normalizeBoolean(row?.is_digi_egg ?? existing?.is_digi_egg),
+                    card_payload: { ...existingPayload, ...rowPayload },
                     updated_at: nowIso,
                 });
             });
             refreshRenderedCardTitles();
         }
+
+        await hydrateCardMetadataFromCatalog(stale);
+        if (token !== cardHydrationToken) return;
 
         const remaining = stale.filter((code) => shouldFetchApiMetadata(cardDetailsByCode.get(code)));
         if (!remaining.length) return;

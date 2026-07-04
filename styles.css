@@ -2167,6 +2167,7 @@ body.decklist-builder-page .container {
     width: 100%;
     padding: 22px;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2350,12 +2351,14 @@ body.decklist-builder-page .decklist-builder-back-nav.nav-button {
     min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 @media (max-width: 1180px) {
     .decklist-builder-layout {
         grid-template-columns: 1fr;
         grid-template-rows: auto;
+        overflow: visible;
     }
 
     .decklist-builder-stats-wrap,
@@ -2418,9 +2421,10 @@ body.decklist-builder-page .decklist-builder-back-nav.nav-button {
     grid-template-columns: minmax(0, 1fr) minmax(420px, 480px);
     grid-template-rows: auto auto minmax(0, 1fr);
     gap: 8px 12px;
-    align-items: start;
+    align-items: stretch;
     flex: 1 1 auto;
     min-height: 0;
+    overflow: hidden;
 }
 
 .decklist-builder-stats-wrap {
@@ -2484,6 +2488,9 @@ body.decklist-builder-page .decklist-builder-back-nav.nav-button {
     min-width: 0;
     min-height: 0;
     overflow: auto;
+    padding: 0 4px 18px 0;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .decklist-builder-side {
@@ -2666,7 +2673,12 @@ body.decklist-builder-page .decklist-builder-back-nav.nav-button {
 }
 
 .decklist-builder-save-status.is-ok {
-    color: #14753e;
+    width: fit-content;
+    border: 1px solid #86efac;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    padding: 3px 10px;
 }
 
 .decklist-builder-save-status.is-info {
@@ -3284,6 +3296,8 @@ body.decklist-builder-page .decklist-search-card img {
     margin-top: 0;
     align-content: start;
     justify-content: center;
+    min-width: 0;
+    padding-bottom: 18px;
 }
 
 .decklist-builder-card {
@@ -4053,6 +4067,7 @@ body.decklist-builder-page .decklist-search-card img {
     .decklist-builder-layout {
         grid-template-columns: 1fr;
         grid-template-rows: auto;
+        overflow: visible;
     }
 
     .decklist-builder-stats-wrap,
@@ -12697,6 +12712,12 @@ textarea::placeholder {
     color: #95abd6 !important;
 }
 
+.decklist-builder-save-status.is-ok {
+    border-color: #86efac !important;
+    background: #bbf7d0 !important;
+    color: #14532d !important;
+}
+
 .decklist-builder-errors {
     border-color: #7a3c46 !important;
     background: #311a22 !important;
@@ -12731,6 +12752,55 @@ body.decklist-builder-page .decklist-builder-side .decklist-search-panel {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
+}
+
+body.decklist-builder-page :is(
+    .decklist-builder-main,
+    .decklist-search-results,
+    .decklist-search-results-scroll,
+    .decklist-builder-header-actions
+) {
+    scrollbar-color: #536a9a #101827;
+}
+
+body.decklist-builder-page :is(
+    .decklist-builder-main,
+    .decklist-search-results,
+    .decklist-search-results-scroll,
+    .decklist-builder-header-actions
+)::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body.decklist-builder-page :is(
+    .decklist-builder-main,
+    .decklist-search-results,
+    .decklist-search-results-scroll,
+    .decklist-builder-header-actions
+)::-webkit-scrollbar-track {
+    background: #101827;
+    border-radius: 999px;
+}
+
+body.decklist-builder-page :is(
+    .decklist-builder-main,
+    .decklist-search-results,
+    .decklist-search-results-scroll,
+    .decklist-builder-header-actions
+)::-webkit-scrollbar-thumb {
+    background: #536a9a;
+    border: 2px solid #101827;
+    border-radius: 999px;
+}
+
+body.decklist-builder-page :is(
+    .decklist-builder-main,
+    .decklist-search-results,
+    .decklist-search-results-scroll,
+    .decklist-builder-header-actions
+)::-webkit-scrollbar-thumb:hover {
+    background: #6f86bc;
 }
 
 .decklist-search-header h2,

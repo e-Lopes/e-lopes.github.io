@@ -823,11 +823,15 @@ function renderDecklistCards(entries) {
 function buildDeckCardImageCandidates(code) {
     const normalized = normalizeDeckCode(code);
     const baseCode = normalized.split('_')[0];
+    const encodedCode = encodeURIComponent(baseCode);
     const candidates = [
-        `${CARD_IMAGE_BASE_URL}${baseCode}.webp`,
-        `${CARD_IMAGE_BASE_URL}${baseCode}.png`,
-        `https://card-list.prodigi.dev/images/cards/${baseCode}.webp`,
-        `https://card-list.prodigi.dev/images/cards/${baseCode}.png`
+        `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${encodedCode}-Sample.png`,
+        `https://images.digimoncard.io/images/cards/${encodedCode}.webp`,
+        `https://images.digimoncard.io/images/cards/${encodedCode}.jpg`,
+        `${CARD_IMAGE_BASE_URL}${encodedCode}.webp`,
+        `${CARD_IMAGE_BASE_URL}${encodedCode}.png`,
+        `https://card-list.prodigi.dev/images/cards/${encodedCode}.webp`,
+        `https://card-list.prodigi.dev/images/cards/${encodedCode}.png`
     ];
     return Array.from(new Set(candidates));
 }
@@ -844,7 +848,11 @@ function bindDecklistImageFallbacks(scopeRoot) {
                 .filter(Boolean);
             const currentIndex = Number(img.dataset.imageCandidateIndex || '0');
             const nextIndex = currentIndex + 1;
-            if (nextIndex >= candidates.length) return;
+            if (nextIndex >= candidates.length) {
+                img.closest('.player-history-deck-card')?.classList.add('is-missing-image');
+                img.removeAttribute('src');
+                return;
+            }
             img.dataset.imageCandidateIndex = String(nextIndex);
             img.src = candidates[nextIndex];
         });
