@@ -917,6 +917,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupDashboardViewSwitching();
     setupMobileDashboardShell();
     setupMobileTournamentToolbar();
+    await waitForMobileShellFirstPaint();
     loadStoreLogos();
     await Promise.all([loadTournaments(), loadTournamentFormats()]);
     populateTournamentFormatSelect('createTournamentFormat');
@@ -964,6 +965,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         .getElementById('editTournamentForm')
         .addEventListener('submit', editTournamentFormSubmit);
 });
+
+function waitForMobileShellFirstPaint() {
+    if (!window.matchMedia?.('(max-width: 768px)').matches) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+            document.body.classList.add('mobile-shell-ready');
+            window.requestAnimationFrame(resolve);
+        });
+    });
+}
 
 async function restoreDashboardReturnContext() {
     const params = new URLSearchParams(window.location.search);
