@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v38';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -14,8 +14,11 @@ const APP_SHELL_ASSETS = [
     './config/api-client.js',
     './config/ui-state.js',
     './config/validation.js',
+    './config/tournament-utils.js',
+    './feedback/feedback.js',
     './config/register-sw.js',
     './torneios/list-tournaments/calendar-view/calendar.js',
+    './torneios/tournament-ocr-files.js',
     './torneios/list-tournaments/script.js',
     './torneios/edit-tournament/modal.js',
     './icons/icons-192.png',
@@ -120,4 +123,3 @@ async function cacheFirst(request) {
         return new Response('Offline', { status: 503, statusText: 'Offline' });
     }
 }
-

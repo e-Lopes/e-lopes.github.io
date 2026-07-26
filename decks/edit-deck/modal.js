@@ -15,11 +15,11 @@
     const MODAL_TEMPLATE = `
 <div id="editDeckModal" class="modal-overlay" aria-hidden="true" inert>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editDeckTitle">
-        <h2 id="editDeckTitle">Edit Deck</h2>
+        <h2 id="editDeckTitle">Editar Deck</h2>
         <form id="editDeckForm">
             <input id="editDeckId" type="hidden">
             <div class="form-group">
-                <label class="form-label" for="editDeckName">Deck Name*</label>
+                <label class="form-label" for="editDeckName">Nome do Deck*</label>
                 <input id="editDeckName" class="form-input" type="text" required>
             </div>
             <div class="form-group">
@@ -33,17 +33,17 @@
                 </div>
                 <div id="editDeckPreview" class="modal-preview" style="display: none;">
                     <div class="deck-thumb-wrapper modal-preview-thumb">
-                        <img id="editDeckPreviewImage" class="deck-thumb-image" alt="Deck preview">
+                        <img id="editDeckPreviewImage" class="deck-thumb-image" alt="Prévia do Deck">
                     </div>
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Deck Colors</label>
-                <div id="editDeckColors" class="deck-colors-picker" role="group" aria-label="Deck colors"></div>
+                <label class="form-label">Cores do Deck</label>
+                <div id="editDeckColors" class="deck-colors-picker" role="group" aria-label="Cores do Deck"></div>
             </div>
             <div class="modal-actions">
-                <button type="button" id="btnCloseEditDeckModal" class="btn-modal-cancel">Cancel</button>
-                <button type="submit" class="btn-modal-save">Save</button>
+                <button type="button" id="btnCloseEditDeckModal" class="btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn-modal-save">Salvar</button>
             </div>
             <div class="modal-tips">
                 <h4>💡 How to find the card code:</h4>

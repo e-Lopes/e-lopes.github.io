@@ -262,6 +262,22 @@
     // ─── Event binding ────────────────────────────────────────────────────────
 
     function bindActions() {
+        const backLink = document.querySelector('.decklist-builder-back-nav');
+        if (backLink) {
+            const params = new URLSearchParams(window.location.search);
+            const returnView = params.get('returnView');
+            const dashboardUrl = new URL('../../index.html', window.location.href);
+            if (returnView === 'tournaments' || returnView === 'decks' || returnView === 'players' || returnView === 'statistics') {
+                dashboardUrl.searchParams.set('view', returnView);
+            }
+            if (returnView === 'tournaments') {
+                const tournamentId = String(params.get('returnTournamentId') || '').trim();
+                const returnMode = params.get('returnMode');
+                if (tournamentId) dashboardUrl.searchParams.set('returnTournamentId', tournamentId);
+                if (returnMode === 'list' || returnMode === 'calendar') dashboardUrl.searchParams.set('returnMode', returnMode);
+            }
+            backLink.href = dashboardUrl.href;
+        }
         on('btnDecklistBuilderImport', 'click', () => openImportModal());
         on('btnDecklistBuilderExport', 'click', () => exportDecklist());
         on('btnDecklistBuilderExportImage', 'click', () => exportDeckAsImage());

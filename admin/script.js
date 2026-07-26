@@ -6,10 +6,12 @@
 let adminFormats = [];
 let adminBanList = [];
 let adminStores = [];
+let adminWeeklySchedule = [];
 let adminBanNameMap = {}; // card_code -> name, from ban_list.card_name
 let adminBanListLoaded = false;
 let adminFormatsLoaded = false;
 let adminStoresLoaded = false;
+let adminWeeklyScheduleLoaded = false;
 let adminActiveTab = 'formats';
 let _banPreviewDebounceTimer = null;
 
@@ -20,9 +22,11 @@ window.initAdminPage = function () {
     adminFormats = [];
     adminBanList = [];
     adminStores = [];
+    adminWeeklySchedule = [];
     adminBanListLoaded = false;
     adminFormatsLoaded = false;
     adminStoresLoaded = false;
+    adminWeeklyScheduleLoaded = false;
     adminActiveTab = 'formats';
     setupAdminActions();
     loadAdminFormats();
@@ -33,10 +37,12 @@ window.resetAdminPage = function () {
     adminFormats = [];
     adminBanList = [];
     adminStores = [];
+    adminWeeklySchedule = [];
     adminBanNameMap = {};
     adminBanListLoaded = false;
     adminFormatsLoaded = false;
     adminStoresLoaded = false;
+    adminWeeklyScheduleLoaded = false;
 };
 
 // ============================================================
@@ -83,6 +89,7 @@ function setupAdminActions() {
         if (action === 'clear-store-logo') clearStoreLogo();
         if (action === 'browse-store-logos') toggleStoreBucketBrowser();
         if (action === 'select-store-logo') selectStoreLogo(btn.dataset.url);
+        if (action === 'save-weekly-schedule') saveAdminWeeklySchedule();
     });
 
     injectSyncCardsSection();
@@ -94,26 +101,6 @@ function setupAdminActions() {
     // Ban form submit
     const banForm = document.getElementById('adminBanForm');
     if (banForm) banForm.addEventListener('submit', saveBanEntry);
-
-    // Close modals on backdrop click
-    const formatModal = document.getElementById('adminFormatModal');
-    if (formatModal) {
-        formatModal.addEventListener('click', (e) => {
-            if (e.target === formatModal) closeFormatModal();
-        });
-    }
-    const banModal = document.getElementById('adminBanModal');
-    if (banModal) {
-        banModal.addEventListener('click', (e) => {
-            if (e.target === banModal) closeBanModal();
-        });
-    }
-    const storeModal = document.getElementById('adminStoreModal');
-    if (storeModal) {
-        storeModal.addEventListener('click', (e) => {
-            if (e.target === storeModal) closeStoreModal();
-        });
-    }
 
     // Store form submit
     const storeForm = document.getElementById('adminStoreForm');
@@ -219,7 +206,7 @@ function renderAdminFormats() {
     if (!host) return;
 
     if (!adminFormats.length) {
-        host.innerHTML = '<tr><td colspan="6" class="admin-empty">No formats registered yet.</td></tr>';
+        host.innerHTML = '<tr><td colspan="6" class="admin-empty">Nenhum formato cadastrado.</td></tr>';
         return;
     }
 
@@ -230,13 +217,13 @@ function renderAdminFormats() {
             <td><code>${escapeAdminHtml(f.code || '')}</code></td>
             <td>${escapeAdminHtml(f.name || '—')}</td>
             <td>${f.is_default ? '<span class="admin-badge admin-badge--default">Default</span>' : ''}</td>
-            <td>${f.is_active ? '<span class="admin-badge admin-badge--active">Active</span>' : '<span class="admin-badge admin-badge--inactive">Inactive</span>'}</td>
+            <td>${f.is_active ? '<span class="admin-badge admin-badge--active">Ativo</span>' : '<span class="admin-badge admin-badge--inactive">Inativo</span>'}</td>
             <td>${f.background_url ? `<a href="${escapeAdminHtml(f.background_url)}" target="_blank" rel="noopener" class="admin-link">View BG</a>` : '<span class="admin-dim">—</span>'}</td>
             <td class="admin-actions-cell">
-                ${!f.is_default ? `<button class="player-history-register-btn" data-admin-action="set-default-format" data-id="${f.id}">Set Default</button>` : ''}
-                <button class="player-history-register-btn" data-admin-action="edit-format" data-id="${f.id}">Edit</button>
-                <button class="player-history-register-btn${f.is_active ? ' admin-btn-warn' : ''}" data-admin-action="toggle-format-active" data-id="${f.id}">${f.is_active ? 'Deactivate' : 'Activate'}</button>
-                ${!f.is_default ? `<button class="player-history-register-btn admin-btn-danger" data-admin-action="delete-format" data-id="${f.id}" data-name="${escapeAdminHtml(f.name || f.code)}">Delete</button>` : ''}
+                ${!f.is_default ? `<button class="player-history-register-btn" data-admin-action="set-default-format" data-id="${f.id}">Definir padrão</button>` : ''}
+                <button class="player-history-register-btn" data-admin-action="edit-format" data-id="${f.id}">Editar</button>
+                <button class="player-history-register-btn${f.is_active ? ' admin-btn-warn' : ''}" data-admin-action="toggle-format-active" data-id="${f.id}">${f.is_active ? 'Desativar' : 'Ativar'}</button>
+                ${!f.is_default ? `<button class="player-history-register-btn admin-btn-danger" data-admin-action="delete-format" data-id="${f.id}" data-name="${escapeAdminHtml(f.name || f.code)}">Excluir</button>` : ''}
             </td>
         </tr>
     `
@@ -275,7 +262,7 @@ function openFormatModal(id) {
         if (format?.code) autoDetectFormatBackground(format.code);
     }
 
-    modal.querySelector('.admin-modal-title').textContent = format ? 'Edit Format / Meta' : 'New Format / Meta';
+    modal.querySelector('.admin-modal-title').textContent = format ? 'Editar formato / Meta' : 'Novo formato / Meta';
     modal.classList.add('active');
 }
 
@@ -345,7 +332,7 @@ async function saveFormat(e) {
         closeFormatModal();
         await loadAdminFormats();
     } catch (err) {
-        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.textContent = `Erro: ${err.message}`;
     }
 }
 
@@ -507,7 +494,7 @@ function renderAdminBanList() {
     if (!host) return;
 
     if (!adminBanList.length) {
-        host.innerHTML = '<tr><td colspan="5" class="admin-empty">No restrictions registered yet.</td></tr>';
+        host.innerHTML = '<tr><td colspan="5" class="admin-empty">Nenhuma restrição cadastrada.</td></tr>';
         if (countEl) countEl.textContent = '';
         return;
     }
@@ -527,7 +514,7 @@ function renderAdminBanList() {
     }
 
     if (!filtered.length) {
-        host.innerHTML = `<tr><td colspan="5" class="admin-empty">No results for "${escapeAdminHtml(query)}".</td></tr>`;
+        host.innerHTML = `<tr><td colspan="5" class="admin-empty">Nenhum resultado para "${escapeAdminHtml(query)}".</td></tr>`;
         return;
     }
 
@@ -554,8 +541,8 @@ function renderAdminBanList() {
             <td><span class="admin-badge ${BADGE_CLASS[entry.restriction] || ''}">${LABELS[entry.restriction] || escapeAdminHtml(entry.restriction)}</span></td>
             <td class="admin-dim">${escapeAdminHtml(entry.notes || '—')}</td>
             <td class="admin-actions-cell">
-                <button class="player-history-register-btn" data-admin-action="edit-ban" data-code="${escapeAdminHtml(entry.card_code)}">Edit</button>
-                <button class="player-history-register-btn admin-btn-danger" data-admin-action="remove-ban" data-code="${escapeAdminHtml(entry.card_code)}">Remove</button>
+                <button class="player-history-register-btn" data-admin-action="edit-ban" data-code="${escapeAdminHtml(entry.card_code)}">Editar</button>
+                <button class="player-history-register-btn admin-btn-danger" data-admin-action="remove-ban" data-code="${escapeAdminHtml(entry.card_code)}">Remover</button>
             </td>
         </tr>`;
             }
@@ -579,7 +566,7 @@ function openBanModal(cardCode) {
     modal.querySelector('#adminBanRestriction').value = entry?.restriction || 'limited';
     modal.querySelector('#adminBanNotes').value = entry?.notes || '';
     modal.querySelector('#adminBanStatus').textContent = '';
-    modal.querySelector('.admin-modal-title').textContent = entry ? 'Edit Restriction' : 'Add Restriction';
+    modal.querySelector('.admin-modal-title').textContent = entry ? 'Editar restrição' : 'Adicionar restrição';
     updateBanCardPreview(entry?.card_code || '');
     modal.classList.add('active');
 }
@@ -641,7 +628,7 @@ async function saveBanEntry(e) {
         closeBanModal();
         await loadAdminBanList();
     } catch (err) {
-        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.textContent = `Erro: ${err.message}`;
     }
 }
 
@@ -779,7 +766,7 @@ async function toggleBucketBrowser() {
     const grid = document.getElementById('adminBucketImages');
     if (!grid) return;
 
-    grid.innerHTML = '<p style="padding:12px;opacity:.6;">Loading…</p>';
+    grid.innerHTML = '<p style="padding:12px;opacity:.6;">Carregando…</p>';
 
     try {
         const res = await fetch(
@@ -804,7 +791,7 @@ async function toggleBucketBrowser() {
         const files = await res.json();
 
         if (!Array.isArray(files) || files.length === 0) {
-            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No images found in bucket.</p>';
+            grid.innerHTML = '<p style="padding:12px;opacity:.6;">Nenhuma imagem encontrada.</p>';
             return;
         }
 
@@ -876,7 +863,7 @@ async function toggleStoreBucketBrowser() {
     const grid = document.getElementById('adminStoreBucketImages');
     if (!grid) return;
 
-    grid.innerHTML = '<p style="padding:12px;opacity:.6;">Loading…</p>';
+    grid.innerHTML = '<p style="padding:12px;opacity:.6;">Carregando…</p>';
 
     const bucketBase = `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/store-logos/`;
     const listHeaders = {
@@ -2062,6 +2049,7 @@ async function loadAdminStores() {
         adminStores = await res.json();
         adminStoresLoaded = true;
         renderAdminStores();
+        await loadAdminWeeklySchedule();
     } catch (err) {
         // Fallback: try without optional columns
         try {
@@ -2073,9 +2061,99 @@ async function loadAdminStores() {
             adminStores = await res2.json();
             adminStoresLoaded = true;
             renderAdminStores();
+            await loadAdminWeeklySchedule();
         } catch (err2) {
             host.innerHTML = `<tr><td colspan="5" class="admin-error">${escapeAdminHtml(err2.message)}</td></tr>`;
         }
+    }
+}
+
+const ADMIN_WEEKDAYS = [
+    'Domingo',
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado'
+];
+
+async function loadAdminWeeklySchedule() {
+    const host = document.getElementById('adminWeeklyScheduleGrid');
+    if (!host) return;
+    host.innerHTML = '<span class="admin-dim">Carregando agenda...</span>';
+    try {
+        const res = await fetch(
+            `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/tournament_weekly_schedule?select=weekday,store_id,is_active&order=weekday.asc`,
+            { headers: window.createSupabaseHeaders() }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        adminWeeklySchedule = await res.json();
+        adminWeeklyScheduleLoaded = true;
+        renderAdminWeeklySchedule();
+    } catch (err) {
+        adminWeeklyScheduleLoaded = false;
+        host.innerHTML = '<span class="admin-error">Agenda indisponível. Execute a migration da agenda semanal.</span>';
+    }
+}
+
+function renderAdminWeeklySchedule() {
+    const host = document.getElementById('adminWeeklyScheduleGrid');
+    if (!host) return;
+    const options = adminStores
+        .filter((store) => store.is_active !== false)
+        .map((store) => `<option value="${escapeAdminHtml(store.id)}">${escapeAdminHtml(store.name)}</option>`)
+        .join('');
+    host.innerHTML = ADMIN_WEEKDAYS.map((day, weekday) => {
+        return `<label class="admin-weekly-schedule-item">
+            <span>${day}</span>
+            <select data-admin-schedule-weekday="${weekday}">
+                <option value="">Sem sugestão</option>
+                ${options}
+            </select>
+        </label>`;
+    }).join('');
+    host.querySelectorAll('[data-admin-schedule-weekday]').forEach((select) => {
+        const selected = adminWeeklySchedule.find(
+            (entry) => Number(entry.weekday) === Number(select.dataset.adminScheduleWeekday) && entry.is_active !== false
+        );
+        select.value = selected?.store_id || '';
+    });
+}
+
+async function saveAdminWeeklySchedule() {
+    if (!adminWeeklyScheduleLoaded) return;
+    const status = document.getElementById('adminWeeklyScheduleStatus');
+    const button = document.querySelector('[data-admin-action="save-weekly-schedule"]');
+    const selections = [...document.querySelectorAll('[data-admin-schedule-weekday]')];
+    if (button) button.disabled = true;
+    if (status) status.textContent = 'Salvando agenda...';
+    try {
+        for (const select of selections) {
+            const weekday = Number(select.dataset.adminScheduleWeekday);
+            const storeId = select.value;
+            const url = `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/tournament_weekly_schedule`;
+            const res = storeId
+                ? await fetch(`${url}?on_conflict=weekday`, {
+                    method: 'POST',
+                    headers: {
+                        ...window.createSupabaseHeaders(),
+                        'Content-Type': 'application/json',
+                        Prefer: 'resolution=merge-duplicates,return=minimal'
+                    },
+                    body: JSON.stringify({ weekday, store_id: storeId, is_active: true, updated_at: new Date().toISOString() })
+                })
+                : await fetch(`${url}?weekday=eq.${weekday}`, {
+                    method: 'DELETE', headers: window.createSupabaseHeaders()
+                });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        }
+        if (status) status.textContent = 'Agenda salva. Novos torneios já usarão essas sugestões.';
+        await loadAdminWeeklySchedule();
+    } catch (err) {
+        if (status) status.textContent = `Falha ao salvar agenda: ${err.message}`;
+    } finally {
+        if (button) button.disabled = false;
     }
 }
 
@@ -2084,7 +2162,7 @@ function renderAdminStores() {
     if (!host) return;
 
     if (!adminStores.length) {
-        host.innerHTML = '<tr><td colspan="5" class="admin-empty">No stores registered yet.</td></tr>';
+        host.innerHTML = '<tr><td colspan="5" class="admin-empty">Nenhuma loja cadastrada.</td></tr>';
         return;
     }
 
@@ -2095,10 +2173,10 @@ function renderAdminStores() {
             <td>${s.logo_url ? `<img src="${escapeAdminHtml(s.logo_url)}" alt="${escapeAdminHtml(s.name)}" style="height:36px;object-fit:contain;border-radius:6px;display:block;" />` : '<span class="admin-dim">—</span>'}</td>
             <td>${escapeAdminHtml(s.name || '—')}</td>
             <td>${s.bandai_nick ? `<code>${escapeAdminHtml(s.bandai_nick)}</code>` : '<span class="admin-dim">—</span>'}</td>
-            <td>${s.is_active === false ? '<span class="admin-badge admin-badge--inactive">Inactive</span>' : '<span class="admin-badge admin-badge--active">Active</span>'}</td>
+            <td>${s.is_active === false ? '<span class="admin-badge admin-badge--inactive">Inativa</span>' : '<span class="admin-badge admin-badge--active">Ativa</span>'}</td>
             <td class="admin-actions-cell">
-                <button class="player-history-register-btn" data-admin-action="edit-store" data-id="${s.id}">Edit</button>
-                <button class="player-history-register-btn admin-btn-danger" data-admin-action="delete-store" data-id="${s.id}" data-name="${escapeAdminHtml(s.name)}">Delete</button>
+                <button class="player-history-register-btn" data-admin-action="edit-store" data-id="${s.id}">Editar</button>
+                <button class="player-history-register-btn admin-btn-danger" data-admin-action="delete-store" data-id="${s.id}" data-name="${escapeAdminHtml(s.name)}">Excluir</button>
             </td>
         </tr>
     `
@@ -2165,7 +2243,7 @@ function openStoreModal(id) {
     modal.querySelector('#adminStoreIsActive').checked = store ? store.is_active !== false : true;
     modal.querySelector('#adminStoreStatus').textContent = '';
     modal.querySelector('#adminStoreLogoUploadStatus').textContent = '';
-    modal.querySelector('.admin-modal-title').textContent = id ? 'Edit Store' : 'New Store';
+    modal.querySelector('.admin-modal-title').textContent = id ? 'Editar loja' : 'Nova loja';
 
     const fileInput = modal.querySelector('#adminStoreLogoFile');
     if (fileInput) fileInput.value = '';
@@ -2228,7 +2306,7 @@ async function saveStore(e) {
         adminStoresLoaded = false;
         await loadAdminStores();
     } catch (err) {
-        if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+        if (statusEl) statusEl.textContent = `Erro: ${err.message}`;
     } finally {
         if (submitBtn) submitBtn.disabled = false;
     }

@@ -34,26 +34,26 @@ const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
 const SORTABLE_FIELDS = ['tournament_date', 'total_players'];
 const SORT_DIRECTIONS = ['asc', 'desc'];
 const MONTH_NAMES_PT = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro'
 ];
 const DEFAULT_STATISTICS_VIEW = 'v_deck_stats';
 const STATISTICS_VIEWS = [
-    { value: 'meta_overview', label: 'Meta Overview' },
+    { value: 'meta_overview', label: 'Visão geral do Meta' },
     { value: 'v_deck_representation', label: 'Representação de Decks' },
     { value: 'v_deck_stats', label: 'Estatísticas de Decks' },
     { value: 'v_top_cards_by_month', label: 'Top Cards' },
-    { value: 'v_player_ranking', label: 'Ranking de Players' },
+    { value: 'v_player_ranking', label: 'Ranking de Jogadores' },
     { value: 'v_store_champions', label: 'Ranking por Loja' }
 ];
 const STATISTICS_COLUMN_HELP_PTBR = {
@@ -249,6 +249,7 @@ function getTodayInSaoPaulo() {
 
 let tournaments = [];
 let filteredTournaments = [];
+const tournamentChampionMap = new Map();
 let currentSort = getSavedSort();
 let currentPage = 1;
 const PER_PAGE_OPTIONS = [5, 10, 15, 20, 25, 30, 50, 100];
@@ -257,9 +258,12 @@ let perPage = DEFAULT_PER_PAGE;
 let createPlayers = [];
 let createDecks = [];
 let createStores = [];
+let tournamentWeeklySchedule = [];
 let createResults = [];
 let createOcrImportInProgress = false;
 let createOcrSelectedFiles = [];
+let createOcrProcessedFiles = [];
+let createTournamentSaveInProgress = false;
 let selectedTournamentId = null;
 let currentViewMode = getSavedViewMode();
 let calendarMonthKey = '';
@@ -363,6 +367,10 @@ function saveViewMode() {
 }
 
 function getSavedDashboardView() {
+    const requested = new URLSearchParams(window.location.search).get('view');
+    if (requested === 'tournaments' || requested === 'decks' || requested === 'players' || requested === 'statistics') {
+        return requested;
+    }
     const saved = localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
     return saved === 'decks' || saved === 'players' || saved === 'statistics'
         ? saved
@@ -469,6 +477,15 @@ function formatOrdinal(value) {
     if (mod10 === 2) return `${int}nd`;
     if (mod10 === 3) return `${int}rd`;
     return `${int}th`;
+}
+
+function getResultPlacementClass(value) {
+    const placement = Number(value);
+    if (placement === 1) return 'result-placement-first';
+    if (placement === 2) return 'result-placement-second';
+    if (placement === 3) return 'result-placement-third';
+    if (placement === 4) return 'result-placement-fourth';
+    return 'result-placement-default';
 }
 
 function readTournamentFormatValue(inputId) {
@@ -626,7 +643,7 @@ function populateTournamentFormatSelect(selectId, options = {}) {
     if (includeBlank) {
         const blankOption = document.createElement('option');
         blankOption.value = '';
-        blankOption.textContent = 'Select format...';
+        blankOption.textContent = 'Selecione o formato...';
         select.appendChild(blankOption);
     }
 
@@ -720,11 +737,186 @@ async function loadStoreLogos() {
     } catch { /* silent — falls back to local icons */ }
 }
 
+function setTournamentFormDirty(mode, isDirty) {
+    const indicator = document.getElementById(`${mode}TournamentDirtyIndicator`);
+    indicator?.classList.toggle('is-visible', Boolean(isDirty));
+}
+
+function updateTournamentPlayerCount(mode, count) {
+    const value = Math.max(0, Number(count) || 0);
+    const counter = document.getElementById(`${mode}TournamentPlayerCount`);
+    if (counter) counter.textContent = `${value} ${value === 1 ? 'jogador' : 'jogadores'}`;
+}
+window.updateTournamentPlayerCount = updateTournamentPlayerCount;
+
+function enhanceTournamentFormLayout(mode) {
+    const isCreate = mode === 'create';
+    const form = document.getElementById(`${mode}TournamentForm`);
+    if (!form || form.dataset.layoutEnhanced === 'true') return;
+    const ids = isCreate
+        ? {
+              store: 'createStoreSelect', date: 'createTournamentDate',
+              name: 'createTournamentName', format: 'createTournamentFormat',
+              total: 'createTotalPlayers', instagram: 'createInstagramLink',
+              rows: 'createResultsRows', add: 'btnAddResultRow', ocr: 'createOcrFilesInput'
+          }
+        : {
+              store: 'editStoreSelect', date: 'editTournamentDate',
+              name: 'editTournamentName', format: 'editTournamentFormat',
+              total: 'editTotalPlayers', instagram: 'editInstagramLink',
+              rows: 'editResultsRows', add: 'btnAddEditResultRow', ocr: 'editOcrFilesInput'
+          };
+    const groupFor = (id) => document.getElementById(id)?.closest('.form-group');
+    const generalGroups = [
+        ['store', groupFor(ids.store)], ['date', groupFor(ids.date)],
+        ['name', groupFor(ids.name)], ['format', groupFor(ids.format)]
+    ].filter(([, group]) => group);
+    const totalGroup = groupFor(ids.total);
+    const instagramGroup = groupFor(ids.instagram);
+    const resultsGroup = groupFor(ids.rows);
+    const ocrGroup = groupFor(ids.ocr);
+    const actions = form.querySelector(':scope > .modal-actions');
+    if (!generalGroups.length || !instagramGroup || !resultsGroup || !ocrGroup || !actions) return;
+
+    const title = form.closest('.modal-content')?.querySelector('.modal-header h2');
+    if (title && !title.querySelector('.tournament-dirty-indicator')) {
+        const dirty = document.createElement('span');
+        dirty.id = `${mode}TournamentDirtyIndicator`;
+        dirty.className = 'tournament-dirty-indicator';
+        dirty.textContent = 'Alteracoes nao salvas';
+        title.appendChild(dirty);
+    }
+
+    const nav = document.createElement('nav');
+    nav.className = 'tournament-mobile-jump-nav';
+    nav.setAttribute('aria-label', 'Navegar pelo formulario');
+    nav.innerHTML = `
+        <button type="button" data-tournament-jump="${mode}TournamentOcrSection">Print Bandai</button>
+        <button type="button" data-tournament-jump="${mode}TournamentResultsSection">Classificação</button>
+        <button type="button" data-tournament-jump="${mode}TournamentGeneralSection">Dados</button>`;
+
+    const general = document.createElement('section');
+    general.id = `${mode}TournamentGeneralSection`;
+    general.className = 'tournament-general-section tournament-general-grid';
+    const generalTitle = document.createElement('h3');
+    generalTitle.className = 'tournament-section-title';
+    generalTitle.textContent = 'Dados do torneio';
+    general.appendChild(generalTitle);
+    generalGroups.forEach(([key, group]) => {
+        group.classList.add(`tournament-field-${key}`);
+        general.appendChild(group);
+    });
+
+    resultsGroup.id = `${mode}TournamentResultsSection`;
+    resultsGroup.classList.add('tournament-results-section');
+    resultsGroup.querySelector(':scope > label')?.remove();
+    const rows = document.getElementById(ids.rows);
+    const addButton = document.getElementById(ids.add);
+    const resultsHeader = document.createElement('div');
+    resultsHeader.className = 'tournament-results-header';
+    resultsHeader.innerHTML = `
+        <strong>Classificação</strong>
+        <span id="${mode}TournamentPlayerCount" class="tournament-player-count">0 jogadores</span>`;
+    if (addButton) {
+        addButton.textContent = '+ Jogador';
+        resultsHeader.appendChild(addButton);
+        resultsHeader.appendChild(resultsHeader.querySelector('.tournament-player-count'));
+    }
+    const columns = document.createElement('div');
+    columns.className = 'tournament-results-columns';
+    columns.innerHTML = '<span>#</span><span>Jogador</span><span>Deck</span><span>Pontos</span><span>Acoes</span>';
+    resultsGroup.insertBefore(resultsHeader, rows);
+    resultsGroup.insertBefore(columns, rows);
+    if (totalGroup) {
+        totalGroup.classList.add('tournament-total-derived');
+        totalGroup.setAttribute('aria-hidden', 'true');
+        document.getElementById(ids.total)?.removeAttribute('required');
+        resultsGroup.appendChild(totalGroup);
+    }
+    resultsGroup.querySelector(':scope > .field-hint')?.remove();
+
+    instagramGroup.classList.add('tournament-instagram-section');
+    const instagramDetails = document.createElement('details');
+    instagramDetails.id = `${mode}TournamentInstagramSection`;
+    instagramDetails.className = 'tournament-instagram-details';
+    const instagramSummary = document.createElement('summary');
+    instagramSummary.textContent = 'Adicionar link do Instagram (opcional)';
+    instagramDetails.append(instagramSummary, instagramGroup);
+
+    const ocrDetails = document.createElement('details');
+    ocrDetails.id = `${mode}TournamentOcrSection`;
+    ocrDetails.className = 'tournament-ocr-section';
+    ocrDetails.open = isCreate;
+    const summary = document.createElement('summary');
+    summary.innerHTML = '<strong>Importar print da Bandai TCG+</strong><span>Preenchimento automático</span>';
+    ocrGroup.querySelector(':scope > label')?.remove();
+    ocrDetails.append(summary, ocrGroup);
+
+    form.insertBefore(nav, actions);
+    form.insertBefore(ocrDetails, actions);
+    form.insertBefore(resultsGroup, actions);
+    form.insertBefore(general, actions);
+    form.insertBefore(instagramDetails, actions);
+    const cancel = actions.querySelector('.btn-cancel');
+    const save = actions.querySelector('.btn-save');
+    if (cancel) actions.appendChild(cancel);
+    if (save) actions.appendChild(save);
+
+    const navButtons = [...nav.querySelectorAll('[data-tournament-jump]')];
+    const setActiveSection = (sectionId) => {
+        navButtons.forEach((button) => {
+            const isActive = button.dataset.tournamentJump === sectionId;
+            button.classList.toggle('is-active', isActive);
+            if (isActive) button.setAttribute('aria-current', 'location');
+            else button.removeAttribute('aria-current');
+        });
+    };
+    const trackedSections = [ocrDetails, resultsGroup, general];
+    let scrollFrame = null;
+    const updateActiveSection = () => {
+        scrollFrame = null;
+        const formTop = form.getBoundingClientRect().top;
+        const marker = formTop + nav.offsetHeight + 28;
+        let activeSection = trackedSections[0];
+        trackedSections.forEach((section) => {
+            if (section.getBoundingClientRect().top <= marker) activeSection = section;
+        });
+        setActiveSection(activeSection.id);
+    };
+    const scheduleActiveSectionUpdate = () => {
+        if (scrollFrame !== null) return;
+        scrollFrame = window.requestAnimationFrame(updateActiveSection);
+    };
+
+    navButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const sectionId = button.dataset.tournamentJump || '';
+            setActiveSection(sectionId);
+            document.getElementById(sectionId)?.scrollIntoView({
+                behavior: 'smooth', block: 'start'
+            });
+        });
+    });
+    form.addEventListener('scroll', scheduleActiveSectionUpdate, { passive: true });
+    setActiveSection(ocrDetails.id);
+    form.addEventListener('input', () => setTournamentFormDirty(mode, true));
+    form.addEventListener('change', () => setTournamentFormDirty(mode, true));
+    form.dataset.layoutEnhanced = 'true';
+}
+
+function setupTournamentModalLayouts() {
+    enhanceTournamentFormLayout('create');
+    enhanceTournamentFormLayout('edit');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    setupTournamentModalLayouts();
     setupPerPageSelector();
     setupViewToggle();
     bindStaticActions();
     setupDashboardViewSwitching();
+    setupMobileDashboardShell();
+    setupMobileTournamentToolbar();
     loadStoreLogos();
     await Promise.all([loadTournaments(), loadTournamentFormats()]);
     populateTournamentFormatSelect('createTournamentFormat');
@@ -732,25 +924,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFilters();
     setupSorting();
     applyFilters();
+    await restoreDashboardReturnContext();
 
     // Event listeners for create modal
     document
         .getElementById('btnCreateTournament')
         .addEventListener('click', openCreateTournamentModal);
-
-    // Close create modal when clicking outside
-    document.getElementById('createModal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('createModal')) {
-            closeCreateModal();
-        }
-    });
-
-    // Close edit modal when clicking outside
-    document.getElementById('editModal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('editModal')) {
-            closeEditModal();
-        }
-    });
+    document
+        .getElementById('btnCreateTournamentMobile')
+        ?.addEventListener('click', openCreateTournamentModal);
 
     // Submit create form
     document
@@ -760,6 +942,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document
         .getElementById('createTotalPlayers')
         .addEventListener('input', syncCreateResultsByTotal);
+    document.getElementById('createTournamentDate').addEventListener('change', (event) => {
+        applyScheduledStoreToCreate(event.target.value);
+    });
     const btnSelectOcrPrints = document.getElementById('btnSelectOcrPrints');
     const btnProcessOcrPrints = document.getElementById('btnProcessOcrPrints');
     const createOcrFilesInput = document.getElementById('createOcrFilesInput');
@@ -779,6 +964,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         .getElementById('editTournamentForm')
         .addEventListener('submit', editTournamentFormSubmit);
 });
+
+async function restoreDashboardReturnContext() {
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get('view');
+    const tournamentId = String(params.get('returnTournamentId') || '').trim();
+    const requestedMode = params.get('returnMode');
+
+    if (requestedView === 'tournaments' || requestedView === 'decks' || requestedView === 'players' || requestedView === 'statistics') {
+        await switchDashboardView(requestedView);
+    }
+
+    if (requestedView === 'tournaments' && tournamentId) {
+        const tournament = tournaments.find((item) => String(item.id) === tournamentId);
+        if (tournament) {
+            if (requestedMode === 'calendar') {
+                currentViewMode = 'calendar';
+                saveViewMode();
+                renderCurrentView();
+                openCalendarTournamentDetails(tournament);
+            } else {
+                currentViewMode = 'list';
+                saveViewMode();
+                selectedTournamentId = tournament.id;
+                renderCurrentView();
+                await renderTournamentDetails(tournament);
+            }
+        }
+    }
+
+    if (requestedView || tournamentId || requestedMode) {
+        params.delete('view');
+        params.delete('returnTournamentId');
+        params.delete('returnMode');
+        const query = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    }
+}
 
 function bindStaticActions() {
     const btnCreateCancel = document.getElementById('btnCreateCancel');
@@ -848,11 +1070,62 @@ async function loadTournaments() {
         if (usedLegacyFormatId) {
             tournamentFormatIdSupported = false;
         }
+        await loadTournamentChampions();
         populateFilterOptions();
     } catch (err) {
         console.error(err);
         alert('Falha ao carregar dados.');
     }
+}
+
+async function loadTournamentChampions() {
+    tournamentChampionMap.clear();
+    try {
+        const select = encodeURIComponent('tournament_id,store_id,tournament_date,player,deck');
+        let response = await fetch(
+            `${SUPABASE_URL}/rest/v1/v_podium_full?select=${select}&placement=eq.1&limit=5000`,
+            { headers }
+        );
+        let rows = [];
+        if (response.ok) {
+            rows = await response.json();
+        } else {
+            const fallbackSelect = encodeURIComponent(
+                'tournament_id,store_id,tournament_date,player:players(name),deck:decks(name)'
+            );
+            response = await fetch(
+                `${SUPABASE_URL}/rest/v1/tournament_results?select=${fallbackSelect}&placement=eq.1&limit=5000`,
+                { headers }
+            );
+            if (!response.ok) return;
+            rows = await response.json();
+        }
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+            const champion = {
+                player: String(row?.player?.name || row?.player || '').trim(),
+                deck: String(row?.deck?.name || row?.deck || '').trim()
+            };
+            if (row?.tournament_id !== null && row?.tournament_id !== undefined) {
+                tournamentChampionMap.set(`id:${String(row.tournament_id)}`, champion);
+            }
+            tournamentChampionMap.set(
+                `legacy:${String(row?.store_id || '')}:${String(row?.tournament_date || '')}`,
+                champion
+            );
+        });
+    } catch (error) {
+        console.warn('Não foi possível carregar os campeões para os cartões mobile.', error);
+    }
+}
+
+function getTournamentChampion(tournament) {
+    return (
+        tournamentChampionMap.get(`id:${String(tournament?.id || '')}`) ||
+        tournamentChampionMap.get(
+            `legacy:${String(tournament?.store_id || '')}:${String(tournament?.tournament_date || '')}`
+        ) ||
+        null
+    );
 }
 
 function setupFilters() {
@@ -861,26 +1134,63 @@ function setupFilters() {
     const filterInstagram = document.getElementById('filterInstagram');
     const filterMonthYear = document.getElementById('filterMonthYear');
     const btnClearFilters = document.getElementById('btnClearFilters');
+    const btnResetFilters = document.getElementById('btnResetFilters');
+    const btnMobileFilters = document.getElementById('btnMobileFilters');
+    const mobileFilterCount = document.getElementById('mobileFilterCount');
+    const filtersRow = document.querySelector('.filters-row');
 
-    if (filterStore) filterStore.addEventListener('change', applyFilters);
-    if (filterTournamentName) filterTournamentName.addEventListener('change', applyFilters);
-    if (filterInstagram) filterInstagram.addEventListener('change', applyFilters);
+    const getActiveFilterCount = () =>
+        [filterStore, filterTournamentName, filterInstagram, filterMonthYear].filter(
+            (input) => Boolean(input?.value)
+        ).length;
+    const updateFilterToggle = () => {
+        const count = getActiveFilterCount();
+        const label = btnClearFilters?.querySelector('.filter-toggle-label');
+        if (label) label.textContent = count ? `Filtros (${count})` : 'Filtros';
+        if (mobileFilterCount) {
+            mobileFilterCount.textContent = String(count);
+            mobileFilterCount.hidden = count === 0;
+        }
+        filtersRow?.classList.toggle('has-active-filters', count > 0);
+        if (btnResetFilters) btnResetFilters.disabled = count === 0;
+    };
+    const resetFilters = () => {
+        if (filterStore) filterStore.value = '';
+        if (filterTournamentName) filterTournamentName.value = '';
+        if (filterInstagram) filterInstagram.value = '';
+        if (filterMonthYear) filterMonthYear.value = '';
+        calendarMonthKey = '';
+        applyFilters();
+        updateFilterToggle();
+        filtersRow?.classList.remove('filters-expanded');
+        btnMobileFilters?.setAttribute('aria-expanded', 'false');
+    };
+    const applyAndUpdateFilters = () => {
+        applyFilters();
+        updateFilterToggle();
+    };
+
+    if (filterStore) filterStore.addEventListener('change', applyAndUpdateFilters);
+    if (filterTournamentName) filterTournamentName.addEventListener('change', applyAndUpdateFilters);
+    if (filterInstagram) filterInstagram.addEventListener('change', applyAndUpdateFilters);
     if (filterMonthYear) {
         filterMonthYear.addEventListener('change', () => {
             calendarMonthKey = filterMonthYear.value || '';
-            applyFilters();
+            applyAndUpdateFilters();
         });
     }
     if (btnClearFilters) {
         btnClearFilters.addEventListener('click', () => {
-            if (filterStore) filterStore.value = '';
-            if (filterTournamentName) filterTournamentName.value = '';
-            if (filterInstagram) filterInstagram.value = '';
-            if (filterMonthYear) filterMonthYear.value = '';
-            calendarMonthKey = '';
-            applyFilters();
+            resetFilters();
         });
     }
+    btnMobileFilters?.addEventListener('click', () => {
+        const expanded = !filtersRow?.classList.contains('filters-expanded');
+        filtersRow?.classList.toggle('filters-expanded', expanded);
+        btnMobileFilters.setAttribute('aria-expanded', String(expanded));
+    });
+    btnResetFilters?.addEventListener('click', resetFilters);
+    updateFilterToggle();
 }
 
 function populateFilterOptions() {
@@ -900,13 +1210,13 @@ function populateFilterOptions() {
     const stores = Array.from(storesMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
 
     filterStore.innerHTML =
-        `<option value="">All stores</option>` +
+        `<option value="">Todas as lojas</option>` +
         stores.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
     if (selectedStore && storesMap.has(String(selectedStore)))
         filterStore.value = String(selectedStore);
 
     filterTournamentName.innerHTML =
-        `<option value="">All names</option>` +
+        `<option value="">Todos os tipos</option>` +
         TOURNAMENT_NAME_OPTIONS.map((name) => `<option value="${name}">${name}</option>`).join('');
     if (selectedName && TOURNAMENT_NAME_OPTIONS.includes(selectedName))
         filterTournamentName.value = selectedName;
@@ -917,7 +1227,7 @@ function populateFilterOptions() {
         ).sort((a, b) => b.localeCompare(a));
 
         filterMonthYear.innerHTML =
-            `<option value="">All months</option>` +
+            `<option value="">Todos os meses</option>` +
             monthKeys
                 .map((key) => `<option value="${key}">${formatMonthYearLabel(key)}</option>`)
                 .join('');
@@ -981,8 +1291,8 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
         pieStateKey: String(
             tournament.id || `${String(tournament.store_id || '')}-${String(tournament.tournament_date || '')}`
         ),
-        storeName: tournament.store?.name || 'Store',
-        tournamentName: tournament.tournament_name || 'Tournament',
+        storeName: tournament.store?.name || 'Loja',
+        tournamentName: tournament.tournament_name || 'Torneio',
         format: formatCode || '',
         dateStr: formatDate(tournament.tournament_date),
         totalPlayers: Number(totalPlayers) || 0,
@@ -1073,13 +1383,22 @@ function moveCalendarMonth(step) {
     const currentIndex = available.indexOf(calendarMonthKey);
     if (currentIndex < 0) {
         calendarMonthKey = available[available.length - 1];
+        clearCalendarExpandedDetails();
         renderCalendarView();
         return;
     }
     const nextIndex = currentIndex + step;
     if (nextIndex < 0 || nextIndex >= available.length) return;
     calendarMonthKey = available[nextIndex];
+    clearCalendarExpandedDetails();
     renderCalendarView();
+}
+
+function clearCalendarExpandedDetails() {
+    const details = document.getElementById('calendarTournamentDetails');
+    if (!details) return;
+    details.innerHTML = '';
+    details.classList.add('is-hidden');
 }
 
 function moveCalendarYear(step) {
@@ -1118,11 +1437,14 @@ function moveCalendarYear(step) {
     }
 
     calendarMonthKey = best.key;
+    clearCalendarExpandedDetails();
     renderCalendarView();
 }
 
 function renderCurrentView() {
     if (currentDashboardView !== 'tournaments') return;
+
+    syncMobileTournamentViewControls();
 
     const listContainer = document.getElementById('listViewContainer');
     const calendarContainer = document.getElementById('calendarViewContainer');
@@ -1180,6 +1502,76 @@ function updateToggleViewButton() {
     `;
     button.title = 'Switch to calendar';
     button.setAttribute('aria-label', 'Switch to calendar');
+}
+
+function syncMobileTournamentViewControls() {
+    const listButton = document.getElementById('btnMobileListView');
+    const calendarButton = document.getElementById('btnMobileCalendarView');
+    const isList = currentViewMode === 'list';
+    listButton?.classList.toggle('is-active', isList);
+    calendarButton?.classList.toggle('is-active', !isList);
+    listButton?.setAttribute('aria-pressed', String(isList));
+    calendarButton?.setAttribute('aria-pressed', String(!isList));
+}
+
+function setupMobileTournamentToolbar() {
+    const activate = (mode) => {
+        if (currentViewMode === mode) return;
+        currentViewMode = mode;
+        saveViewMode();
+        if (mode === 'calendar') ensureCalendarMonthKey();
+        renderCurrentView();
+    };
+    document.getElementById('btnMobileListView')?.addEventListener('click', () => activate('list'));
+    document
+        .getElementById('btnMobileCalendarView')
+        ?.addEventListener('click', () => activate('calendar'));
+    syncMobileTournamentViewControls();
+}
+
+function setupMobileDashboardShell() {
+    const menu = document.getElementById('mobileMoreMenu');
+    const moreButton = document.getElementById('btnMoreNav');
+    const profileButton = document.getElementById('btnMobileProfileMenu');
+    const versionBadge = document.getElementById('mobileVersionBadge');
+    if (versionBadge) {
+        const version = String(window.APP_VERSION || '').trim();
+        versionBadge.textContent = version ? `v${version}` : 'DigiStats';
+    }
+    if (!menu) return;
+
+    const setOpen = (open) => {
+        menu.hidden = !open;
+        document.body.classList.toggle('mobile-menu-open', open);
+        moreButton?.setAttribute('aria-expanded', String(open));
+        profileButton?.setAttribute('aria-expanded', String(open));
+        moreButton?.classList.toggle('is-active', open || currentDashboardView === 'admin');
+        if (open) menu.querySelector('.mobile-more-close')?.focus();
+    };
+    const toggle = () => setOpen(menu.hidden);
+
+    moreButton?.addEventListener('click', toggle);
+    profileButton?.addEventListener('click', toggle);
+    menu.querySelectorAll('[data-close-mobile-more]').forEach((button) => {
+        button.addEventListener('click', () => setOpen(false));
+    });
+    menu.querySelector('[data-mobile-view="admin"]')?.addEventListener('click', () => {
+        setOpen(false);
+        switchDashboardView('admin');
+    });
+    menu.querySelectorAll('[data-feedback-type]').forEach((button) => {
+        button.addEventListener('click', () => setOpen(false));
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !menu.hidden) setOpen(false);
+    });
+    document.addEventListener('click', (event) => {
+        if (event.target.closest('.mobile-card-actions')) return;
+        document.querySelectorAll('.mobile-card-menu:not([hidden])').forEach((cardMenu) => {
+            cardMenu.hidden = true;
+            cardMenu.previousElementSibling?.setAttribute('aria-expanded', 'false');
+        });
+    });
 }
 
 function setupDashboardViewSwitching() {
@@ -1315,12 +1707,17 @@ function updateDashboardViewUi() {
     const btnManagePlayersNav = document.getElementById('btnManagePlayersNav');
     const btnShowStatisticsNav = document.getElementById('btnShowStatisticsNav');
     const btnAdminNav = document.getElementById('btnAdminNav');
+    const btnMoreNav = document.getElementById('btnMoreNav');
+    const mobileTournamentPageHeader = document.getElementById('mobileTournamentPageHeader');
+    const mobileTournamentToolbar = document.querySelector('.mobile-tournament-toolbar');
 
     if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers || isStatistics || isAdmin);
     if (decksContainer) decksContainer.classList.toggle('is-hidden', !isDecks);
     if (playersContainer) playersContainer.classList.toggle('is-hidden', !isPlayers);
     if (statisticsContainer) statisticsContainer.classList.toggle('is-hidden', !isStatistics);
     if (adminContainer) adminContainer.classList.toggle('is-hidden', !isAdmin);
+    if (mobileTournamentPageHeader) mobileTournamentPageHeader.classList.toggle('is-hidden', !isTournaments);
+    if (mobileTournamentToolbar) mobileTournamentToolbar.classList.toggle('is-hidden', !isTournaments);
 
     if (btnShowTournamentsNav) {
         btnShowTournamentsNav.classList.toggle('is-active', isTournaments);
@@ -1347,6 +1744,7 @@ function updateDashboardViewUi() {
         btnAdminNav.disabled = isAdmin;
         btnAdminNav.setAttribute('aria-pressed', String(isAdmin));
     }
+    btnMoreNav?.classList.toggle('is-active', isAdmin);
 
     if (!isDecks && !isPlayers && !isStatistics && !isAdmin) {
         renderCurrentView();
@@ -1422,9 +1820,9 @@ async function loadDecksAssets() {
 
     const prefix = getAssetPrefix();
     const scriptPaths = [
-        `${prefix}decks/create-deck/modal.js`,
-        `${prefix}decks/edit-deck/modal.js`,
-        `${prefix}decks/page.js`
+        `${prefix}decks/create-deck/modal.js?v=${window.APP_VERSION || 'dev'}`,
+        `${prefix}decks/edit-deck/modal.js?v=${window.APP_VERSION || 'dev'}`,
+        `${prefix}decks/page.js?v=${window.APP_VERSION || 'dev'}`
     ];
 
     decksScriptsPromise = scriptPaths.reduce(
@@ -1517,7 +1915,9 @@ async function loadPlayersAssets() {
     if (playersScriptsPromise) return playersScriptsPromise;
 
     const prefix = getAssetPrefix();
-    playersScriptsPromise = loadScriptOnce(`${prefix}players/script.js`);
+    playersScriptsPromise = loadScriptOnce(
+        `${prefix}players/script.js?v=${window.APP_VERSION || 'dev'}`
+    );
     return playersScriptsPromise;
 }
 
@@ -1752,7 +2152,7 @@ async function loadAdminAssets() {
     if (adminScriptsPromise) return adminScriptsPromise;
 
     const prefix = getAssetPrefix();
-    adminScriptsPromise = loadScriptOnce(`${prefix}admin/script.js`);
+    adminScriptsPromise = loadScriptOnce(`${prefix}admin/script.js?v=${window.APP_VERSION || 'dev'}`);
     return adminScriptsPromise;
 }
 
@@ -7156,8 +7556,61 @@ function renderCalendarView() {
         onPrevYear: () => moveCalendarYear(-1),
         onNextYear: () => moveCalendarYear(1),
         onSelectEvent: (eventData) => openCalendarTournamentDetails(eventData),
-        onSelectDay: (dateString) => openCreateTournamentModal(dateString)
+        onSelectDay: (dateString, entries) => {
+            if (window.matchMedia('(max-width: 768px)').matches && entries?.length) {
+                renderMobileCalendarDayEvents(dateString, entries);
+                return;
+            }
+            openCreateTournamentModal(dateString);
+        }
     });
+}
+
+function renderMobileCalendarDayEvents(dateString, entries) {
+    const container = document.getElementById('calendarTournamentDetails');
+    if (!container) return;
+    if (entries.length === 1) {
+        openCalendarTournamentDetails(entries[0]);
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+    }
+
+    const compactDate = getCompactTournamentDate(dateString);
+    container.classList.remove('is-hidden');
+    container.innerHTML = `
+        <section class="mobile-calendar-expanded-panel">
+            <div class="mobile-calendar-events-heading">
+                <strong>${compactDate.day} ${compactDate.month}</strong>
+                <span>${entries.length} ${entries.length === 1 ? 'torneio' : 'torneios'}</span>
+            </div>
+            <div class="mobile-calendar-expanded-list"></div>
+        </section>`;
+    const list = container.querySelector('.mobile-calendar-expanded-list');
+    entries.forEach((entry) => {
+        const detailsHost = document.createElement('article');
+        detailsHost.className = 'mobile-calendar-expanded-item';
+        detailsHost.innerHTML = '<div class="details-block">Carregando detalhes...</div>';
+        list?.appendChild(detailsHost);
+        renderTournamentDetails(resolveCalendarTournament(entry), detailsHost);
+    });
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function resolveCalendarTournament(eventData) {
+    const matchedTournament = tournaments.find(
+        (item) => String(item?.id || '') === String(eventData?.id || '')
+    );
+    if (matchedTournament) return matchedTournament;
+    return {
+        id: eventData?.id || '',
+        store_id: eventData?.storeId || '',
+        tournament_date: eventData?.tournamentDate || '',
+        tournament_name: eventData?.tournamentName || 'Torneio',
+        total_players: eventData?.totalPlayers || '',
+        format_id: eventData?.formatId || null,
+        format: eventData?.format || eventData?.formatCode || '',
+        store: { name: eventData?.storeName || 'Loja' }
+    };
 }
 
 function openCalendarTournamentDetails(eventData) {
@@ -7165,22 +7618,9 @@ function openCalendarTournamentDetails(eventData) {
     if (!container || !eventData) return;
 
     container.classList.remove('is-hidden');
-    container.innerHTML = `<div class="details-block">Loading details...</div>`;
+    container.innerHTML = `<div class="details-block">Carregando detalhes...</div>`;
 
-    const fallbackTournament = {
-        id: eventData.id || '',
-        store_id: eventData.storeId || '',
-        tournament_date: eventData.tournamentDate || '',
-        tournament_name: eventData.tournamentName || 'Tournament',
-        total_players: eventData.totalPlayers || '',
-        format_id: eventData.formatId || null,
-        format: eventData.format || eventData.formatCode || '',
-        store: { name: eventData.storeName || 'Store' }
-    };
-    const matchedTournament = tournaments.find(
-        (item) => String(item?.id || '') === String(eventData.id || '')
-    );
-    renderTournamentDetails(matchedTournament || fallbackTournament, container);
+    renderTournamentDetails(resolveCalendarTournament(eventData), container);
 }
 
 function setupPerPageSelector() {
@@ -7267,6 +7707,16 @@ function updateSortIndicators() {
 // ============================================================
 // RENDER TABLE
 // ============================================================
+function getCompactTournamentDate(dateString) {
+    const [year, month, day] = String(dateString || '').split('-').map(Number);
+    if (!year || !month || !day) return { day: '--', month: '---' };
+    const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC' })
+        .format(new Date(Date.UTC(year, month - 1, day)))
+        .replace('.', '')
+        .toUpperCase();
+    return { day: String(day).padStart(2, '0'), month: monthLabel };
+}
+
 function renderTable() {
     const tbody = document.querySelector('#tournamentsTable tbody');
     tbody.innerHTML = '';
@@ -7282,14 +7732,14 @@ function renderTable() {
             tr.classList.add('is-active');
         }
         const instagramLink = t.instagram_link
-            ? `<a href="${t.instagram_link}" target="_blank" rel="noopener noreferrer" class="btn-instagram" aria-label="Open Instagram link">
+            ? `<a href="${t.instagram_link}" target="_blank" rel="noopener noreferrer" class="btn-instagram" aria-label="Abrir Link do Instagram">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <rect x="3" y="3" width="18" height="18" rx="5" ry="5"></rect>
                     <circle cx="12" cy="12" r="4"></circle>
                     <circle cx="17.5" cy="6.5" r="1.2"></circle>
                 </svg>
             </a>`
-            : '-';
+            : '';
 
         const td1 = document.createElement('td');
         td1.setAttribute('data-label', 'Data:');
@@ -7318,7 +7768,7 @@ function renderTable() {
         td2.appendChild(storeContent);
 
         const td3 = document.createElement('td');
-        td3.setAttribute('data-label', 'Nome:');
+        td3.setAttribute('data-label', 'Tipo:');
         td3.classList.add('table-name-cell');
         const tournamentName = t.tournament_name || '-';
         const tournamentNameText = document.createElement('span');
@@ -7331,7 +7781,7 @@ function renderTable() {
         td3.appendChild(mobileStoreTournament);
 
         const td4 = document.createElement('td');
-        td4.setAttribute('data-label', 'Players:');
+        td4.setAttribute('data-label', 'Jogadores:');
         td4.classList.add('table-players-cell');
         const playersValue = Number.isFinite(Number(t.total_players)) ? String(t.total_players) : '-';
         const playersValueText = document.createElement('span');
@@ -7342,7 +7792,7 @@ function renderTable() {
         mobilePlayersLine.innerHTML =
             '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a4 4 0 1 0-3.999-4A4 4 0 0 0 16 11Zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Zm-8 1c-2.33 0-7 1.17-7 3.5V19h5v-2c0-1.16.7-2.18 1.89-3Z"></path></svg><span></span>';
         const mobilePlayersText = mobilePlayersLine.querySelector('span');
-        if (mobilePlayersText) mobilePlayersText.textContent = `Players: ${playersValue}`;
+        if (mobilePlayersText) mobilePlayersText.textContent = `Jogadores: ${playersValue}`;
         td4.appendChild(playersValueText);
         td4.appendChild(mobilePlayersLine);
 
@@ -7351,8 +7801,8 @@ function renderTable() {
         td5.innerHTML = instagramLink;
 
         const td6 = document.createElement('td');
-        td6.setAttribute('data-label', 'Acoes:');
-        td6.innerHTML = `<button class="btn-edit btn-icon-only" type="button" title="Edit tournament" aria-label="Edit tournament" data-action="edit-tournament" data-tournament-id="${t.id}">
+        td6.setAttribute('data-label', 'Ações:');
+        td6.innerHTML = `<button class="btn-edit btn-icon-only" type="button" title="Editar torneio" aria-label="Editar torneio" data-action="edit-tournament" data-tournament-id="${t.id}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="M12 20h9"/>
                 <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
@@ -7366,13 +7816,82 @@ function renderTable() {
             });
         }
 
+        const compactDate = getCompactTournamentDate(t.tournament_date);
+        const champion = getTournamentChampion(t);
+        const mobileStoreIcon = resolveStoreIcon(storeName) || `${getAssetPrefix()}icons/logo.png`;
+        const championBadges = [
+            champion?.player
+                ? `<span class="mobile-champion-badge" title="Jogador campeão">${escapeHtml(champion.player)}</span>`
+                : '',
+            champion?.deck
+                ? `<span class="mobile-champion-badge is-deck" title="Deck campeão">${escapeHtml(champion.deck)}</span>`
+                : ''
+        ].filter(Boolean).join('');
+        const mobileCard = document.createElement('div');
+        mobileCard.className = 'mobile-tournament-card';
+        mobileCard.innerHTML = `
+            <div class="mobile-tournament-date" aria-label="${escapeHtml(formattedDate)}">
+                <strong>${compactDate.day}</strong><span>${compactDate.month}</span>
+            </div>
+            <div class="mobile-tournament-logo-wrap">
+                <img src="${escapeHtml(mobileStoreIcon)}" alt="Logo ${escapeHtml(storeName)}" />
+            </div>
+            <div class="mobile-tournament-main">
+                <strong class="mobile-tournament-name">${escapeHtml(tournamentName)}</strong>
+                <span class="mobile-tournament-store">${escapeHtml(storeName)}</span>
+                <span class="mobile-tournament-players"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Zm-8 1c-2.33 0-7 1.17-7 3.5V19h5v-2c0-1.16.7-2.18 1.89-3Z"/></svg>${escapeHtml(playersValue)} ${playersValue === '1' ? 'jogador' : 'jogadores'}</span>
+                ${championBadges ? `<div class="mobile-champion-badges">${championBadges}</div>` : ''}
+            </div>
+            <div class="mobile-card-actions">
+                <button type="button" class="mobile-card-menu-trigger" aria-label="Ações do torneio" aria-expanded="false">•••</button>
+                <div class="mobile-card-menu" hidden>
+                    <button type="button" data-mobile-edit>Editar torneio</button>
+                    <button type="button" data-mobile-generate-post>Gerar post</button>
+                    ${t.instagram_link ? `<a href="${escapeHtml(t.instagram_link)}" target="_blank" rel="noopener noreferrer">Abrir Link do Instagram</a>` : ''}
+                </div>
+            </div>`;
+        td1.prepend(mobileCard);
+
+        const menuTrigger = mobileCard.querySelector('.mobile-card-menu-trigger');
+        const cardMenu = mobileCard.querySelector('.mobile-card-menu');
+        cardMenu?.addEventListener('click', (event) => event.stopPropagation());
+        menuTrigger?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const willOpen = Boolean(cardMenu?.hidden);
+            document.querySelectorAll('.mobile-card-menu:not([hidden])').forEach((menu) => {
+                menu.hidden = true;
+                menu.previousElementSibling?.setAttribute('aria-expanded', 'false');
+            });
+            if (cardMenu) cardMenu.hidden = !willOpen;
+            menuTrigger.setAttribute('aria-expanded', String(willOpen));
+        });
+        mobileCard.querySelector('[data-mobile-edit]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            editTournament(t.id);
+        });
+        mobileCard.querySelector('[data-mobile-generate-post]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            generateTournamentPostFromCard(t);
+        });
+        mobileCard.querySelector('.mobile-card-menu a')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
         tr.appendChild(td1);
         tr.appendChild(td2);
         tr.appendChild(td3);
         tr.appendChild(td4);
         tr.appendChild(td5);
         tr.appendChild(td6);
+        tr.tabIndex = 0;
+        tr.setAttribute('role', 'button');
+        tr.setAttribute('aria-label', `Abrir detalhes de ${tournamentName}, ${storeName}`);
         tr.addEventListener('click', () => toggleTournamentDetails(t));
+        tr.addEventListener('keydown', (event) => {
+            if (event.target !== tr || (event.key !== 'Enter' && event.key !== ' ')) return;
+            event.preventDefault();
+            toggleTournamentDetails(t);
+        });
 
         tbody.appendChild(tr);
 
@@ -7386,7 +7905,7 @@ function renderTable() {
             detailsTd.className = 'details-row-cell';
             detailsTd.innerHTML = `
                 <div class="tournament-inline-details-content" data-details-content-for="${String(t.id)}">
-                    <div class="details-block">Loading details...</div>
+                    <div class="details-block">Carregando detalhes...</div>
                 </div>
             `;
 
@@ -7399,6 +7918,25 @@ function renderTable() {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td colspan="6" style="text-align:center;">Nenhum torneio encontrado</td>`;
         tbody.appendChild(tr);
+    }
+}
+
+async function generateTournamentPostFromCard(tournament) {
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/v_podium_full?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${encodeURIComponent(tournament.tournament_date)}&order=placement.asc`,
+            { headers }
+        );
+        if (!response.ok) throw new Error(`Falha ao carregar resultados (${response.status})`);
+        const results = await response.json();
+        openPostGeneratorWithTournamentData(
+            tournament,
+            Array.isArray(results) ? results : [],
+            Number(tournament.total_players) || 0
+        );
+    } catch (error) {
+        console.error(error);
+        alert('Não foi possível abrir o gerador de post deste torneio.');
     }
 }
 
@@ -7419,8 +7957,8 @@ function renderPagination() {
     const prevButton = document.createElement('button');
     prevButton.type = 'button';
     prevButton.className = 'btn-pagination btn-pagination-prev';
-    prevButton.textContent = '?';
-    prevButton.setAttribute('aria-label', 'Pagina anterior');
+    prevButton.textContent = '\u2039';
+    prevButton.setAttribute('aria-label', 'Página anterior');
     prevButton.disabled = currentPage <= 1;
     prevButton.addEventListener('click', () => {
         if (currentPage <= 1) return;
@@ -7453,8 +7991,8 @@ function renderPagination() {
     const nextButton = document.createElement('button');
     nextButton.type = 'button';
     nextButton.className = 'btn-pagination btn-pagination-next';
-    nextButton.textContent = '?';
-    nextButton.setAttribute('aria-label', 'Proxima pagina');
+    nextButton.textContent = '\u203A';
+    nextButton.setAttribute('aria-label', 'Próxima página');
     nextButton.disabled = currentPage >= totalPages;
     nextButton.addEventListener('click', () => {
         if (currentPage >= totalPages) return;
@@ -7475,7 +8013,7 @@ async function openCreateTournamentModal(defaultDate = '') {
         ? defaultDate
         : getTodayInSaoPaulo();
     document.getElementById('createTournamentDate').value = safeDate;
-    document.getElementById('createTournamentName').value = '';
+    document.getElementById('createTournamentName').value = 'Semanal';
     document.getElementById('createTotalPlayers').value = '';
     document.getElementById('createInstagramLink').value = '';
 
@@ -7487,11 +8025,13 @@ async function openCreateTournamentModal(defaultDate = '') {
         tournamentFormatsLoaded = false; // força re-fetch para garantir o default atualizado
         await Promise.all([
             loadStoresToCreate(),
+            loadTournamentWeeklySchedule(),
             loadPlayersToCreate(),
             loadDecksToCreate(),
             loadTournamentFormats()
         ]);
         populateTournamentFormatSelect('createTournamentFormat');
+        applyScheduledStoreToCreate(safeDate);
         renderCreateResultsRows();
     } catch (err) {
         // CREATE MODAL
@@ -7500,10 +8040,12 @@ async function openCreateTournamentModal(defaultDate = '') {
     }
 
     // Abre o modal
+    setTournamentFormDirty('create', false);
     document.getElementById('createModal').classList.add('active');
 }
 
 function closeCreateModal() {
+    if (createOcrImportInProgress || createTournamentSaveInProgress) return;
     document.getElementById('createModal').classList.remove('active');
     createResults = [];
     resetCreateOcrImportUi();
@@ -7528,6 +8070,7 @@ function syncCreateResultsByTotal() {
                 deck_id: '',
                 player_name: '',
                 deck_name: '',
+                match_points: null,
                 ocr_player_unmatched: false
             }
         );
@@ -7552,6 +8095,7 @@ function setCreateOcrSelectedInfo(message) {
 function resetCreateOcrImportUi() {
     createOcrImportInProgress = false;
     createOcrSelectedFiles = [];
+    createOcrProcessedFiles = [];
     const input = document.getElementById('createOcrFilesInput');
     const btnSelect = document.getElementById('btnSelectOcrPrints');
     const btnProcess = document.getElementById('btnProcessOcrPrints');
@@ -7560,9 +8104,32 @@ function resetCreateOcrImportUi() {
     if (btnProcess) btnProcess.disabled = false;
     setCreateOcrSelectedInfo('');
     setCreateOcrStatus('');
+    renderOcrFilePreview('createOcrPreview', []);
+}
+
+function renderOcrFilePreview(containerId, files) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const sourceFiles = Array.from(files || []);
+    container.classList.toggle('is-empty', sourceFiles.length === 0);
+    container.innerHTML = sourceFiles
+        .map((file) => {
+            const url = URL.createObjectURL(file);
+            window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+            return `
+                <figure class="tournament-ocr-thumb">
+                    <img src="${url}" alt="${escapeHtml(file.name || 'Print da Bandai')}" loading="lazy">
+                    <figcaption>${escapeHtml(file.name || 'Print da Bandai')}</figcaption>
+                </figure>
+            `;
+        })
+        .join('');
 }
 
 function normalizeLookupName(value) {
+    if (window.tournamentUtils?.normalizeEntityName) {
+        return window.tournamentUtils.normalizeEntityName(value);
+    }
     return String(value || '')
         .toLowerCase()
         .normalize('NFD')
@@ -7589,6 +8156,15 @@ function parseOcrRank(value, index) {
     return index + 1;
 }
 
+function normalizeOcrMatchPoints(value) {
+    if (window.tournamentUtils?.normalizeMatchPoints) {
+        return window.tournamentUtils.normalizeMatchPoints(value);
+    }
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const points = Number(String(value).trim().replace(',', '.'));
+    return Number.isInteger(points) && points >= 0 ? points : null;
+}
+
 function extractOcrPlayers(payload) {
     const players = Array.isArray(payload?.players) ? payload.players : [];
     return players
@@ -7596,7 +8172,7 @@ function extractOcrPlayers(payload) {
             rank: parseOcrRank(item?.rank, index),
             name: String(item?.name || '').trim(),
             member_id: normalizeMemberId(item?.member_id),
-            points: String(item?.points || '').trim(),
+            points: normalizeOcrMatchPoints(item?.points),
             omw: String(item?.omw || '').trim()
         }))
         .filter((item) => item.name || item.member_id)
@@ -7614,7 +8190,14 @@ function mergeOcrPlayersByMemberId(allPlayers) {
         }
         if (item.rank < existing.rank) existing.rank = item.rank;
         if (!existing.name && item.name) existing.name = item.name;
-        if (!existing.points && item.points) existing.points = item.points;
+        if (existing.points === null && item.points !== null) existing.points = item.points;
+        else if (
+            existing.points !== null &&
+            item.points !== null &&
+            existing.points !== item.points
+        ) {
+            existing.points_conflict = true;
+        }
         if (!existing.omw && item.omw) existing.omw = item.omw;
     });
     return Array.from(merged.values())
@@ -7741,11 +8324,14 @@ function onCreateOcrFilesSelected(event) {
     const files = Array.from(event.target?.files || []);
     createOcrSelectedFiles = files;
     if (files.length === 0) {
+        createOcrProcessedFiles = [];
+        renderOcrFilePreview('createOcrPreview', []);
         setCreateOcrSelectedInfo('');
         setCreateOcrStatus('');
         return;
     }
     setCreateOcrSelectedInfo(`${files.length} print(s) selecionado(s).`);
+    renderOcrFilePreview('createOcrPreview', files);
     setCreateOcrStatus('Processando...');
     processCreateOcrFiles();
 }
@@ -7757,11 +8343,34 @@ async function requestOcrFromImage(file) {
         method: 'POST',
         body: formData
     });
-    if (!res.ok) {
-        throw new Error(`OCR endpoint respondeu ${res.status}`);
+    let payload = null;
+    try {
+        payload = await res.json();
+    } catch (_error) {
+        // The status-based error below is more useful than a JSON parse failure.
     }
-    return res.json();
+    if (!res.ok) {
+        throw new Error(`O serviço de leitura do print respondeu ${res.status}`);
+    }
+    if (payload?.error) {
+        console.error('Erro retornado pelo serviço OCR:', payload.error);
+        throw new Error(getOcrServiceErrorMessage(payload.error));
+    }
+    return payload || {};
 }
+
+function getOcrServiceErrorMessage(error) {
+    const detail = String(error || '');
+    if (/model_not_found|model .* does not exist|do not have access/i.test(detail)) {
+        return 'O serviço de leitura está temporariamente indisponível porque o modelo de OCR não está acessível.';
+    }
+    if (/invalid_api_key|invalid api key|unauthorized/i.test(detail)) {
+        return 'O serviço de leitura está temporariamente indisponível por um problema de autenticação.';
+    }
+    return 'O serviço de leitura não conseguiu processar o print neste momento.';
+}
+
+window.getOcrServiceErrorMessage = getOcrServiceErrorMessage;
 
 async function processCreateOcrFiles() {
     if (!createOcrSelectedFiles.length) {
@@ -7808,6 +8417,7 @@ async function processCreateOcrFiles() {
                 deck_id: '',
                 player_name: ocrPlayer.name || '',
                 deck_name: '',
+                match_points: ocrPlayer.points,
                 ocr_player_unmatched: !matchedPlayer?.id
             };
         });
@@ -7817,35 +8427,47 @@ async function processCreateOcrFiles() {
 
         const selectedStoreName = detectedStores[0] || '';
         const selectedDate = detectedDates[0] || '';
-        if (selectedStoreName) {
-            const matchedStore = resolveStoreFromOcrName(selectedStoreName);
-            if (matchedStore?.id) {
-                document.getElementById('createStoreSelect').value = String(matchedStore.id);
-            }
-        }
         if (selectedDate) {
             document.getElementById('createTournamentDate').value = selectedDate;
         }
+        const matchedStore = selectedStoreName
+            ? resolveStoreFromOcrName(selectedStoreName)
+            : null;
+        if (matchedStore?.id) {
+            document.getElementById('createStoreSelect').value = String(matchedStore.id);
+        } else if (selectedDate) {
+            applyScheduledStoreToCreate(selectedDate);
+        }
 
         const unresolvedPlayers = createResults.filter((row) => !row.player_id).length;
+        const pointConflicts = mergedPlayers.filter((row) => row.points_conflict).length;
         const unresolvedStore = selectedStoreName
             ? !resolveStoreFromOcrName(selectedStoreName)
             : false;
         const dateDetected = Boolean(selectedDate);
         if (unresolvedPlayers) {
             setCreateOcrStatus(
-                `OCR: ${createResults.length} players, ${unresolvedPlayers} sem match${unresolvedStore ? ', loja sem match' : ''}${dateDetected ? ', data preenchida' : ''}.`,
+                `Print importado: ${createResults.length} players, ${unresolvedPlayers} sem correspondência${unresolvedStore ? ', loja não identificada' : ''}${dateDetected ? ', data preenchida' : ''}${pointConflicts ? `, ${pointConflicts} conflito(s) de pontos` : ''}.`,
                 'info'
             );
         } else {
             setCreateOcrStatus(
-                `OCR concluido (${createResults.length} players)${selectedStoreName ? ', loja preenchida' : ''}${dateDetected ? ', data preenchida' : ''}.`,
-                'success'
+                `Print importado (${createResults.length} players)${selectedStoreName ? ', loja preenchida' : ''}${dateDetected ? ', data preenchida' : ''}${pointConflicts ? `, revise ${pointConflicts} conflito(s) de pontos` : ''}.`,
+                pointConflicts ? 'info' : 'success'
             );
         }
+        createOcrProcessedFiles = [...createOcrSelectedFiles];
+        setTournamentFormDirty('create', true);
     } catch (err) {
+        createOcrSelectedFiles = [...createOcrProcessedFiles];
+        renderOcrFilePreview('createOcrPreview', createOcrProcessedFiles);
+        setCreateOcrSelectedInfo(
+            createOcrProcessedFiles.length
+                ? `${createOcrProcessedFiles.length} print(s) da última importação válida serão arquivados.`
+                : ''
+        );
         console.error('Erro no OCR:', err);
-        setCreateOcrStatus(err.message || 'Falha ao processar OCR.', 'error');
+        setCreateOcrStatus(err.message || 'Falha ao processar o print da Bandai.', 'error');
     } finally {
         createOcrImportInProgress = false;
         if (btnSelect) btnSelect.disabled = false;
@@ -8096,17 +8718,58 @@ function setupInteractivePieSlices(rootElement, tournamentId) {
     });
 }
 
+async function loadTournamentWeeklySchedule() {
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/tournament_weekly_schedule?select=weekday,store_id,is_active&is_active=eq.true&order=weekday.asc`,
+            { headers }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        tournamentWeeklySchedule = await res.json();
+    } catch (err) {
+        tournamentWeeklySchedule = [];
+        console.warn('Agenda semanal de torneios indisponível:', err);
+    }
+}
+
+function applyScheduledStoreToCreate(dateValue) {
+    const utils = window.tournamentUtils;
+    const storeId = utils?.findScheduledStoreId?.(tournamentWeeklySchedule, dateValue);
+    const select = document.getElementById('createStoreSelect');
+    if (!select) return false;
+    if (!storeId || ![...select.options].some((option) => option.value === storeId)) {
+        return false;
+    }
+    select.value = storeId;
+    return true;
+}
+
 async function renderTournamentDetails(tournament, targetContainer = null) {
     const tournamentId = String(tournament.id);
     let content = targetContainer || getDetailsContainer(tournamentId);
     if (!content) return;
-    content.innerHTML = `<div class="details-block">Loading details...</div>`;
+        content.innerHTML = `<div class="details-block">Carregando detalhes...</div>`;
 
     try {
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/v_podium_full?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${tournament.tournament_date}&order=placement.asc`,
-            { headers }
-        );
+        const ocrFilesPromise = window.tournamentOcrFiles?.loadFiles
+            ? window.tournamentOcrFiles
+                  .loadFiles({
+                      supabaseUrl: SUPABASE_URL,
+                      headers,
+                      tournamentId: tournament.id
+                  })
+                  .catch((error) => {
+                      console.warn(error);
+                      return [];
+                  })
+            : Promise.resolve([]);
+        const [res, ocrFiles] = await Promise.all([
+            fetch(
+                `${SUPABASE_URL}/rest/v1/v_podium_full?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${tournament.tournament_date}&order=placement.asc`,
+                { headers }
+            ),
+            ocrFilesPromise
+        ]);
 
         if (!res.ok) {
             throw new Error(`Erro ao carregar detalhes (${res.status})`);
@@ -8116,7 +8779,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         if (!Array.isArray(results)) results = [];
 
         if (!results.length) {
-            const fallbackSelect = encodeURIComponent('id,placement,total_players,player:players(name),deck:decks(name)');
+            const fallbackSelect = encodeURIComponent('id,placement,total_players,match_points,player:players(name),deck:decks(name)');
             const fallbackRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${tournament.tournament_date}&select=${fallbackSelect}&order=placement.asc`,
                 { headers }
@@ -8133,7 +8796,11 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                         player: String(row?.player?.name || '').trim() || '-',
                         deck: String(row?.deck?.name || '').trim(),
                         image_url: '',
-                        total_players: Number(row?.total_players) || 0
+                        total_players: Number(row?.total_players) || 0,
+                        match_points:
+                            row?.match_points === null || row?.match_points === undefined
+                                ? null
+                                : Number(row.match_points)
                     }));
                 }
             }
@@ -8145,11 +8812,15 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 placement: Number(row?.placement) || 0,
                 player: String(row?.player || row?.player_name || '').trim() || '-',
                 deck: String(row?.deck || row?.deck_name || '').trim(),
-                image_url: String(row?.image_url || '').trim()
+                image_url: String(row?.image_url || '').trim(),
+                match_points:
+                    row?.match_points === null || row?.match_points === undefined
+                        ? null
+                        : Number(row.match_points)
             }))
             .sort((a, b) => (Number(a?.placement) || 999) - (Number(b?.placement) || 999));
-        const storeName = String(tournament.store?.name || 'Store').trim() || 'Store';
-        const storeIcon = resolveStoreIcon(storeName);
+        const storeName = String(tournament.store?.name || 'Loja').trim() || 'Loja';
+        const storeIcon = resolveStoreIcon(storeName) || `${getAssetPrefix()}icons/logo.png`;
         const topFour = (results || []).filter((r) => Number(r.placement) <= 4);
         const totalPlayers = Number.isFinite(Number(tournament.total_players))
             ? Number(tournament.total_players)
@@ -8160,13 +8831,12 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 <div class="details-header-top">
                     <div style="display:flex;align-items:center;gap:16px;">
                         <img src="${escapeHtml(storeIcon)}" alt="${escapeHtml(storeName)}" class="details-pie-store-logo" loading="lazy"
-                        style="max-width:210px;max-height:102px;width:auto;height:auto;object-fit:contain;"
-                        onload="if(window.innerWidth<=768)this.style.display='none';">
+                        style="max-width:210px;max-height:102px;width:auto;height:auto;object-fit:contain;">
                         <div class="details-header-meta">
                         <strong>${tournament.tournament_name || 'Tournament'}</strong>
                         <div>${formatDate(tournament.tournament_date)} - ${tournament.store?.name || 'Store'}</div>
                         <div>Total Players: ${totalPlayers}</div>
-                        <div>Format: ${formatCode || '-'}</div>
+                        <div>Formato: ${formatCode || '-'}</div>
                         </div>                        
                     </div>
                     <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
@@ -8299,6 +8969,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                         <strong>${escapeHtml(playerName)}</strong>
                         `
                         }
+                        ${item.match_points !== null ? `<span class="results-mini-points">Pontos: ${escapeHtml(item.match_points)}</span>` : ''}
                     </div>
                 </div>
             `;
@@ -8325,6 +8996,27 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             `
             : `
             `;
+
+        const ocrFilesHtml = ocrFiles.length
+            ? `
+                <div class="details-block details-ocr-files-block">
+                    <h3 class="details-section-title"><span>Prints da Bandai</span></h3>
+                    <div class="tournament-ocr-gallery tournament-ocr-gallery-public">
+                        ${ocrFiles
+                            .map(
+                                (file) => `
+                                    <a class="tournament-ocr-thumb" href="${escapeHtml(file.public_url)}" target="_blank" rel="noopener noreferrer">
+                                        <img src="${escapeHtml(file.public_url)}" alt="${escapeHtml(file.original_name || 'Print da Bandai')}" loading="lazy">
+                                        <span>${escapeHtml(file.original_name || 'Print da Bandai')}</span>
+                                        <time>${escapeHtml(new Date(file.created_at).toLocaleString('pt-BR'))}</time>
+                                    </a>
+                                `
+                            )
+                            .join('')}
+                    </div>
+                </div>
+            `
+            : '';
 
         if (!targetContainer) {
             if (String(selectedTournamentId) !== tournamentId) return;
@@ -8358,6 +9050,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                     <div class="results-mini">${resultsHtml}</div>
                 </div>
                 ${pieSectionHtml}
+                ${ocrFilesHtml}
             </div>
         `;
         setupInteractivePieSlices(
@@ -8389,6 +9082,9 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 if (payload.format) params.set('format', payload.format);
                 if (payload.tournamentName) params.set('tournamentName', payload.tournamentName);
                 if (payload.resultId) params.set('resultId', payload.resultId);
+                params.set('returnView', 'tournaments');
+                params.set('returnTournamentId', String(tournament.id));
+                params.set('returnMode', currentViewMode);
 
                 window.location.href = `${getAssetPrefix()}torneios/decklist-builder/index.html?${params.toString()}`;
             };
@@ -8446,13 +9142,16 @@ function addCreateResultRow() {
         deck_id: '',
         player_name: '',
         deck_name: '',
+        match_points: null,
         ocr_player_unmatched: false
     });
+    setTournamentFormDirty('create', true);
     renderCreateResultsRows();
 }
 
 function removeCreateResultRow(index) {
     createResults.splice(index, 1);
+    setTournamentFormDirty('create', true);
     renderCreateResultsRows();
 }
 
@@ -8621,13 +9320,18 @@ function openRegisterPlayersModal(playerNames) {
     }
 
     list.innerHTML = playerNames.map((name) => `<li>${escapeHtml(name)}</li>`).join('');
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
     modal.classList.add('active');
 
     return new Promise((resolve) => {
         const cleanup = () => {
             btnConfirm.removeEventListener('click', onConfirm);
             btnCancel.removeEventListener('click', onCancel);
-            modal.removeEventListener('click', onOverlay);
             modal.classList.remove('active');
         };
         const onConfirm = () => {
@@ -8638,12 +9342,8 @@ function openRegisterPlayersModal(playerNames) {
             cleanup();
             resolve(false);
         };
-        const onOverlay = (event) => {
-            if (event.target === modal) onCancel();
-        };
         btnConfirm.addEventListener('click', onConfirm);
         btnCancel.addEventListener('click', onCancel);
-        modal.addEventListener('click', onOverlay);
     });
 }
 
@@ -8711,6 +9411,120 @@ async function ensurePlayersRegisteredForCreate() {
     });
     return true;
 }
+
+function resolveTypedDecks(results, decks) {
+    results.forEach((row) => {
+        if (row.deck_id || !String(row.deck_name || '').trim()) return;
+        const target = normalizeLookupName(row.deck_name);
+        const existing = decks.find((deck) => normalizeLookupName(deck.name) === target);
+        if (existing?.id) {
+            row.deck_id = existing.id;
+            row.deck_name = existing.name || row.deck_name;
+        }
+    });
+}
+
+function getPendingDeckNames(results, decks) {
+    resolveTypedDecks(results, decks);
+    const pendingNames = [];
+    const seen = new Set();
+    results.forEach((row) => {
+        if (row.deck_id) return;
+        const name = String(row.deck_name || '').replace(/\s+/g, ' ').trim();
+        if (!name) return;
+        const key = normalizeLookupName(name);
+        if (!seen.has(key)) {
+            seen.add(key);
+            pendingNames.push(name);
+        }
+    });
+    return pendingNames;
+}
+
+function openRegisterDecksModal(deckNames) {
+    const modal = document.getElementById('registerDecksModal');
+    const list = document.getElementById('registerDecksList');
+    const btnConfirm = document.getElementById('btnRegisterDecksConfirm');
+    const btnCancel = document.getElementById('btnRegisterDecksCancel');
+    if (!modal || !list || !btnConfirm || !btnCancel) {
+        return Promise.reject(new Error('Nao foi possivel abrir a confirmacao de decks.'));
+    }
+    list.innerHTML = deckNames.map((name) => `<li>${escapeHtml(name)}</li>`).join('');
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
+    modal.classList.add('active');
+    return new Promise((resolve) => {
+        const cleanup = () => {
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+            modal.classList.remove('active');
+        };
+        const onConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+        const onCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+    });
+}
+
+async function ensureTournamentDecksRegistered({
+    results,
+    getDecks,
+    reloadDecks,
+    supabaseUrl,
+    requestHeaders
+}) {
+    let decks = getDecks();
+    let pendingNames = getPendingDeckNames(results, decks);
+    if (!pendingNames.length) return true;
+    if (!(await openRegisterDecksModal(pendingNames))) return false;
+
+    const insertRes = await fetch(`${supabaseUrl}/rest/v1/decks`, {
+        method: 'POST',
+        headers: { ...requestHeaders, Prefer: 'return=representation' },
+        body: JSON.stringify(pendingNames.map((name) => ({ name })))
+    });
+    if (insertRes.ok) {
+        const inserted = await insertRes.json();
+        decks.push(...inserted);
+    } else {
+        // A concurrent insert may have created one of the names. Reload before failing.
+        await reloadDecks();
+        decks = getDecks();
+        pendingNames = getPendingDeckNames(results, decks);
+        if (pendingNames.length) {
+            const retryRes = await fetch(`${supabaseUrl}/rest/v1/decks`, {
+                method: 'POST',
+                headers: { ...requestHeaders, Prefer: 'return=representation' },
+                body: JSON.stringify(pendingNames.map((name) => ({ name })))
+            });
+            if (!retryRes.ok) {
+                const detail = await retryRes.text();
+                throw new Error(`Falha ao cadastrar deck(s) ${pendingNames.join(', ')}: ${detail}`);
+            }
+            getDecks().push(...(await retryRes.json()));
+        }
+    }
+
+    resolveTypedDecks(results, getDecks());
+    const unresolved = getPendingDeckNames(results, getDecks());
+    if (unresolved.length) {
+        throw new Error(`Nao foi possivel vincular o(s) deck(s): ${unresolved.join(', ')}`);
+    }
+    return true;
+}
+
+window.openRegisterDecksModal = openRegisterDecksModal;
+window.ensureTournamentDecksRegistered = ensureTournamentDecksRegistered;
 
 function bindCreateResultsAutocomplete() {
     const wrappers = document.querySelectorAll('#createResultsRows .autocomplete-wrapper');
@@ -8782,10 +9596,10 @@ function bindCreateResultsAutocomplete() {
 function renderCreateResultsRows() {
     const container = document.getElementById('createResultsRows');
     if (!container) return;
-
     if (createResults.length === 0) {
         container.innerHTML = '';
         document.getElementById('createTotalPlayers').value = '';
+        updateTournamentPlayerCount('create', 0);
         return;
     }
 
@@ -8793,18 +9607,18 @@ function renderCreateResultsRows() {
         .map(
             (row, index) => `
         <div class="result-row">
-            <div class="form-group">
-                <label>Place</label>
-                <input type="number" value="${index + 1}" disabled>
+            <div class="form-group result-placement-group">
+                <label>Posicao</label>
+                <span class="result-placement-badge ${getResultPlacementClass(index + 1)}" aria-label="${formatOrdinal(index + 1)} lugar">${formatOrdinal(index + 1)}</span>
             </div>
             <div class="form-group">
-                <label>Player<span class="required">*</span></label>
+                <label>Jogador<span class="required">*</span></label>
                 <div class="autocomplete-wrapper" data-row-index="${index}">
                     <input
                         type="text"
                         class="player-input${row.ocr_player_unmatched ? ' ocr-player-unmatched' : ''}"
                         data-autocomplete-type="player"
-                        placeholder="Digite o player..."
+                        placeholder="Nome do jogador..."
                         value="${escapeHtml(getItemNameById(createPlayers, row.player_id) || row.player_name || '')}"
                         ${row.ocr_player_unmatched ? 'style="border-color:#f59e0b;background:#fff7ed;" title="Player nao encontrado no cadastro"' : ''}
                         autocomplete="off"
@@ -8827,6 +9641,19 @@ function renderCreateResultsRows() {
                     <div class="autocomplete-dropdown"></div>
                 </div>
             </div>
+            <div class="form-group result-points-group">
+                <label>Pontos</label>
+                <input
+                    type="number"
+                    class="match-points-input"
+                    data-create-match-points-index="${index}"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="—"
+                    value="${row.match_points === null || row.match_points === undefined ? '' : escapeHtml(row.match_points)}"
+                >
+            </div>
             <button type="button" class="btn-remove-result" data-create-remove-index="${index}" aria-label="Remove result" title="Remove result">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
                     <path d="M3 6h18"></path>
@@ -8847,9 +9674,16 @@ function renderCreateResultsRows() {
             removeCreateResultRow(index);
         });
     });
+    container.querySelectorAll('[data-create-match-points-index]').forEach((input) => {
+        input.addEventListener('input', () => {
+            const index = Number(input.getAttribute('data-create-match-points-index'));
+            updateCreateResultField(index, 'match_points', normalizeOcrMatchPoints(input.value));
+        });
+    });
     bindCreateResultsAutocomplete();
 
     document.getElementById('createTotalPlayers').value = String(createResults.length);
+    updateTournamentPlayerCount('create', createResults.length);
 }
 
 async function createTournamentFormSubmit(e) {
@@ -8858,6 +9692,14 @@ async function createTournamentFormSubmit(e) {
     const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Criando...';
+    createTournamentSaveInProgress = true;
+    document.getElementById('createTournamentForm')?.setAttribute('aria-busy', 'true');
+    ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints'].forEach((id) => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = true;
+    });
+    let ocrBatchForRollback = null;
+    let saveCompleted = false;
 
     try {
         const totalPlayers = createResults.length;
@@ -8889,6 +9731,22 @@ async function createTournamentFormSubmit(e) {
             );
             return;
         }
+        try {
+            const shouldProceed = await ensureTournamentDecksRegistered({
+                results: createResults,
+                getDecks: () => createDecks,
+                reloadDecks: loadDecksToCreate,
+                supabaseUrl: SUPABASE_URL,
+                requestHeaders: headers
+            });
+            if (!shouldProceed) return;
+        } catch (registrationError) {
+            showFriendlyErrorModal(
+                'Nao foi possivel continuar',
+                registrationError.message || 'Falha ao validar cadastro de decks.'
+            );
+            return;
+        }
         const hasInvalidResult = createResults.some((r) => !r.player_id);
         if (
             !payload.store_id ||
@@ -8902,112 +9760,72 @@ async function createTournamentFormSubmit(e) {
             return;
         }
 
-        console.log('Criando torneio:', payload);
-
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/tournament`, {
-            method: 'POST',
-            headers: {
-                ...headers,
-                Prefer: 'return=representation'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error('Erro ao criar:', res.status, errorText);
-            throw new Error(`Erro ao cadastrar torneio (${res.status})`);
+        if (createOcrProcessedFiles.length) {
+            if (!window.tournamentOcrFiles?.uploadFiles) {
+                throw new Error(
+                    'O módulo de prints da Bandai não foi carregado. Atualize a página e tente novamente.'
+                );
+            }
+            setCreateOcrStatus('Arquivando prints da Bandai...');
+            ocrBatchForRollback = await window.tournamentOcrFiles.uploadFiles({
+                supabaseUrl: SUPABASE_URL,
+                headers,
+                files: createOcrProcessedFiles
+            });
         }
 
-        const createdTournament = (await res.json())[0];
-        if (!createdTournament?.id) {
-            throw new Error('Torneio criado sem retornar ID');
-        }
-
-        const resultsPayload = createResults.map((row, index) => ({
-            tournament_id: createdTournament.id,
-            store_id: payload.store_id,
-            tournament_date: payload.tournament_date,
-            total_players: payload.total_players,
-            placement: index + 1,
+        const resultsPayload = createResults.map((row) => ({
             deck_id: row.deck_id || null,
-            player_id: row.player_id
+            player_id: row.player_id,
+            match_points: row.match_points ?? null
         }));
 
-        const resultsRes = await fetch(`${SUPABASE_URL}/rest/v1/tournament_results`, {
+        const saveRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_tournament_transaction`, {
             method: 'POST',
             headers,
-            body: JSON.stringify(resultsPayload)
+            body: JSON.stringify({
+                p_tournament_id: null,
+                p_tournament: payload,
+                p_results: resultsPayload,
+                p_ocr_files: ocrBatchForRollback?.metadata || []
+            })
         });
-
-        if (!resultsRes.ok) {
-            const resultsError = await resultsRes.text();
-            console.error('Erro ao criar results:', resultsRes.status, resultsError);
-            if (resultsRes.status === 409) {
-                const existingRes = await fetch(
-                    `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(payload.store_id)}&tournament_date=eq.${payload.tournament_date}&select=id,placement,tournament_id&order=placement.asc`,
-                    { headers }
-                );
-
-                if (!existingRes.ok) {
-                    const rollbackRes1 = await fetch(
-                        `${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`,
-                        {
-                            method: 'DELETE',
-                            headers
-                        }
-                    );
-                    if (!rollbackRes1.ok) console.error('Tournament rollback failed:', rollbackRes1.status);
-                    throw new Error(
-                        `Erro ao correlacionar tournament_results existentes (${existingRes.status})`
-                    );
-                }
-
-                const existingRows = await existingRes.json();
-                for (const row of existingRows) {
-                    if (!row?.id || row.tournament_id) continue;
-
-                    const patchRes = await fetch(
-                        `${SUPABASE_URL}/rest/v1/tournament_results?id=eq.${encodeURIComponent(row.id)}`,
-                        {
-                            method: 'PATCH',
-                            headers,
-                            body: JSON.stringify({ tournament_id: createdTournament.id })
-                        }
-                    );
-
-                    if (!patchRes.ok) {
-                        throw new Error(
-                            `Falha ao correlacionar tournament_result ${row.id} (${patchRes.status})`
-                        );
-                    }
-                }
-            } else {
-                const rollbackRes2 = await fetch(
-                    `${SUPABASE_URL}/rest/v1/tournament?id=eq.${encodeURIComponent(createdTournament.id)}`,
-                    {
-                        method: 'DELETE',
-                        headers
-                    }
-                );
-                if (!rollbackRes2.ok) console.error('Tournament rollback failed:', rollbackRes2.status);
-                throw new Error(getFriendlyResultsSaveErrorMessage(resultsRes.status, resultsError));
-            }
+        if (!saveRes.ok) {
+            const detail = await saveRes.text();
+            throw new Error(getFriendlyResultsSaveErrorMessage(saveRes.status, detail));
         }
 
-        await loadTournaments();
-        applyFilters();
+        saveCompleted = true;
+        createTournamentSaveInProgress = false;
         closeCreateModal();
 
         // Reset form
         document.getElementById('createTournamentForm').reset();
+        await loadTournaments();
+        applyFilters();
     } catch (err) {
+        if (!saveCompleted && ocrBatchForRollback) {
+            await window.tournamentOcrFiles.cleanupBatch({
+                supabaseUrl: SUPABASE_URL,
+                headers,
+                batchId: ocrBatchForRollback.batchId,
+                storagePaths: ocrBatchForRollback.storagePaths
+            });
+        }
         console.error('Erro completo:', err);
         showFriendlyErrorModal(
-            'Falha ao cadastrar torneio',
-            err?.message || 'Nao foi possivel concluir o cadastro do torneio.'
+            saveCompleted ? 'Torneio salvo' : 'Falha ao cadastrar torneio',
+            saveCompleted
+                ? 'O torneio foi salvo, mas a lista nao foi atualizada. Recarregue a pagina.'
+                : err?.message || 'Nao foi possivel concluir o cadastro do torneio.'
         );
     } finally {
+        createTournamentSaveInProgress = false;
+        document.getElementById('createTournamentForm')?.removeAttribute('aria-busy');
+        ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints'].forEach((id) => {
+            const button = document.getElementById(id);
+            if (button) button.disabled = false;
+        });
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
     }

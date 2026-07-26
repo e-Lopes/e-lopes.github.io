@@ -65,6 +65,10 @@ function getInitialPageSize() {
 }
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
+    if (!container) {
+        console[type === 'error' ? 'error' : 'info'](message);
+        return;
+    }
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `${message}`;
@@ -72,7 +76,7 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 3000);
 }
 
-function openPlayerModal(title = 'New Player') {
+function openPlayerModal(title = 'Novo jogador') {
     const modal = document.getElementById('playerModal');
     const titleEl = document.getElementById('playerModalTitle');
     if (titleEl) titleEl.textContent = title;
@@ -103,7 +107,7 @@ function setupEventListeners() {
 
     const btnAddPlayer = document.getElementById('btnAddPlayer');
     if (btnAddPlayer) {
-        btnAddPlayer.addEventListener('click', () => openPlayerModal('New Player'));
+        btnAddPlayer.addEventListener('click', () => openPlayerModal('Novo jogador'));
     }
 
     const submitBtn = document.getElementById('submitBtn');
@@ -113,13 +117,6 @@ function setupEventListeners() {
 
     document.getElementById('playerModalCancelBtn')?.addEventListener('click', cancelEdit);
     document.getElementById('playerModalCloseBtn')?.addEventListener('click', cancelEdit);
-
-    const playerModal = document.getElementById('playerModal');
-    if (playerModal) {
-        playerModal.addEventListener('click', (e) => {
-            if (e.target === playerModal) cancelEdit();
-        });
-    }
 
     if (!playerModalKeydownAttached) {
         playerModalKeydownAttached = true;
@@ -221,16 +218,18 @@ async function loadPlayers() {
             : await fetch(`${SUPABASE_URL}/rest/v1/players?select=*&order=name.asc`, { headers });
 
         if (!res.ok) {
-            throw new Error(`Failed to load players (${res.status})`);
+            throw new Error(`Falha ao carregar jogadores (${res.status})`);
         }
 
         allPlayers = await res.json();
         filteredPlayers = allPlayers;
-        document.getElementById('totalPlayersCount').textContent = allPlayers.length;
+        if (!list?.isConnected) return;
+        const totalPlayersCount = document.getElementById('totalPlayersCount');
+        if (totalPlayersCount) totalPlayersCount.textContent = String(allPlayers.length);
         renderPaginatedList();
     } catch (error) {
         console.error(error);
-        showToast('Error loading players', 'error');
+        showToast('Erro ao carregar jogadores', 'error');
     } finally {
         if (window.uiState) {
             window.uiState.setLoading(list, loadingNode, false);
@@ -268,18 +267,18 @@ function renderPaginatedList() {
                             aria-expanded="${isExpanded ? 'true' : 'false'}"
                         >
                             <span class="player-main-name"><strong>${escapeHtml(p.name)}</strong></span>
-                            <span class="player-main-hint">${isExpanded ? 'Hide history' : 'Show history'}</span>
+                            <span class="player-main-hint">${isExpanded ? 'Ocultar histórico' : 'Mostrar histórico'}</span>
                         </button>
                     </td>
                     <td class="players-cell-actions">
                         <div class="player-actions">
-                            <button class="btn-action btn-icon-only" type="button" title="Edit player" aria-label="Edit player" data-action="edit-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                            <button class="btn-action btn-icon-only" type="button" title="Editar jogador" aria-label="Editar jogador" data-action="edit-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path d="M12 20h9"/>
                                     <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                                 </svg>
                             </button>
-                            <button class="btn-action btn-danger btn-icon-only" type="button" title="Delete player" aria-label="Delete player" data-action="delete-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                            <button class="btn-action btn-danger btn-icon-only" type="button" title="Excluir jogador" aria-label="Excluir jogador" data-action="delete-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <polyline points="3 6 5 6 21 6"/>
                                     <path d="M8 6V4h8v2"/>
@@ -303,11 +302,11 @@ function renderPaginatedList() {
         .join('');
 
     list.innerHTML = `
-        <table class="players-table" aria-label="Players table">
+        <table class="players-table" aria-label="Tabela de jogadores">
             <thead>
                 <tr>
-                    <th>Player</th>
-                    <th>Actions</th>
+                    <th>Jogador</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -352,7 +351,7 @@ async function loadPlayerHistory(playerId) {
         const res = window.supabaseApi
             ? await window.supabaseApi.get(endpoint)
             : await fetch(`${SUPABASE_URL}${endpoint}`, { headers });
-        if (!res.ok) throw new Error(`Failed to load player history (${res.status})`);
+        if (!res.ok) throw new Error(`Falha ao carregar histórico do jogador (${res.status})`);
 
         const rows = await res.json();
         playerHistoryCache.set(
@@ -370,7 +369,7 @@ async function loadPlayerHistory(playerId) {
     } catch (error) {
         console.error(error);
         playerHistoryCache.set(id, []);
-        showToast('Error loading player history', 'error');
+        showToast('Erro ao carregar histórico do jogador', 'error');
     }
 
     if (expandedPlayerId === id) {
@@ -399,10 +398,10 @@ async function resolvePlayerHistoryDecklistColumn(playerId) {
 
 function renderPlayerHistory(historyRows, playerId, playerName = '') {
     if (!Array.isArray(historyRows)) {
-        return '<div class="player-history-loading">Loading history...</div>';
+        return '<div class="player-history-loading">Carregando histórico...</div>';
     }
     if (historyRows.length === 0) {
-        return '<div class="player-history-empty">No history found.</div>';
+        return '<div class="player-history-empty">Nenhum histórico encontrado.</div>';
     }
 
     return historyRows
@@ -419,7 +418,7 @@ function renderPlayerHistory(historyRows, playerId, playerName = '') {
                           ? 'fourth-place'
                           : 'other-place';
 
-            const storeName = item.storeName || 'Store';
+            const storeName = item.storeName || 'Loja';
             const entryKey = `${playerId || 'player'}:${item.id || index}`;
             const isEntryExpanded = expandedHistoryEntryKey === entryKey;
             const rawDecklist = String(item.decklist || '').trim();
@@ -479,14 +478,14 @@ function renderPlayerHistory(historyRows, playerId, playerName = '') {
                                                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                                     <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                                                 </svg>
-                                                <span>Edit in Builder</span>
+                                                <span>Editar no Builder</span>
                                             </a>
                                         </div>
                                         <div class="player-history-decklist-grid">
                                             ${renderDecklistCards(parsedDecklistEntries)}
                                         </div>`
                                         : `<div class="player-history-decklist-empty-row">
-                                            <div class="player-history-decklist-empty">No Decklist Registered</div>
+                                            <div class="player-history-decklist-empty">Nenhuma lista de Deck cadastrada</div>
                                             ${registerButtonHtml}
                                         </div>`
                                 }
@@ -541,12 +540,12 @@ function renderPagination(totalPages) {
     const isMobile = window.innerWidth <= 768;
 
     if (!isMobile) {
-        pagination.appendChild(makeBtn('\u00AB', 'First page', currentPage === 1, () => {
+        pagination.appendChild(makeBtn('\u00AB', 'Primeira página', currentPage === 1, () => {
             currentPage = 1;
             renderPaginatedList();
         }));
     }
-    pagination.appendChild(makeBtn('\u25C0', 'Previous page', currentPage <= 1, () => {
+    pagination.appendChild(makeBtn('\u25C0', 'Página anterior', currentPage <= 1, () => {
         if (currentPage <= 1) return;
         currentPage -= 1;
         renderPaginatedList();
@@ -572,13 +571,13 @@ function renderPagination(totalPages) {
         pagination.appendChild(btn);
     }
 
-    pagination.appendChild(makeBtn('\u25B6', 'Next page', currentPage >= totalPages, () => {
+    pagination.appendChild(makeBtn('\u25B6', 'Próxima página', currentPage >= totalPages, () => {
         if (currentPage >= totalPages) return;
         currentPage += 1;
         renderPaginatedList();
     }));
     if (!isMobile) {
-        pagination.appendChild(makeBtn('\u00BB', 'Last page', currentPage >= totalPages, () => {
+        pagination.appendChild(makeBtn('\u00BB', 'Última página', currentPage >= totalPages, () => {
             currentPage = totalPages;
             renderPaginatedList();
         }));
@@ -613,20 +612,20 @@ async function handleSubmit() {
         : await fetch(url, { method, headers, body: JSON.stringify({ name }) });
 
     if (res.ok) {
-        showToast(isEditing ? 'Player updated!' : 'Player added!');
+        showToast(isEditing ? 'Jogador atualizado!' : 'Jogador adicionado!');
         cancelEdit();
         loadPlayers();
         return;
     }
 
-    showToast(isEditing ? 'Error updating player' : 'Error adding player', 'error');
+    showToast(isEditing ? 'Erro ao atualizar jogador' : 'Erro ao adicionar jogador', 'error');
 }
 
 function editPlayer(id, name) {
     editingPlayerId = id;
     const nameInput = document.getElementById('playerName');
     if (nameInput) nameInput.value = String(name || '');
-    openPlayerModal('Edit Player');
+    openPlayerModal('Editar jogador');
 }
 
 function cancelEdit() {
@@ -637,7 +636,7 @@ function cancelEdit() {
 }
 
 async function deletePlayer(id, name) {
-    if (!confirm(`Delete "${name}"?`)) return;
+    if (!confirm(`Excluir "${name}"?`)) return;
     const res = window.supabaseApi
         ? await window.supabaseApi.del(`/rest/v1/players?id=eq.${id}`)
         : await fetch(`${SUPABASE_URL}/rest/v1/players?id=eq.${id}`, { method: 'DELETE', headers });

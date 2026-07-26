@@ -44,6 +44,7 @@ Main JS entry points:
 - `torneios/edit-tournament/modal.js`
 - `torneios/decklist-builder/script.js` (decklist builder)
 - `players/script.js`, `decks/script.js`
+- `feedback/feedback.js` (sidebar feedback modal + Edge Function request)
 
 Legacy candidates still present (kept for compat):
 - `script.js` (root)
@@ -54,10 +55,20 @@ Legacy candidates still present (kept for compat):
 New Tournament modal supports OCR:
 - Endpoint: `POST https://e-lopes-digimon-ocr-api.hf.space/process`
 - Request: `multipart/form-data` with `file`
+- OCR is optional; manual tournaments do not create attachment records.
+- Processed screenshots are archived in the public `tournament-ocr-sources` bucket and linked through `tournament_ocr_files`.
+- `tournament_results.match_points` stores the optional 3-win/1-draw score (`NULL` unknown, `0` valid).
 - Response used by frontend:
   - `players[]` for results
   - `store_name` for store selection
   - `tournament_date` or `tournament_datetime`
+
+Tournament registration UX:
+- `tournament_weekly_schedule` is managed in Administration > Stores and suggests a store from the selected weekday.
+- The suggestion only applies to new tournaments and never locks the store selector.
+- New tournaments default to the `Semanal` name.
+- User-facing copy calls the OCR workflow "Print Bandai"; `OCR` remains the internal technical name.
+- Instagram is an optional collapsed section at the end of the form.
 
 ## 6) Data model (high level)
 Supabase Postgres schema tracked in `database/schema.latest.sql`
@@ -65,6 +76,7 @@ and `database/migrations/*`.
 
 Key tables:
 - `tournaments`, `tournament_results`
+- `feedback_submissions` (private service-role-only feedback inbox)
 - `players`, `stores`
 - `decks`, `deck_images`
 - `cards_cache` (card data cache)
@@ -293,4 +305,3 @@ If you are a new LLM or engineer, start here:
 3. `torneios/decklist-builder/script.js` (decklist logic)
 4. `config/supabase.js` + `config/api-client.js` (Supabase access)
 5. `database/schema.latest.sql` (data model)
-

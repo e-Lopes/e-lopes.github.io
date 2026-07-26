@@ -16,12 +16,12 @@
 <div id="createDeckModal" class="modal-overlay" aria-hidden="true" inert>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="createDeckTitle">
         <div class="modal-header">
-            <h2 id="createDeckTitle">Create Deck</h2>
+            <h2 id="createDeckTitle">Criar Deck</h2>
             <button type="button" id="btnCloseCreateDeckModalX" class="player-modal-close" aria-label="Fechar">&times;</button>
         </div>
         <form id="createDeckForm">
             <div class="form-group">
-                <label class="form-label" for="createDeckName">Deck Name*</label>
+                <label class="form-label" for="createDeckName">Nome do Deck*</label>
                 <input id="createDeckName" class="form-input" type="text" required>
             </div>
             <div class="form-group">
@@ -35,16 +35,16 @@
                 </div>
                 <div id="createDeckPreview" class="modal-preview" style="display: none;">
                     <div class="deck-thumb-wrapper modal-preview-thumb">
-                        <img id="createDeckPreviewImage" class="deck-thumb-image" alt="Deck preview">
+                        <img id="createDeckPreviewImage" class="deck-thumb-image" alt="Prévia do Deck">
                     </div>
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Deck Colors</label>
-                <div id="createDeckColors" class="deck-colors-picker" role="group" aria-label="Deck colors"></div>
+                <label class="form-label">Cores do Deck</label>
+                <div id="createDeckColors" class="deck-colors-picker" role="group" aria-label="Cores do Deck"></div>
             </div>
             <div class="modal-actions">
-                <button type="button" id="btnCloseCreateDeckModal" class="btn-modal-cancel">Cancel</button>
+                <button type="button" id="btnCloseCreateDeckModal" class="btn-modal-cancel">Cancelar</button>
                 <button type="submit" class="btn-modal-save">Create</button>
             </div>
             <div class="modal-tips">

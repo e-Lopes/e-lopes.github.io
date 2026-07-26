@@ -14,9 +14,10 @@ let editPlayers = [];
 let editDecks = [];
 let editStores = [];
 let editResults = [];
-let editOriginalResultIds = [];
 let editOcrSelectedFiles = [];
+let editOcrProcessedFiles = [];
 let editOcrImportInProgress = false;
+let editTournamentSaveInProgress = false;
 const editOcrApiBaseUrl = 'https://digimon-ocr-api.vercel.app';
 
 function normalizeEditPlayerNameInput(value) {
@@ -102,7 +103,7 @@ async function ensurePlayersRegisteredForEdit() {
 
         const insertedPlayer = (await insertRes.json())[0];
         if (!insertedPlayer?.id) {
-            throw new Error(`Player "${playerName}" cadastrado sem retornar ID.`);
+            throw new Error(`Jogador "${playerName}" cadastrado sem retornar ID.`);
         }
         editPlayers.push({
             ...insertedPlayer,
@@ -157,7 +158,7 @@ function openRegisterPlayersModalFallback(playerNames) {
     const btnConfirm = document.getElementById('btnRegisterPlayersConfirm');
     const btnCancel = document.getElementById('btnRegisterPlayersCancel');
     if (!modal || !list || !btnConfirm || !btnCancel) {
-        return Promise.reject(new Error('Nao foi possivel abrir o modal de confirmacao de players.'));
+        return Promise.reject(new Error('Não foi possível abrir a confirmação de jogadores.'));
     }
 
     list.innerHTML = playerNames
@@ -169,13 +170,18 @@ function openRegisterPlayersModalFallback(playerNames) {
         )
         .map((safeName) => `<li>${safeName}</li>`)
         .join('');
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
     modal.classList.add('active');
 
     return new Promise((resolve) => {
         const cleanup = () => {
             btnConfirm.removeEventListener('click', onConfirm);
             btnCancel.removeEventListener('click', onCancel);
-            modal.removeEventListener('click', onOverlay);
             modal.classList.remove('active');
         };
         const onConfirm = () => {
@@ -186,12 +192,8 @@ function openRegisterPlayersModalFallback(playerNames) {
             cleanup();
             resolve(false);
         };
-        const onOverlay = (event) => {
-            if (event.target === modal) onCancel();
-        };
         btnConfirm.addEventListener('click', onConfirm);
         btnCancel.addEventListener('click', onCancel);
-        modal.addEventListener('click', onOverlay);
     });
 }
 
@@ -227,6 +229,8 @@ async function loadEditFormData(id) {
         document.getElementById('editTournamentName').value = data.tournament_name || '';
         document.getElementById('editTotalPlayers').value = '0';
         document.getElementById('editInstagramLink').value = data.instagram_link || '';
+        const instagramDetails = document.getElementById('editTournamentInstagramSection');
+        if (instagramDetails) instagramDetails.open = Boolean(data.instagram_link);
 
         // Reset cache so format default reflects current DB state
         if (typeof tournamentFormatsLoaded !== 'undefined') tournamentFormatsLoaded = false;
@@ -249,7 +253,9 @@ async function loadEditFormData(id) {
         }
 
         await loadResultsToEdit(id, data);
+        await loadEditOcrFiles(id);
         renderEditResultsRows();
+        if (typeof setTournamentFormDirty === 'function') setTournamentFormDirty('edit', false);
     } catch (err) {
         console.error('Erro completo:', err);
         alert('Falha ao carregar dados do torneio: ' + err.message);
@@ -292,7 +298,7 @@ async function loadPlayersToEdit() {
             headers: modalHeaders
         }
     );
-    if (!res.ok) throw new Error('Erro ao carregar players');
+    if (!res.ok) throw new Error('Erro ao carregar jogadores');
     editPlayers = (await res.json()).map((player) => ({
         ...player,
         bandai_id: player.bandai_id || '',
@@ -310,7 +316,7 @@ async function loadDecksToEdit() {
 
 async function loadResultsToEdit(tournamentId, tournamentData) {
     let res = await fetch(
-        `${modalSupabaseUrl}/rest/v1/tournament_results?tournament_id=eq.${encodeURIComponent(tournamentId)}&select=id,placement,player_id,deck_id&order=placement.asc`,
+        `${modalSupabaseUrl}/rest/v1/tournament_results?tournament_id=eq.${encodeURIComponent(tournamentId)}&select=id,placement,player_id,deck_id,match_points&order=placement.asc`,
         { headers: modalHeaders }
     );
 
@@ -325,7 +331,7 @@ async function loadResultsToEdit(tournamentId, tournamentData) {
     ) {
         // compatibilidade para resultados antigos sem tournament_id
         res = await fetch(
-            `${modalSupabaseUrl}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(tournamentData.store_id)}&tournament_date=eq.${tournamentData.tournament_date}&select=id,placement,player_id,deck_id&order=placement.asc`,
+            `${modalSupabaseUrl}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(tournamentData.store_id)}&tournament_date=eq.${tournamentData.tournament_date}&select=id,placement,player_id,deck_id,match_points&order=placement.asc`,
             { headers: modalHeaders }
         );
         if (!res.ok) throw new Error('Erro ao carregar resultados antigos do torneio');
@@ -337,10 +343,11 @@ async function loadResultsToEdit(tournamentId, tournamentData) {
         player_id: r.player_id || '',
         deck_id: r.deck_id || '',
         player_name: '',
+        deck_name: '',
+        match_points: r.match_points ?? null,
         ocr_player_unmatched: false
     }));
 
-    editOriginalResultIds = editResults.map((r) => r.id).filter(Boolean);
 }
 
 function escapeHtml(value) {
@@ -393,6 +400,8 @@ function bindEditResultsAutocomplete() {
             if (type === 'player') {
                 updateEditResultField(rowIndex, 'player_name', input.value.trim());
                 updateEditResultField(rowIndex, 'ocr_player_unmatched', Boolean(input.value.trim()));
+            } else {
+                updateEditResultField(rowIndex, 'deck_name', input.value.trim());
             }
             renderOptions(input.value);
         });
@@ -415,6 +424,8 @@ function bindEditResultsAutocomplete() {
             if (type === 'player') {
                 updateEditResultField(rowIndex, 'player_name', option.dataset.name || '');
                 updateEditResultField(rowIndex, 'ocr_player_unmatched', false);
+            } else {
+                updateEditResultField(rowIndex, 'deck_name', option.dataset.name || '');
             }
             input.value = option.dataset.name || '';
             dropdown.style.display = 'none';
@@ -429,6 +440,7 @@ function renderEditResultsRows() {
     if (editResults.length === 0) {
         container.innerHTML = '';
         document.getElementById('editTotalPlayers').value = '';
+        window.updateTournamentPlayerCount?.('edit', 0);
         return;
     }
 
@@ -436,20 +448,20 @@ function renderEditResultsRows() {
         .map(
             (row, index) => `
         <div class="result-row">
-            <div class="form-group">
-                <label>Place</label>
-                <input type="number" value="${index + 1}" disabled>
+            <div class="form-group result-placement-group">
+                <label>Posicao</label>
+                <span class="result-placement-badge ${getResultPlacementClass(index + 1)}" aria-label="${formatOrdinal(index + 1)} lugar">${formatOrdinal(index + 1)}</span>
             </div>
             <div class="form-group">
-                <label>Player<span class="required">*</span></label>
+                <label>Jogador<span class="required">*</span></label>
                 <div class="autocomplete-wrapper" data-row-index="${index}">
                     <input
                         type="text"
                         class="player-input${row.ocr_player_unmatched ? ' ocr-player-unmatched' : ''}"
                         data-autocomplete-type="player"
-                        placeholder="Digite o player..."
+                        placeholder="Nome do jogador..."
                         value="${escapeHtml(getItemNameById(editPlayers, row.player_id) || row.player_name || '')}"
-                        ${row.ocr_player_unmatched ? 'style="border-color:#f59e0b;background:#fff7ed;" title="Player nao encontrado no cadastro"' : ''}
+                        ${row.ocr_player_unmatched ? 'style="border-color:#f59e0b;background:#fff7ed;" title="Jogador não encontrado no cadastro"' : ''}
                         autocomplete="off"
                         required
                     >
@@ -464,11 +476,24 @@ function renderEditResultsRows() {
                         class="deck-input"
                         data-autocomplete-type="deck"
                         placeholder="Digite o deck..."
-                        value="${escapeHtml(getItemNameById(editDecks, row.deck_id))}"
+                        value="${escapeHtml(getItemNameById(editDecks, row.deck_id) || row.deck_name || '')}"
                         autocomplete="off"
                     >
                     <div class="autocomplete-dropdown"></div>
                 </div>
+            </div>
+            <div class="form-group result-points-group">
+                <label>Pontos</label>
+                <input
+                    type="number"
+                    class="match-points-input"
+                    data-edit-match-points-index="${index}"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="—"
+                    value="${row.match_points === null || row.match_points === undefined ? '' : escapeHtml(row.match_points)}"
+                >
             </div>
             <button type="button" class="btn-remove-result" data-edit-remove-index="${index}" aria-label="Remove result" title="Remove result">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
@@ -490,9 +515,22 @@ function renderEditResultsRows() {
             removeEditResultRow(index);
         });
     });
+    container.querySelectorAll('[data-edit-match-points-index]').forEach((input) => {
+        input.addEventListener('input', () => {
+            const index = Number(input.getAttribute('data-edit-match-points-index'));
+            const points =
+                typeof normalizeOcrMatchPoints === 'function'
+                    ? normalizeOcrMatchPoints(input.value)
+                    : input.value === ''
+                      ? null
+                      : Number(input.value);
+            updateEditResultField(index, 'match_points', points);
+        });
+    });
     bindEditResultsAutocomplete();
 
     document.getElementById('editTotalPlayers').value = String(editResults.length);
+    window.updateTournamentPlayerCount?.('edit', editResults.length);
 }
 
 function syncEditResultsByTotal() {
@@ -513,6 +551,8 @@ function syncEditResultsByTotal() {
                 player_id: '',
                 deck_id: '',
                 player_name: '',
+                deck_name: '',
+                match_points: null,
                 ocr_player_unmatched: false
             }
         );
@@ -532,13 +572,17 @@ function addEditResultRow() {
         player_id: '',
         deck_id: '',
         player_name: '',
+        deck_name: '',
+        match_points: null,
         ocr_player_unmatched: false
     });
+    if (typeof setTournamentFormDirty === 'function') setTournamentFormDirty('edit', true);
     renderEditResultsRows();
 }
 
 function removeEditResultRow(index) {
     editResults.splice(index, 1);
+    if (typeof setTournamentFormDirty === 'function') setTournamentFormDirty('edit', true);
     renderEditResultsRows();
 }
 
@@ -585,9 +629,9 @@ function bindEditModalActions() {
 }
 
 function closeEditModal() {
+    if (editOcrImportInProgress || editTournamentSaveInProgress) return;
     document.getElementById('editModal').classList.remove('active');
     editResults = [];
-    editOriginalResultIds = [];
     resetEditOcrImportUi();
     renderEditResultsRows();
 }
@@ -608,12 +652,42 @@ function setEditOcrSelectedInfo(message) {
 function resetEditOcrImportUi() {
     editOcrImportInProgress = false;
     editOcrSelectedFiles = [];
+    editOcrProcessedFiles = [];
     const input = document.getElementById('editOcrFilesInput');
     const button = document.getElementById('btnSelectEditOcrPrints');
     if (input) input.value = '';
     if (button) button.disabled = false;
     setEditOcrSelectedInfo('');
     setEditOcrStatus('');
+    if (typeof renderOcrFilePreview === 'function') renderOcrFilePreview('editOcrPreview', []);
+}
+
+async function loadEditOcrFiles(tournamentId) {
+    const section = document.getElementById('editOcrExistingSection');
+    const container = document.getElementById('editOcrExistingFiles');
+    if (!section || !container || !window.tournamentOcrFiles) return;
+    const files = await window.tournamentOcrFiles
+        .loadFiles({
+            supabaseUrl: modalSupabaseUrl,
+            headers: modalHeaders,
+            tournamentId
+        })
+        .catch((error) => {
+            console.warn(error);
+            return [];
+        });
+    section.classList.toggle('is-hidden', files.length === 0);
+    container.innerHTML = files
+        .map(
+            (file) => `
+                <a class="tournament-ocr-thumb" href="${escapeHtml(file.public_url)}" target="_blank" rel="noopener noreferrer">
+                    <img src="${escapeHtml(file.public_url)}" alt="${escapeHtml(file.original_name || 'Print da Bandai')}" loading="lazy">
+                    <span>${escapeHtml(file.original_name || 'Print da Bandai')}</span>
+                    <time>${escapeHtml(new Date(file.created_at).toLocaleString('pt-BR'))}</time>
+                </a>
+            `
+        )
+        .join('');
 }
 
 function normalizeLookupNameModal(value) {
@@ -649,7 +723,12 @@ function extractOcrPlayersModal(payload) {
             rank: parseOcrRankModal(item?.rank, index),
             name: String(item?.name || '').trim(),
             member_id: normalizeMemberIdModal(item?.member_id),
-            points: String(item?.points || '').trim(),
+            points:
+                typeof normalizeOcrMatchPoints === 'function'
+                    ? normalizeOcrMatchPoints(item?.points)
+                    : item?.points === null || item?.points === undefined || String(item.points).trim() === ''
+                      ? null
+                      : Number(item.points),
             omw: String(item?.omw || '').trim()
         }))
         .filter((item) => item.name || item.member_id)
@@ -667,7 +746,14 @@ function mergeOcrPlayersByMemberIdModal(allPlayers) {
         }
         if (item.rank < existing.rank) existing.rank = item.rank;
         if (!existing.name && item.name) existing.name = item.name;
-        if (!existing.points && item.points) existing.points = item.points;
+        if (existing.points === null && item.points !== null) existing.points = item.points;
+        else if (
+            existing.points !== null &&
+            item.points !== null &&
+            existing.points !== item.points
+        ) {
+            existing.points_conflict = true;
+        }
         if (!existing.omw && item.omw) existing.omw = item.omw;
     });
     return Array.from(merged.values())
@@ -786,20 +872,33 @@ async function requestOcrFromImageModal(file) {
         body: formData
     });
     if (!res.ok) {
-        throw new Error(`OCR endpoint respondeu ${res.status}`);
+        throw new Error(`O serviço de leitura do print respondeu ${res.status}`);
     }
-    return res.json();
+    const payload = await res.json();
+    if (payload?.error) {
+        console.error('Erro retornado pelo serviço OCR:', payload.error);
+        const getMessage = window.getOcrServiceErrorMessage;
+        throw new Error(
+            typeof getMessage === 'function'
+                ? getMessage(payload.error)
+                : 'O serviço de leitura não conseguiu processar o print neste momento.'
+        );
+    }
+    return payload;
 }
 
 function onEditOcrFilesSelected(event) {
     const files = Array.from(event.target?.files || []);
     editOcrSelectedFiles = files;
     if (!files.length) {
+        editOcrProcessedFiles = [];
+        if (typeof renderOcrFilePreview === 'function') renderOcrFilePreview('editOcrPreview', []);
         setEditOcrSelectedInfo('');
         setEditOcrStatus('');
         return;
     }
     setEditOcrSelectedInfo(`${files.length} print(s) selecionado(s).`);
+    if (typeof renderOcrFilePreview === 'function') renderOcrFilePreview('editOcrPreview', files);
     setEditOcrStatus('Processando...');
     processEditOcrFiles();
 }
@@ -835,14 +934,19 @@ async function processEditOcrFiles() {
             throw new Error('Nenhum resultado reconhecido na imagem');
         }
 
-        const preservedDecks = editResults.map((row) => row.deck_id || '');
+        const preservedDecks = editResults.map((row) => ({
+            deck_id: row.deck_id || '',
+            deck_name: row.deck_name || ''
+        }));
         editResults = mergedPlayers.map((ocrPlayer, index) => {
             const matchedPlayer = findPlayerMatchFromOcrModal(ocrPlayer);
             return {
                 id: null,
                 player_id: matchedPlayer?.id || '',
-                deck_id: preservedDecks[index] || '',
+                deck_id: preservedDecks[index]?.deck_id || '',
+                deck_name: preservedDecks[index]?.deck_name || '',
                 player_name: ocrPlayer.name || '',
+                match_points: ocrPlayer.points,
                 ocr_player_unmatched: !matchedPlayer?.id
             };
         });
@@ -863,23 +967,35 @@ async function processEditOcrFiles() {
         }
 
         const unresolvedPlayers = editResults.filter((row) => !row.player_id).length;
+        const pointConflicts = mergedPlayers.filter((row) => row.points_conflict).length;
         const unresolvedStore = selectedStoreName
             ? !resolveStoreFromOcrNameModal(selectedStoreName)
             : false;
         if (unresolvedPlayers) {
             setEditOcrStatus(
-                `OCR: ${editResults.length} players, ${unresolvedPlayers} sem match${unresolvedStore ? ', loja sem match' : ''}. Decks preservados.`,
+                `Print importado: ${editResults.length} jogadores, ${unresolvedPlayers} sem correspondência${unresolvedStore ? ', loja não identificada' : ''}. Decks preservados.${pointConflicts ? ` Revise ${pointConflicts} conflito(s) de pontos.` : ''}`,
                 'info'
             );
         } else {
             setEditOcrStatus(
-                `OCR concluido (${editResults.length} players). Decks preservados.`,
-                'success'
+                `Print importado (${editResults.length} jogadores). Decks preservados.${pointConflicts ? ` Revise ${pointConflicts} conflito(s) de pontos.` : ''}`,
+                pointConflicts ? 'info' : 'success'
             );
         }
+        editOcrProcessedFiles = [...editOcrSelectedFiles];
+        if (typeof setTournamentFormDirty === 'function') setTournamentFormDirty('edit', true);
     } catch (err) {
+        editOcrSelectedFiles = [...editOcrProcessedFiles];
+        if (typeof renderOcrFilePreview === 'function') {
+            renderOcrFilePreview('editOcrPreview', editOcrProcessedFiles);
+        }
+        setEditOcrSelectedInfo(
+            editOcrProcessedFiles.length
+                ? `${editOcrProcessedFiles.length} print(s) da última importação válida serão arquivados.`
+                : ''
+        );
         console.error('Erro no OCR (edit):', err);
-        setEditOcrStatus(err.message || 'Falha ao processar OCR.', 'error');
+        setEditOcrStatus(err.message || 'Falha ao processar o print da Bandai.', 'error');
     } finally {
         editOcrImportInProgress = false;
         if (btnSelect) btnSelect.disabled = false;
@@ -892,6 +1008,14 @@ async function editTournamentFormSubmit(e) {
     const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Salvando...';
+    editTournamentSaveInProgress = true;
+    document.getElementById('editTournamentForm')?.setAttribute('aria-busy', 'true');
+    ['btnEditCancel', 'btnEditModalCloseX', 'btnSelectEditOcrPrints'].forEach((id) => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = true;
+    });
+    let ocrBatchForRollback = null;
+    let saveCompleted = false;
 
     try {
         const totalPlayers = editResults.length;
@@ -926,6 +1050,27 @@ async function editTournamentFormSubmit(e) {
             return;
         }
 
+        try {
+            const shouldProceed = await window.ensureTournamentDecksRegistered({
+                results: editResults,
+                getDecks: () => editDecks,
+                reloadDecks: loadDecksToEdit,
+                supabaseUrl: modalSupabaseUrl,
+                requestHeaders: modalHeaders
+            });
+            if (!shouldProceed) return;
+        } catch (registrationError) {
+            if (typeof window.showFriendlyErrorModal === 'function') {
+                window.showFriendlyErrorModal(
+                    'Nao foi possivel continuar',
+                    registrationError.message || 'Falha ao validar cadastro de decks.'
+                );
+            } else {
+                alert(registrationError.message || 'Falha ao validar cadastro de decks.');
+            }
+            return;
+        }
+
         const hasInvalidResult = editResults.some((r) => !r.player_id);
         const validInstagram = window.validation
             ? window.validation.isValidOptionalUrl(updated.instagram_link)
@@ -942,90 +1087,51 @@ async function editTournamentFormSubmit(e) {
             return;
         }
 
-        const url = `${modalSupabaseUrl}/rest/v1/tournament?id=eq.${encodeURIComponent(editingTournamentId)}`;
-        const res = await fetch(url, {
-            method: 'PATCH',
-            headers: modalHeaders,
-            body: JSON.stringify(updated)
-        });
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error('Erro ao salvar torneio:', res.status, errorText);
-            throw new Error(`Erro ao salvar torneio (${res.status})`);
-        }
-
-        // Preserve existing row IDs so decklists linked via result_id are not lost.
-        // Strategy: PATCH existing rows, INSERT new ones, DELETE removed ones.
-        const updatedIds = new Set(editResults.map((r) => r.id).filter(Boolean));
-        const toDeleteIds = editOriginalResultIds.filter((id) => !updatedIds.has(id));
-
-        // PATCH existing rows (preserves IDs → decklists stay linked)
-        for (let i = 0; i < editResults.length; i++) {
-            const row = editResults[i];
-            if (!row.id) continue;
-            const patchRes = await fetch(
-                `${modalSupabaseUrl}/rest/v1/tournament_results?id=eq.${encodeURIComponent(row.id)}`,
-                {
-                    method: 'PATCH',
-                    headers: modalHeaders,
-                    body: JSON.stringify({
-                        tournament_id: editingTournamentId,
-                        store_id: updated.store_id,
-                        tournament_date: updated.tournament_date,
-                        total_players: updated.total_players,
-                        placement: i + 1,
-                        deck_id: row.deck_id || null,
-                        player_id: row.player_id,
-                    })
-                }
-            );
-            if (!patchRes.ok) {
-                const errorText = await patchRes.text();
-                throw new Error(`Erro ao atualizar resultado (id=${row.id}, HTTP ${patchRes.status}): ${errorText}`);
+        if (editOcrProcessedFiles.length) {
+            if (!window.tournamentOcrFiles?.uploadFiles) {
+                throw new Error(
+                    'O módulo de prints da Bandai não foi carregado. Atualize a página e tente novamente.'
+                );
             }
+            setEditOcrStatus('Arquivando novos prints da Bandai...');
+            ocrBatchForRollback = await window.tournamentOcrFiles.uploadFiles({
+                supabaseUrl: modalSupabaseUrl,
+                headers: modalHeaders,
+                tournamentId: editingTournamentId,
+                files: editOcrProcessedFiles
+            });
         }
 
-        // DELETE rows that were removed in the edit
-        for (const id of toDeleteIds) {
-            await fetch(
-                `${modalSupabaseUrl}/rest/v1/tournament_results?id=eq.${encodeURIComponent(id)}`,
-                { method: 'DELETE', headers: modalHeaders }
-            );
-        }
-
-        // INSERT new rows (rows without an original id)
-        const toInsert = editResults
-            .map((row, index) => ({ row, placement: index + 1 }))
-            .filter(({ row }) => !row.id);
-
-        if (toInsert.length) {
-            const resultsPayload = toInsert.map(({ row, placement }) => ({
-                tournament_id: editingTournamentId,
-                store_id: updated.store_id,
-                tournament_date: updated.tournament_date,
-                total_players: updated.total_players,
-                placement,
-                deck_id: row.deck_id || null,
-                player_id: row.player_id,
-            }));
-
-            const resultsRes = await fetch(`${modalSupabaseUrl}/rest/v1/tournament_results`, {
+        const resultsPayload = editResults.map((row) => ({
+            id: row.id || null,
+            deck_id: row.deck_id || null,
+            player_id: row.player_id,
+            match_points: row.match_points ?? null
+        }));
+        const saveRes = await fetch(
+            `${modalSupabaseUrl}/rest/v1/rpc/save_tournament_transaction`,
+            {
                 method: 'POST',
                 headers: modalHeaders,
-                body: JSON.stringify(resultsPayload)
-            });
-
-            if (!resultsRes.ok) {
-                const errorText = await resultsRes.text();
-                const friendlyMessage =
-                    typeof window.getFriendlyResultsSaveErrorMessage === 'function'
-                        ? window.getFriendlyResultsSaveErrorMessage(resultsRes.status, errorText)
-                        : `Erro ao salvar tournament_results (${resultsRes.status})`;
-                throw new Error(friendlyMessage);
+                body: JSON.stringify({
+                    p_tournament_id: editingTournamentId,
+                    p_tournament: updated,
+                    p_results: resultsPayload,
+                    p_ocr_files: ocrBatchForRollback?.metadata || []
+                })
             }
+        );
+        if (!saveRes.ok) {
+            const detail = await saveRes.text();
+            const friendlyMessage =
+                typeof window.getFriendlyResultsSaveErrorMessage === 'function'
+                    ? window.getFriendlyResultsSaveErrorMessage(saveRes.status, detail)
+                    : `Erro ao salvar torneio (${saveRes.status})`;
+            throw new Error(friendlyMessage);
         }
 
+        saveCompleted = true;
+        editTournamentSaveInProgress = false;
         closeEditModal();
         // Recarrega a tabela de torneios
         if (typeof loadTournaments === 'function') {
@@ -1038,16 +1144,32 @@ async function editTournamentFormSubmit(e) {
             }
         }
     } catch (err) {
+        if (!saveCompleted && ocrBatchForRollback) {
+            await window.tournamentOcrFiles.cleanupBatch({
+                supabaseUrl: modalSupabaseUrl,
+                headers: modalHeaders,
+                batchId: ocrBatchForRollback.batchId,
+                storagePaths: ocrBatchForRollback.storagePaths
+            });
+        }
         console.error('Erro completo:', err);
         if (typeof window.showFriendlyErrorModal === 'function') {
             window.showFriendlyErrorModal(
-                'Falha ao salvar torneio',
-                err?.message || 'Nao foi possivel salvar as alteracoes do torneio.'
+                saveCompleted ? 'Torneio salvo' : 'Falha ao salvar torneio',
+                saveCompleted
+                    ? 'As alteracoes foram salvas, mas a lista nao foi atualizada. Recarregue a pagina.'
+                    : err?.message || 'Nao foi possivel salvar as alteracoes do torneio.'
             );
         } else {
             alert('Falha ao salvar torneio: ' + err.message);
         }
     } finally {
+        editTournamentSaveInProgress = false;
+        document.getElementById('editTournamentForm')?.removeAttribute('aria-busy');
+        ['btnEditCancel', 'btnEditModalCloseX', 'btnSelectEditOcrPrints'].forEach((id) => {
+            const button = document.getElementById(id);
+            if (button) button.disabled = false;
+        });
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
     }

@@ -67,8 +67,8 @@
             const day = Number(dateStr.slice(8, 10));
             if (!Number.isInteger(day) || day < 1 || day > 31) return;
             if (!map.has(day)) map.set(day, []);
-            const storeName = t.store && t.store.name ? String(t.store.name).trim() : 'Store';
-            const tournamentName = String(t.tournament_name || 'Tournament');
+            const storeName = t.store && t.store.name ? String(t.store.name).trim() : 'Loja';
+            const tournamentName = String(t.tournament_name || 'Torneio');
             map.get(day).push({
                 id: t.id || '',
                 storeId: t.store_id || '',
@@ -83,7 +83,7 @@
 
     function buildCalendarContent(monthKey, tournaments) {
         if (!monthKey) {
-            return `<div class="calendar-empty-state">No tournaments for the current filters.</div>`;
+            return `<div class="calendar-empty-state">Nenhum torneio para os filtros atuais.</div>`;
         }
 
         const firstDay = getFirstOfMonth(monthKey);
@@ -92,7 +92,7 @@
         const startWeekDay = firstDay.getDay();
         const totalDays = new Date(year, month + 1, 0).getDate();
         const dayStoreMap = buildDayStoreMap(tournaments, monthKey);
-        const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
         const dayCells = [];
         for (let i = 0; i < startWeekDay; i++) {
@@ -142,7 +142,7 @@
                     .join('');
             }
             dayCells.push(`
-                <div class="calendar-day ${entries.length ? 'has-events' : ''} is-clickable" data-day-date="${monthKey}-${pad2(day)}">
+                <div class="calendar-day ${entries.length ? 'has-events' : ''} is-clickable" data-day-date="${monthKey}-${pad2(day)}" data-day-events="${encodeURIComponent(JSON.stringify(entries))}">
                     <div class="calendar-day-number">${day}</div>
                     <div class="calendar-events">${eventsHtml}</div>
                 </div>
@@ -182,16 +182,16 @@
         container.innerHTML = `
             <div class="calendar-panel">
                 <div class="calendar-toolbar">
-                    <button type="button" class="calendar-nav-btn" id="calendarPrevBtn" aria-label="Previous month" ${hasPrevMonth ? '' : 'disabled'}>◀</button>
+                    <button type="button" class="calendar-nav-btn" id="calendarPrevBtn" aria-label="Mês anterior" ${hasPrevMonth ? '' : 'disabled'}>◀</button>
                     <div class="calendar-title-wrap">
-                        <strong class="calendar-title">${monthKey ? getMonthLabel(monthKey, monthNames) : '-'}</strong>
+                        <strong class="calendar-title">${monthKey ? getMonthLabel(monthKey, monthNames) : '-'}<span class="mobile-calendar-year">${monthKey ? ` ${getYearLabel(monthKey)}` : ''}</span></strong>
                     </div>
-                    <button type="button" class="calendar-nav-btn" id="calendarNextBtn" aria-label="Next month" ${hasNextMonth ? '' : 'disabled'}>▶</button>
+                    <button type="button" class="calendar-nav-btn" id="calendarNextBtn" aria-label="Próximo mês" ${hasNextMonth ? '' : 'disabled'}>▶</button>
                 </div>
                 <div class="calendar-year-nav">
-                    <button type="button" class="calendar-nav-btn" id="calendarPrevYearBtn" aria-label="Previous year" ${hasPrevYear ? '' : 'disabled'}>◀</button>
+                    <button type="button" class="calendar-nav-btn" id="calendarPrevYearBtn" aria-label="Ano anterior" ${hasPrevYear ? '' : 'disabled'}>◀</button>
                     <span class="calendar-year-nav-label">${monthKey ? getYearLabel(monthKey) : ''}</span>
-                    <button type="button" class="calendar-nav-btn" id="calendarNextYearBtn" aria-label="Next year" ${hasNextYear ? '' : 'disabled'}>▶</button>
+                    <button type="button" class="calendar-nav-btn" id="calendarNextYearBtn" aria-label="Próximo ano" ${hasNextYear ? '' : 'disabled'}>▶</button>
                 </div>
                 ${buildCalendarContent(monthKey, tournaments)}
             </div>
@@ -226,7 +226,11 @@
             dayEls.forEach((el) => {
                 el.addEventListener('click', () => {
                     const date = el.dataset.dayDate || '';
-                    if (date) onSelectDay(date);
+                    let entries = [];
+                    try {
+                        entries = JSON.parse(decodeURIComponent(el.dataset.dayEvents || ''));
+                    } catch (_) {}
+                    if (date) onSelectDay(date, Array.isArray(entries) ? entries : []);
                 });
             });
         }

@@ -7,11 +7,11 @@
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="DigiStats" />
-        <title>DigiStats - Tournaments</title>
+        <title>DigiStats - Torneios</title>
         <link rel="icon" type="image/png" href="icons/favicon/favicon.png" />
         <link rel="apple-touch-icon" href="icons/icons-192.png" />
         <link rel="manifest" href="manifest.json" />
-        <link rel="stylesheet" href="styles.css?v=2026.03.27.1" />
+        <link rel="stylesheet" href="styles.css?v=2026.07.25.26" />
         <link rel="stylesheet" href="styles/components/utilities.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/components/states.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/pages/players.css?v=2026.07.04.1" />
@@ -20,16 +20,10 @@
         <div class="container">
             <header class="dashboard-home-header">
                 <div class="logo-wrapper">
-                    <a href="https://github.com/e-Lopes/e-lopes.github.io" target="_blank" rel="noopener noreferrer" title="View on GitHub"
-                        style="display:inline-block;cursor:pointer;transition:transform 0.2s,filter 0.2s;"
-                        onmouseover="this.style.transform='scale(1.08)';this.style.filter='brightness(1.15) drop-shadow(0 0 8px rgba(255,255,255,0.3))'"
-                        onmouseout="this.style.transform='scale(1)';this.style.filter='none'"
-                        onclick="if(window.innerWidth<=768)event.preventDefault()">
-                        <img src="icons/logo.png" alt="DigiStats" class="header-logo" />
-                    </a>
+                    <img src="icons/logo.png" alt="DigiStats" class="header-logo" />
+                    <span class="mobile-brand-name">DigiStats</span>
                 </div>
 
-                <p class="subtitle">Digimon TCG Tournament Management</p>
                 <div class="nav-buttons-wrapper">
                     <button type="button" id="btnShowTournamentsNav" class="nav-button is-active">
                         <span class="nav-icon" aria-hidden="true">
@@ -38,7 +32,7 @@
                                 <path d="M8 2v4M16 2v4M3 10h18"></path>
                             </svg>
                         </span>
-                        <span>Tournaments</span>
+                        <span>Torneios</span>
                     </button>
                     <button type="button" id="btnManageDecksNav" class="nav-button">
                         <span class="nav-icon" aria-hidden="true">
@@ -55,7 +49,7 @@
                                 <path d="M15.2 18c.3-1.9 1.8-3.4 3.8-3.8"></path>
                             </svg>
                         </span>
-                        <span>Players</span>
+                        <span>Jogadores</span>
                     </button>
                     <button type="button" id="btnShowStatisticsNav" class="nav-button">
                         <span class="nav-icon" aria-hidden="true">
@@ -66,7 +60,7 @@
                                 <path d="M17 16v-3"></path>
                             </svg>
                         </span>
-                        <span>Statistics</span>
+                        <span>Estatísticas</span>
                     </button>
                     <button type="button" id="btnAdminNav" class="nav-button">
                         <span class="nav-icon" aria-hidden="true">
@@ -78,16 +72,73 @@
                         </span>
                         <span>Admin</span>
                     </button>
+                    <button type="button" id="btnMoreNav" class="nav-button mobile-more-nav" aria-expanded="false" aria-controls="mobileMoreMenu">
+                        <span class="nav-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="19" cy="12" r="1.7"></circle></svg>
+                        </span>
+                        <span>Mais</span>
+                    </button>
+                </div>
+                <div class="sidebar-feedback-links" aria-label="Ajuda e feedback">
+                    <span class="sidebar-feedback-label">Ajuda e feedback</span>
+                    <a href="#feedback-bug" class="sidebar-feedback-link" data-feedback-type="bug">
+                        <span>Reportar bug</span>
+                    </a>
+                    <a href="#feedback-suggestion" class="sidebar-feedback-link" data-feedback-type="suggestion">
+                        <span>Enviar sugestão</span>
+                    </a>
                 </div>
             </header>
 
-            <div class="filters-row">
+            <div id="mobileMoreMenu" class="mobile-more-menu" hidden>
+                <button type="button" class="mobile-more-backdrop" data-close-mobile-more aria-label="Fechar menu"></button>
+                <section class="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle">
+                    <div class="mobile-more-handle" aria-hidden="true"></div>
+                    <div class="mobile-more-heading">
+                        <strong id="mobileMoreTitle">Mais</strong>
+                        <button type="button" class="mobile-more-close" data-close-mobile-more aria-label="Fechar">&times;</button>
+                    </div>
+                    <button type="button" class="mobile-more-item" data-mobile-view="admin">Administração</button>
+                    <div class="mobile-more-section">
+                        <span class="mobile-more-section-title">Ajuda e feedback</span>
+                        <button type="button" class="mobile-more-item" data-feedback-type="bug">Reportar bug</button>
+                        <button type="button" class="mobile-more-item" data-feedback-type="suggestion">Enviar sugestão</button>
+                    </div>
+                </section>
+            </div>
+
+            <section id="mobileTournamentPageHeader" class="mobile-page-header" aria-label="Ações de torneios">
+                <button type="button" id="btnCreateTournamentMobile" class="mobile-create-tournament-button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    Adicionar torneio
+                </button>
+            </section>
+
+            <div class="mobile-tournament-toolbar" aria-label="Visualização dos torneios">
+                <div class="mobile-view-segment" role="group" aria-label="Alternar visualização">
+                    <button type="button" id="btnMobileListView" class="mobile-view-option is-active" aria-pressed="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>
+                        Lista
+                    </button>
+                    <button type="button" id="btnMobileCalendarView" class="mobile-view-option" aria-pressed="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+                        Calendário
+                    </button>
+                </div>
+                <button type="button" id="btnMobileFilters" class="mobile-filter-button" aria-expanded="false" aria-controls="tournamentFilters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
+                    <span>Filtros</span>
+                    <span id="mobileFilterCount" class="mobile-filter-count" hidden>0</span>
+                </button>
+            </div>
+
+            <div class="filters-row" id="tournamentFilters">
                 <button
                     type="button"
                     id="btnCreateTournament"
                     class="btn-create-filter"
-                    title="Create Tournament"
-                    aria-label="Create Tournament"
+                    title="Adicionar torneio"
+                    aria-label="Adicionar torneio"
                 >
                     <svg
                         class="btn-create-icon"
@@ -99,45 +150,45 @@
                     >
                         <path d="M12 5v14M5 12h14" />
                     </svg>
-                    Add Tournament
+                    Adicionar torneio
                 </button>
-                <div class="form-group filter-group">
-                    <label for="filterStore">Store</label>
+                <div class="form-group filter-group filter-store-group">
+                    <label for="filterStore">Loja</label>
                     <select id="filterStore" class="filter-select">
-                        <option value="">All stores</option>
+                        <option value="">Todas as lojas</option>
                     </select>
                 </div>
-                <div class="form-group filter-group">
-                    <label for="filterTournamentName">Tournament Name</label>
+                <div class="form-group filter-group filter-type-group">
+                    <label for="filterTournamentName">Tipo do torneio</label>
                     <select id="filterTournamentName" class="filter-select">
-                        <option value="">All names</option>
+                        <option value="">Todos os tipos</option>
                     </select>
                 </div>
-                <div class="form-group filter-group">
-                    <label for="filterInstagram">Instagram Link</label>
+                <div class="form-group filter-group filter-instagram-group">
+                    <label for="filterInstagram">Link do Instagram</label>
                     <select id="filterInstagram" class="filter-select">
-                        <option value="">All</option>
-                        <option value="with_link">With link</option>
-                        <option value="without_link">Without link</option>
+                        <option value="">Todos</option>
+                        <option value="with_link">Com Link</option>
+                        <option value="without_link">Sem Link</option>
                     </select>
                 </div>
-                <div class="form-group filter-group">
-                    <label for="filterMonthYear">Month/Year</label>
+                <div class="form-group filter-group filter-month-group">
+                    <label for="filterMonthYear">Mês/Ano</label>
                     <select id="filterMonthYear" class="filter-select">
-                        <option value="">All months</option>
+                        <option value="">Todos os meses</option>
                     </select>
                 </div>
                 <div class="form-group filter-group per-page-filter">
-                    <select id="perPageSelect" aria-label="Items per page"></select>
+                    <select id="perPageSelect" aria-label="Itens por página"></select>
                 </div>
                 <div class="filter-actions">
-                    <span class="filter-label-spacer" aria-hidden="true">Instagram Link</span>
+                    <span class="filter-label-spacer" aria-hidden="true">Link do Instagram</span>
                     <button
                         type="button"
                         id="btnToggleView"
                         class="btn-toggle-view"
-                        title="Toggle Calendar/List"
-                        aria-label="Toggle Calendar/List"
+                        title="Alternar calendário/lista"
+                        aria-label="Alternar calendário/lista"
                     >
                         <svg
                             viewBox="0 0 24 24"
@@ -154,8 +205,9 @@
                         type="button"
                         id="btnClearFilters"
                         class="btn-clear-filters"
-                        title="Clear Filters"
-                        aria-label="Clear Filters"
+                        title="Limpar filtros"
+                        aria-label="Limpar filtros"
+                        aria-expanded="false"
                     >
                         <svg
                             viewBox="0 0 24 24"
@@ -169,6 +221,10 @@
                             <path d="M9 9l6 6" />
                             <path d="M15 9l-6 6" />
                         </svg>
+                        <span class="filter-toggle-label">Filtros</span>
+                    </button>
+                    <button type="button" id="btnResetFilters" class="btn-reset-filters">
+                        Limpar
                     </button>
                 </div>
             </div>
@@ -194,7 +250,7 @@
                                         <rect x="3" y="4" width="18" height="18" rx="2" />
                                         <path d="M8 2v4M16 2v4M3 10h18" />
                                     </svg>
-                                    Tournament Date
+                                    Data
                                     <span
                                         class="sort-indicator"
                                         data-sort-indicator="tournament_date"
@@ -216,7 +272,7 @@
                                         <path d="M4 10h16v10H4z" />
                                         <path d="M9 20v-6h6v6" />
                                     </svg>
-                                    Store
+                                    Loja
                                 </span>
                             </th>
                             <th>
@@ -234,7 +290,7 @@
                                         <path d="M9 3l-3 5 3 1" />
                                         <path d="M15 3l3 5-3 1" />
                                     </svg>
-                                    Tournament Name
+                                    Tipo do torneio
                                 </span>
                             </th>
                             <th>
@@ -254,7 +310,7 @@
                                         <rect x="4" y="5" width="16" height="14" rx="2" />
                                         <path d="M8 9h8M8 13h8" />
                                     </svg>
-                                    Total Players
+                                    Total de jogadores
                                     <span class="sort-indicator" data-sort-indicator="total_players"
                                         >?</span
                                     >
@@ -280,7 +336,7 @@
                                     Link
                                 </span>
                             </th>
-                            <th>Actions</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -297,6 +353,9 @@
 
             <template id="decksContainerTemplate">
                 <div class="decks-container">
+                    <div class="mobile-section-heading">
+                        <h1>Decks</h1>
+                    </div>
                     <!-- Row 1: add -->
                     <div class="decks-row decks-row-add">
                         <button id="btnOpenCreateDeckModal" class="btn-primary" type="button">
@@ -310,7 +369,7 @@
                             >
                                 <path d="M12 5v14M5 12h14" />
                             </svg>
-                            Add Deck
+                            Adicionar Deck
                         </button>
                     </div>
 
@@ -320,22 +379,22 @@
                             type="text"
                             id="searchInput"
                             class="search-input decks-search-input"
-                            placeholder="Search decks by name..."
+                            placeholder="Buscar Deck por nome..."
                         />
                         <select
                             id="deckRankMonthSelect"
                             class="deck-month-select decks-month-select"
-                            title="Month filter"
-                            aria-label="Month filter"
+                            title="Filtrar por mês"
+                            aria-label="Filtrar por mês"
                         >
-                            <option value="">Latest month</option>
+                            <option value="">Mês mais recente</option>
                         </select>
                         <button
                             type="button"
                             id="viewToggleBtn"
                             class="btn-view-toggle"
-                            title="Change view"
-                            aria-label="Change view"
+                            title="Alterar visualização"
+                            aria-label="Alterar visualização"
                         ></button>
                     </div>
 
@@ -343,12 +402,12 @@
                     <div class="decks-row decks-row-meta">
                         <span class="decks-total" id="decksTotalCount">Total: 0</span>
                         <label class="decks-per-page-label">
-                            Per page
+                            Por página
                             <select
                                 id="pageSizeSelect"
                                 class="page-size-select decks-page-size"
-                                title="Items per page"
-                                aria-label="Items per page"
+                                title="Itens por página"
+                                aria-label="Itens por página"
                             >
                                 <option value="4">4</option>
                                 <option value="8" selected>8</option>
@@ -363,29 +422,29 @@
                     <div id="decksList" class="decks-grid">
                         <div class="loading">
                             <div class="spinner"></div>
-                            <p>Loading decks...</p>
+                            <p>Carregando Decks...</p>
                         </div>
                     </div>
 
                     <div id="emptyState" class="empty-state u-hidden">
                         <div class="empty-state-icon">&#127183;</div>
-                        <h3>No decks registered</h3>
-                        <p>Start by adding your first deck!</p>
+                        <h3>Nenhum Deck cadastrado</h3>
+                        <p>Comece adicionando seu primeiro Deck.</p>
                         <button type="button" id="btnEmptyStateAddDeck" class="btn-primary u-mt-20">
-                            Add First Deck
+                            Adicionar primeiro Deck
                         </button>
                     </div>
 
                     <div id="noResults" class="empty-state u-hidden">
                         <div class="empty-state-icon">&#128269;</div>
-                        <h3>No decks found</h3>
-                        <p>Try searching with different terms.</p>
+                        <h3>Nenhum Deck encontrado</h3>
+                        <p>Tente buscar usando outros termos.</p>
                         <button
                             type="button"
                             id="btnNoResultsClearSearch"
                             class="btn-secondary u-mt-20"
                         >
-                            Clear search
+                            Limpar busca
                         </button>
                     </div>
                     <div class="pagination" id="decksPagination"></div>
@@ -394,13 +453,16 @@
 
             <template id="playersContainerTemplate">
                 <div class="players-container-embedded">
+                    <div class="mobile-section-heading">
+                        <h1>Jogadores</h1>
+                    </div>
                     <!-- Row 1: cadastro -->
                     <div class="players-row players-row-add">
                         <button type="button" id="btnAddPlayer" class="btn-primary players-add-btn">
                             <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                                 <path d="M12 5v14M5 12h14"></path>
                             </svg>
-                            Add Player
+                            Adicionar Jogador
                         </button>
                     </div>
 
@@ -410,7 +472,7 @@
                             type="text"
                             id="searchInput"
                             class="search-input players-search-input"
-                            placeholder="Search players by name..."
+                            placeholder="Buscar jogador por nome..."
                         />
                     </div>
 
@@ -418,12 +480,12 @@
                     <div class="players-row players-row-meta">
                         <span class="stats-counter">Total: <span id="totalPlayersCount">0</span></span>
                         <label class="players-per-page-label">
-                            Per page
+                            Por página
                             <select
                                 id="pageSizeSelect"
                                 class="page-size-select players-page-size"
-                                title="Items per page"
-                                aria-label="Items per page"
+                                title="Itens por página"
+                                aria-label="Itens por página"
                             >
                                 <option value="5">5</option>
                                 <option value="10" selected>10</option>
@@ -444,7 +506,7 @@
                     <div class="pagination" id="playersPagination"></div>
 
                     <div id="emptyState" class="empty-state u-hidden">
-                        <p>No players found.</p>
+                        <p>Nenhum jogador encontrado.</p>
                     </div>
                 </div>
             </template>
@@ -462,15 +524,15 @@
                                       <select
                                           id="statisticsViewSelect"
                                           class="statistics-select"
-                                          title="Statistics view"
-                                          aria-label="Statistics view"
+                                          title="Visualização de estatísticas"
+                                          aria-label="Visualização de estatísticas"
                                       >
-                                        <option value="meta_overview">Meta Overview</option>
+                                        <option value="meta_overview">Visão geral do Meta</option>
                                         <option value="v_deck_representation">
                                             Representa&ccedil;&atilde;o de Decks</option>
                                         <option value="v_deck_stats" selected>Estat&iacute;sticas de Decks</option>
                                         <option value="v_top_cards_by_month">Top Cards</option>
-                                        <option value="v_player_ranking">Ranking de Players</option>
+                                        <option value="v_player_ranking">Ranking de Jogadores</option>
                                         <option value="v_store_champions">Ranking por Loja</option>
                                     </select>
                                     <select
@@ -531,8 +593,8 @@
                                     type="text"
                                     id="statisticsPlayerSearch"
                                     class="statistics-player-search is-hidden"
-                                    placeholder="Buscar player..."
-                                    aria-label="Buscar player no Store Champions"
+                                    placeholder="Buscar jogador..."
+                                    aria-label="Buscar jogador no ranking por loja"
                                     autocomplete="off"
                                 />
                             </div>
@@ -542,7 +604,7 @@
                     <div id="statisticsChartArea" class="statistics-chart-area is-hidden"></div>
                     <div class="statistics-data-card">
                         <p id="statisticsStatus" class="statistics-status">
-                            Select a view to load data.
+                            Selecione uma visualização para carregar os dados.
                         </p>
                     </div>
                     <div class="statistics-table-wrapper">
@@ -556,12 +618,12 @@
             <template id="adminContainerTemplate">
                 <div class="admin-container" id="adminContainer">
                     <div class="page-header">
-                        <h1 class="page-title">Administration</h1>
+                        <h1 class="page-title">Admin</h1>
                         <div class="admin-tabs">
-                            <button type="button" class="admin-tab-btn is-active" data-admin-tab="formats">Formats / Meta</button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="banlist">Ban List</button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="stores">Stores</button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">Data Repair</button>
+                            <button type="button" class="admin-tab-btn is-active" data-admin-tab="formats">Formatos / Meta</button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="banlist">Lista de restrições</button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="stores">Lojas</button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">Reparo de dados</button>
                         </div>
                     </div>
 
@@ -569,21 +631,21 @@
                     <div data-admin-panel="formats" class="admin-panel">
                         <div class="admin-panel-header">
                             <div>
-                                <h2 class="admin-panel-title">Formats / Meta</h2>
-                                <p class="admin-panel-desc">Manage tournament formats. The default format is pre-selected when creating tournaments.</p>
+                                <h2 class="admin-panel-title">Formatos / Meta</h2>
+                                <p class="admin-panel-desc">Gerencie os formatos dos torneios. O formato padrão é selecionado automaticamente ao criar um torneio.</p>
                             </div>
-                            <button type="button" class="btn-primary" data-admin-action="create-format">+ New Format</button>
+                            <button type="button" class="btn-primary" data-admin-action="create-format">+ Novo formato</button>
                         </div>
                         <div class="admin-table-wrapper">
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th>Code</th>
-                                        <th>Name</th>
-                                        <th>Default</th>
+                                        <th>Código</th>
+                                        <th>Nome</th>
+                                        <th>Padrão</th>
                                         <th>Status</th>
-                                        <th>Background</th>
-                                        <th>Actions</th>
+                                        <th>Imagem de fundo</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminFormatsBody"></tbody>
@@ -595,24 +657,24 @@
                     <div data-admin-panel="banlist" class="admin-panel is-hidden">
                         <div class="admin-panel-header">
                             <div>
-                                <h2 class="admin-panel-title">Ban List</h2>
-                                <p class="admin-panel-desc">Manage card restrictions. Changes apply to new decklists only — existing registered decklists are not affected.</p>
+                                <h2 class="admin-panel-title">Lista de restrições</h2>
+                                <p class="admin-panel-desc">Gerencie as restrições de cartas. As alterações valem somente para novas listas de Deck.</p>
                             </div>
-                            <button type="button" class="btn-primary" data-admin-action="add-ban">+ Add Restriction</button>
+                            <button type="button" class="btn-primary" data-admin-action="add-ban">+ Adicionar restrição</button>
                         </div>
                         <div class="admin-banlist-search-row">
-                            <input type="text" id="adminBanListSearch" class="search-input" placeholder="Filter by card code or name…" autocomplete="off" />
+                            <input type="text" id="adminBanListSearch" class="search-input" placeholder="Filtrar por código ou nome da carta…" autocomplete="off" />
                             <span id="adminBanListCount" class="admin-dim"></span>
                         </div>
                         <div class="admin-table-wrapper">
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th>Card Code</th>
-                                        <th>Name</th>
-                                        <th>Restriction</th>
-                                        <th>Notes</th>
-                                        <th>Actions</th>
+                                        <th>Código da carta</th>
+                                        <th>Nome</th>
+                                        <th>Restrição</th>
+                                        <th>Observações</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminBanListBody"></tbody>
@@ -624,20 +686,31 @@
                     <div data-admin-panel="stores" class="admin-panel is-hidden">
                         <div class="admin-panel-header">
                             <div>
-                                <h2 class="admin-panel-title">Stores</h2>
-                                <p class="admin-panel-desc">Manage tournament venues. Stores are available in the store selector when creating or editing tournaments.</p>
+                                <h2 class="admin-panel-title">Lojas</h2>
+                                <p class="admin-panel-desc">Gerencie os locais dos torneios. As lojas ficam disponíveis ao criar ou editar torneios.</p>
                             </div>
-                            <button type="button" class="btn-primary" data-admin-action="create-store">+ New Store</button>
+                            <button type="button" class="btn-primary" data-admin-action="create-store">+ Nova loja</button>
                         </div>
+                        <section class="admin-weekly-schedule" aria-labelledby="adminWeeklyScheduleTitle">
+                            <div class="admin-weekly-schedule-header">
+                                <div>
+                                    <h3 id="adminWeeklyScheduleTitle">Agenda semanal padrão</h3>
+                                    <p class="admin-panel-desc">Sugere a loja pela data ao criar um torneio. A loja continua editável no formulário.</p>
+                                </div>
+                                <button type="button" class="btn-primary" data-admin-action="save-weekly-schedule">Salvar agenda</button>
+                            </div>
+                            <div id="adminWeeklyScheduleGrid" class="admin-weekly-schedule-grid"></div>
+                            <p id="adminWeeklyScheduleStatus" class="field-hint" role="status"></p>
+                        </section>
                         <div class="admin-table-wrapper">
                             <table class="admin-table">
                                 <thead>
                                     <tr>
                                         <th>Logo</th>
-                                        <th>Name</th>
+                                        <th>Nome</th>
                                         <th>Bandai Nick</th>
                                         <th>Status</th>
-                                        <th>Actions</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminStoresBody"></tbody>
@@ -723,41 +796,41 @@
                     <!-- Format Modal -->
                     <div id="adminFormatModal" class="modal-overlay">
                         <div class="modal-content">
-                            <h3 class="admin-modal-title">New Format / Meta</h3>
+                            <h3 class="admin-modal-title">Novo formato / Meta</h3>
                             <form id="adminFormatForm">
                                 <input type="hidden" id="adminFormatId" />
                                 <div class="form-group">
-                                    <label for="adminFormatCode">Code <span class="required">*</span></label>
-                                    <input type="text" id="adminFormatCode" placeholder="e.g. BT19" required autocomplete="off" style="text-transform:uppercase" />
+                                    <label for="adminFormatCode">Código <span class="required">*</span></label>
+                                    <input type="text" id="adminFormatCode" placeholder="Ex.: BT19" required autocomplete="off" style="text-transform:uppercase" />
                                 </div>
                                 <div class="form-group">
-                                    <label for="adminFormatName">Name</label>
-                                    <input type="text" id="adminFormatName" placeholder="e.g. BT19 Meta" autocomplete="off" />
+                                    <label for="adminFormatName">Nome</label>
+                                    <input type="text" id="adminFormatName" placeholder="Ex.: Meta BT19" autocomplete="off" />
                                 </div>
                                 <div class="form-group" style="display:flex;gap:24px;align-items:center;">
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                         <input type="checkbox" id="adminFormatIsActive" />
-                                        Active
+                                        Ativo
                                     </label>
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                         <input type="checkbox" id="adminFormatIsDefault" />
-                                        Set as Default
+                                        Definir como padrão
                                     </label>
                                 </div>
                                 <div class="form-group">
-                                    <label>Background Image</label>
+                                    <label>Imagem de fundo</label>
                                     <div class="admin-bg-selected-preview" id="adminFormatBgSelectedWrap" style="display:none;">
-                                        <img id="adminFormatBgPreview" alt="Selected background" />
-                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-format-bg" title="Remove background">✕</button>
+                                        <img id="adminFormatBgPreview" alt="Imagem de fundo selecionada" />
+                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-format-bg" title="Remover imagem de fundo">✕</button>
                                     </div>
                                     <input type="hidden" id="adminFormatBgUrl" />
                                     <input type="hidden" id="adminFormatBgPath" />
                                     <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
                                         <label class="btn-secondary admin-upload-label">
-                                            Upload new
+                                            Enviar nova
                                             <input type="file" id="adminFormatFile" accept="image/*" style="display:none;" />
                                         </label>
-                                        <button type="button" class="btn-secondary" data-admin-action="browse-bucket-images">Browse existing</button>
+                                        <button type="button" class="btn-secondary" data-admin-action="browse-bucket-images">Procurar existente</button>
                                     </div>
                                     <div id="adminBucketBrowser" class="admin-bucket-browser is-hidden">
                                         <div id="adminBucketImages" class="admin-bucket-grid"></div>
@@ -765,8 +838,8 @@
                                 </div>
                                 <p id="adminFormatStatus" class="admin-form-status"></p>
                                 <div class="modal-actions">
-                                    <button type="submit" class="btn-save">Save</button>
-                                    <button type="button" class="btn-cancel" data-admin-action="close-format-modal">Cancel</button>
+                                    <button type="submit" class="btn-save">Salvar</button>
+                                    <button type="button" class="btn-cancel" data-admin-action="close-format-modal">Cancelar</button>
                                 </div>
                             </form>
                         </div>
@@ -775,30 +848,30 @@
                     <!-- Ban Modal -->
                     <div id="adminBanModal" class="modal-overlay">
                         <div class="modal-content">
-                            <h3 class="admin-modal-title">Add Restriction</h3>
+                            <h3 class="admin-modal-title">Adicionar restrição</h3>
                             <form id="adminBanForm">
                                 <input type="hidden" id="adminBanOriginalCode" />
                                 <div class="form-group">
-                                    <label for="adminBanCardCode">Card Code <span class="required">*</span></label>
-                                    <input type="text" id="adminBanCardCode" placeholder="e.g. BT7-072" required autocomplete="off" style="text-transform:uppercase" />
+                                    <label for="adminBanCardCode">Código da carta <span class="required">*</span></label>
+                                    <input type="text" id="adminBanCardCode" placeholder="Ex.: BT7-072" required autocomplete="off" style="text-transform:uppercase" />
                                     <div class="admin-ban-card-preview" id="adminBanCardPreview"></div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="adminBanRestriction">Restriction <span class="required">*</span></label>
+                                    <label for="adminBanRestriction">Restrição <span class="required">*</span></label>
                                     <select id="adminBanRestriction">
-                                        <option value="limited">Limited (1 copy)</option>
-                                        <option value="choice-restricted">Choice-Restricted</option>
-                                        <option value="banned">Banned (cannot use)</option>
+                                        <option value="limited">Limitada (1 cópia)</option>
+                                        <option value="choice-restricted">Escolha restrita</option>
+                                        <option value="banned">Banida (não pode usar)</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="adminBanNotes">Notes</label>
-                                    <input type="text" id="adminBanNotes" placeholder="Optional note..." autocomplete="off" />
+                                    <label for="adminBanNotes">Observações</label>
+                                    <input type="text" id="adminBanNotes" placeholder="Observação opcional..." autocomplete="off" />
                                 </div>
                                 <p id="adminBanStatus" class="admin-form-status"></p>
                                 <div class="modal-actions">
-                                    <button type="submit" class="btn-save">Save</button>
-                                    <button type="button" class="btn-cancel" data-admin-action="close-ban-modal">Cancel</button>
+                                    <button type="submit" class="btn-save">Salvar</button>
+                                    <button type="button" class="btn-cancel" data-admin-action="close-ban-modal">Cancelar</button>
                                 </div>
                             </form>
                         </div>
@@ -807,30 +880,30 @@
                     <!-- Store Modal -->
                     <div id="adminStoreModal" class="modal-overlay">
                         <div class="modal-content">
-                            <h3 class="admin-modal-title">Store</h3>
+                            <h3 class="admin-modal-title">Loja</h3>
                             <form id="adminStoreForm">
                                 <input type="hidden" id="adminStoreId" />
                                 <input type="hidden" id="adminStoreLogoUrl" />
                                 <div class="form-group">
-                                    <label for="adminStoreName">Name <span class="required">*</span></label>
-                                    <input type="text" id="adminStoreName" placeholder="e.g. Card Kingdom SP" required autocomplete="off" />
+                                    <label for="adminStoreName">Nome <span class="required">*</span></label>
+                                    <input type="text" id="adminStoreName" placeholder="Ex.: Card Kingdom SP" required autocomplete="off" />
                                 </div>
                                 <div class="form-group">
                                     <label for="adminStoreBandaiNick">Bandai Nick</label>
-                                    <input type="text" id="adminStoreBandaiNick" placeholder="Nickname used in Bandai TCG+ (optional)" autocomplete="off" />
+                                    <input type="text" id="adminStoreBandaiNick" placeholder="Nome usado no Bandai TCG+ (opcional)" autocomplete="off" />
                                 </div>
                                 <div class="form-group">
-                                    <label>Store Logo</label>
+                                    <label>Logo da loja</label>
                                     <div class="admin-bg-selected-preview" id="adminStoreLogoPreviewWrap" style="display:none;">
-                                        <img id="adminStoreLogoPreview" alt="Store logo" style="max-height:80px;object-fit:contain;border-radius:8px;" />
-                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-store-logo" title="Remove logo">✕</button>
+                                        <img id="adminStoreLogoPreview" alt="Logo da loja" style="max-height:80px;object-fit:contain;border-radius:8px;" />
+                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-store-logo" title="Remover logo">✕</button>
                                     </div>
                                     <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
                                         <label class="btn-secondary admin-upload-label">
-                                            Upload logo
+                                            Enviar logo
                                             <input type="file" id="adminStoreLogoFile" accept="image/*" style="display:none;" />
                                         </label>
-                                        <button type="button" class="btn-secondary" data-admin-action="browse-store-logos">Browse existing</button>
+                                        <button type="button" class="btn-secondary" data-admin-action="browse-store-logos">Procurar existente</button>
                                     </div>
                                     <div id="adminStoreBucketBrowser" class="admin-bucket-browser is-hidden">
                                         <div id="adminStoreBucketImages" class="admin-bucket-grid"></div>
@@ -840,13 +913,13 @@
                                 <div class="form-group" style="display:flex;gap:24px;align-items:center;">
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                         <input type="checkbox" id="adminStoreIsActive" />
-                                        Active
+                                        Ativa
                                     </label>
                                 </div>
                                 <p id="adminStoreStatus" class="admin-form-status"></p>
                                 <div class="modal-actions">
-                                    <button type="submit" class="btn-save">Save</button>
-                                    <button type="button" class="btn-cancel" data-admin-action="close-store-modal">Cancel</button>
+                                    <button type="submit" class="btn-save">Salvar</button>
+                                    <button type="button" class="btn-cancel" data-admin-action="close-store-modal">Cancelar</button>
                                 </div>
                             </form>
                         </div>
@@ -858,12 +931,12 @@
         <div id="createModal" class="modal-overlay">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>New Tournament</h2>
-                    <button type="button" id="btnCreateModalCloseX" class="player-modal-close" aria-label="Close">&times;</button>
+                    <h2>Novo torneio</h2>
+                    <button type="button" id="btnCreateModalCloseX" class="player-modal-close" aria-label="Fechar">&times;</button>
                 </div>
                 <form id="createTournamentForm">
                     <div class="form-group">
-                        <label>Bandai TCG+ OCR</label>
+                        <label>Importar print da Bandai TCG+</label>
                         <input
                             type="file"
                             id="createOcrFilesInput"
@@ -880,17 +953,17 @@
                         <small id="createOcrStatus" class="field-hint"></small>
                     </div>
                     <div class="form-group">
-                        <label>Store<span class="required">*</span></label>
+                        <label>Loja<span class="required">*</span></label>
                         <select id="createStoreSelect" required></select>
                     </div>
                     <div class="form-group">
-                        <label>Tournament Date<span class="required">*</span></label>
+                        <label>Data<span class="required">*</span></label>
                         <input type="date" id="createTournamentDate" required />
                     </div>
                     <div class="form-group">
-                        <label>Tournament Name<span class="required">*</span></label>
+                        <label>Tipo do torneio<span class="required">*</span></label>
                         <select id="createTournamentName" required>
-                            <option value="">Select tournament name...</option>
+                            <option value="">Selecione o tipo...</option>
                             <option value="Semanal">Semanal</option>
                             <option value="Mensal">Mensal</option>
                             <option value="Quinzenal">Quinzenal</option>
@@ -903,13 +976,13 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Format</label>
+                        <label>Formato</label>
                         <select id="createTournamentFormat">
-                            <option value="">Select format...</option>
+                            <option value="">Selecione o formato...</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Total Players<span class="required">*</span></label>
+                        <label>Jogadores<span class="required">*</span></label>
                         <input
                             type="number"
                             id="createTotalPlayers"
@@ -920,17 +993,17 @@
                         />
                     </div>
                     <div class="form-group">
-                        <label>Tournament Results<span class="required">*</span></label>
+                        <label>Classificação<span class="required">*</span></label>
                         <div id="createResultsRows"></div>
                         <button type="button" id="btnAddResultRow" class="btn-add-result">
-                            + Add Player Result
+                            + Jogador
                         </button>
                         <small class="field-hint"
-                            >Placement is automatic as you add players (up to 36).</small
+                            >A colocação é automática ao adicionar jogadores (até 36).</small
                         >
                     </div>
                     <div class="form-group">
-                        <label>Instagram Link</label>
+                        <label>Link do Instagram</label>
                         <input
                             type="url"
                             id="createInstagramLink"
@@ -938,9 +1011,9 @@
                         />
                     </div>
                     <div class="modal-actions">
-                        <button type="submit" class="btn-save">Create</button>
+                        <button type="submit" class="btn-save">Criar</button>
                         <button type="button" id="btnCreateCancel" class="btn-cancel">
-                            Cancel
+                            Cancelar
                         </button>
                     </div>
                 </form>
@@ -950,12 +1023,12 @@
         <div id="editModal" class="modal-overlay">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Edit Tournament</h2>
-                    <button type="button" id="btnEditModalCloseX" class="player-modal-close" aria-label="Close">&times;</button>
+                    <h2>Editar torneio</h2>
+                    <button type="button" id="btnEditModalCloseX" class="player-modal-close" aria-label="Fechar">&times;</button>
                 </div>
                 <form id="editTournamentForm">
                     <div class="form-group">
-                        <label>Bandai TCG+ OCR</label>
+                        <label>Importar print da Bandai TCG+</label>
                         <input
                             type="file"
                             id="editOcrFilesInput"
@@ -972,17 +1045,17 @@
                         <small id="editOcrStatus" class="field-hint"></small>
                     </div>
                     <div class="form-group">
-                        <label>Store<span class="required">*</span></label>
+                        <label>Loja<span class="required">*</span></label>
                         <select id="editStoreSelect" required></select>
                     </div>
                     <div class="form-group">
-                        <label>Tournament Date<span class="required">*</span></label>
+                        <label>Data<span class="required">*</span></label>
                         <input type="date" id="editTournamentDate" required />
                     </div>
                     <div class="form-group">
-                        <label>Tournament Name<span class="required">*</span></label>
+                        <label>Tipo do torneio<span class="required">*</span></label>
                         <select id="editTournamentName" required>
-                            <option value="">Select tournament name...</option>
+                            <option value="">Selecione o tipo...</option>
                             <option value="Semanal">Semanal</option>
                             <option value="Mensal">Mensal</option>
                             <option value="Quinzenal">Quinzenal</option>
@@ -995,27 +1068,27 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Format</label>
+                        <label>Formato</label>
                         <select id="editTournamentFormat">
-                            <option value="">Select format...</option>
+                            <option value="">Selecione o formato...</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Total Players<span class="required">*</span></label>
+                        <label>Total de jogadores<span class="required">*</span></label>
                         <input type="number" id="editTotalPlayers" min="1" max="36" required />
                     </div>
                     <div class="form-group">
-                        <label>Tournament Results<span class="required">*</span></label>
+                        <label>Classificação<span class="required">*</span></label>
                         <div id="editResultsRows"></div>
                         <button type="button" id="btnAddEditResultRow" class="btn-add-result">
-                            + Add Player Result
+                            + Jogador
                         </button>
                         <small class="field-hint"
-                            >Placement is automatic as you add players (up to 36).</small
+                            >A colocação é automática ao adicionar jogadores (até 36).</small
                         >
                     </div>
                     <div class="form-group">
-                        <label>Instagram Link</label>
+                        <label>Link do Instagram</label>
                         <input
                             type="url"
                             id="editInstagramLink"
@@ -1023,8 +1096,41 @@
                         />
                     </div>
                     <div class="modal-actions">
-                        <button type="submit" class="btn-save">Save</button>
-                        <button type="button" id="btnEditCancel" class="btn-cancel">Cancel</button>
+                        <button type="submit" class="btn-save">Salvar</button>
+                        <button type="button" id="btnEditCancel" class="btn-cancel">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="feedbackModal" class="modal-overlay feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+            <div class="modal-content feedback-modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="feedbackModalTitle">Enviar feedback</h2>
+                        <p id="feedbackModalDescription" class="feedback-modal-description"></p>
+                    </div>
+                    <button type="button" id="feedbackCloseX" class="player-modal-close" aria-label="Fechar">&times;</button>
+                </div>
+                <form id="feedbackForm">
+                    <input type="hidden" id="feedbackType" />
+                    <div class="form-group">
+                        <label for="feedbackMessage">Mensagem<span class="required">*</span></label>
+                        <textarea id="feedbackMessage" minlength="10" maxlength="5000" rows="7" required></textarea>
+                        <small class="field-hint">Não inclua senhas ou outras informações confidenciais.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="feedbackContactEmail">E-mail para contato <span class="feedback-optional">(opcional)</span></label>
+                        <input type="email" id="feedbackContactEmail" maxlength="254" placeholder="Caso queira receber uma resposta" />
+                    </div>
+                    <div class="feedback-honeypot" aria-hidden="true">
+                        <label for="feedbackWebsite">Website</label>
+                        <input type="text" id="feedbackWebsite" tabindex="-1" autocomplete="off" />
+                    </div>
+                    <p id="feedbackStatus" class="feedback-status" role="status"></p>
+                    <div class="modal-actions">
+                        <button type="button" id="feedbackCancel" class="btn-cancel">Cancelar</button>
+                        <button type="submit" id="feedbackSubmit" class="btn-save">Enviar</button>
                     </div>
                 </form>
             </div>
@@ -1034,18 +1140,21 @@
         <script src="config/supabase.js?v=2026.03.27.1"></script>
         <script src="config/api-client.js?v=2026.03.27.1"></script>
         <script src="config/ui-state.js?v=2026.03.27.1"></script>
-        <script src="config/app-version.js?v=2026.03.27.1"></script>
+        <script src="config/app-version.js?v=2026.07.25.26"></script>
         <script src="config/register-sw.js?v=2026.03.27.1"></script>
-        <script src="torneios/list-tournaments/calendar-view/calendar.js?v=2026.03.27.1"></script>
-        <script src="torneios/list-tournaments/script.js?v=2026.03.27.1"></script>
-        <script src="torneios/edit-tournament/modal.js?v=2026.03.27.1"></script>
+        <script src="torneios/list-tournaments/calendar-view/calendar.js?v=2026.07.25.26"></script>
+        <script src="config/tournament-utils.js?v=2026.07.25.6"></script>
+        <script src="torneios/tournament-ocr-files.js?v=2026.07.25.26"></script>
+        <script src="feedback/feedback.js?v=2026.07.25.26"></script>
+        <script src="torneios/list-tournaments/script.js?v=2026.07.25.26"></script>
+        <script src="torneios/edit-tournament/modal.js?v=2026.07.25.26"></script>
 
         <!-- Player add/edit modal — fora do container para position:fixed funcionar -->
         <div id="playerModal" class="player-modal-overlay u-hidden" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
             <div class="player-modal-box">
                 <div class="player-modal-header">
-                    <h3 id="playerModalTitle" class="player-modal-title">New Player</h3>
-                    <button type="button" id="playerModalCloseBtn" class="player-modal-close" aria-label="Close">&times;</button>
+                    <h3 id="playerModalTitle" class="player-modal-title">Novo jogador</h3>
+                    <button type="button" id="playerModalCloseBtn" class="player-modal-close" aria-label="Fechar">&times;</button>
                 </div>
                 <input
                     type="text"
@@ -1055,8 +1164,8 @@
                     autocomplete="off"
                 />
                 <div class="player-modal-actions">
-                    <button type="button" id="playerModalCancelBtn" class="btn-cancel">Cancel</button>
-                    <button type="button" id="submitBtn" class="btn-primary">Save</button>
+                    <button type="button" id="playerModalCancelBtn" class="btn-cancel">Cancelar</button>
+                    <button type="button" id="submitBtn" class="btn-primary">Salvar</button>
                 </div>
             </div>
         </div>

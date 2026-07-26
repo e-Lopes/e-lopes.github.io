@@ -663,12 +663,12 @@ function renderPagination(totalPages) {
     const isMobile = window.innerWidth <= 768;
 
     if (!isMobile) {
-        pagination.appendChild(makeBtn('\u00AB', 'First page', currentPage === 1, () => {
+        pagination.appendChild(makeBtn('\u00AB', 'Primeira página', currentPage === 1, () => {
             currentPage = 1;
             renderDecksList();
         }));
     }
-    pagination.appendChild(makeBtn('\u25C0', 'Previous page', currentPage === 1, () => {
+    pagination.appendChild(makeBtn('\u25C0', 'Página anterior', currentPage === 1, () => {
         if (currentPage <= 1) return;
         currentPage -= 1;
         renderDecksList();
@@ -694,13 +694,13 @@ function renderPagination(totalPages) {
         pagination.appendChild(btn);
     }
 
-    pagination.appendChild(makeBtn('\u25B6', 'Next page', currentPage === totalPages, () => {
+    pagination.appendChild(makeBtn('\u25B6', 'Próxima página', currentPage === totalPages, () => {
         if (currentPage >= totalPages) return;
         currentPage += 1;
         renderDecksList();
     }));
     if (!isMobile) {
-        pagination.appendChild(makeBtn('\u00BB', 'Last page', currentPage === totalPages, () => {
+        pagination.appendChild(makeBtn('\u00BB', 'Última página', currentPage === totalPages, () => {
             currentPage = totalPages;
             renderDecksList();
         }));
@@ -721,7 +721,7 @@ async function loadDecks() {
         const decksRes = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=*&order=name.asc`, {
             headers
         });
-        if (!decksRes.ok) throw new Error('Error loading decks');
+        if (!decksRes.ok) throw new Error('Erro ao carregar Decks');
 
         allDecks = await decksRes.json();
         updateDecksTotal();
@@ -745,7 +745,7 @@ async function loadDecks() {
         showLoading(false);
     } catch (error) {
         console.error('Error loading decks:', error);
-        showError('Error loading decks. Try again.');
+        showError('Erro ao carregar Decks. Tente novamente.');
         showLoading(false);
     }
 }
@@ -1075,7 +1075,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                             <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
                             ${renderDeckColorsInline(deck.colors, 'card-inline')}
                         </div>
-                        <span class="player-main-hint">${isExpanded ? 'Hide decklists' : 'Show decklists'}</span>
+                        <span class="player-main-hint">${isExpanded ? 'Ocultar listas de Deck' : 'Mostrar listas de Deck'}</span>
                     </button>
                     ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
                     ${renderDeckColorsInline(deck.colors, 'card-below')}
@@ -1084,8 +1084,8 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                     <button
                         class="btn-secondary btn-icon"
                         type="button"
-                        title="Edit deck"
-                        aria-label="Edit deck"
+                        title="Editar Deck"
+                        aria-label="Editar Deck"
                         data-action="edit-deck"
                         data-deck-id="${deck.id}"
                         data-deck-name="${escapeHtmlAttribute(deck.name)}"
@@ -1099,8 +1099,8 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                     <button
                         class="btn-secondary btn-danger btn-icon"
                         type="button"
-                        title="Delete deck"
-                        aria-label="Delete deck"
+                        title="Excluir Deck"
+                        aria-label="Excluir Deck"
                         data-action="delete-deck"
                         data-deck-id="${deck.id}"
                         data-deck-name="${escapeHtmlAttribute(deck.name)}">
@@ -1201,7 +1201,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                                     ${renderDeckColorsInline(deck.colors, 'table')}
                                 </span>
                             </span>
-                            <span class="player-main-hint">${isExpanded ? 'Hide decklists' : 'Show decklists'}</span>
+                            <span class="player-main-hint">${isExpanded ? 'Ocultar listas de Deck' : 'Mostrar listas de Deck'}</span>
                         </button>
                     </td>
                     <td class="decks-num-cell">${numericSquare(stats, 'monthly_appearances')}</td>
@@ -1219,8 +1219,8 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                             <button
                                 class="btn-secondary btn-icon"
                                 type="button"
-                                title="Edit deck"
-                                aria-label="Edit deck"
+                                title="Editar Deck"
+                                aria-label="Editar Deck"
                                 data-action="edit-deck"
                                 data-deck-id="${deck.id}"
                                 data-deck-name="${escapeHtmlAttribute(deck.name)}"
@@ -1234,8 +1234,8 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                             <button
                                 class="btn-secondary btn-danger btn-icon"
                                 type="button"
-                                title="Delete deck"
-                                aria-label="Delete deck"
+                                title="Excluir Deck"
+                                aria-label="Excluir Deck"
                                 data-action="delete-deck"
                                 data-deck-id="${deck.id}"
                                 data-deck-name="${escapeHtmlAttribute(deck.name)}">
@@ -1263,7 +1263,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                         ${sortableHeader('deck', 'Nome do deck.', `<span class="nav-icon decks-th-nav-icon" aria-hidden="true"><img src="${deckIconSrc}" alt="" class="nav-icon-digivice decks-th-digivice-img" /></span>`, 'Deck')}
                         ${sortableHeader('monthly_appearances', 'Quantidade de aparições no mês selecionado.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>`, 'Monthly')}
                         ${sortableHeader('tournament_appearances', 'Quantidade de torneios distintos em que o deck apareceu no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>`, 'Events')}
-                        ${sortableHeader('unique_players', 'Quantidade de jogadores únicos que usaram o deck no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5"/><circle cx="17" cy="10" r="2"/><path d="M15 20c.2-2 1.6-3.5 3.5-4"/></svg>`, 'Players')}
+                        ${sortableHeader('unique_players', 'Quantidade de jogadores únicos que usaram o Deck no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5"/><circle cx="17" cy="10" r="2"/><path d="M15 20c.2-2 1.6-3.5 3.5-4"/></svg>`, 'Jogadores')}
                         ${sortableHeader('titles', 'Quantidade de títulos (Top 1) no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v3a5 5 0 0 1-10 0z"/><path d="M5 7H3a3 3 0 0 0 3 3"/><path d="M19 7h2a3 3 0 0 1-3 3"/></svg>`, 'Titles')}
                         ${sortableHeader('top4_total', 'Quantidade de resultados em Top 4 no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V10h3v10"/><path d="M11 20V6h3v14"/><path d="M16 20v-8h3v8"/><path d="M4 20h16"/></svg>`, 'Top4')}
                         ${sortableHeader('avg_placement', 'Posicionamento médio no mês (quanto menor, melhor).', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M7 15l3-3 3 2 4-5"/></svg>`, 'Average')}
@@ -1271,7 +1271,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                         ${sortableHeader('worst_finish', 'Pior posicionamento registrado no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M6 13l6 6 6-6"/></svg>`, 'Worst')}
                         ${sortableHeader('ranking_points', `Pontuação base:\n1º = 4, 2º = 3, 3º = 2, 4º = 1\n\nMultiplicador:\n1-8 jogadores = 100%\n9-16 jogadores = 120%\n17+ com 4 rodadas = 100%\n17+ com 5+ rodadas = 150%`, `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 3 14.9 9 21.5 9.8 16.7 14.2 18 21 12 17.7 6 21 7.3 14.2 2.5 9.8 9.1 9"/></svg>`, 'Points')}
                         ${sortableHeader('performance_rank', 'Posição do deck no ranking mensal.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V8h4v12"/><path d="M10 20V4h4v16"/><path d="M16 20v-7h4v7"/></svg>`, 'Rank')}
-                        <th title="Ações de editar e excluir deck." class="decks-actions-head"><svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.2c-.6 0-1.2.4-1.4 1z"/></svg><span>Actions</span></th>
+                        <th title="Ações de editar e excluir Deck." class="decks-actions-head"><svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.2c-.6 0-1.2.4-1.4 1z"/></svg><span>Ações</span></th>
                     </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>
@@ -1342,11 +1342,11 @@ async function deleteDeck(deckId, deckName) {
             currentPage = 1;
             loadDecks();
         } else {
-            throw new Error('Error deleting deck');
+            throw new Error('Erro ao excluir Deck');
         }
     } catch (error) {
         console.error('Error deleting deck:', error);
-        alert('Error deleting deck. Please try again.');
+        alert('Erro ao excluir Deck. Tente novamente.');
     } finally {
         showLoading(false);
     }
@@ -1429,13 +1429,13 @@ function renderDeckHistoryPanel(deckId, deckName) {
     const id = String(deckId || '');
     const cached = deckHistoryCache.get(id);
     if (!cached || cached.loading) {
-        return `<div class="player-history-loading">Loading decklists…</div>`;
+        return `<div class="player-history-loading">Carregando listas de Deck…</div>`;
     }
     if (cached.error) {
-        return `<div class="player-history-error">Failed to load decklists.</div>`;
+        return `<div class="player-history-error">Falha ao carregar listas de Deck.</div>`;
     }
     if (!cached.results || cached.results.length === 0) {
-        return `<div class="player-history-empty">No tournament results found for this deck.</div>`;
+        return `<div class="player-history-empty">Nenhum resultado de torneio encontrado para este Deck.</div>`;
     }
 
     const hasAnyDecklist = cached.results.some((item) => {
@@ -1444,7 +1444,7 @@ function renderDeckHistoryPanel(deckId, deckName) {
         return parseDecklistByLinesForHistory(String(item.decklist || '').trim()).length > 0;
     });
     if (!hasAnyDecklist) {
-        return `<div class="player-history-empty">No decklists registered for this deck's results.</div>`;
+        return `<div class="player-history-empty">Nenhuma lista de Deck cadastrada para estes resultados.</div>`;
     }
 
     const entries = cached.results.flatMap((item) => {
@@ -1486,7 +1486,7 @@ function renderDeckHistoryPanel(deckId, deckName) {
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                         </svg>
-                        <span>Edit in Builder</span>
+                        <span>Editar no Builder</span>
                     </a>
                     </div>
                     <div class="player-history-decklist-grid">
@@ -1501,7 +1501,7 @@ function renderDeckHistoryPanel(deckId, deckName) {
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                         </svg>
-                        <span>Edit in Builder</span>
+                        <span>Editar no Builder</span>
                     </a>
                     </div>
                     <div class="player-history-decklist-grid">
@@ -1595,6 +1595,7 @@ function buildDecklistBuilderUrl(params) {
     if (params.deck) searchParams.set('deck', String(params.deck));
     if (params.store) searchParams.set('store', String(params.store));
     if (params.date) searchParams.set('date', String(params.date));
+    searchParams.set('returnView', 'decks');
     return `${prefix}torneios/decklist-builder/?${searchParams.toString()}`;
 }
 

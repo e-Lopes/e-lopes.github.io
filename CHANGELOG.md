@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-07-25
+
+### Cadastro de torneios e OCR
+- Prints processados pelo OCR agora podem ser arquivados e vinculados ao torneio; torneios manuais continuam sem anexos.
+- Resultados aceitam `match_points` opcional, preservando a diferenca entre `NULL` e zero pontos.
+- Players e decks digitados que ainda nao existem podem ser cadastrados sem abandonar o modal do torneio.
+- New/Edit Tournament receberam layout operacional para mobile e nao fecham mais por clique no backdrop.
+- Comprovantes e pontos aparecem nos detalhes publicos quando estiverem disponiveis.
+- A administracao de lojas agora inclui uma agenda semanal que sugere automaticamente a loja pela data do novo torneio.
+- Novos torneios iniciam como `Semanal`; a loja sugerida, o nome e os demais campos continuam editaveis.
+- A interface usa "Print Bandai" em vez do termo tecnico OCR, e o link do Instagram fica recolhido por padrao.
+
+### Feedback do site
+- A barra lateral ganhou links discretos para reportar bugs e enviar sugestoes.
+- O formulario registra mensagens em uma tabela privada e usa uma Edge Function para enviar e-mail via Resend.
+- O destinatario e as credenciais de e-mail ficam em secrets do Supabase, nunca no frontend.
+- O link externo e o tooltip do GitHub foram removidos do logo do DigiStats.
+
 ## 2026-05-18
 
 ### Card image pipeline — Supabase Storage bucket
