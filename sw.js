@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v41';
+const CACHE_VERSION = 'v48';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -15,6 +15,7 @@ const APP_SHELL_ASSETS = [
     './config/ui-state.js',
     './config/validation.js',
     './config/tournament-utils.js',
+    './config/digilab-export.js',
     './feedback/feedback.js',
     './config/register-sw.js',
     './torneios/list-tournaments/calendar-view/calendar.js',

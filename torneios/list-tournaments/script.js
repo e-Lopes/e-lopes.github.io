@@ -1092,6 +1092,27 @@ async function loadTournaments() {
     }
 }
 
+async function reloadTournamentsAfterEdit(tournamentId) {
+    const targetId = String(tournamentId || '');
+    const shouldRestoreListDetails =
+        currentViewMode === 'list' && String(selectedTournamentId || '') === targetId;
+    const shouldRestoreCalendarDetails =
+        currentViewMode === 'calendar' &&
+        Boolean(document.getElementById('calendarTournamentDetails')?.innerHTML.trim());
+
+    await loadTournaments();
+    applyFilters();
+
+    const refreshedTournament = tournaments.find((item) => String(item?.id || '') === targetId);
+    if (!refreshedTournament) return;
+
+    if (shouldRestoreListDetails) {
+        await renderTournamentDetails(refreshedTournament);
+    } else if (shouldRestoreCalendarDetails) {
+        openCalendarTournamentDetails(refreshedTournament);
+    }
+}
+
 async function loadTournamentChampions() {
     tournamentChampionMap.clear();
     try {
@@ -8790,6 +8811,103 @@ function applyScheduledStoreToCreate(dateValue) {
     return true;
 }
 
+async function loadDigilabExportRows(tournament) {
+    const select = encodeURIComponent(
+        'placement,match_points,player:players(name,digilab_name,bandai_id)'
+    );
+    let rows = [];
+
+    if (tournament?.id) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/tournament_results?tournament_id=eq.${encodeURIComponent(tournament.id)}&select=${select}&order=placement.asc`,
+            { headers }
+        );
+        if (!res.ok) throw new Error(`Erro ao carregar resultados para exportação (${res.status})`);
+        rows = await res.json();
+    }
+
+    if (!Array.isArray(rows) || !rows.length) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(tournament?.store_id || '')}&tournament_date=eq.${encodeURIComponent(tournament?.tournament_date || '')}&select=${select}&order=placement.asc`,
+            { headers }
+        );
+        if (!res.ok) throw new Error(`Erro ao carregar resultados antigos (${res.status})`);
+        rows = await res.json();
+    }
+
+    if (!window.digilabExport?.normalizeDigilabExportRows) {
+        throw new Error('Módulo de exportação do DigiLab indisponível');
+    }
+    return window.digilabExport.normalizeDigilabExportRows(rows);
+}
+
+async function copyTextToClipboard(content) {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(content);
+        return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = content;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (!copied) throw new Error('O navegador não permitiu copiar os dados automaticamente.');
+}
+
+async function copyTournamentDataForDigilab(tournament, button) {
+    const digilabApi = window.digilabExport;
+    if (!digilabApi) {
+        showFriendlyErrorModal(
+            'Exportação indisponível',
+            'O módulo de exportação do DigiLab não foi carregado. Atualize a página e tente novamente.'
+        );
+        return;
+    }
+
+    if (button) button.disabled = true;
+
+    try {
+        const rows = await loadDigilabExportRows(tournament);
+        if (!rows.length) {
+            showFriendlyErrorModal(
+                'Dados não copiados',
+                'Este torneio não possui resultados para copiar.'
+            );
+            return;
+        }
+
+        const missingNames = digilabApi.getMissingMemberNames(rows);
+        if (missingNames.length) {
+            const visibleNames = missingNames.slice(0, 10).join(', ');
+            const remaining = missingNames.length > 10 ? ` e mais ${missingNames.length - 10}` : '';
+            alert(
+                `Aviso: ${missingNames.length} jogador(es) estão sem Bandai ID. Os demais dados serão copiados mesmo assim.\n\n${visibleNames}${remaining}`
+            );
+        }
+
+        const clipboardText = digilabApi.buildDigilabClipboardText(rows);
+        await copyTextToClipboard(clipboardText);
+        if (button) {
+            button.classList.add('is-copied');
+            setTimeout(() => button.classList.remove('is-copied'), 700);
+        }
+    } catch (error) {
+        console.error('Erro ao copiar dados para o DigiLab:', error);
+        showFriendlyErrorModal(
+            'Falha ao copiar dados',
+            error?.message || 'Não foi possível copiar os resultados deste torneio.'
+        );
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
 async function renderTournamentDetails(tournament, targetContainer = null) {
     const tournamentId = String(tournament.id);
     let content = targetContainer || getDetailsContainer(tournamentId);
@@ -8885,14 +9003,23 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                         <div>Formato: ${formatCode || '-'}</div>
                         </div>                        
                     </div>
-                    <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
-                        <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                        <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-                        <circle cx="9" cy="10" r="1.7"></circle>
-                        <path d="M4 17l5-4 3.2 2.6 3.8-3.6 4 5"></path>
-                        </svg>
-                        <span>Generate Post</span>
-                    </button>
+                    <div class="details-header-actions">
+                        <button type="button" class="btn-create-filter details-export-digilab-btn" data-action="copy-digilab-data" aria-label="Copiar dados do torneio para o DigiLab">
+                            <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                                <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"></path>
+                            </svg>
+                            <span>Copiar dados (DigiLab)</span>
+                        </button>
+                        <button type="button" class="btn-create-filter details-generate-post-btn" data-action="generate-post-details" aria-label="Generate post">
+                            <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                            <circle cx="9" cy="10" r="1.7"></circle>
+                            <path d="M4 17l5-4 3.2 2.6 3.8-3.6 4 5"></path>
+                            </svg>
+                            <span>Generate Post</span>
+                        </button>
+                    </div>
                 </div>      
             </div>
         `;
@@ -9107,6 +9234,12 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         if (btnGeneratePost) {
             btnGeneratePost.addEventListener('click', () => {
                 openPostGeneratorWithTournamentData(tournament, results, totalPlayers);
+            });
+        }
+        const btnExportDigilab = content.querySelector('[data-action="copy-digilab-data"]');
+        if (btnExportDigilab) {
+            btnExportDigilab.addEventListener('click', () => {
+                copyTournamentDataForDigilab(tournament, btnExportDigilab);
             });
         }
         content.querySelectorAll('.results-mini-item.with-action[data-action="open-decklist-builder"]').forEach((row) => {

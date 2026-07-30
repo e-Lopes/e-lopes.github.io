@@ -1134,7 +1134,9 @@ async function editTournamentFormSubmit(e) {
         editTournamentSaveInProgress = false;
         closeEditModal();
         // Recarrega a tabela de torneios
-        if (typeof loadTournaments === 'function') {
+        if (typeof reloadTournamentsAfterEdit === 'function') {
+            await reloadTournamentsAfterEdit(editingTournamentId);
+        } else if (typeof loadTournaments === 'function') {
             await loadTournaments();
             if (typeof applyFilters === 'function') {
                 applyFilters();
