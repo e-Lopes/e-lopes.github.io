@@ -8249,6 +8249,36 @@ function findPlayerMatchFromOcr(ocrPlayer) {
     return null;
 }
 
+async function loadInactivePlayersMatchingOcr(ocrPlayers) {
+    const memberIds = new Set(
+        ocrPlayers
+            .map((player) => normalizeMemberId(player.member_id))
+            .filter((memberId) => memberId && !isGuestMemberId(memberId))
+    );
+    if (!memberIds.size) return;
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/players?is_active=eq.false&bandai_id=not.is.null&select=id,name,bandai_id,bandai_nick,is_active`,
+        { headers }
+    );
+    if (!res.ok) {
+        throw new Error('Erro ao consultar players inativos pelo Bandai ID');
+    }
+
+    const inactivePlayers = await res.json();
+    inactivePlayers.forEach((player) => {
+        const memberId = normalizeMemberId(player.bandai_id);
+        if (!memberIds.has(memberId)) return;
+        if (createPlayers.some((item) => String(item.id) === String(player.id))) return;
+        createPlayers.push({
+            ...player,
+            bandai_id: player.bandai_id || '',
+            bandai_nick: player.bandai_nick || '',
+            is_active: false
+        });
+    });
+}
+
 function extractOcrStoreAndDate(payload) {
     const storeName = String(
         payload?.store_name || payload?.store || payload?.shop || payload?.venue || ''
@@ -8423,6 +8453,8 @@ async function processCreateOcrFiles() {
         if (!mergedPlayers.length) {
             throw new Error('Nenhum resultado reconhecido na imagem');
         }
+
+        await loadInactivePlayersMatchingOcr(mergedPlayers);
 
         createResults = mergedPlayers.map((ocrPlayer) => {
             const matchedPlayer = findPlayerMatchFromOcr(ocrPlayer);
@@ -9124,7 +9156,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
 
 async function loadPlayersToCreate() {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/players?select=id,name,bandai_id,bandai_nick&order=name.asc`,
+        `${SUPABASE_URL}/rest/v1/players?is_active=eq.true&select=id,name,bandai_id,bandai_nick,is_active&order=name.asc`,
         {
             headers
         }
@@ -9133,14 +9165,16 @@ async function loadPlayersToCreate() {
     createPlayers = (await res.json()).map((player) => ({
         ...player,
         bandai_id: player.bandai_id || '',
-        bandai_nick: player.bandai_nick || ''
+        bandai_nick: player.bandai_nick || '',
+        is_active: player.is_active !== false
     }));
 }
 
 async function loadDecksToCreate() {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=id,name&order=name.asc`, {
-        headers
-    });
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/decks?is_active=eq.true&select=id,name&order=name.asc`,
+        { headers }
+    );
     if (!res.ok) throw new Error('Erro ao carregar decks');
     createDecks = await res.json();
 }
@@ -9363,7 +9397,38 @@ function openRegisterPlayersModal(playerNames) {
 
 window.openRegisterPlayersModal = openRegisterPlayersModal;
 
+async function reactivateSelectedOcrPlayers() {
+    const selectedPlayerIds = new Set(
+        createResults.map((row) => String(row.player_id || '')).filter(Boolean)
+    );
+    const inactiveIds = createPlayers
+        .filter(
+            (player) =>
+                player.is_active === false && selectedPlayerIds.has(String(player.id || ''))
+        )
+        .map((player) => String(player.id));
+    if (!inactiveIds.length) return;
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/players?id=in.(${inactiveIds.join(',')})`,
+        {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ is_active: true })
+        }
+    );
+    if (!res.ok) {
+        throw new Error('Erro ao reativar player identificado pelo Bandai ID');
+    }
+
+    const reactivatedIds = new Set(inactiveIds);
+    createPlayers.forEach((player) => {
+        if (reactivatedIds.has(String(player.id))) player.is_active = true;
+    });
+}
+
 async function ensurePlayersRegisteredForCreate() {
+    await reactivateSelectedOcrPlayers();
     const { missingRows, pendingNames } = getPendingPlayerRegistrations(createResults, createPlayers);
     if (missingRows.length) {
         throw new Error('Informe o player nas colocacoes: ' + missingRows.join(', '));

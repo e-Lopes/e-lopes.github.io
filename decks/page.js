@@ -381,9 +381,9 @@ function setupDeckActions() {
             return;
         }
 
-        const deleteButton = event.target.closest('[data-action="delete-deck"]');
-        if (deleteButton) {
-            deleteDeck(deleteButton.dataset.deckId, deleteButton.dataset.deckName || '');
+        const deactivateButton = event.target.closest('[data-action="deactivate-deck"]');
+        if (deactivateButton) {
+            deactivateDeck(deactivateButton.dataset.deckId, deactivateButton.dataset.deckName || '');
         }
     });
 
@@ -718,9 +718,10 @@ async function loadDecks() {
     try {
         showLoading(true);
 
-        const decksRes = await fetch(`${SUPABASE_URL}/rest/v1/decks?select=*&order=name.asc`, {
-            headers
-        });
+        const decksRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/decks?is_active=eq.true&select=*&order=name.asc`,
+            { headers }
+        );
         if (!decksRes.ok) throw new Error('Erro ao carregar Decks');
 
         allDecks = await decksRes.json();
@@ -1099,9 +1100,9 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                     <button
                         class="btn-secondary btn-danger btn-icon"
                         type="button"
-                        title="Excluir Deck"
-                        aria-label="Excluir Deck"
-                        data-action="delete-deck"
+                        title="Inativar Deck"
+                        aria-label="Inativar Deck"
+                        data-action="deactivate-deck"
                         data-deck-id="${deck.id}"
                         data-deck-name="${escapeHtmlAttribute(deck.name)}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -1234,9 +1235,9 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                             <button
                                 class="btn-secondary btn-danger btn-icon"
                                 type="button"
-                                title="Excluir Deck"
-                                aria-label="Excluir Deck"
-                                data-action="delete-deck"
+                                title="Inativar Deck"
+                                aria-label="Inativar Deck"
+                                data-action="deactivate-deck"
                                 data-deck-id="${deck.id}"
                                 data-deck-name="${escapeHtmlAttribute(deck.name)}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -1271,7 +1272,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                         ${sortableHeader('worst_finish', 'Pior posicionamento registrado no mês.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M6 13l6 6 6-6"/></svg>`, 'Worst')}
                         ${sortableHeader('ranking_points', `Pontuação base:\n1º = 4, 2º = 3, 3º = 2, 4º = 1\n\nMultiplicador:\n1-8 jogadores = 100%\n9-16 jogadores = 120%\n17+ com 4 rodadas = 100%\n17+ com 5+ rodadas = 150%`, `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 3 14.9 9 21.5 9.8 16.7 14.2 18 21 12 17.7 6 21 7.3 14.2 2.5 9.8 9.1 9"/></svg>`, 'Points')}
                         ${sortableHeader('performance_rank', 'Posição do deck no ranking mensal.', `<svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V8h4v12"/><path d="M10 20V4h4v16"/><path d="M16 20v-7h4v7"/></svg>`, 'Rank')}
-                        <th title="Ações de editar e excluir Deck." class="decks-actions-head"><svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.2c-.6 0-1.2.4-1.4 1z"/></svg><span>Ações</span></th>
+                        <th title="Ações de editar e inativar Deck." class="decks-actions-head"><svg class="decks-th-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.2c-.6 0-1.2.4-1.4 1z"/></svg><span>Ações</span></th>
                     </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>
@@ -1296,57 +1297,37 @@ function extractCodeFromUrl(url) {
     return match ? match[1] : null;
 }
 
-async function deleteDeck(deckId, deckName) {
+async function deactivateDeck(deckId, deckName) {
     try {
         showLoading(true);
 
-        const tournamentResultsRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/tournament_results?deck_id=eq.${deckId}`,
-            { headers }
-        );
-
-        if (!tournamentResultsRes.ok) {
-            throw new Error(`HTTP ${tournamentResultsRes.status}`);
-        }
-
-        const tournamentResults = await tournamentResultsRes.json();
-
-        if (tournamentResults && tournamentResults.length > 0) {
-            showLoading(false);
-            alert(
-                `Cannot delete deck "${deckName}" because it has ${tournamentResults.length} tournament result(s) recorded.\n\nPlease delete the tournament results first.`
-            );
-            return;
-        }
-
         if (
             !confirm(
-                `Are you sure you want to delete the deck "${deckName}"?\n\nThis action cannot be undone.`
+                `Inativar o deck "${deckName}"?\n\nO histórico e a imagem do deck serão preservados.`
             )
         ) {
             showLoading(false);
             return;
         }
 
-        await fetch(`${SUPABASE_URL}/rest/v1/deck_images?deck_id=eq.${deckId}`, {
-            method: 'DELETE',
-            headers: headers
-        });
-
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/decks?id=eq.${deckId}`, {
-            method: 'DELETE',
-            headers: headers
-        });
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/decks?id=eq.${encodeURIComponent(deckId)}`,
+            {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ is_active: false })
+            }
+        );
 
         if (res.ok) {
             currentPage = 1;
-            loadDecks();
+            await loadDecks();
         } else {
-            throw new Error('Erro ao excluir Deck');
+            throw new Error('Erro ao inativar Deck');
         }
     } catch (error) {
-        console.error('Error deleting deck:', error);
-        alert('Erro ao excluir Deck. Tente novamente.');
+        console.error('Error deactivating deck:', error);
+        alert('Erro ao inativar Deck. Tente novamente.');
     } finally {
         showLoading(false);
     }

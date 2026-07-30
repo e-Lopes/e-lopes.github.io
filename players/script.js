@@ -128,15 +128,14 @@ function setupEventListeners() {
         });
     }
 
-    const playerNameInput = document.getElementById('playerName');
-    if (playerNameInput) {
-        playerNameInput.addEventListener('keydown', (e) => {
+    document.querySelectorAll('#playerModal .player-modal-input').forEach((input) => {
+        input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 handleSubmit();
             }
         });
-    }
+    });
 
     document.getElementById('searchInput').addEventListener('input', (e) => {
         const term = e.target.value.toLowerCase().trim();
@@ -168,13 +167,16 @@ function setupEventListeners() {
 
             const editButton = event.target.closest('[data-action="edit-player"]');
             if (editButton) {
-                editPlayer(editButton.dataset.playerId, editButton.dataset.playerName || '');
+                editPlayer(editButton.dataset.playerId);
                 return;
             }
 
-            const deleteButton = event.target.closest('[data-action="delete-player"]');
-            if (deleteButton) {
-                deletePlayer(deleteButton.dataset.playerId, deleteButton.dataset.playerName || '');
+            const deactivateButton = event.target.closest('[data-action="deactivate-player"]');
+            if (deactivateButton) {
+                deactivatePlayer(
+                    deactivateButton.dataset.playerId,
+                    deactivateButton.dataset.playerName || ''
+                );
             }
         });
 
@@ -214,8 +216,13 @@ async function loadPlayers() {
 
     try {
         const res = window.supabaseApi
-            ? await window.supabaseApi.get('/rest/v1/players?select=*&order=name.asc')
-            : await fetch(`${SUPABASE_URL}/rest/v1/players?select=*&order=name.asc`, { headers });
+            ? await window.supabaseApi.get(
+                  '/rest/v1/players?is_active=eq.true&select=*&order=name.asc'
+              )
+            : await fetch(
+                  `${SUPABASE_URL}/rest/v1/players?is_active=eq.true&select=*&order=name.asc`,
+                  { headers }
+              );
 
         if (!res.ok) {
             throw new Error(`Falha ao carregar jogadores (${res.status})`);
@@ -272,13 +279,13 @@ function renderPaginatedList() {
                     </td>
                     <td class="players-cell-actions">
                         <div class="player-actions">
-                            <button class="btn-action btn-icon-only" type="button" title="Editar jogador" aria-label="Editar jogador" data-action="edit-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                            <button class="btn-action btn-icon-only" type="button" title="Editar jogador" aria-label="Editar jogador" data-action="edit-player" data-player-id="${p.id}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path d="M12 20h9"/>
                                     <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                                 </svg>
                             </button>
-                            <button class="btn-action btn-danger btn-icon-only" type="button" title="Excluir jogador" aria-label="Excluir jogador" data-action="delete-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                            <button class="btn-action btn-danger btn-icon-only" type="button" title="Inativar jogador" aria-label="Inativar jogador" data-action="deactivate-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <polyline points="3 6 5 6 21 6"/>
                                     <path d="M8 6V4h8v2"/>
@@ -586,7 +593,11 @@ function renderPagination(totalPages) {
 
 async function handleSubmit() {
     const nameInput = document.getElementById('playerName');
+    const bandaiIdInput = document.getElementById('playerBandaiId');
+    const digilabNameInput = document.getElementById('playerDigilabName');
     const name = String(nameInput?.value || '').trim();
+    const bandaiId = String(bandaiIdInput?.value || '').trim();
+    const digilabName = String(digilabNameInput?.value || '').trim();
     if (!name) return;
 
     const isValidName = window.validation
@@ -602,14 +613,19 @@ async function handleSubmit() {
         ? `${SUPABASE_URL}/rest/v1/players?id=eq.${editingPlayerId}`
         : `${SUPABASE_URL}/rest/v1/players`;
     const method = isEditing ? 'PATCH' : 'POST';
+    const payload = {
+        name,
+        bandai_id: bandaiId || null,
+        digilab_name: digilabName || null
+    };
 
     const res = window.supabaseApi
         ? await window.supabaseApi.request(url.replace(SUPABASE_URL, ''), {
               method,
               headers,
-              body: JSON.stringify({ name })
+              body: JSON.stringify(payload)
           })
-        : await fetch(url, { method, headers, body: JSON.stringify({ name }) });
+        : await fetch(url, { method, headers, body: JSON.stringify(payload) });
 
     if (res.ok) {
         showToast(isEditing ? 'Jogador atualizado!' : 'Jogador adicionado!');
@@ -621,28 +637,51 @@ async function handleSubmit() {
     showToast(isEditing ? 'Erro ao atualizar jogador' : 'Erro ao adicionar jogador', 'error');
 }
 
-function editPlayer(id, name) {
+function editPlayer(id) {
+    const player = allPlayers.find((item) => String(item.id) === String(id));
+    if (!player) {
+        showToast('Jogador não encontrado', 'error');
+        return;
+    }
+
     editingPlayerId = id;
     const nameInput = document.getElementById('playerName');
-    if (nameInput) nameInput.value = String(name || '');
+    const bandaiIdInput = document.getElementById('playerBandaiId');
+    const digilabNameInput = document.getElementById('playerDigilabName');
+    if (nameInput) nameInput.value = String(player.name || '');
+    if (bandaiIdInput) bandaiIdInput.value = String(player.bandai_id || '');
+    if (digilabNameInput) digilabNameInput.value = String(player.digilab_name || '');
     openPlayerModal('Editar jogador');
 }
 
 function cancelEdit() {
     editingPlayerId = null;
-    const nameInput = document.getElementById('playerName');
-    if (nameInput) nameInput.value = '';
+    ['playerName', 'playerBandaiId', 'playerDigilabName'].forEach((inputId) => {
+        const input = document.getElementById(inputId);
+        if (input) input.value = '';
+    });
     closePlayerModal();
 }
 
-async function deletePlayer(id, name) {
-    if (!confirm(`Excluir "${name}"?`)) return;
+async function deactivatePlayer(id, name) {
+    if (!confirm(`Inativar "${name}"? O histórico do jogador será preservado.`)) return;
+    const endpoint = `/rest/v1/players?id=eq.${encodeURIComponent(id)}`;
     const res = window.supabaseApi
-        ? await window.supabaseApi.del(`/rest/v1/players?id=eq.${id}`)
-        : await fetch(`${SUPABASE_URL}/rest/v1/players?id=eq.${id}`, { method: 'DELETE', headers });
+        ? await window.supabaseApi.request(endpoint, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: false })
+          })
+        : await fetch(`${SUPABASE_URL}${endpoint}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: false })
+          });
     if (res.ok) {
-        showToast('Removed!');
+        showToast('Jogador inativado!');
         loadPlayers();
+    } else {
+        showToast('Erro ao inativar jogador', 'error');
     }
 }
 

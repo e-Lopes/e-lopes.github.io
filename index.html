@@ -11,7 +11,7 @@
         <link rel="icon" type="image/png" href="icons/favicon/favicon.png" />
         <link rel="apple-touch-icon" href="icons/icons-192.png" />
         <link rel="manifest" href="manifest.json" />
-        <link rel="stylesheet" href="styles.css?v=2026.07.26.1" />
+        <link rel="stylesheet" href="styles.css?v=2026.07.29.2" />
         <link rel="stylesheet" href="styles/components/utilities.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/components/states.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/pages/players.css?v=2026.07.04.1" />
@@ -1140,14 +1140,14 @@
         <script src="config/supabase.js?v=2026.03.27.1"></script>
         <script src="config/api-client.js?v=2026.03.27.1"></script>
         <script src="config/ui-state.js?v=2026.03.27.1"></script>
-        <script src="config/app-version.js?v=2026.07.26.1"></script>
+        <script src="config/app-version.js?v=2026.07.29.2"></script>
         <script src="config/register-sw.js?v=2026.03.27.1"></script>
-        <script src="torneios/list-tournaments/calendar-view/calendar.js?v=2026.07.26.1"></script>
+        <script src="torneios/list-tournaments/calendar-view/calendar.js?v=2026.07.29.2"></script>
         <script src="config/tournament-utils.js?v=2026.07.25.6"></script>
-        <script src="torneios/tournament-ocr-files.js?v=2026.07.26.1"></script>
-        <script src="feedback/feedback.js?v=2026.07.26.1"></script>
-        <script src="torneios/list-tournaments/script.js?v=2026.07.26.1"></script>
-        <script src="torneios/edit-tournament/modal.js?v=2026.07.26.1"></script>
+        <script src="torneios/tournament-ocr-files.js?v=2026.07.29.2"></script>
+        <script src="feedback/feedback.js?v=2026.07.29.2"></script>
+        <script src="torneios/list-tournaments/script.js?v=2026.07.29.2"></script>
+        <script src="torneios/edit-tournament/modal.js?v=2026.07.29.2"></script>
 
         <!-- Player add/edit modal — fora do container para position:fixed funcionar -->
         <div id="playerModal" class="player-modal-overlay u-hidden" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
@@ -1156,13 +1156,36 @@
                     <h3 id="playerModalTitle" class="player-modal-title">Novo jogador</h3>
                     <button type="button" id="playerModalCloseBtn" class="player-modal-close" aria-label="Fechar">&times;</button>
                 </div>
-                <input
-                    type="text"
-                    id="playerName"
-                    class="players-name-input player-modal-input"
-                    placeholder="Player name..."
-                    autocomplete="off"
-                />
+                <div class="player-modal-field">
+                    <label for="playerName">Nome do jogador<span class="required">*</span></label>
+                    <input
+                        type="text"
+                        id="playerName"
+                        class="players-name-input player-modal-input"
+                        placeholder="Nome do jogador"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="player-modal-field">
+                    <label for="playerBandaiId">Bandai ID</label>
+                    <input
+                        type="text"
+                        id="playerBandaiId"
+                        class="players-name-input player-modal-input"
+                        placeholder="Ex.: 0000238403"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="player-modal-field">
+                    <label for="playerDigilabName">Nome no Digilab</label>
+                    <input
+                        type="text"
+                        id="playerDigilabName"
+                        class="players-name-input player-modal-input"
+                        placeholder="Nome usado no Digilab"
+                        autocomplete="off"
+                    />
+                </div>
                 <div class="player-modal-actions">
                     <button type="button" id="playerModalCancelBtn" class="btn-cancel">Cancelar</button>
                     <button type="button" id="submitBtn" class="btn-primary">Salvar</button>

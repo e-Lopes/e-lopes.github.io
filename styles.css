@@ -7718,6 +7718,18 @@ body {
     margin-bottom: 0 !important;
 }
 
+.player-modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.player-modal-field label {
+    color: #c8d8f4;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
 .player-modal-actions {
     display: flex;
     gap: 8px;

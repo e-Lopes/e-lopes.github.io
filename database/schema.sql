@@ -5,6 +5,7 @@ CREATE TABLE public.decks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL UNIQUE,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
   CONSTRAINT decks_pkey PRIMARY KEY (id)
 );
 
@@ -12,6 +13,10 @@ CREATE TABLE public.players (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL UNIQUE,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  bandai_id text,
+  bandai_nick text,
+  digilab_name text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
   CONSTRAINT players_pkey PRIMARY KEY (id)
 );
 
