@@ -1728,6 +1728,36 @@ th {
     gap: 8px;
 }
 
+.details-full-results-title {
+    display: flex;
+    width: 100%;
+}
+
+.details-bandai-print-status {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    padding: 5px 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.details-bandai-print-status.is-ok {
+    border-color: #22c55e;
+    background: #16803c;
+}
+
+.details-bandai-print-status.is-missing {
+    border-color: #b85c67;
+    background: #7f3540;
+}
+
 .details-title-icon {
     width: 18px;
     height: 18px;
@@ -16312,6 +16342,75 @@ body[data-theme='light'] .decklist-builder-drag-handle {
     z-index: 7;
 }
 
+#editTournamentForm > .modal-actions .btn-delete-tournament {
+    order: 0;
+    width: auto;
+    min-width: 160px;
+    min-height: 46px;
+    margin: 0 auto 0 0;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #dc3545, #b91c1c);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+}
+
+#editTournamentForm > .modal-actions #btnEditCancel {
+    order: 1;
+}
+
+#editTournamentForm > .modal-actions button[type='submit'] {
+    order: 2;
+}
+
+#editTournamentForm > .edit-tournament-modal-actions {
+    display: grid !important;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+}
+
+#editTournamentForm > .edit-tournament-modal-actions .btn-delete-tournament {
+    justify-self: start;
+    margin: 0 !important;
+}
+
+#editTournamentForm > .edit-tournament-modal-actions .edit-tournament-primary-actions {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#editTournamentForm > .modal-actions .btn-delete-tournament:hover {
+    background: linear-gradient(135deg, #c82333, #991b1b);
+    box-shadow: 0 8px 25px rgba(220, 53, 69, 0.42);
+    transform: translateY(-2px);
+}
+
+#editTournamentForm > .modal-actions .btn-delete-tournament:disabled {
+    cursor: wait;
+    opacity: 0.65;
+    transform: none;
+}
+
+#editTournamentForm > .modal-actions .btn-delete-tournament svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 #createTournamentForm > .modal-actions .btn-cancel,
 #editTournamentForm > .modal-actions .btn-cancel,
 #createTournamentForm > .modal-actions .btn-save,
@@ -16529,12 +16628,17 @@ body[data-theme='light'] .decklist-builder-drag-handle {
     #createTournamentForm > .modal-actions .btn-cancel,
     #editTournamentForm > .modal-actions .btn-cancel,
     #createTournamentForm > .modal-actions .btn-save,
-    #editTournamentForm > .modal-actions .btn-save {
+    #editTournamentForm > .modal-actions .btn-save,
+    #editTournamentForm > .modal-actions .btn-delete-tournament {
         flex: 1 1 0;
         min-width: 0;
         min-height: 48px;
         padding: 10px 8px;
         font-size: 0.82rem;
+    }
+
+    #editTournamentForm > .modal-actions .btn-delete-tournament {
+        margin-right: auto;
     }
 
     .tournament-dirty-indicator {
@@ -18435,5 +18539,47 @@ body[data-theme='light'] #feedbackContactEmail {
 
     #tournamentFilters.filters-expanded > .filter-actions > #btnClearFilters {
         display: none !important;
+    }
+}
+
+/* Final positioning for destructive and primary actions in tournament editing. */
+#editTournamentForm > .edit-tournament-modal-actions {
+    display: block !important;
+    min-height: 70px;
+}
+
+#editTournamentForm > .edit-tournament-modal-actions .btn-delete-tournament {
+    position: absolute !important;
+    top: 50%;
+    left: 24px !important;
+    right: auto !important;
+    margin: 0 !important;
+    transform: translateY(-50%);
+}
+
+#editTournamentForm > .edit-tournament-modal-actions .edit-tournament-primary-actions {
+    position: absolute !important;
+    top: 50%;
+    right: 24px !important;
+    left: auto !important;
+    margin: 0 !important;
+    transform: translateY(-50%);
+}
+
+#editTournamentForm > .edit-tournament-modal-actions .btn-delete-tournament:hover {
+    transform: translateY(calc(-50% - 2px));
+}
+
+#editTournamentForm > .edit-tournament-modal-actions .btn-delete-tournament:disabled {
+    transform: translateY(-50%);
+}
+
+@media (max-width: 768px) {
+    #editTournamentForm > .edit-tournament-modal-actions .btn-delete-tournament {
+        left: 12px !important;
+    }
+
+    #editTournamentForm > .edit-tournament-modal-actions .edit-tournament-primary-actions {
+        right: 12px !important;
     }
 }

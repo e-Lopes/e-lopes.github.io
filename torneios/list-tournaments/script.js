@@ -1113,6 +1113,16 @@ async function reloadTournamentsAfterEdit(tournamentId) {
     }
 }
 
+async function reloadTournamentsAfterDelete(tournamentId) {
+    if (String(selectedTournamentId || '') === String(tournamentId || '')) {
+        selectedTournamentId = null;
+    }
+    clearTournamentDetails();
+    clearCalendarExpandedDetails();
+    await loadTournaments();
+    applyFilters();
+}
+
 async function loadTournamentChampions() {
     tournamentChampionMap.clear();
     try {
@@ -9170,26 +9180,16 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
             : `
             `;
 
-        const ocrFilesHtml = ocrFiles.length
-            ? `
-                <div class="details-block details-ocr-files-block">
-                    <h3 class="details-section-title"><span>Prints da Bandai</span></h3>
-                    <div class="tournament-ocr-gallery tournament-ocr-gallery-public">
-                        ${ocrFiles
-                            .map(
-                                (file) => `
-                                    <a class="tournament-ocr-thumb" href="${escapeHtml(file.public_url)}" target="_blank" rel="noopener noreferrer">
-                                        <img src="${escapeHtml(file.public_url)}" alt="${escapeHtml(file.original_name || 'Print da Bandai')}" loading="lazy">
-                                        <span>${escapeHtml(file.original_name || 'Print da Bandai')}</span>
-                                        <time>${escapeHtml(new Date(file.created_at).toLocaleString('pt-BR'))}</time>
-                                    </a>
-                                `
-                            )
-                            .join('')}
-                    </div>
-                </div>
-            `
-            : '';
+        const hasBandaiPrint = ocrFiles.length > 0;
+        const bandaiPrintStatusHtml = `
+            <span class="details-bandai-print-status ${hasBandaiPrint ? 'is-ok' : 'is-missing'}" title="${
+                hasBandaiPrint
+                    ? `${ocrFiles.length} print(s) da Bandai armazenado(s)`
+                    : 'Nenhum print da Bandai armazenado'
+            }">
+                <span>Print Bandai ${hasBandaiPrint ? 'OK' : 'Ausente'}</span>
+            </span>
+        `;
 
         if (!targetContainer) {
             if (String(selectedTournamentId) !== tournamentId) return;
@@ -9213,17 +9213,17 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                     <div class="details-podium">${podiumHtml}</div>
                 </div>
                 <div class="details-block details-full-results-block">
-                    <h3 class="details-section-title">
+                    <h3 class="details-section-title details-full-results-title">
                         <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <circle cx="11" cy="11" r="7" />
                             <path d="M21 21l-4.35-4.35" />
                         </svg>
                         <span>Full Results</span>
+                        ${bandaiPrintStatusHtml}
                     </h3>
                     <div class="results-mini">${resultsHtml}</div>
                 </div>
                 ${pieSectionHtml}
-                ${ocrFilesHtml}
             </div>
         `;
         setupInteractivePieSlices(

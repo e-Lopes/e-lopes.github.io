@@ -33,15 +33,29 @@
         return `${supabaseUrl}/storage/v1/object/public/${BUCKET}/${encodeStoragePath(storagePath)}`;
     }
 
-    async function deleteObject(supabaseUrl, headers, storagePath) {
+    async function deleteStoragePaths({ supabaseUrl, headers, storagePaths }) {
+        const paths = Array.from(new Set((storagePaths || []).filter(Boolean)));
+        if (!paths.length) return [];
+
         try {
-            await fetch(
-                `${supabaseUrl}/storage/v1/object/${BUCKET}/${encodeStoragePath(storagePath)}`,
-                { method: 'DELETE', headers }
-            );
-        } catch (_) {
-            // Best effort cleanup; the database record is still removed below.
+            const response = await fetch(`${supabaseUrl}/storage/v1/object/${BUCKET}`, {
+                method: 'DELETE',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prefixes: paths })
+            });
+            if (response.ok || response.status === 404) return [];
+
+            const detail = await response.text();
+            console.error(`Falha ao excluir arquivos OCR do Storage (${response.status}): ${detail}`);
+        } catch (error) {
+            console.error('Falha ao excluir arquivos OCR do Storage:', error);
         }
+
+        // Best effort cleanup; callers can warn that these objects may be orphaned.
+        return paths;
     }
 
     async function cleanupBatch({ supabaseUrl, headers, batchId, storagePaths }) {
@@ -55,9 +69,7 @@
                 // Best effort cleanup.
             }
         }
-        await Promise.all(
-            (storagePaths || []).map((path) => deleteObject(supabaseUrl, headers, path))
-        );
+        await deleteStoragePaths({ supabaseUrl, headers, storagePaths });
     }
 
     async function uploadFiles({ supabaseUrl, headers, tournamentId, files }) {
@@ -128,6 +140,7 @@
     window.tournamentOcrFiles = {
         bucket: BUCKET,
         cleanupBatch,
+        deleteStoragePaths,
         loadFiles,
         publicUrl,
         uploadFiles
