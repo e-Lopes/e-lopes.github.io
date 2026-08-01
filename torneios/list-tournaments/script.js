@@ -8013,19 +8013,32 @@ function renderPagination() {
     });
     div.appendChild(prevButton);
 
-    const pageRadius = window.innerWidth <= 768 ? 1 : 2;
-    const startPage = Math.max(1, currentPage - pageRadius);
-    const endPage = Math.min(totalPages, currentPage + pageRadius);
+    const visiblePageCount = Math.min(totalPages, window.innerWidth <= 768 ? 3 : 5);
+    let startPage = currentPage - Math.floor(visiblePageCount / 2);
+    let endPage = startPage + visiblePageCount - 1;
+    if (startPage < 1) {
+        startPage = 1;
+        endPage = visiblePageCount;
+    }
+    if (endPage > totalPages) {
+        endPage = totalPages;
+        startPage = totalPages - visiblePageCount + 1;
+    }
 
     for (let i = startPage; i <= endPage; i++) {
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'btn-pagination-number';
         btn.textContent = i;
         if (i === currentPage) {
-            btn.disabled = true;
             btn.classList.add('active');
+            btn.setAttribute('aria-current', 'page');
+            btn.setAttribute('aria-label', `Página ${i}, atual`);
+        } else {
+            btn.setAttribute('aria-label', `Ir para a página ${i}`);
         }
         btn.addEventListener('click', () => {
+            if (i === currentPage) return;
             currentPage = i;
             renderTable();
             renderPagination();

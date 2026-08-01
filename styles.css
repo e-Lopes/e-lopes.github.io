@@ -15747,23 +15747,25 @@ body[data-theme='dark'] .admin-change-password-modal input {
 ============================================================ */
 .pagination .btn-pagination,
 .pagination .btn-pagination-number {
-    background: linear-gradient(135deg, #2d4467 0%, #3f5e92 100%) !important;
-    border-color: #5e7db4 !important;
-    color: #e8f0ff !important;
+    background: #1a2740 !important;
+    border-color: #405074 !important;
+    color: #d6e0f3 !important;
 }
 
 .pagination .btn-pagination:hover:not(:disabled),
 .pagination .btn-pagination-number:hover:not(:disabled) {
-    background: linear-gradient(135deg, #3a5580 0%, #4e70a8 100%) !important;
+    background: #2d4467 !important;
+    border-color: #6f88bf !important;
     box-shadow: 0 4px 10px rgba(83, 99, 180, 0.28) !important;
 }
 
 .pagination .btn-pagination-number.active,
-.pagination .btn-pagination-number:disabled {
-    background: #263754 !important;
-    border-color: #4f6797 !important;
-    color: #c8d9f8 !important;
-    box-shadow: none !important;
+.pagination .btn-pagination-number[aria-current='page'] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-color: #9aa7ff !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2) !important;
+    opacity: 1 !important;
 }
 
 .pagination .btn-pagination:disabled {
