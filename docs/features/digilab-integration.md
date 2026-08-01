@@ -271,6 +271,8 @@ A aba administrativa oferece:
 - confirmação do vínculo quando existe exatamente um candidato local compatível.
 - vínculo automático e sequencial dos candidatos exatos, com intervalo de 1,3 segundo entre chamadas;
 - explicação dos motivos de `Revisar validação` e confirmação administrativa auditável do vínculo;
+- distinção entre vínculo confirmado, dados ainda não revisados e dados já sincronizados;
+- auditoria dos decks ao abrir os detalhes, mostrando decks ausentes ou divergentes no DigiStats antes da sincronização;
 - criação automática de torneios novos quando loja, formato e todos os jogadores estão resolvidos;
 - de-para persistente por `player.slug`, com seleção manual apenas para nomes não resolvidos.
 - de-para persistente por `deck.slug`, preenchendo `tournament_results.deck_id` e permitindo seleção manual quando o nome do arquétipo divergir.

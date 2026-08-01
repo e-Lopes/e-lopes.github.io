@@ -1,5 +1,5 @@
 ﻿(function setAppVersion() {
-    window.APP_VERSION = '2026.07.31.29';
+    window.APP_VERSION = '2026.07.31.32';
 })();
 
 (function initThemeToggle() {

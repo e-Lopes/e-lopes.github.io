@@ -376,7 +376,8 @@ function setupDeckActions() {
                 editButton.dataset.deckId,
                 editButton.dataset.deckName || '',
                 editButton.dataset.imageUrl || '',
-                editButton.dataset.deckColors || ''
+                editButton.dataset.deckColors || '',
+                editButton.dataset.deckFamilyId || ''
             );
             return;
         }
@@ -1091,6 +1092,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                         data-deck-id="${deck.id}"
                         data-deck-name="${escapeHtmlAttribute(deck.name)}"
                         data-deck-colors="${escapeHtmlAttribute(deck.colors || '')}"
+                        data-deck-family-id="${escapeHtmlAttribute(deck.family_id || '')}"
                         data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M12 20h9"/>
@@ -1226,6 +1228,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                                 data-deck-id="${deck.id}"
                                 data-deck-name="${escapeHtmlAttribute(deck.name)}"
                                 data-deck-colors="${escapeHtmlAttribute(deck.colors || '')}"
+                                data-deck-family-id="${escapeHtmlAttribute(deck.family_id || '')}"
                                 data-image-url="${escapeHtmlAttribute(imageUrl || '')}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path d="M12 20h9"/>
@@ -1333,9 +1336,15 @@ async function deactivateDeck(deckId, deckName) {
     }
 }
 
-function editDeck(deckId, deckName, imageUrl, deckColors) {
+function editDeck(deckId, deckName, imageUrl, deckColors, deckFamilyId) {
     if (typeof openEditDeckModal === 'function') {
-        openEditDeckModal(deckId, deckName || '', imageUrl || '', deckColors || '');
+        openEditDeckModal(
+            deckId,
+            deckName || '',
+            imageUrl || '',
+            deckColors || '',
+            deckFamilyId || ''
+        );
         return;
     }
 }

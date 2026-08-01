@@ -726,7 +726,7 @@ async function autoLinkExactDigilabCandidates() {
                     digilab_tournament_id: externalId
                 });
                 if (result.status === 'matched' || result.sync?.status === 'matched') {
-                    row.mapping_status = 'linked';
+                    row.mapping_status = 'linked_needs_review';
                     row.linked_tournament_id = localId;
                     adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
                     linked += 1;
@@ -829,7 +829,7 @@ async function autoImportNewDigilabTournaments() {
             const imported = await callDigilabFunction('import-digilab-tournament', {
                 digilab_tournament_id: externalId
             });
-            row.mapping_status = 'linked';
+            row.mapping_status = 'linked_data_ok';
             row.linked_tournament_id = imported.tournament_id;
             adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
         } catch (error) {
@@ -867,8 +867,13 @@ function renderDigilabInventory() {
     });
     const summary = document.getElementById('adminDigilabSummary');
     if (summary) {
+        const linkedCount = Object.entries(counts).reduce(
+            (total, [status, count]) =>
+                status === 'linked' || status.startsWith('linked_') ? total + count : total,
+            0
+        );
         summary.innerHTML = [
-            ['Vinculados', counts.linked || 0, 'linked', 'Confirmados no DigiStats'],
+            ['Vinculados', linkedCount, 'linked', 'Confirmados no DigiStats'],
             [
                 'Candidatos exatos',
                 counts.exact_local_candidate || 0,
@@ -1016,10 +1021,12 @@ function renderDigilabDetail(result) {
     const warnings = Array.isArray(result.warnings) ? result.warnings : [];
     const playerOptions = result.import_resolution?.player_options || [];
     const deckOptions = result.import_resolution?.deck_options || [];
+    const deckComparison = result.deck_comparison || null;
     const externalId = Number(tournament.digilab_tournament_id);
     const linkedTournamentId = Number(result.already_linked?.tournament_id) || null;
     const isNewImport =
         !result.already_linked && candidates.every((candidate) => Number(candidate.score) === 0);
+    updateDigilabRowFromDeckComparison(externalId, deckComparison);
     detail.innerHTML = `
         <div class="admin-panel-header">
             <div><h3>Torneio DigiLab #${Number(tournament.digilab_tournament_id)}</h3>
@@ -1033,10 +1040,74 @@ function renderDigilabDetail(result) {
         <h4>Candidatos locais</h4>
         <div class="admin-digilab-candidates">${candidates.length ? candidates.map((item) => renderDigilabCandidateCard(item, externalId, Number(tournament.player_count) || 0)).join('') : '<p>Nenhum candidato na mesma data.</p>'}</div>
         ${renderDigilabConflictPanel(externalId, candidates)}
+        ${renderDigilabDeckComparisonSummary(deckComparison)}
         ${isNewImport ? `<div class="admin-digilab-import-callout"><div class="admin-digilab-import-copy"><strong>Novo torneio no DigiStats</strong><span>Revise o de-para abaixo. Mapeamentos confirmados serão reutilizados nas próximas importações.</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Validando dados e criando o torneio…</small></div></div><button type="button" class="admin-digilab-action is-primary" data-admin-action="digilab-import" data-id="${Number(tournament.digilab_tournament_id)}">Criar no DigiStats</button></div>` : ''}
         ${result.already_linked ? `<div class="admin-digilab-import-callout is-sync"><div class="admin-digilab-import-copy"><strong>Atualizar dados do torneio vinculado</strong><span>Use esta ação para preencher decks ou pontuações que não estavam disponíveis na primeira importação.</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Sincronizando os resultados…</small></div></div><button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-import" data-mode="sync" data-id="${externalId}">Sincronizar dados</button></div>` : ''}
         <h4>Classificação e pontos derivados</h4>
-        <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Pos.</th><th>Jogador</th><th>De-para jogador</th><th>Deck DigiLab</th><th>De-para deck</th><th>W-L-D</th><th>Pontos</th></tr></thead><tbody>${standings.map((item) => `<tr><td>${Number(item.placement) || '—'}</td><td>${escapeAdminHtml(item.player?.name || 'Anônimo')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.player?.slug || '—')}</small></td><td>${renderDigilabPlayerMatch(item, playerOptions)}</td><td>${escapeAdminHtml(item.deck?.name || 'Não informado')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.deck?.slug || '—')}</small></td><td>${renderDigilabDeckMatch(item, deckOptions)}</td><td>${Number(item.record?.wins) || 0}-${Number(item.record?.losses) || 0}-${Number(item.record?.ties) || 0}</td><td>${item.match_points ?? '—'}</td></tr>`).join('')}</tbody></table></div>`;
+        <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Pos.</th><th>Jogador</th><th>De-para jogador</th><th>Deck DigiLab</th><th>De-para deck</th><th>W-L-D</th><th>Pontos</th></tr></thead><tbody>${standings.map((item) => `<tr><td>${Number(item.placement) || '—'}</td><td>${escapeAdminHtml(item.player?.name || 'Anônimo')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.player?.slug || '—')}</small></td><td>${renderDigilabPlayerMatch(item, playerOptions)}</td><td>${escapeAdminHtml(item.deck?.name || 'Não informado')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.deck?.slug || '—')}</small></td><td>${renderDigilabDeckMatch(item, deckOptions)}${renderDigilabDeckDifference(item, deckComparison)}</td><td>${Number(item.record?.wins) || 0}-${Number(item.record?.losses) || 0}-${Number(item.record?.ties) || 0}</td><td>${item.match_points ?? '—'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderDigilabDeckComparisonSummary(comparison) {
+    if (!comparison?.counts) return '';
+    const counts = comparison.counts;
+    const missing = Number(counts.local_missing) || 0;
+    const divergent = Number(counts.divergent) || 0;
+    const resultMissing = Number(counts.result_missing) || 0;
+    const unresolved = Number(counts.external_unresolved) || 0;
+    const hasIssue = missing + divergent + resultMissing + unresolved > 0;
+    const details = [
+        missing ? `${missing} deck${missing === 1 ? '' : 's'} ausente${missing === 1 ? '' : 's'}` : '',
+        divergent ? `${divergent} deck${divergent === 1 ? '' : 's'} divergente${divergent === 1 ? '' : 's'}` : '',
+        resultMissing ? `${resultMissing} resultado${resultMissing === 1 ? '' : 's'} local${resultMissing === 1 ? '' : 'is'} ausente${resultMissing === 1 ? '' : 's'}` : '',
+        unresolved ? `${unresolved} deck${unresolved === 1 ? '' : 's'} sem de-para` : ''
+    ].filter(Boolean);
+    return `<section class="admin-digilab-deck-audit ${hasIssue ? 'has-issues' : 'is-ok'}">
+        <strong>${hasIssue ? 'Atenção aos dados dos decks' : 'Decks conferidos'}</strong>
+        <span>${hasIssue ? details.join(' · ') : `${Number(counts.matched) || 0} decks iguais entre DigiStats e DigiLab.`}</span>
+        ${hasIssue ? '<small>Revise o de-para abaixo. “Sincronizar dados” preencherá ausentes e substituirá divergentes.</small>' : ''}
+    </section>`;
+}
+
+function renderDigilabDeckDifference(standing, comparison) {
+    const slug = String(standing.player?.slug || '');
+    const row = comparison?.rows?.find(
+        (item) => String(item.digilab_player_slug || '') === slug
+    );
+    if (!row || row.status === 'matched') return '';
+    const labels = {
+        local_missing: 'DigiStats: não informado',
+        divergent: `DigiStats: ${row.local_deck_name || 'outro deck'}`,
+        result_missing: 'Resultado ausente no DigiStats',
+        external_unresolved: 'Deck DigiLab sem de-para'
+    };
+    return `<small class="admin-digilab-deck-difference status-${escapeAdminHtml(row.status)}">${escapeAdminHtml(labels[row.status] || 'Revisar deck')}</small>`;
+}
+
+function updateDigilabRowFromDeckComparison(externalId, comparison) {
+    if (!comparison?.counts) return;
+    const counts = comparison.counts;
+    const hasMismatch =
+        (Number(counts.local_missing) || 0) +
+            (Number(counts.divergent) || 0) +
+            (Number(counts.result_missing) || 0) >
+        0;
+    const hasUnresolved = (Number(counts.external_unresolved) || 0) > 0;
+    const status = hasMismatch
+        ? 'linked_data_mismatch'
+        : hasUnresolved
+          ? 'linked_needs_review'
+          : 'linked_data_ok';
+    const inventoryRow = adminDigilabInventory.find(
+        (item) => Number(item.digilab_tournament_id) === Number(externalId)
+    );
+    if (inventoryRow) inventoryRow.mapping_status = status;
+    const badge = document.querySelector(
+        `tr[data-digilab-id="${Number(externalId)}"] .admin-digilab-badge`
+    );
+    if (badge) {
+        badge.className = `admin-digilab-badge status-${status}`;
+        badge.textContent = digilabStatusLabel(status);
+    }
 }
 
 function renderDigilabCandidateCard(candidate, externalId, externalPlayerCount) {
@@ -1304,6 +1375,10 @@ function digilabStatusLabel(status) {
     return (
         {
             linked: 'Vinculado',
+            linked_needs_review: 'Vinculado · revisar dados',
+            linked_synced: 'Vinculado · já sincronizado',
+            linked_data_ok: 'Decks conferidos',
+            linked_data_mismatch: 'Revisar decks',
             exact_local_candidate: 'Candidato exato',
             possible_local_candidate: 'Possível candidato',
             ambiguous: 'Ambíguo',

@@ -14,16 +14,31 @@
     const COLOR_ORDER = COLOR_OPTIONS.map((item) => item.code);
     const MODAL_TEMPLATE = `
 <div id="editDeckModal" class="modal-overlay" aria-hidden="true" inert>
-    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editDeckTitle">
-        <h2 id="editDeckTitle">Editar Deck</h2>
-        <form id="editDeckForm">
+    <div class="modal-content edit-deck-modal-content" role="dialog" aria-modal="true" aria-labelledby="editDeckTitle">
+        <div class="edit-deck-modal-header">
+            <div>
+                <span class="edit-deck-modal-eyebrow">Configuração do arquétipo</span>
+                <h2 id="editDeckTitle">Editar Deck</h2>
+            </div>
+            <button type="button" class="edit-deck-modal-close" data-close-edit-deck aria-label="Fechar" title="Fechar">&times;</button>
+        </div>
+        <form id="editDeckForm" class="edit-deck-form">
             <input id="editDeckId" type="hidden">
-            <div class="form-group">
-                <label class="form-label" for="editDeckName">Nome do Deck*</label>
-                <input id="editDeckName" class="form-input" type="text" required>
+            <div class="edit-deck-fields-grid">
+                <div class="form-group">
+                    <label class="form-label" for="editDeckName">Nome do Deck*</label>
+                    <input id="editDeckName" class="form-input" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editDeckFamily">Família</label>
+                    <select id="editDeckFamily" class="form-input">
+                        <option value="">Nenhuma família</option>
+                    </select>
+                    <small class="edit-deck-field-help">Agrupa arquétipos relacionados sem alterar o histórico.</small>
+                </div>
             </div>
             <div class="form-group">
-                <label class="form-label" for="editDeckCode">Deck Code*</label>
+                <label class="form-label" for="editDeckCode">Código da carta principal*</label>
                 <input id="editDeckCode" class="form-input" type="text" placeholder="BT16-064" required>
                 <div class="code-examples">
                     <div class="code-example" data-code="BT24-030">BT24-030</div>
@@ -41,18 +56,17 @@
                 <label class="form-label">Cores do Deck</label>
                 <div id="editDeckColors" class="deck-colors-picker" role="group" aria-label="Cores do Deck"></div>
             </div>
-            <div class="modal-actions">
-                <button type="button" id="btnCloseEditDeckModal" class="btn-modal-cancel">Cancelar</button>
-                <button type="submit" class="btn-modal-save">Salvar</button>
-            </div>
-            <div class="modal-tips">
-                <h4>💡 How to find the card code:</h4>
+            <details class="modal-tips edit-deck-code-help">
+                <summary>Como encontrar o código da carta?</summary>
                 <ul>
-                    <li>The code follows the format: <strong>SET-NUMBER</strong></li>
-                    <li><strong>SET:</strong> BT16, ST22, EX5, P (promo)...</li>
-                    <li><strong>NUMBER:</strong> 001 - 120 (can be 1-3 digits)</li>
-                    <li><strong>Examples:</strong> BT24-030, ST22-05, EX5-001, P-183</li>
+                    <li>Use o formato <strong>COLEÇÃO-NÚMERO</strong>.</li>
+                    <li><strong>Coleção:</strong> BT16, ST22, EX5, P (promo)...</li>
+                    <li><strong>Exemplos:</strong> BT24-030, ST22-05, EX5-001, P-183.</li>
                 </ul>
+            </details>
+            <div class="modal-actions edit-deck-modal-actions">
+                <button type="button" id="btnCloseEditDeckModal" class="btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn-modal-save">Salvar alterações</button>
             </div>
         </form>
     </div>
@@ -88,6 +102,15 @@
 
     function buildColorsCsv(selectedColors) {
         return COLOR_ORDER.filter((token) => selectedColors.has(token)).join(',');
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     async function checkDuplicateDeckName(supabaseUrl, headers, deckName, excludeDeckId) {
@@ -180,7 +203,16 @@
         return `${supabaseUrl}/storage/v1/object/public/deck-images/${encodeURIComponent(deckCode)}.webp`;
     }
 
-    async function updateDeck(supabaseUrl, headers, deckId, deckName, deckCode, deckColorsCsv) {
+    async function updateDeck(
+        supabaseUrl,
+        headers,
+        deckId,
+        deckName,
+        deckCode,
+        deckColorsCsv,
+        familyId,
+        includeFamily
+    ) {
         const storedUrl = await uploadDeckImageToStorage(supabaseUrl, headers, deckCode);
         const imageUrl = storedUrl || (IMAGE_BASE_URL + deckCode + '.webp');
 
@@ -189,7 +221,11 @@
             {
                 method: 'PATCH',
                 headers,
-                body: JSON.stringify({ name: deckName, colors: deckColorsCsv })
+                body: JSON.stringify({
+                    name: deckName,
+                    colors: deckColorsCsv,
+                    ...(includeFamily ? { family_id: familyId || null } : {})
+                })
             }
         );
         if (!deckRes.ok) throw new Error('Error updating deck');
@@ -237,8 +273,10 @@
         const preview = document.getElementById('editDeckPreview');
         const previewImage = document.getElementById('editDeckPreviewImage');
         const colorsContainer = document.getElementById('editDeckColors');
+        const familySelect = document.getElementById('editDeckFamily');
 
         let lastFocused = null;
+        let familyOptionsLoaded = false;
         const selectedColors = new Set();
 
         const renderColorButtons = () => {
@@ -289,6 +327,10 @@
         };
 
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        modal.querySelector('[data-close-edit-deck]')?.addEventListener('click', closeModal);
+        modal.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closeModal();
+        });
 
         if (codeInput) {
             codeInput.addEventListener('input', () => {
@@ -350,6 +392,7 @@
                 const deckName = (nameInput?.value || '').trim();
                 const deckCode = (codeInput?.value || '').trim().toUpperCase();
                 const deckColorsCsv = buildColorsCsv(selectedColors);
+                const familyId = familySelect?.value || null;
 
                 if (!deckId || !deckName || !deckCode) {
                     alert('Please fill in all required fields.');
@@ -373,7 +416,16 @@
                 }
 
                 try {
-                    await updateDeck(supabaseUrl, headers, deckId, deckName, deckCode, deckColorsCsv);
+                    await updateDeck(
+                        supabaseUrl,
+                        headers,
+                        deckId,
+                        deckName,
+                        deckCode,
+                        deckColorsCsv,
+                        familyId,
+                        familyOptionsLoaded
+                    );
                     closeModal();
                     if (typeof onUpdated === 'function') await onUpdated();
                 } catch (err) {
@@ -383,12 +435,47 @@
             });
         }
 
-        window.openEditDeckModal = function openEditDeckModal(deckId, deckName, imageUrl, deckColors) {
+        const loadFamilyOptions = async (selectedFamilyId) => {
+            if (!familySelect) return;
+            familyOptionsLoaded = false;
+            familySelect.disabled = true;
+            familySelect.innerHTML = '<option value="">Carregando famílias…</option>';
+            try {
+                const response = await fetch(
+                    `${supabaseUrl}/rest/v1/deck_families?select=id,name,is_active&order=name.asc`,
+                    { headers }
+                );
+                if (!response.ok) throw new Error('Falha ao carregar famílias');
+                const families = await response.json();
+                familySelect.innerHTML = `<option value="">Nenhuma família</option>${families
+                    .filter((family) => family.is_active !== false || family.id === selectedFamilyId)
+                    .map(
+                        (family) =>
+                            `<option value="${escapeHtml(family.id)}">${escapeHtml(family.name)}${family.is_active === false ? ' (inativa)' : ''}</option>`
+                    )
+                    .join('')}`;
+                familySelect.value = selectedFamilyId || '';
+                familyOptionsLoaded = true;
+                familySelect.disabled = false;
+            } catch (error) {
+                console.error(error);
+                familySelect.innerHTML = '<option value="">Famílias indisponíveis</option>';
+            }
+        };
+
+        window.openEditDeckModal = function openEditDeckModal(
+            deckId,
+            deckName,
+            imageUrl,
+            deckColors,
+            deckFamilyId
+        ) {
             lastFocused = document.activeElement;
             if (idInput) idInput.value = deckId || '';
             if (nameInput) nameInput.value = deckName || '';
             if (codeInput) codeInput.value = extractCodeFromUrl(imageUrl || '');
             setSelectedColorsFromCsv(deckColors || '');
+            loadFamilyOptions(deckFamilyId || '');
             updatePreview();
             modal.classList.add('active');
             modal.setAttribute('aria-hidden', 'false');

@@ -115,7 +115,7 @@ async function listInventory(supabase: any, apiKey: string, page: number, perPag
         const sync = externalId ? syncByExternalId.get(externalId) : null;
 
         let mappingStatus = 'new_import';
-        if (sync) mappingStatus = 'linked';
+        if (sync) mappingStatus = linkedDataStatus(sync);
         else if (exactCandidates.length === 1) mappingStatus = 'exact_local_candidate';
         else if (exactCandidates.length > 1) mappingStatus = 'ambiguous';
         else if (candidates.some((candidate) => candidate.score > 0)) {
@@ -175,6 +175,14 @@ async function previewTournament(supabase: any, apiKey: string, externalId: numb
     const standings = Array.isArray(body?.standings) ? body.standings : [];
     const dnfs = Array.isArray(body?.dnfs) ? body.dnfs : [];
     const importResolution = await resolveImportContext(supabase, tournament, standings);
+    const deckComparison = syncRows[0]?.tournament_id
+        ? await compareLinkedDecks(
+              supabase,
+              Number(syncRows[0].tournament_id),
+              standings,
+              importResolution
+          )
+        : null;
     const warnings = [];
     if (standings.some((row: JsonRecord) => !row.player?.slug)) warnings.push('anonymous_player');
     if (dnfs.length > 0) warnings.push('dnfs_not_supported_by_local_model');
@@ -215,6 +223,7 @@ async function previewTournament(supabase: any, apiKey: string, externalId: numb
             ),
             deck_options: importResolution.deck_options
         },
+        deck_comparison: deckComparison,
         warnings,
         structurally_importable: syncRows.length === 0 && warnings.length === 0,
         can_auto_import:
@@ -411,11 +420,77 @@ async function loadSyncRows(supabase: any, externalIds: number[]) {
     const { data, error } = await supabase
         .from('tournament_digilab_sync')
         .select(
-            'tournament_id,digilab_tournament_id,digilab_url,status,verified_at,last_checked_at'
+            'tournament_id,digilab_tournament_id,digilab_url,status,verified_at,last_checked_at,comparison_summary'
         )
         .in('digilab_tournament_id', externalIds);
     if (error) throw new Error('Falha ao ler vínculos existentes.');
     return data || [];
+}
+
+function linkedDataStatus(sync: JsonRecord) {
+    const source = String(sync?.comparison_summary?.source || '');
+    return [
+        'digilab_reverse_sync',
+        'digilab_reverse_import',
+        'admin_digilab_reconciliation'
+    ].includes(source)
+        ? 'linked_synced'
+        : 'linked_needs_review';
+}
+
+async function compareLinkedDecks(
+    supabase: any,
+    tournamentId: number,
+    standings: JsonRecord[],
+    resolution: JsonRecord
+) {
+    const { data, error } = await supabase
+        .from('tournament_results')
+        .select('player_id,deck_id,deck:decks(name)')
+        .eq('tournament_id', tournamentId);
+    if (error) throw new Error('Falha ao comparar os decks do torneio vinculado.');
+    const localByPlayer = new Map(
+        (data || []).map((row: JsonRecord) => [String(row.player_id || ''), row])
+    );
+    const rows = standings.map((standing: JsonRecord, index: number) => {
+        const playerMatch = resolution.player_matches[index] || {};
+        const deckMatch = resolution.deck_matches[index] || {};
+        const local = playerMatch.player_id
+            ? localByPlayer.get(String(playerMatch.player_id))
+            : null;
+        let status = 'matched';
+        if (!playerMatch.player_id || !local) status = 'result_missing';
+        else if (!deckMatch.deck_id) status = 'external_unresolved';
+        else if (!local.deck_id) status = 'local_missing';
+        else if (String(local.deck_id) !== String(deckMatch.deck_id)) status = 'divergent';
+        return {
+            digilab_player_slug: standing.player?.slug || null,
+            player_id: playerMatch.player_id || null,
+            player_name: playerMatch.player_name || standing.player?.name || null,
+            local_deck_id: local?.deck_id || null,
+            local_deck_name: local?.deck?.name || null,
+            digilab_deck_id: deckMatch.deck_id || null,
+            digilab_deck_name: deckMatch.deck_name || standing.deck?.name || null,
+            status
+        };
+    });
+    return {
+        tournament_id: tournamentId,
+        rows,
+        counts: rows.reduce(
+            (counts: JsonRecord, row: JsonRecord) => {
+                counts[row.status] = (counts[row.status] || 0) + 1;
+                return counts;
+            },
+            {
+                matched: 0,
+                local_missing: 0,
+                divergent: 0,
+                result_missing: 0,
+                external_unresolved: 0
+            }
+        )
+    };
 }
 
 async function loadLocalTournaments(supabase: any, dateFrom: string, dateTo: string) {
