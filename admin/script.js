@@ -112,6 +112,8 @@ function setupAdminActions() {
         if (action === 'select-store-logo') selectStoreLogo(btn.dataset.url);
         if (action === 'save-weekly-schedule') saveAdminWeeklySchedule();
         if (action === 'toggle-password') toggleAdminPassword(btn);
+        if (action === 'change-password-open') openAdminPasswordModal();
+        if (action === 'change-password-close') closeAdminPasswordModal();
         if (action === 'logout') logoutAdmin();
         if (action === 'digilab-health') testDigilabHealth();
         if (action === 'digilab-refresh') {
@@ -172,6 +174,19 @@ function setupAdminActions() {
 
     const loginForm = document.getElementById('adminLoginForm');
     if (loginForm) loginForm.addEventListener('submit', loginAdmin);
+    const passwordForm = document.getElementById('adminChangePasswordForm');
+    if (passwordForm) passwordForm.addEventListener('submit', changeAdminPassword);
+    document.getElementById('adminChangePasswordModal')?.addEventListener('click', (event) => {
+        if (event.target.id === 'adminChangePasswordModal') closeAdminPasswordModal();
+    });
+    container.addEventListener('keydown', (event) => {
+        if (
+            event.key === 'Escape' &&
+            document.getElementById('adminChangePasswordModal')?.classList.contains('active')
+        ) {
+            closeAdminPasswordModal();
+        }
+    });
 
     // Format form submit
     const formatForm = document.getElementById('adminFormatForm');
@@ -250,7 +265,7 @@ function setupAdminActions() {
 }
 
 function toggleAdminPassword(button) {
-    const input = document.getElementById('adminLoginPassword');
+    const input = document.getElementById(button.dataset.passwordTarget || 'adminLoginPassword');
     if (!input) return;
     const shouldShow = input.type === 'password';
     input.type = shouldShow ? 'text' : 'password';
@@ -299,24 +314,40 @@ async function loginAdmin(event) {
     const passwordInput = document.getElementById('adminLoginPassword');
     const button = document.getElementById('adminLoginButton');
     const password = String(passwordInput?.value || '');
-    const username = password.trim().toLowerCase();
-    if (!password || !/^[a-z0-9_-]{3,40}$/.test(username)) {
+    if (!password) {
         setAdminAuthStatus('Senha de acesso inválida.', true);
         return;
     }
 
-    const email = `${username}@${ADMIN_AUTH_DOMAIN}`;
     if (button) button.disabled = true;
     setAdminAuthStatus('Entrando…');
     try {
         const config = getAdminConfig();
-        const response = await fetch(`${config.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-            method: 'POST',
-            headers: { apikey: config.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload.access_token) throw new Error('Usuário ou senha inválidos.');
+        const candidates = [await deriveAdminCredentialEmail(password)];
+        const legacyUsername = password.trim().toLowerCase();
+        if (/^[a-z0-9_-]{3,40}$/.test(legacyUsername)) {
+            candidates.push(`${legacyUsername}@${ADMIN_AUTH_DOMAIN}`);
+        }
+        let payload = null;
+        for (const email of [...new Set(candidates)]) {
+            const response = await fetch(
+                `${config.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+                {
+                    method: 'POST',
+                    headers: {
+                        apikey: config.SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                }
+            );
+            const attempt = await response.json().catch(() => ({}));
+            if (response.ok && attempt.access_token) {
+                payload = attempt;
+                break;
+            }
+        }
+        if (!payload) throw new Error('Usuário ou senha inválidos.');
 
         adminAuthSession = payload;
         adminAuthProfile = await loadAdminProfile();
@@ -329,6 +360,17 @@ async function loginAdmin(event) {
     } finally {
         if (button) button.disabled = false;
     }
+}
+
+async function deriveAdminCredentialEmail(password) {
+    const digest = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(String(password || ''))
+    );
+    const hash = [...new Uint8Array(digest)]
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+    return `p-${hash.slice(0, 40)}@${ADMIN_AUTH_DOMAIN}`;
 }
 
 async function logoutAdmin() {
@@ -347,6 +389,95 @@ async function logoutAdmin() {
         clearAdminSession();
         setAdminAuthView(false);
     }
+}
+
+function openAdminPasswordModal() {
+    const modal = document.getElementById('adminChangePasswordModal');
+    if (!modal || !adminAuthSession) return;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('adminCurrentPassword')?.focus();
+}
+
+function closeAdminPasswordModal() {
+    const modal = document.getElementById('adminChangePasswordModal');
+    modal?.classList.remove('active');
+    modal?.setAttribute('aria-hidden', 'true');
+    ['adminCurrentPassword', 'adminNewPassword', 'adminConfirmPassword'].forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.value = '';
+            input.type = 'password';
+        }
+    });
+    document
+        .querySelectorAll('#adminChangePasswordModal [data-admin-action="toggle-password"]')
+        .forEach((button) => {
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', 'Mostrar senha');
+            button.title = 'Mostrar senha';
+        });
+    setAdminPasswordStatus('');
+}
+
+async function changeAdminPassword(event) {
+    event.preventDefault();
+    const currentPassword = String(
+        document.getElementById('adminCurrentPassword')?.value || ''
+    );
+    const newPassword = String(document.getElementById('adminNewPassword')?.value || '');
+    const confirmation = String(
+        document.getElementById('adminConfirmPassword')?.value || ''
+    );
+    if (!currentPassword) {
+        setAdminPasswordStatus('Informe a senha atual.', true);
+        return;
+    }
+    if (newPassword.length < 3 || newPassword.length > 72) {
+        setAdminPasswordStatus('A nova senha deve ter entre 3 e 72 caracteres.', true);
+        return;
+    }
+    if (newPassword !== confirmation) {
+        setAdminPasswordStatus('A confirmação não corresponde à nova senha.', true);
+        return;
+    }
+
+    const button = document.getElementById('adminChangePasswordButton');
+    if (button) button.disabled = true;
+    setAdminPasswordStatus('Alterando senha…');
+    try {
+        await refreshAdminSessionIfNeeded();
+        const config = getAdminConfig();
+        const response = await fetch(
+            `${config.SUPABASE_URL}/functions/v1/change-admin-password`,
+            {
+                method: 'POST',
+                headers: createAuthenticatedAdminHeaders(),
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            }
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Não foi possível alterar a senha.');
+
+        closeAdminPasswordModal();
+        clearAdminSession();
+        setAdminAuthView(false);
+        setAdminAuthStatus('Senha alterada. Entre novamente usando a nova senha.');
+    } catch (error) {
+        setAdminPasswordStatus(error.message || 'Não foi possível alterar a senha.', true);
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+function setAdminPasswordStatus(message, isError = false) {
+    const host = document.getElementById('adminChangePasswordStatus');
+    if (!host) return;
+    host.textContent = message;
+    host.classList.toggle('is-error', isError);
 }
 
 async function loadAdminProfile() {
@@ -1373,6 +1504,7 @@ function renderDigilabDeckCatalogRow(row) {
 
 async function mapDigilabDeck(archetypeId, createDeck, button) {
     const row = button?.closest('[data-catalog-archetype-id]');
+    const viewport = captureDigilabCatalogViewport(row);
     const deckId = row?.querySelector('[data-catalog-deck-id]')?.value || '';
     const familyId = row?.querySelector('[data-catalog-family-id]')?.value || '';
     if (!createDeck && !deckId) {
@@ -1396,6 +1528,7 @@ async function mapDigilabDeck(archetypeId, createDeck, button) {
         });
         adminDigilabDeckCatalog = result;
         renderDigilabDeckCatalog();
+        restoreDigilabCatalogViewport(viewport);
         setDigilabDeckStatus('Arquétipo e família atualizados.');
     } catch (error) {
         if (button) {
@@ -1405,6 +1538,33 @@ async function mapDigilabDeck(archetypeId, createDeck, button) {
         }
         setDigilabDeckStatus(error.message, true);
     }
+}
+
+function captureDigilabCatalogViewport(row) {
+    const shell = row?.closest('.admin-digilab-catalog-table-shell');
+    if (!shell) return null;
+    return {
+        archetypeId: row?.dataset.catalogArchetypeId || null,
+        scrollTop: shell.scrollTop,
+        rowOffset: row ? row.offsetTop - shell.scrollTop : null
+    };
+}
+
+function restoreDigilabCatalogViewport(viewport) {
+    if (!viewport) return;
+    window.requestAnimationFrame(() => {
+        const shell = document.querySelector('.admin-digilab-catalog-table-shell');
+        if (!shell) return;
+        const row = viewport.archetypeId
+            ? shell.querySelector(
+                  `[data-catalog-archetype-id="${CSS.escape(String(viewport.archetypeId))}"]`
+              )
+            : null;
+        shell.scrollTop =
+            row && Number.isFinite(viewport.rowOffset)
+                ? Math.max(0, row.offsetTop - viewport.rowOffset)
+                : viewport.scrollTop;
+    });
 }
 
 function setDigilabDeckStatus(message, isError = false) {

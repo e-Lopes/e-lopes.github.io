@@ -764,6 +764,13 @@
                             <button
                                 type="button"
                                 class="admin-session-logout"
+                                data-admin-action="change-password-open"
+                            >
+                                Trocar senha
+                            </button>
+                            <button
+                                type="button"
+                                class="admin-session-logout"
                                 data-admin-action="logout"
                             >
                                 Sair
@@ -842,6 +849,68 @@
                             <p id="adminLoginStatus" class="admin-form-status" role="status"></p>
                         </form>
                     </section>
+
+                    <div
+                        id="adminChangePasswordModal"
+                        class="modal-overlay"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-hidden="true"
+                        aria-labelledby="adminChangePasswordTitle"
+                    >
+                        <div class="modal-content admin-change-password-modal">
+                            <div class="admin-change-password-header">
+                                <h2 id="adminChangePasswordTitle">Trocar senha</h2>
+                                <button
+                                    type="button"
+                                    class="admin-change-password-close"
+                                    data-admin-action="change-password-close"
+                                    aria-label="Fechar"
+                                    title="Fechar"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                            <p class="admin-panel-desc">
+                                Depois da alteração, entre novamente usando somente a nova senha.
+                            </p>
+                            <form id="adminChangePasswordForm" class="admin-login-form">
+                                <div class="form-group">
+                                    <label for="adminCurrentPassword">Senha atual</label>
+                                    <div class="admin-password-field">
+                                        <input id="adminCurrentPassword" type="password" autocomplete="current-password" required />
+                                        <button type="button" class="admin-password-toggle" data-admin-action="toggle-password" data-password-target="adminCurrentPassword" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path class="admin-password-slash" d="M4 4l16 16"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="adminNewPassword">Nova senha</label>
+                                    <div class="admin-password-field">
+                                        <input id="adminNewPassword" type="password" autocomplete="new-password" minlength="3" maxlength="72" required />
+                                        <button type="button" class="admin-password-toggle" data-admin-action="toggle-password" data-password-target="adminNewPassword" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path class="admin-password-slash" d="M4 4l16 16"></path></svg>
+                                        </button>
+                                    </div>
+                                    <small class="admin-password-help">Use entre 3 e 72 caracteres.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="adminConfirmPassword">Confirmar nova senha</label>
+                                    <div class="admin-password-field">
+                                        <input id="adminConfirmPassword" type="password" autocomplete="new-password" minlength="3" maxlength="72" required />
+                                        <button type="button" class="admin-password-toggle" data-admin-action="toggle-password" data-password-target="adminConfirmPassword" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path class="admin-password-slash" d="M4 4l16 16"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p id="adminChangePasswordStatus" class="admin-form-status" role="status"></p>
+                                <div class="modal-actions">
+                                    <button type="button" class="btn-cancel" data-admin-action="change-password-close">Cancelar</button>
+                                    <button id="adminChangePasswordButton" type="submit" class="btn-primary">Salvar nova senha</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
                     <!-- Formats / Meta panel -->
                     <div

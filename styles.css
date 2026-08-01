@@ -14791,6 +14791,63 @@ body[data-theme='light'] .donut-hole {
     color: var(--color-primary, #667eea);
 }
 
+.admin-change-password-modal {
+    max-width: 520px;
+}
+
+.admin-change-password-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--color-primary, #667eea);
+}
+
+.admin-change-password-header h2 {
+    margin: 0;
+}
+
+.admin-change-password-close {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font-size: 1.7rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.admin-change-password-close:hover,
+.admin-change-password-close:focus-visible {
+    background: color-mix(in srgb, var(--color-primary, #667eea) 14%, transparent);
+}
+
+.admin-password-help {
+    display: block;
+    margin-top: 6px;
+    color: var(--color-text-muted, #667085);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+body[data-theme='dark'] .admin-change-password-modal {
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: #151e32;
+    color: #f4f6fb;
+}
+
+body[data-theme='dark'] .admin-change-password-modal input {
+    border-color: rgba(148, 163, 184, 0.3);
+    background: #101827;
+    color: #f4f6fb;
+}
+
 .admin-form-status.is-error,
 .admin-error {
     color: #fc5c65;

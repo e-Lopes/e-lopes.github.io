@@ -70,7 +70,7 @@ O login pede somente a senha. Para o Supabase Auth identificar a conta sem um ca
 
 As senhas não são criadas pela migration nem armazenadas em SQL. Criar os cinco usuários em **Authentication → Users → Add user**, marcar o e-mail como confirmado e então executar o bloco de associação fornecido junto da migration. E-mails técnicos não recebem recuperação de senha; redefinições são feitas pelo Dashboard.
 
-Enquanto a tela permanecer sem campo de usuário, trocar uma senha exige alterar também o prefixo do e-mail técnico e o `username` correspondente em `admin_users`.
+O Admin mantém o login com um único campo. Credenciais antigas continuam usando o e-mail técnico derivado do sobrenome. Depois da primeira troca pelo botão **Trocar senha**, a Edge Function `change-admin-password` confirma a senha atual e altera senha e e-mail técnico em conjunto. O novo e-mail usa somente um hash SHA-256 da senha, permitindo qualquer combinação entre 3 e 72 caracteres sem expor seu conteúdo no endereço interno. Após a troca, todas as sessões locais são encerradas e o administrador entra novamente com a nova senha.
 
 ## Edge Function `digilab-health`
 
