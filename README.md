@@ -31,6 +31,7 @@ Centralizar operacoes de:
 - `tournaments/`: aliases em ingles (redirects) para rotas de `torneios/` (compatibilidade de URL)
 - `post-preview/`: editor de post e preview
 - `database/`: schema, migracoes e snapshots SQL
+- `supabase/functions/`: Edge Functions e integracoes server-side
 - `docs/`: guias de estrutura, nomenclatura e seguranca
 - `tests/`: testes automatizados
 
@@ -48,9 +49,9 @@ Centralizar operacoes de:
 - O modal `New Tournament` suporta importacao de print(s) para OCR.
 - Endpoint esperado no momento: `POST https://e-lopes-digimon-ocr-api.hf.space/process` com `multipart/form-data` (`file`).
 - Retorno utilizado pelo frontend:
-  - `players[]` para autopreencher resultados
-  - `store_name` para tentar match de loja no select
-  - `tournament_date` (ou `tournament_datetime`) para preencher a data do torneio
+    - `players[]` para autopreencher resultados
+    - `store_name` para tentar match de loja no select
+    - `tournament_date` (ou `tournament_datetime`) para preencher a data do torneio
 
 ## Setup Local
 
@@ -103,6 +104,16 @@ Saidas esperadas:
 
 Detalhes adicionais em `database/README.md`.
 
+## Integração DigiLab
+
+- O frontend gera standings para publicação manual no DigiLab.
+- A chave da API fica em `DIGILAB_API_KEY`, nos secrets das Edge Functions.
+- `digilab-health` valida secret e conectividade sem expor credenciais ou dados de torneios.
+- A aba **Admin → DigiLab** usa Supabase Auth, lista/pré-visualiza torneios de Curitiba, confirma vínculos em `tournament_digilab_sync` e cria torneios pela função `import-digilab-tournament`.
+- A allowlist administrativa fica em `admin_users`; secrets nunca são enviados ao navegador.
+
+Configuração, operação e estado da implementação: `docs/features/digilab-integration.md`.
+
 ## Estado Atual do Frontend
 
 Backlog imediato em `TODO.md`:
@@ -136,6 +147,7 @@ git commit -m "feat(players): improve pagination layout"
 - `docs/structure-plan.md`
 - `docs/naming-and-language.md`
 - `docs/security-rls.md`
+- `docs/features/digilab-integration.md`
 - `post-preview/README.md`
 
 ## Seguranca

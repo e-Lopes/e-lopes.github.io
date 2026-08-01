@@ -14,7 +14,7 @@
         <link rel="stylesheet" href="styles.css?v=2026.07.29.18" />
         <link rel="stylesheet" href="styles/components/utilities.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/components/states.css?v=2026.03.27.1" />
-        <link rel="stylesheet" href="styles/pages/players.css?v=2026.07.04.1" />
+        <link rel="stylesheet" href="styles/pages/players.css?v=2026.07.31.1" />
     </head>
     <body class="dashboard-home">
         <div class="container">
@@ -27,7 +27,12 @@
                 <div class="nav-buttons-wrapper">
                     <button type="button" id="btnShowTournamentsNav" class="nav-button is-active">
                         <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
                                 <rect x="3" y="4" width="18" height="17" rx="2"></rect>
                                 <path d="M8 2v4M16 2v4M3 10h18"></path>
                             </svg>
@@ -42,7 +47,12 @@
                     </button>
                     <button type="button" id="btnManagePlayersNav" class="nav-button">
                         <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
                                 <circle cx="9" cy="8" r="3"></circle>
                                 <path d="M4 18c0-2.8 2.2-5 5-5s5 2.2 5 5"></path>
                                 <circle cx="17" cy="10" r="2"></circle>
@@ -53,7 +63,12 @@
                     </button>
                     <button type="button" id="btnShowStatisticsNav" class="nav-button">
                         <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
                                 <path d="M3 20h18"></path>
                                 <path d="M7 16V9"></path>
                                 <path d="M12 16V5"></path>
@@ -64,17 +79,34 @@
                     </button>
                     <button type="button" id="btnAdminNav" class="nav-button">
                         <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
                                 <circle cx="12" cy="8" r="4"></circle>
                                 <path d="M12 14c-5 0-8 2-8 4v1h16v-1c0-2-3-4-8-4z"></path>
-                                <path d="M18 3l1.5 3L23 7l-2.5 2 .5 3-3-1.5L15 12l.5-3L13 7l3.5-1z"></path>
+                                <path
+                                    d="M18 3l1.5 3L23 7l-2.5 2 .5 3-3-1.5L15 12l.5-3L13 7l3.5-1z"
+                                ></path>
                             </svg>
                         </span>
                         <span>Admin</span>
                     </button>
-                    <button type="button" id="btnMoreNav" class="nav-button mobile-more-nav" aria-expanded="false" aria-controls="mobileMoreMenu">
+                    <button
+                        type="button"
+                        id="btnMoreNav"
+                        class="nav-button mobile-more-nav"
+                        aria-expanded="false"
+                        aria-controls="mobileMoreMenu"
+                    >
                         <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="19" cy="12" r="1.7"></circle></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="5" cy="12" r="1.7"></circle>
+                                <circle cx="12" cy="12" r="1.7"></circle>
+                                <circle cx="19" cy="12" r="1.7"></circle>
+                            </svg>
                         </span>
                         <span>Mais</span>
                     </button>
@@ -84,49 +116,140 @@
                     <a href="#feedback-bug" class="sidebar-feedback-link" data-feedback-type="bug">
                         <span>Reportar bug</span>
                     </a>
-                    <a href="#feedback-suggestion" class="sidebar-feedback-link" data-feedback-type="suggestion">
+                    <a
+                        href="#feedback-suggestion"
+                        class="sidebar-feedback-link"
+                        data-feedback-type="suggestion"
+                    >
                         <span>Enviar sugestão</span>
                     </a>
                 </div>
             </header>
 
             <div id="mobileMoreMenu" class="mobile-more-menu" hidden>
-                <button type="button" class="mobile-more-backdrop" data-close-mobile-more aria-label="Fechar menu"></button>
-                <section class="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle">
+                <button
+                    type="button"
+                    class="mobile-more-backdrop"
+                    data-close-mobile-more
+                    aria-label="Fechar menu"
+                ></button>
+                <section
+                    class="mobile-more-sheet"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="mobileMoreTitle"
+                >
                     <div class="mobile-more-handle" aria-hidden="true"></div>
                     <div class="mobile-more-heading">
                         <strong id="mobileMoreTitle">Mais</strong>
-                        <button type="button" class="mobile-more-close" data-close-mobile-more aria-label="Fechar">&times;</button>
+                        <button
+                            type="button"
+                            class="mobile-more-close"
+                            data-close-mobile-more
+                            aria-label="Fechar"
+                        >
+                            &times;
+                        </button>
                     </div>
-                    <button type="button" class="mobile-more-item" data-mobile-view="admin">Administração</button>
+                    <button type="button" class="mobile-more-item" data-mobile-view="admin">
+                        Administração
+                    </button>
                     <div class="mobile-more-section">
                         <span class="mobile-more-section-title">Ajuda e feedback</span>
-                        <button type="button" class="mobile-more-item" data-feedback-type="bug">Reportar bug</button>
-                        <button type="button" class="mobile-more-item" data-feedback-type="suggestion">Enviar sugestão</button>
+                        <button type="button" class="mobile-more-item" data-feedback-type="bug">
+                            Reportar bug
+                        </button>
+                        <button
+                            type="button"
+                            class="mobile-more-item"
+                            data-feedback-type="suggestion"
+                        >
+                            Enviar sugestão
+                        </button>
                     </div>
                 </section>
             </div>
 
-            <section id="mobileTournamentPageHeader" class="mobile-page-header" aria-label="Ações de torneios">
-                <button type="button" id="btnCreateTournamentMobile" class="mobile-create-tournament-button">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <section
+                id="mobileTournamentPageHeader"
+                class="mobile-page-header"
+                aria-label="Ações de torneios"
+            >
+                <button
+                    type="button"
+                    id="btnCreateTournamentMobile"
+                    class="mobile-create-tournament-button"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
                     Adicionar torneio
                 </button>
             </section>
 
             <div class="mobile-tournament-toolbar" aria-label="Visualização dos torneios">
                 <div class="mobile-view-segment" role="group" aria-label="Alternar visualização">
-                    <button type="button" id="btnMobileListView" class="mobile-view-option is-active" aria-pressed="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>
+                    <button
+                        type="button"
+                        id="btnMobileListView"
+                        class="mobile-view-option is-active"
+                        aria-pressed="true"
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            aria-hidden="true"
+                        >
+                            <path d="M9 6h11M9 12h11M9 18h11" />
+                            <circle cx="4.5" cy="6" r="1" fill="currentColor" />
+                            <circle cx="4.5" cy="12" r="1" fill="currentColor" />
+                            <circle cx="4.5" cy="18" r="1" fill="currentColor" />
+                        </svg>
                         Lista
                     </button>
-                    <button type="button" id="btnMobileCalendarView" class="mobile-view-option" aria-pressed="false">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+                    <button
+                        type="button"
+                        id="btnMobileCalendarView"
+                        class="mobile-view-option"
+                        aria-pressed="false"
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            aria-hidden="true"
+                        >
+                            <rect x="3" y="4" width="18" height="17" rx="2" />
+                            <path d="M8 2v4M16 2v4M3 10h18" />
+                        </svg>
                         Calendário
                     </button>
                 </div>
-                <button type="button" id="btnMobileFilters" class="mobile-filter-button" aria-expanded="false" aria-controls="tournamentFilters">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
+                <button
+                    type="button"
+                    id="btnMobileFilters"
+                    class="mobile-filter-button"
+                    aria-expanded="false"
+                    aria-controls="tournamentFilters"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" />
+                    </svg>
                     <span>Filtros</span>
                     <span id="mobileFilterCount" class="mobile-filter-count" hidden>0</span>
                 </button>
@@ -459,7 +582,13 @@
                     <!-- Row 1: cadastro -->
                     <div class="players-row players-row-add">
                         <button type="button" id="btnAddPlayer" class="btn-primary players-add-btn">
-                            <svg class="btn-create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <svg
+                                class="btn-create-icon"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                aria-hidden="true"
+                            >
                                 <path d="M12 5v14M5 12h14"></path>
                             </svg>
                             Adicionar Jogador
@@ -474,11 +603,17 @@
                             class="search-input players-search-input"
                             placeholder="Buscar jogador por nome..."
                         />
+                        <label class="players-inactive-filter" for="includeInactivePlayers">
+                            <input type="checkbox" id="includeInactivePlayers" />
+                            <span>Incluir inativos</span>
+                        </label>
                     </div>
 
                     <!-- Row 3: contador + por página -->
                     <div class="players-row players-row-meta">
-                        <span class="stats-counter">Total: <span id="totalPlayersCount">0</span></span>
+                        <span class="stats-counter"
+                            >Total: <span id="totalPlayersCount">0</span></span
+                        >
                         <label class="players-per-page-label">
                             Por página
                             <select
@@ -519,20 +654,25 @@
                                 <label for="statisticsViewSelect" class="statistics-select-label"
                                     >Estat&iacute;stica:</label
                                 >
-                                  <div class="statistics-main-selects">
-                                      <div id="statisticsViewTabs" class="statistics-view-tabs"></div>
-                                      <select
-                                          id="statisticsViewSelect"
-                                          class="statistics-select"
-                                          title="Visualização de estatísticas"
-                                          aria-label="Visualização de estatísticas"
-                                      >
+                                <div class="statistics-main-selects">
+                                    <div id="statisticsViewTabs" class="statistics-view-tabs"></div>
+                                    <select
+                                        id="statisticsViewSelect"
+                                        class="statistics-select"
+                                        title="Visualização de estatísticas"
+                                        aria-label="Visualização de estatísticas"
+                                    >
                                         <option value="meta_overview">Visão geral do Meta</option>
                                         <option value="v_deck_representation">
-                                            Representa&ccedil;&atilde;o de Decks</option>
-                                        <option value="v_deck_stats" selected>Estat&iacute;sticas de Decks</option>
+                                            Representa&ccedil;&atilde;o de Decks
+                                        </option>
+                                        <option value="v_deck_stats" selected>
+                                            Estat&iacute;sticas de Decks
+                                        </option>
                                         <option value="v_top_cards_by_month">Top Cards</option>
-                                        <option value="v_player_ranking">Ranking de Jogadores</option>
+                                        <option value="v_player_ranking">
+                                            Ranking de Jogadores
+                                        </option>
                                         <option value="v_store_champions">Ranking por Loja</option>
                                     </select>
                                     <select
@@ -619,22 +759,110 @@
                 <div class="admin-container" id="adminContainer">
                     <div class="page-header">
                         <h1 class="page-title">Admin</h1>
-                        <div class="admin-tabs">
-                            <button type="button" class="admin-tab-btn is-active" data-admin-tab="formats">Formatos / Meta</button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="banlist">Lista de restrições</button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="stores">Lojas</button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">Reparo de dados</button>
+                        <div id="adminSessionBar" class="admin-session-bar is-hidden">
+                            <span><strong id="adminSessionName"></strong></span>
+                            <button
+                                type="button"
+                                class="admin-session-logout"
+                                data-admin-action="logout"
+                            >
+                                Sair
+                            </button>
+                        </div>
+                        <div class="admin-tabs admin-auth-content is-hidden">
+                            <button
+                                type="button"
+                                class="admin-tab-btn is-active"
+                                data-admin-tab="formats"
+                            >
+                                Formatos / Meta
+                            </button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="banlist">
+                                Lista de restrições
+                            </button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="stores">
+                                Lojas
+                            </button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">
+                                Reparo de dados
+                            </button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="digilab">
+                                DigiLab
+                            </button>
                         </div>
                     </div>
 
+                    <section
+                        id="adminAuthGate"
+                        class="admin-auth-card"
+                        aria-labelledby="adminAuthTitle"
+                    >
+                        <div>
+                            <h2 id="adminAuthTitle" class="admin-panel-title">
+                                Acesso administrativo
+                            </h2>
+                            <p class="admin-panel-desc">
+                                Digite sua senha individual para acessar as ferramentas do Admin.
+                            </p>
+                        </div>
+                        <form id="adminLoginForm" class="admin-login-form">
+                            <div class="form-group">
+                                <label for="adminLoginPassword">Senha de acesso</label>
+                                <div class="admin-password-field">
+                                    <input
+                                        id="adminLoginPassword"
+                                        type="password"
+                                        autocomplete="current-password"
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        class="admin-password-toggle"
+                                        data-admin-action="toggle-password"
+                                        aria-label="Mostrar senha"
+                                        aria-pressed="false"
+                                        title="Mostrar senha"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path
+                                                d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
+                                            ></path>
+                                            <circle cx="12" cy="12" r="2.75"></circle>
+                                            <path
+                                                class="admin-password-slash"
+                                                d="M4 4l16 16"
+                                            ></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button id="adminLoginButton" type="submit" class="btn-primary">
+                                Entrar
+                            </button>
+                            <p id="adminLoginStatus" class="admin-form-status" role="status"></p>
+                        </form>
+                    </section>
+
                     <!-- Formats / Meta panel -->
-                    <div data-admin-panel="formats" class="admin-panel">
+                    <div
+                        data-admin-panel="formats"
+                        class="admin-panel admin-auth-content is-hidden"
+                    >
                         <div class="admin-panel-header">
                             <div>
                                 <h2 class="admin-panel-title">Formatos / Meta</h2>
-                                <p class="admin-panel-desc">Gerencie os formatos dos torneios. O formato padrão é selecionado automaticamente ao criar um torneio.</p>
+                                <p class="admin-panel-desc">
+                                    Gerencie os formatos dos torneios. O formato padrão é
+                                    selecionado automaticamente ao criar um torneio.
+                                </p>
                             </div>
-                            <button type="button" class="btn-primary" data-admin-action="create-format">+ Novo formato</button>
+                            <button
+                                type="button"
+                                class="btn-primary"
+                                data-admin-action="create-format"
+                            >
+                                + Novo formato
+                            </button>
                         </div>
                         <div class="admin-table-wrapper">
                             <table class="admin-table">
@@ -658,12 +886,23 @@
                         <div class="admin-panel-header">
                             <div>
                                 <h2 class="admin-panel-title">Lista de restrições</h2>
-                                <p class="admin-panel-desc">Gerencie as restrições de cartas. As alterações valem somente para novas listas de Deck.</p>
+                                <p class="admin-panel-desc">
+                                    Gerencie as restrições de cartas. As alterações valem somente
+                                    para novas listas de Deck.
+                                </p>
                             </div>
-                            <button type="button" class="btn-primary" data-admin-action="add-ban">+ Adicionar restrição</button>
+                            <button type="button" class="btn-primary" data-admin-action="add-ban">
+                                + Adicionar restrição
+                            </button>
                         </div>
                         <div class="admin-banlist-search-row">
-                            <input type="text" id="adminBanListSearch" class="search-input" placeholder="Filtrar por código ou nome da carta…" autocomplete="off" />
+                            <input
+                                type="text"
+                                id="adminBanListSearch"
+                                class="search-input"
+                                placeholder="Filtrar por código ou nome da carta…"
+                                autocomplete="off"
+                            />
                             <span id="adminBanListCount" class="admin-dim"></span>
                         </div>
                         <div class="admin-table-wrapper">
@@ -687,19 +926,43 @@
                         <div class="admin-panel-header">
                             <div>
                                 <h2 class="admin-panel-title">Lojas</h2>
-                                <p class="admin-panel-desc">Gerencie os locais dos torneios. As lojas ficam disponíveis ao criar ou editar torneios.</p>
+                                <p class="admin-panel-desc">
+                                    Gerencie os locais dos torneios. As lojas ficam disponíveis ao
+                                    criar ou editar torneios.
+                                </p>
                             </div>
-                            <button type="button" class="btn-primary" data-admin-action="create-store">+ Nova loja</button>
+                            <button
+                                type="button"
+                                class="btn-primary"
+                                data-admin-action="create-store"
+                            >
+                                + Nova loja
+                            </button>
                         </div>
-                        <section class="admin-weekly-schedule" aria-labelledby="adminWeeklyScheduleTitle">
+                        <section
+                            class="admin-weekly-schedule"
+                            aria-labelledby="adminWeeklyScheduleTitle"
+                        >
                             <div class="admin-weekly-schedule-header">
                                 <div>
                                     <h3 id="adminWeeklyScheduleTitle">Agenda semanal padrão</h3>
-                                    <p class="admin-panel-desc">Sugere a loja pela data ao criar um torneio. A loja continua editável no formulário.</p>
+                                    <p class="admin-panel-desc">
+                                        Sugere a loja pela data ao criar um torneio. A loja continua
+                                        editável no formulário.
+                                    </p>
                                 </div>
-                                <button type="button" class="btn-primary" data-admin-action="save-weekly-schedule">Salvar agenda</button>
+                                <button
+                                    type="button"
+                                    class="btn-primary"
+                                    data-admin-action="save-weekly-schedule"
+                                >
+                                    Salvar agenda
+                                </button>
                             </div>
-                            <div id="adminWeeklyScheduleGrid" class="admin-weekly-schedule-grid"></div>
+                            <div
+                                id="adminWeeklyScheduleGrid"
+                                class="admin-weekly-schedule-grid"
+                            ></div>
                             <p id="adminWeeklyScheduleStatus" class="field-hint" role="status"></p>
                         </section>
                         <div class="admin-table-wrapper">
@@ -723,18 +986,37 @@
                         <div class="admin-panel-header">
                             <div>
                                 <h2 class="admin-panel-title">Data Repair</h2>
-                                <p class="admin-panel-desc">Re-hydrate missing card metadata (name, card_level, card_type) for legacy entries in <code>decklist_card_metadata</code>.</p>
+                                <p class="admin-panel-desc">
+                                    Re-hydrate missing card metadata (name, card_level, card_type)
+                                    for legacy entries in <code>decklist_card_metadata</code>.
+                                </p>
                             </div>
                         </div>
                         <div class="admin-repair-section">
                             <div class="admin-repair-row">
                                 <div>
                                     <strong>Card Metadata Repair</strong>
-                                    <p class="admin-panel-desc" id="adminRepairMissingCount">Click "Check" to scan for incomplete records.</p>
+                                    <p class="admin-panel-desc" id="adminRepairMissingCount">
+                                        Click "Check" to scan for incomplete records.
+                                    </p>
                                 </div>
                                 <div class="admin-repair-actions">
-                                    <button type="button" class="btn-secondary" data-admin-action="repair-check">Check</button>
-                                    <button type="button" class="btn-primary" id="adminRepairRunBtn" data-admin-action="repair-run" disabled>Repair</button>
+                                    <button
+                                        type="button"
+                                        class="btn-secondary"
+                                        data-admin-action="repair-check"
+                                    >
+                                        Check
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn-primary"
+                                        id="adminRepairRunBtn"
+                                        data-admin-action="repair-run"
+                                        disabled
+                                    >
+                                        Repair
+                                    </button>
                                 </div>
                             </div>
                             <div id="adminRepairProgress" class="admin-repair-progress is-hidden">
@@ -743,19 +1025,37 @@
                                     <span id="adminRepairProgressPct">0%</span>
                                 </div>
                                 <div class="admin-repair-progress-track">
-                                    <div id="adminRepairProgressBar" class="admin-repair-progress-bar" style="width:0%"></div>
+                                    <div
+                                        id="adminRepairProgressBar"
+                                        class="admin-repair-progress-bar"
+                                        style="width: 0%"
+                                    ></div>
                                 </div>
-                                <div id="adminRepairProgressDetail" class="admin-repair-progress-detail"></div>
+                                <div
+                                    id="adminRepairProgressDetail"
+                                    class="admin-repair-progress-detail"
+                                ></div>
                             </div>
                             <div id="adminRepairLog" class="admin-repair-log is-hidden"></div>
 
                             <div class="admin-repair-row">
                                 <div>
                                     <strong>Download Cards</strong>
-                                    <p class="admin-panel-desc" id="adminDownloadStatus">Sincroniza o catálogo completo de cartas da API pública para <code>decklist_card_metadata</code>. Melhora os resultados de busca no Deck Builder.</p>
+                                    <p class="admin-panel-desc" id="adminDownloadStatus">
+                                        Sincroniza o catálogo completo de cartas da API pública para
+                                        <code>decklist_card_metadata</code>. Melhora os resultados
+                                        de busca no Deck Builder.
+                                    </p>
                                 </div>
                                 <div class="admin-repair-actions">
-                                    <button type="button" class="btn-primary" id="adminDownloadRunBtn" data-admin-action="download-cards">Download All Cards</button>
+                                    <button
+                                        type="button"
+                                        class="btn-primary"
+                                        id="adminDownloadRunBtn"
+                                        data-admin-action="download-cards"
+                                    >
+                                        Download All Cards
+                                    </button>
                                 </div>
                             </div>
                             <div id="adminDownloadProgress" class="admin-repair-progress is-hidden">
@@ -764,19 +1064,37 @@
                                     <span id="adminDownloadProgressPct">0%</span>
                                 </div>
                                 <div class="admin-repair-progress-track">
-                                    <div id="adminDownloadProgressBar" class="admin-repair-progress-bar" style="width:0%"></div>
+                                    <div
+                                        id="adminDownloadProgressBar"
+                                        class="admin-repair-progress-bar"
+                                        style="width: 0%"
+                                    ></div>
                                 </div>
-                                <div id="adminDownloadProgressDetail" class="admin-repair-progress-detail"></div>
+                                <div
+                                    id="adminDownloadProgressDetail"
+                                    class="admin-repair-progress-detail"
+                                ></div>
                             </div>
                             <div id="adminDownloadLog" class="admin-repair-log is-hidden"></div>
 
                             <div class="admin-repair-row">
                                 <div>
                                     <strong>Export Catalog</strong>
-                                    <p class="admin-panel-desc" id="adminExportStatus">Gera <code>card-catalog.json</code> com os metadados de todas as cartas e faz upload para o bucket <code>card-catalog</code> no Supabase Storage.</p>
+                                    <p class="admin-panel-desc" id="adminExportStatus">
+                                        Gera <code>card-catalog.json</code> com os metadados de
+                                        todas as cartas e faz upload para o bucket
+                                        <code>card-catalog</code> no Supabase Storage.
+                                    </p>
                                 </div>
                                 <div class="admin-repair-actions">
-                                    <button type="button" class="btn-primary" id="adminExportRunBtn" data-admin-action="export-catalog">Export Catalog</button>
+                                    <button
+                                        type="button"
+                                        class="btn-primary"
+                                        id="adminExportRunBtn"
+                                        data-admin-action="export-catalog"
+                                    >
+                                        Export Catalog
+                                    </button>
                                 </div>
                             </div>
                             <div id="adminExportProgress" class="admin-repair-progress is-hidden">
@@ -785,12 +1103,158 @@
                                     <span id="adminExportProgressPct">0%</span>
                                 </div>
                                 <div class="admin-repair-progress-track">
-                                    <div id="adminExportProgressBar" class="admin-repair-progress-bar" style="width:0%"></div>
+                                    <div
+                                        id="adminExportProgressBar"
+                                        class="admin-repair-progress-bar"
+                                        style="width: 0%"
+                                    ></div>
                                 </div>
-                                <div id="adminExportProgressDetail" class="admin-repair-progress-detail"></div>
+                                <div
+                                    id="adminExportProgressDetail"
+                                    class="admin-repair-progress-detail"
+                                ></div>
                             </div>
                             <div id="adminExportLog" class="admin-repair-log is-hidden"></div>
                         </div>
+                    </div>
+
+                    <!-- DigiLab integration panel -->
+                    <div
+                        data-admin-panel="digilab"
+                        class="admin-panel admin-digilab-panel is-hidden"
+                    >
+                        <div class="admin-digilab-hero">
+                            <div class="admin-digilab-hero-icon" aria-hidden="true">DL</div>
+                            <div class="admin-digilab-hero-copy">
+                                <div class="admin-digilab-eyebrow">
+                                    <span class="admin-digilab-live-dot"></span>
+                                    Scene Curitiba
+                                </div>
+                                <h2>Integração DigiLab</h2>
+                                <p>
+                                    Consulte torneios, revise correspondências e confirme vínculos
+                                    com o DigiStats.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                class="admin-digilab-action is-ghost"
+                                data-admin-action="digilab-health"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+                                    <path d="M20 4v6h-6"></path>
+                                </svg>
+                                Testar conexão
+                            </button>
+                        </div>
+                        <div class="admin-digilab-toolbar">
+                            <button
+                                type="button"
+                                class="admin-digilab-action is-primary"
+                                data-admin-action="digilab-refresh"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+                                    <path d="M20 4v6h-6"></path>
+                                </svg>
+                                Atualizar e sincronizar
+                            </button>
+                            <div class="admin-digilab-lookup">
+                                <label for="adminDigilabId">Consultar torneio</label>
+                                <div>
+                                    <span aria-hidden="true">#</span>
+                                    <input
+                                        id="adminDigilabId"
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        placeholder="ID DigiLab"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="admin-digilab-action is-secondary"
+                                        data-admin-action="digilab-preview-id"
+                                    >
+                                        Consultar
+                                    </button>
+                                </div>
+                            </div>
+                            <span
+                                id="adminDigilabStatus"
+                                class="admin-form-status"
+                                role="status"
+                            ></span>
+                        </div>
+                        <div id="adminDigilabSummary" class="admin-digilab-summary"></div>
+                        <div class="admin-table-wrapper admin-digilab-table-shell">
+                            <table class="admin-table admin-digilab-table">
+                                <thead>
+                                    <tr>
+                                        <th>DigiLab</th>
+                                        <th>Data</th>
+                                        <th>Loja</th>
+                                        <th>Jogadores</th>
+                                        <th>Formato</th>
+                                        <th>Situação</th>
+                                        <th>Candidato local</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminDigilabBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="admin-digilab-pagination">
+                            <button
+                                type="button"
+                                class="admin-digilab-action is-ghost"
+                                data-admin-action="digilab-prev"
+                            >
+                                Anterior
+                            </button>
+                            <span id="adminDigilabPage">Página 1</span>
+                            <button
+                                type="button"
+                                class="admin-digilab-action is-ghost"
+                                data-admin-action="digilab-next"
+                            >
+                                Próxima
+                            </button>
+                        </div>
+                        <section class="admin-digilab-catalog-card">
+                            <div class="admin-digilab-catalog-header">
+                                <div>
+                                    <span class="admin-digilab-eyebrow">Famílias e arquétipos</span>
+                                    <h3>Catálogo de decks DigiLab</h3>
+                                    <p>
+                                        Compare o catálogo externo com os arquétipos e famílias do
+                                        DigiStats antes de importar resultados.
+                                    </p>
+                                </div>
+                                <div class="admin-digilab-catalog-actions">
+                                    <button
+                                        type="button"
+                                        class="admin-digilab-action is-ghost"
+                                        data-admin-action="digilab-decks-open"
+                                    >
+                                        Abrir catálogo
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="admin-digilab-action is-secondary"
+                                        data-admin-action="digilab-decks-sync"
+                                    >
+                                        Atualizar do DigiLab
+                                    </button>
+                                </div>
+                            </div>
+                            <span
+                                id="adminDigilabDeckStatus"
+                                class="admin-form-status"
+                                role="status"
+                            ></span>
+                            <div id="adminDigilabDeckCatalog" class="is-hidden"></div>
+                        </section>
                     </div>
 
                     <!-- Format Modal -->
@@ -800,46 +1264,118 @@
                             <form id="adminFormatForm">
                                 <input type="hidden" id="adminFormatId" />
                                 <div class="form-group">
-                                    <label for="adminFormatCode">Código <span class="required">*</span></label>
-                                    <input type="text" id="adminFormatCode" placeholder="Ex.: BT19" required autocomplete="off" style="text-transform:uppercase" />
+                                    <label for="adminFormatCode"
+                                        >Código <span class="required">*</span></label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="adminFormatCode"
+                                        placeholder="Ex.: BT19"
+                                        required
+                                        autocomplete="off"
+                                        style="text-transform: uppercase"
+                                    />
                                 </div>
                                 <div class="form-group">
                                     <label for="adminFormatName">Nome</label>
-                                    <input type="text" id="adminFormatName" placeholder="Ex.: Meta BT19" autocomplete="off" />
+                                    <input
+                                        type="text"
+                                        id="adminFormatName"
+                                        placeholder="Ex.: Meta BT19"
+                                        autocomplete="off"
+                                    />
                                 </div>
-                                <div class="form-group" style="display:flex;gap:24px;align-items:center;">
-                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <div
+                                    class="form-group"
+                                    style="display: flex; gap: 24px; align-items: center"
+                                >
+                                    <label
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 8px;
+                                            cursor: pointer;
+                                        "
+                                    >
                                         <input type="checkbox" id="adminFormatIsActive" />
                                         Ativo
                                     </label>
-                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                    <label
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 8px;
+                                            cursor: pointer;
+                                        "
+                                    >
                                         <input type="checkbox" id="adminFormatIsDefault" />
                                         Definir como padrão
                                     </label>
                                 </div>
                                 <div class="form-group">
                                     <label>Imagem de fundo</label>
-                                    <div class="admin-bg-selected-preview" id="adminFormatBgSelectedWrap" style="display:none;">
-                                        <img id="adminFormatBgPreview" alt="Imagem de fundo selecionada" />
-                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-format-bg" title="Remover imagem de fundo">✕</button>
+                                    <div
+                                        class="admin-bg-selected-preview"
+                                        id="adminFormatBgSelectedWrap"
+                                        style="display: none"
+                                    >
+                                        <img
+                                            id="adminFormatBgPreview"
+                                            alt="Imagem de fundo selecionada"
+                                        />
+                                        <button
+                                            type="button"
+                                            class="admin-bg-clear-btn"
+                                            data-admin-action="clear-format-bg"
+                                            title="Remover imagem de fundo"
+                                        >
+                                            ✕
+                                        </button>
                                     </div>
                                     <input type="hidden" id="adminFormatBgUrl" />
                                     <input type="hidden" id="adminFormatBgPath" />
-                                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                                    <div
+                                        style="
+                                            display: flex;
+                                            gap: 8px;
+                                            margin-top: 6px;
+                                            flex-wrap: wrap;
+                                        "
+                                    >
                                         <label class="btn-secondary admin-upload-label">
                                             Enviar nova
-                                            <input type="file" id="adminFormatFile" accept="image/*" style="display:none;" />
+                                            <input
+                                                type="file"
+                                                id="adminFormatFile"
+                                                accept="image/*"
+                                                style="display: none"
+                                            />
                                         </label>
-                                        <button type="button" class="btn-secondary" data-admin-action="browse-bucket-images">Procurar existente</button>
+                                        <button
+                                            type="button"
+                                            class="btn-secondary"
+                                            data-admin-action="browse-bucket-images"
+                                        >
+                                            Procurar existente
+                                        </button>
                                     </div>
-                                    <div id="adminBucketBrowser" class="admin-bucket-browser is-hidden">
+                                    <div
+                                        id="adminBucketBrowser"
+                                        class="admin-bucket-browser is-hidden"
+                                    >
                                         <div id="adminBucketImages" class="admin-bucket-grid"></div>
                                     </div>
                                 </div>
                                 <p id="adminFormatStatus" class="admin-form-status"></p>
                                 <div class="modal-actions">
                                     <button type="submit" class="btn-save">Salvar</button>
-                                    <button type="button" class="btn-cancel" data-admin-action="close-format-modal">Cancelar</button>
+                                    <button
+                                        type="button"
+                                        class="btn-cancel"
+                                        data-admin-action="close-format-modal"
+                                    >
+                                        Cancelar
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -852,12 +1388,26 @@
                             <form id="adminBanForm">
                                 <input type="hidden" id="adminBanOriginalCode" />
                                 <div class="form-group">
-                                    <label for="adminBanCardCode">Código da carta <span class="required">*</span></label>
-                                    <input type="text" id="adminBanCardCode" placeholder="Ex.: BT7-072" required autocomplete="off" style="text-transform:uppercase" />
-                                    <div class="admin-ban-card-preview" id="adminBanCardPreview"></div>
+                                    <label for="adminBanCardCode"
+                                        >Código da carta <span class="required">*</span></label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="adminBanCardCode"
+                                        placeholder="Ex.: BT7-072"
+                                        required
+                                        autocomplete="off"
+                                        style="text-transform: uppercase"
+                                    />
+                                    <div
+                                        class="admin-ban-card-preview"
+                                        id="adminBanCardPreview"
+                                    ></div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="adminBanRestriction">Restrição <span class="required">*</span></label>
+                                    <label for="adminBanRestriction"
+                                        >Restrição <span class="required">*</span></label
+                                    >
                                     <select id="adminBanRestriction">
                                         <option value="limited">Limitada (1 cópia)</option>
                                         <option value="choice-restricted">Escolha restrita</option>
@@ -866,12 +1416,23 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="adminBanNotes">Observações</label>
-                                    <input type="text" id="adminBanNotes" placeholder="Observação opcional..." autocomplete="off" />
+                                    <input
+                                        type="text"
+                                        id="adminBanNotes"
+                                        placeholder="Observação opcional..."
+                                        autocomplete="off"
+                                    />
                                 </div>
                                 <p id="adminBanStatus" class="admin-form-status"></p>
                                 <div class="modal-actions">
                                     <button type="submit" class="btn-save">Salvar</button>
-                                    <button type="button" class="btn-cancel" data-admin-action="close-ban-modal">Cancelar</button>
+                                    <button
+                                        type="button"
+                                        class="btn-cancel"
+                                        data-admin-action="close-ban-modal"
+                                    >
+                                        Cancelar
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -885,33 +1446,103 @@
                                 <input type="hidden" id="adminStoreId" />
                                 <input type="hidden" id="adminStoreLogoUrl" />
                                 <div class="form-group">
-                                    <label for="adminStoreName">Nome <span class="required">*</span></label>
-                                    <input type="text" id="adminStoreName" placeholder="Ex.: Card Kingdom SP" required autocomplete="off" />
+                                    <label for="adminStoreName"
+                                        >Nome <span class="required">*</span></label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="adminStoreName"
+                                        placeholder="Ex.: Card Kingdom SP"
+                                        required
+                                        autocomplete="off"
+                                    />
                                 </div>
                                 <div class="form-group">
                                     <label for="adminStoreBandaiNick">Bandai Nick</label>
-                                    <input type="text" id="adminStoreBandaiNick" placeholder="Nome usado no Bandai TCG+ (opcional)" autocomplete="off" />
+                                    <input
+                                        type="text"
+                                        id="adminStoreBandaiNick"
+                                        placeholder="Nome usado no Bandai TCG+ (opcional)"
+                                        autocomplete="off"
+                                    />
                                 </div>
                                 <div class="form-group">
                                     <label>Logo da loja</label>
-                                    <div class="admin-bg-selected-preview" id="adminStoreLogoPreviewWrap" style="display:none;">
-                                        <img id="adminStoreLogoPreview" alt="Logo da loja" style="max-height:80px;object-fit:contain;border-radius:8px;" />
-                                        <button type="button" class="admin-bg-clear-btn" data-admin-action="clear-store-logo" title="Remover logo">✕</button>
+                                    <div
+                                        class="admin-bg-selected-preview"
+                                        id="adminStoreLogoPreviewWrap"
+                                        style="display: none"
+                                    >
+                                        <img
+                                            id="adminStoreLogoPreview"
+                                            alt="Logo da loja"
+                                            style="
+                                                max-height: 80px;
+                                                object-fit: contain;
+                                                border-radius: 8px;
+                                            "
+                                        />
+                                        <button
+                                            type="button"
+                                            class="admin-bg-clear-btn"
+                                            data-admin-action="clear-store-logo"
+                                            title="Remover logo"
+                                        >
+                                            ✕
+                                        </button>
                                     </div>
-                                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                                    <div
+                                        style="
+                                            display: flex;
+                                            gap: 8px;
+                                            margin-top: 6px;
+                                            flex-wrap: wrap;
+                                        "
+                                    >
                                         <label class="btn-secondary admin-upload-label">
                                             Enviar logo
-                                            <input type="file" id="adminStoreLogoFile" accept="image/*" style="display:none;" />
+                                            <input
+                                                type="file"
+                                                id="adminStoreLogoFile"
+                                                accept="image/*"
+                                                style="display: none"
+                                            />
                                         </label>
-                                        <button type="button" class="btn-secondary" data-admin-action="browse-store-logos">Procurar existente</button>
+                                        <button
+                                            type="button"
+                                            class="btn-secondary"
+                                            data-admin-action="browse-store-logos"
+                                        >
+                                            Procurar existente
+                                        </button>
                                     </div>
-                                    <div id="adminStoreBucketBrowser" class="admin-bucket-browser is-hidden">
-                                        <div id="adminStoreBucketImages" class="admin-bucket-grid"></div>
+                                    <div
+                                        id="adminStoreBucketBrowser"
+                                        class="admin-bucket-browser is-hidden"
+                                    >
+                                        <div
+                                            id="adminStoreBucketImages"
+                                            class="admin-bucket-grid"
+                                        ></div>
                                     </div>
-                                    <p id="adminStoreLogoUploadStatus" class="admin-form-status" style="margin-top:4px;"></p>
+                                    <p
+                                        id="adminStoreLogoUploadStatus"
+                                        class="admin-form-status"
+                                        style="margin-top: 4px"
+                                    ></p>
                                 </div>
-                                <div class="form-group" style="display:flex;gap:24px;align-items:center;">
-                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <div
+                                    class="form-group"
+                                    style="display: flex; gap: 24px; align-items: center"
+                                >
+                                    <label
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 8px;
+                                            cursor: pointer;
+                                        "
+                                    >
                                         <input type="checkbox" id="adminStoreIsActive" />
                                         Ativa
                                     </label>
@@ -919,7 +1550,13 @@
                                 <p id="adminStoreStatus" class="admin-form-status"></p>
                                 <div class="modal-actions">
                                     <button type="submit" class="btn-save">Salvar</button>
-                                    <button type="button" class="btn-cancel" data-admin-action="close-store-modal">Cancelar</button>
+                                    <button
+                                        type="button"
+                                        class="btn-cancel"
+                                        data-admin-action="close-store-modal"
+                                    >
+                                        Cancelar
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -932,7 +1569,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>Novo torneio</h2>
-                    <button type="button" id="btnCreateModalCloseX" class="player-modal-close" aria-label="Fechar">&times;</button>
+                    <button
+                        type="button"
+                        id="btnCreateModalCloseX"
+                        class="player-modal-close"
+                        aria-label="Fechar"
+                    >
+                        &times;
+                    </button>
                 </div>
                 <form id="createTournamentForm">
                     <div class="form-group">
@@ -1024,7 +1668,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>Editar torneio</h2>
-                    <button type="button" id="btnEditModalCloseX" class="player-modal-close" aria-label="Fechar">&times;</button>
+                    <button
+                        type="button"
+                        id="btnEditModalCloseX"
+                        class="player-modal-close"
+                        aria-label="Fechar"
+                    >
+                        &times;
+                    </button>
                 </div>
                 <form id="editTournamentForm">
                     <div class="form-group">
@@ -1037,7 +1688,11 @@
                             hidden
                         />
                         <div class="ocr-import-actions">
-                            <button type="button" id="btnSelectEditOcrPrints" class="btn-add-result">
+                            <button
+                                type="button"
+                                id="btnSelectEditOcrPrints"
+                                class="btn-add-result"
+                            >
                                 Carregar print e atualizar pontos
                             </button>
                         </div>
@@ -1096,8 +1751,17 @@
                         />
                     </div>
                     <div class="modal-actions edit-tournament-modal-actions">
-                        <button type="button" id="btnDeleteTournament" class="btn-save btn-delete-tournament">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <button
+                            type="button"
+                            id="btnDeleteTournament"
+                            class="btn-save btn-delete-tournament"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                aria-hidden="true"
+                            >
                                 <path d="M3 6h18"></path>
                                 <path d="M8 6V4h8v2"></path>
                                 <path d="M19 6l-1 14H6L5 6"></path>
@@ -1106,7 +1770,9 @@
                             <span>Excluir</span>
                         </button>
                         <div class="edit-tournament-primary-actions">
-                            <button type="button" id="btnEditCancel" class="btn-cancel">Cancelar</button>
+                            <button type="button" id="btnEditCancel" class="btn-cancel">
+                                Cancelar
+                            </button>
                             <button type="submit" class="btn-save">Salvar</button>
                         </div>
                     </div>
@@ -1114,25 +1780,54 @@
             </div>
         </div>
 
-        <div id="feedbackModal" class="modal-overlay feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+        <div
+            id="feedbackModal"
+            class="modal-overlay feedback-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feedbackModalTitle"
+        >
             <div class="modal-content feedback-modal-content">
                 <div class="modal-header">
                     <div>
                         <h2 id="feedbackModalTitle">Enviar feedback</h2>
                         <p id="feedbackModalDescription" class="feedback-modal-description"></p>
                     </div>
-                    <button type="button" id="feedbackCloseX" class="player-modal-close" aria-label="Fechar">&times;</button>
+                    <button
+                        type="button"
+                        id="feedbackCloseX"
+                        class="player-modal-close"
+                        aria-label="Fechar"
+                    >
+                        &times;
+                    </button>
                 </div>
                 <form id="feedbackForm">
                     <input type="hidden" id="feedbackType" />
                     <div class="form-group">
                         <label for="feedbackMessage">Mensagem<span class="required">*</span></label>
-                        <textarea id="feedbackMessage" minlength="10" maxlength="5000" rows="7" required></textarea>
-                        <small class="field-hint">Não inclua senhas ou outras informações confidenciais.</small>
+                        <textarea
+                            id="feedbackMessage"
+                            minlength="10"
+                            maxlength="5000"
+                            rows="7"
+                            required
+                        ></textarea>
+                        <small class="field-hint"
+                            >Não inclua senhas ou outras informações confidenciais.</small
+                        >
                     </div>
                     <div class="form-group">
-                        <label for="feedbackContactEmail">E-mail para contato <span class="feedback-optional">(opcional)</span></label>
-                        <input type="email" id="feedbackContactEmail" maxlength="254" placeholder="Caso queira receber uma resposta" />
+                        <label for="feedbackContactEmail"
+                            >E-mail para contato
+                            <span class="feedback-optional">(opcional)</span></label
+                        >
+                        <input
+                            type="email"
+                            id="feedbackContactEmail"
+                            maxlength="254"
+                            placeholder="Caso queira receber uma resposta"
+                        />
                     </div>
                     <div class="feedback-honeypot" aria-hidden="true">
                         <label for="feedbackWebsite">Website</label>
@@ -1140,7 +1835,9 @@
                     </div>
                     <p id="feedbackStatus" class="feedback-status" role="status"></p>
                     <div class="modal-actions">
-                        <button type="button" id="feedbackCancel" class="btn-cancel">Cancelar</button>
+                        <button type="button" id="feedbackCancel" class="btn-cancel">
+                            Cancelar
+                        </button>
                         <button type="submit" id="feedbackSubmit" class="btn-save">Enviar</button>
                     </div>
                 </form>
@@ -1162,11 +1859,24 @@
         <script src="torneios/edit-tournament/modal.js?v=2026.07.29.18"></script>
 
         <!-- Player add/edit modal — fora do container para position:fixed funcionar -->
-        <div id="playerModal" class="player-modal-overlay u-hidden" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
+        <div
+            id="playerModal"
+            class="player-modal-overlay u-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="playerModalTitle"
+        >
             <div class="player-modal-box">
                 <div class="player-modal-header">
                     <h3 id="playerModalTitle" class="player-modal-title">Novo jogador</h3>
-                    <button type="button" id="playerModalCloseBtn" class="player-modal-close" aria-label="Fechar">&times;</button>
+                    <button
+                        type="button"
+                        id="playerModalCloseBtn"
+                        class="player-modal-close"
+                        aria-label="Fechar"
+                    >
+                        &times;
+                    </button>
                 </div>
                 <div class="player-modal-field">
                     <label for="playerName">Nome do jogador<span class="required">*</span></label>
@@ -1189,6 +1899,16 @@
                     />
                 </div>
                 <div class="player-modal-field">
+                    <label for="playerBandaiNick">Bandai Nick</label>
+                    <input
+                        type="text"
+                        id="playerBandaiNick"
+                        class="players-name-input player-modal-input"
+                        placeholder="Apelido usado na Bandai"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="player-modal-field">
                     <label for="playerDigilabName">Nome no Digilab</label>
                     <input
                         type="text"
@@ -1199,13 +1919,12 @@
                     />
                 </div>
                 <div class="player-modal-actions">
-                    <button type="button" id="playerModalCancelBtn" class="btn-cancel">Cancelar</button>
+                    <button type="button" id="playerModalCancelBtn" class="btn-cancel">
+                        Cancelar
+                    </button>
                     <button type="button" id="submitBtn" class="btn-primary">Salvar</button>
                 </div>
             </div>
         </div>
     </body>
 </html>
-
-
-

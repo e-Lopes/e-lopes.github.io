@@ -14,6 +14,22 @@ let adminStoresLoaded = false;
 let adminWeeklyScheduleLoaded = false;
 let adminActiveTab = 'formats';
 let _banPreviewDebounceTimer = null;
+let adminAuthSession = null;
+let adminAuthProfile = null;
+let adminDigilabInventory = [];
+let adminDigilabPage = 1;
+let adminDigilabLastPage = 1;
+let adminDigilabLoaded = false;
+let adminDigilabRequestInFlight = false;
+let adminDigilabAutoLinkRunning = false;
+let adminDigilabDeckCatalogLoaded = false;
+let adminDigilabDeckCatalog = null;
+let adminDigilabDeckFilters = { query: '', status: 'all', family: 'all' };
+const adminDigilabAutoLinkResults = new Map();
+const adminDigilabPreviewCache = new Map();
+const DIGILAB_AUTO_LINK_DELAY_MS = 1300;
+const ADMIN_AUTH_STORAGE_KEY = 'digistats.admin.session';
+const ADMIN_AUTH_DOMAIN = 'admin.digistats.local';
 
 // ============================================================
 // INIT / RESET (called by list-tournaments/script.js)
@@ -29,8 +45,7 @@ window.initAdminPage = function () {
     adminWeeklyScheduleLoaded = false;
     adminActiveTab = 'formats';
     setupAdminActions();
-    loadAdminFormats();
-    loadAdminBanList();
+    initializeAdminAuth();
 };
 
 window.resetAdminPage = function () {
@@ -43,6 +58,12 @@ window.resetAdminPage = function () {
     adminFormatsLoaded = false;
     adminStoresLoaded = false;
     adminWeeklyScheduleLoaded = false;
+    adminDigilabInventory = [];
+    adminDigilabLoaded = false;
+    adminDigilabAutoLinkResults.clear();
+    adminDigilabDeckCatalogLoaded = false;
+    adminDigilabDeckCatalog = null;
+    adminDigilabDeckFilters = { query: '', status: 'all', family: 'all' };
 };
 
 // ============================================================
@@ -90,9 +111,67 @@ function setupAdminActions() {
         if (action === 'browse-store-logos') toggleStoreBucketBrowser();
         if (action === 'select-store-logo') selectStoreLogo(btn.dataset.url);
         if (action === 'save-weekly-schedule') saveAdminWeeklySchedule();
+        if (action === 'toggle-password') toggleAdminPassword(btn);
+        if (action === 'logout') logoutAdmin();
+        if (action === 'digilab-health') testDigilabHealth();
+        if (action === 'digilab-refresh') {
+            adminDigilabAutoLinkResults.clear();
+            adminDigilabPreviewCache.clear();
+            loadDigilabInventory(adminDigilabPage, { runAutomation: true });
+        }
+        if (action === 'digilab-preview-id') previewDigilabFromInput();
+        if (action === 'digilab-preview') {
+            previewDigilabTournament(Number(btn.dataset.id), btn.closest('tr'));
+        }
+        if (action === 'digilab-import') {
+            importDigilabTournament(Number(btn.dataset.id), btn);
+        }
+        if (action === 'digilab-verify') {
+            verifyDigilabTournament(Number(btn.dataset.localId), Number(btn.dataset.id));
+        }
+        if (action === 'digilab-force-verify') {
+            const confirmed = window.confirm(
+                'Confirma o vínculo após revisar as divergências? O motivo será mantido no histórico da sincronização.'
+            );
+            if (confirmed) {
+                verifyDigilabTournament(Number(btn.dataset.localId), Number(btn.dataset.id), {
+                    forceMatch: true,
+                    button: btn
+                });
+            }
+        }
+        if (action === 'digilab-decks-open') loadDigilabDeckCatalog(false);
+        if (action === 'digilab-decks-sync') loadDigilabDeckCatalog(true);
+        if (action === 'digilab-decks-map-exact') mapExactDigilabDecks(btn);
+        if (action === 'digilab-deck-map') mapDigilabDeck(Number(btn.dataset.id), false, btn);
+        if (action === 'digilab-deck-create') mapDigilabDeck(Number(btn.dataset.id), true, btn);
+        if (action === 'digilab-edit-local') editLocalDigilabCandidate(Number(btn.dataset.id));
+        if (action === 'digilab-prev' && adminDigilabPage > 1) {
+            loadDigilabInventory(adminDigilabPage - 1);
+        }
+        if (action === 'digilab-next' && adminDigilabPage < adminDigilabLastPage) {
+            loadDigilabInventory(adminDigilabPage + 1);
+        }
+    });
+
+    container.addEventListener('input', (e) => {
+        if (e.target.matches('[data-digilab-deck-filter="query"]')) {
+            adminDigilabDeckFilters.query = e.target.value;
+            renderDigilabDeckCatalog();
+        }
+    });
+    container.addEventListener('change', (e) => {
+        const filter = e.target.dataset.digilabDeckFilter;
+        if (filter === 'status' || filter === 'family') {
+            adminDigilabDeckFilters[filter] = e.target.value;
+            renderDigilabDeckCatalog();
+        }
     });
 
     injectSyncCardsSection();
+
+    const loginForm = document.getElementById('adminLoginForm');
+    if (loginForm) loginForm.addEventListener('submit', loginAdmin);
 
     // Format form submit
     const formatForm = document.getElementById('adminFormatForm');
@@ -115,8 +194,12 @@ function setupAdminActions() {
             const statusEl = document.getElementById('adminStoreLogoUploadStatus');
             if (statusEl) statusEl.textContent = 'Uploading…';
             try {
-                const storeName = (document.getElementById('adminStoreName')?.value.trim() || 'store')
-                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                const storeName = (
+                    document.getElementById('adminStoreName')?.value.trim() || 'store'
+                )
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/(^-|-$)/g, '');
                 const { url } = await uploadStoreLogo(file, storeName);
                 setStoreLogoPreview(url);
                 if (statusEl) statusEl.textContent = '';
@@ -166,7 +249,19 @@ function setupAdminActions() {
     }
 }
 
+function toggleAdminPassword(button) {
+    const input = document.getElementById('adminLoginPassword');
+    if (!input) return;
+    const shouldShow = input.type === 'password';
+    input.type = shouldShow ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(shouldShow));
+    button.setAttribute('aria-label', shouldShow ? 'Ocultar senha' : 'Mostrar senha');
+    button.title = shouldShow ? 'Ocultar senha' : 'Mostrar senha';
+    input.focus();
+}
+
 function switchAdminTab(tab) {
+    if (!adminAuthSession) return;
     adminActiveTab = tab;
     const container = document.getElementById('adminContainer');
     if (!container) return;
@@ -177,6 +272,1152 @@ function switchAdminTab(tab) {
         panel.classList.toggle('is-hidden', panel.dataset.adminPanel !== tab);
     });
     if (tab === 'stores' && !adminStoresLoaded) loadAdminStores();
+    if (tab === 'digilab' && !adminDigilabLoaded) loadDigilabInventory(1);
+}
+
+// ============================================================
+// ADMIN AUTH / DIGILAB
+// ============================================================
+async function initializeAdminAuth() {
+    setAdminAuthView(false);
+    const stored = sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
+    if (!stored) return;
+
+    try {
+        adminAuthSession = JSON.parse(stored);
+        await refreshAdminSessionIfNeeded();
+        adminAuthProfile = await loadAdminProfile();
+        setAdminAuthView(true);
+    } catch {
+        clearAdminSession();
+        setAdminAuthStatus('Sua sessão expirou. Entre novamente.', true);
+    }
+}
+
+async function loginAdmin(event) {
+    event.preventDefault();
+    const passwordInput = document.getElementById('adminLoginPassword');
+    const button = document.getElementById('adminLoginButton');
+    const password = String(passwordInput?.value || '');
+    const username = password.trim().toLowerCase();
+    if (!password || !/^[a-z0-9_-]{3,40}$/.test(username)) {
+        setAdminAuthStatus('Senha de acesso inválida.', true);
+        return;
+    }
+
+    const email = `${username}@${ADMIN_AUTH_DOMAIN}`;
+    if (button) button.disabled = true;
+    setAdminAuthStatus('Entrando…');
+    try {
+        const config = getAdminConfig();
+        const response = await fetch(`${config.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: { apikey: config.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.access_token) throw new Error('Usuário ou senha inválidos.');
+
+        adminAuthSession = payload;
+        adminAuthProfile = await loadAdminProfile();
+        persistAdminSession();
+        if (passwordInput) passwordInput.value = '';
+        setAdminAuthView(true);
+    } catch (error) {
+        clearAdminSession();
+        setAdminAuthStatus(error.message || 'Não foi possível entrar.', true);
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+async function logoutAdmin() {
+    try {
+        if (adminAuthSession?.access_token) {
+            const config = getAdminConfig();
+            await fetch(`${config.SUPABASE_URL}/auth/v1/logout`, {
+                method: 'POST',
+                headers: {
+                    apikey: config.SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${adminAuthSession.access_token}`
+                }
+            });
+        }
+    } finally {
+        clearAdminSession();
+        setAdminAuthView(false);
+    }
+}
+
+async function loadAdminProfile() {
+    const config = getAdminConfig();
+    const userId = adminAuthSession?.user?.id;
+    if (!userId || !adminAuthSession?.access_token) throw new Error('Sessão inválida.');
+    const query = new URLSearchParams({
+        select: 'user_id,username,display_name',
+        user_id: `eq.${userId}`
+    });
+    const response = await fetch(`${config.SUPABASE_URL}/rest/v1/admin_users?${query}`, {
+        headers: {
+            apikey: config.SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${adminAuthSession.access_token}`
+        }
+    });
+    const rows = await response.json().catch(() => []);
+    if (!response.ok || !Array.isArray(rows) || rows.length !== 1) {
+        throw new Error('Este usuário não está autorizado como administrador.');
+    }
+    return rows[0];
+}
+
+async function refreshAdminSessionIfNeeded() {
+    if (!adminAuthSession?.refresh_token) throw new Error('Sessão inválida.');
+    const expiresAt = Number(adminAuthSession.expires_at || 0) * 1000;
+    if (expiresAt && expiresAt - Date.now() > 60_000) return;
+
+    const config = getAdminConfig();
+    const response = await fetch(`${config.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { apikey: config.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: adminAuthSession.refresh_token })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.access_token) throw new Error('Sessão expirada.');
+    adminAuthSession = payload;
+    persistAdminSession();
+}
+
+function setAdminAuthView(authenticated) {
+    const container = document.getElementById('adminContainer');
+    if (!container) return;
+    document.getElementById('adminAuthGate')?.classList.toggle('is-hidden', authenticated);
+    document.getElementById('adminSessionBar')?.classList.toggle('is-hidden', !authenticated);
+    container.querySelector('.admin-tabs')?.classList.toggle('is-hidden', !authenticated);
+    container.querySelectorAll('[data-admin-panel]').forEach((panel) => {
+        panel.classList.toggle(
+            'is-hidden',
+            !authenticated || panel.dataset.adminPanel !== adminActiveTab
+        );
+    });
+    if (!authenticated) {
+        const passwordInput = document.getElementById('adminLoginPassword');
+        const toggle = container.querySelector('[data-admin-action="toggle-password"]');
+        if (passwordInput) passwordInput.type = 'password';
+        if (toggle) {
+            toggle.setAttribute('aria-pressed', 'false');
+            toggle.setAttribute('aria-label', 'Mostrar senha');
+            toggle.title = 'Mostrar senha';
+        }
+        return;
+    }
+
+    const name = document.getElementById('adminSessionName');
+    if (name) name.textContent = adminAuthProfile?.display_name || adminAuthProfile?.username || '';
+    setAdminAuthStatus('');
+    if (!adminFormatsLoaded) loadAdminFormats();
+    if (!adminBanListLoaded) loadAdminBanList();
+    switchAdminTab(adminActiveTab);
+}
+
+function clearAdminSession() {
+    adminAuthSession = null;
+    adminAuthProfile = null;
+    adminDigilabLoaded = false;
+    adminDigilabRequestInFlight = false;
+    adminDigilabAutoLinkRunning = false;
+    adminDigilabAutoLinkResults.clear();
+    adminDigilabDeckCatalogLoaded = false;
+    adminDigilabDeckCatalog = null;
+    sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+}
+
+function persistAdminSession() {
+    sessionStorage.setItem(ADMIN_AUTH_STORAGE_KEY, JSON.stringify(adminAuthSession));
+}
+
+function getAdminConfig() {
+    const config = window.APP_CONFIG || {};
+    if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
+        throw new Error('Configuração do Supabase indisponível.');
+    }
+    return config;
+}
+
+function createAuthenticatedAdminHeaders(extraHeaders = {}) {
+    const config = getAdminConfig();
+    if (!adminAuthSession?.access_token) throw new Error('Sessão administrativa ausente.');
+    return {
+        apikey: config.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${adminAuthSession.access_token}`,
+        'Content-Type': 'application/json',
+        ...extraHeaders
+    };
+}
+
+function setAdminAuthStatus(message, isError = false) {
+    const host = document.getElementById('adminLoginStatus');
+    if (!host) return;
+    host.textContent = message;
+    host.classList.toggle('is-error', isError);
+}
+
+async function callDigilabFunction(functionName, body = {}) {
+    if (adminDigilabRequestInFlight) {
+        throw new Error('Aguarde a consulta atual terminar.');
+    }
+    adminDigilabRequestInFlight = true;
+    try {
+        await refreshAdminSessionIfNeeded();
+    } catch (error) {
+        clearAdminSession();
+        setAdminAuthView(false);
+        adminDigilabRequestInFlight = false;
+        throw error;
+    }
+    try {
+        const config = getAdminConfig();
+        let response;
+        try {
+            response = await fetch(`${config.SUPABASE_URL}/functions/v1/${functionName}`, {
+                method: 'POST',
+                headers: {
+                    apikey: config.SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${adminAuthSession.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+        } catch {
+            const networkError = new Error(
+                `Não foi possível acessar a função ${functionName}. Confirme se ela está publicada com esse nome.`
+            );
+            networkError.code = 'function_unreachable';
+            throw networkError;
+        }
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            if (response.status === 401) {
+                clearAdminSession();
+                setAdminAuthView(false);
+            }
+            const requestError = new Error(payload.error || `Falha na função ${functionName}.`);
+            requestError.status = response.status;
+            requestError.retryAfter = response.headers.get('retry-after');
+            requestError.payload = payload;
+            throw requestError;
+        }
+        return payload;
+    } finally {
+        adminDigilabRequestInFlight = false;
+    }
+}
+
+async function testDigilabHealth() {
+    setDigilabStatus('Testando conexão…');
+    try {
+        const result = await callDigilabFunction('digilab-health');
+        setDigilabStatus(`Conexão ativa (HTTP ${result.digilab_status}).`);
+    } catch (error) {
+        setDigilabStatus(error.message, true);
+    }
+}
+
+async function loadDigilabInventory(page = 1, options = {}) {
+    const body = document.getElementById('adminDigilabBody');
+    if (body)
+        body.innerHTML =
+            '<tr><td colspan="8" class="admin-loading"><div class="spinner"></div></td></tr>';
+    setDigilabStatus('Consultando o DigiLab…');
+    try {
+        const result = await callDigilabFunction('preview-digilab-import', {
+            page,
+            per_page: 100
+        });
+        adminDigilabInventory = Array.isArray(result.data) ? result.data : [];
+        adminDigilabPage = Number(
+            result.pagination?.current_page || result.pagination?.page || page
+        );
+        adminDigilabLastPage = Number(
+            result.pagination?.last_page || result.pagination?.total_pages || adminDigilabPage
+        );
+        adminDigilabLoaded = true;
+        renderDigilabInventory();
+        setDigilabStatus(
+            `${adminDigilabInventory.length} torneios carregados; 1 requisição ao DigiLab.`
+        );
+        const linkingCanContinue = options.runAutomation
+            ? await autoLinkExactDigilabCandidates()
+            : true;
+        if (options.runAutomation && linkingCanContinue) {
+            await autoImportNewDigilabTournaments();
+        }
+    } catch (error) {
+        if (body)
+            body.innerHTML = '<tr><td colspan="8" class="admin-empty">Falha ao carregar.</td></tr>';
+        setDigilabStatus(error.message, true);
+    }
+}
+
+async function autoLinkExactDigilabCandidates() {
+    if (adminDigilabAutoLinkRunning) return false;
+    const candidates = adminDigilabInventory.filter((row) => {
+        const externalId = Number(row.digilab_tournament_id);
+        const exactCandidates = row.local_candidates?.filter((item) => item.exact) || [];
+        const previousResult = adminDigilabAutoLinkResults.get(externalId);
+        const cooldownExpired =
+            previousResult?.status === 'cooldown' &&
+            (!previousResult.retry_at || Date.now() >= previousResult.retry_at);
+        if (cooldownExpired) adminDigilabAutoLinkResults.delete(externalId);
+        return (
+            Number.isSafeInteger(externalId) &&
+            externalId > 0 &&
+            row.mapping_status === 'exact_local_candidate' &&
+            exactCandidates.length === 1 &&
+            (!previousResult || cooldownExpired)
+        );
+    });
+    if (!candidates.length) return true;
+
+    adminDigilabAutoLinkRunning = true;
+    let linked = 0;
+    let needsReview = 0;
+    let waitingCooldown = 0;
+    let stoppedError = null;
+    try {
+        for (let index = 0; index < candidates.length; index += 1) {
+            if (!adminAuthSession) break;
+            const row = candidates[index];
+            const externalId = Number(row.digilab_tournament_id);
+            const localId = Number(row.local_candidates.find((item) => item.exact).tournament_id);
+            setDigilabStatus(
+                `Vinculando candidatos exatos automaticamente: ${index + 1} de ${candidates.length}…`
+            );
+            try {
+                const result = await callDigilabFunction('verify-digilab-tournaments', {
+                    tournament_id: localId,
+                    digilab_tournament_id: externalId
+                });
+                if (result.status === 'matched' || result.sync?.status === 'matched') {
+                    row.mapping_status = 'linked';
+                    row.linked_tournament_id = localId;
+                    adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
+                    linked += 1;
+                } else {
+                    adminDigilabAutoLinkResults.set(externalId, {
+                        status: 'verification_mismatch',
+                        result
+                    });
+                    needsReview += 1;
+                }
+            } catch (error) {
+                const isLocalCooldown =
+                    error.status === 429 &&
+                    String(error.message || '')
+                        .toLocaleLowerCase('pt-BR')
+                        .startsWith('aguarde antes de verificar');
+                const retryAfter = Math.max(0, Number(error.retryAfter) || 0);
+                adminDigilabAutoLinkResults.set(externalId, {
+                    status: isLocalCooldown
+                        ? 'cooldown'
+                        : error.status === 429
+                          ? 'rate_limited'
+                          : 'verification_error',
+                    error: error.message,
+                    http_status: error.status || null,
+                    payload: error.payload || null,
+                    retry_at: isLocalCooldown ? Date.now() + retryAfter * 1000 : null
+                });
+                if (isLocalCooldown) {
+                    waitingCooldown += 1;
+                } else {
+                    needsReview += 1;
+                    stoppedError = error;
+                }
+                renderDigilabInventory();
+                if (stoppedError) break;
+            }
+            renderDigilabInventory();
+            if (index < candidates.length - 1) await waitFor(DIGILAB_AUTO_LINK_DELAY_MS);
+        }
+        if (stoppedError) {
+            const http = stoppedError.status ? `HTTP ${stoppedError.status}: ` : '';
+            const retry =
+                stoppedError.status === 429 && stoppedError.retryAfter
+                    ? ` Tente novamente após ${stoppedError.retryAfter}s.`
+                    : '';
+            setDigilabStatus(
+                `Vínculo automático interrompido. ${http}${stoppedError.message}.${retry}`,
+                true
+            );
+        } else {
+            const cooldownMessage = waitingCooldown
+                ? `; ${waitingCooldown} aguardando o intervalo de nova verificação`
+                : '';
+            setDigilabStatus(
+                `${linked} vínculos automáticos confirmados${needsReview ? `; ${needsReview} enviados para revisão` : ''}${cooldownMessage}.`
+            );
+        }
+    } finally {
+        adminDigilabAutoLinkRunning = false;
+        renderDigilabInventory();
+    }
+    return !stoppedError;
+}
+
+function waitFor(milliseconds) {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function autoImportNewDigilabTournaments() {
+    const rows = adminDigilabInventory.filter(
+        (row) => {
+            const externalId = Number(row.digilab_tournament_id);
+            return (
+                Number.isSafeInteger(externalId) &&
+                externalId > 0 &&
+                row.mapping_status === 'new_import' &&
+                !adminDigilabAutoLinkResults.has(externalId)
+            );
+        }
+    );
+    if (!rows.length) return;
+    let stoppedError = null;
+    for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index];
+        const externalId = Number(row.digilab_tournament_id);
+        setDigilabStatus(`Preparando novos torneios: ${index + 1} de ${rows.length}…`);
+        try {
+            const preview = await callDigilabFunction('preview-digilab-import', {
+                digilab_tournament_id: externalId
+            });
+            adminDigilabPreviewCache.set(externalId, preview);
+            await waitFor(DIGILAB_AUTO_LINK_DELAY_MS);
+            if (!preview.can_auto_import) {
+                adminDigilabAutoLinkResults.set(externalId, {
+                    status: 'import_needs_mapping'
+                });
+                continue;
+            }
+            const imported = await callDigilabFunction('import-digilab-tournament', {
+                digilab_tournament_id: externalId
+            });
+            row.mapping_status = 'linked';
+            row.linked_tournament_id = imported.tournament_id;
+            adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
+        } catch (error) {
+            adminDigilabAutoLinkResults.set(externalId, {
+                status: error.status === 429 ? 'rate_limited' : 'import_error',
+                error: error.message
+            });
+            if (
+                error.status === 429 ||
+                error.status === 404 ||
+                error.status >= 500 ||
+                error.code === 'function_unreachable'
+            ) {
+                stoppedError = error;
+                break;
+            }
+        }
+        renderDigilabInventory();
+        if (index < rows.length - 1) await waitFor(DIGILAB_AUTO_LINK_DELAY_MS);
+    }
+    renderDigilabInventory();
+    if (stoppedError) {
+        setDigilabStatus(`Importação automática interrompida: ${stoppedError.message}`, true);
+    } else {
+        setDigilabStatus('Vínculos e importações automáticas concluídos.');
+    }
+}
+
+function renderDigilabInventory() {
+    const body = document.getElementById('adminDigilabBody');
+    if (!body) return;
+    const counts = {};
+    adminDigilabInventory.forEach((row) => {
+        counts[row.mapping_status] = (counts[row.mapping_status] || 0) + 1;
+    });
+    const summary = document.getElementById('adminDigilabSummary');
+    if (summary) {
+        summary.innerHTML = [
+            ['Vinculados', counts.linked || 0, 'linked', 'Confirmados no DigiStats'],
+            [
+                'Candidatos exatos',
+                counts.exact_local_candidate || 0,
+                'exact',
+                'Prontos para revisar'
+            ],
+            [
+                'Possíveis',
+                (counts.possible_local_candidate || 0) + (counts.ambiguous || 0),
+                'possible',
+                'Precisam de conferência'
+            ],
+            ['Novos', counts.new_import || 0, 'new', 'Sem torneio local']
+        ]
+            .map(
+                ([label, value, tone, caption]) => `<div class="tone-${tone}">
+                    <span class="admin-digilab-summary-label">${label}</span>
+                    <strong>${value}</strong>
+                    <small>${caption}</small>
+                </div>`
+            )
+            .join('');
+    }
+    if (!adminDigilabInventory.length) {
+        body.innerHTML =
+            '<tr><td colspan="8" class="admin-empty">Nenhum torneio encontrado.</td></tr>';
+    } else {
+        body.innerHTML = adminDigilabInventory.map(renderDigilabRow).join('');
+    }
+    const pageLabel = document.getElementById('adminDigilabPage');
+    if (pageLabel) pageLabel.textContent = `Página ${adminDigilabPage} de ${adminDigilabLastPage}`;
+}
+
+function renderDigilabRow(row) {
+    const externalId = Number(row.digilab_tournament_id);
+    const automaticResult = adminDigilabAutoLinkResults.get(externalId);
+    const candidate = row.local_candidates?.[0] || null;
+    const displayStatus = automaticResult?.status || row.mapping_status;
+    const canVerify =
+        displayStatus === 'exact_local_candidate' &&
+        row.local_candidates?.filter((item) => item.exact).length === 1;
+    const linkedId = row.linked_tournament_id;
+    const candidateText = linkedId
+        ? `#${linkedId}`
+        : candidate
+          ? `<div class="admin-digilab-candidate-cell">
+                <strong>#${candidate.tournament_id} · ${escapeAdminHtml(candidate.tournament_name || '')}</strong>
+                ${renderDigilabDifferences(row, candidate)}
+            </div>`
+          : '—';
+    const automaticError = automaticResult?.error
+        ? `<span class="admin-digilab-row-error">${automaticResult.http_status ? `HTTP ${Number(automaticResult.http_status)} · ` : ''}${escapeAdminHtml(automaticResult.error)}</span>`
+        : '';
+    return `<tr data-digilab-id="${externalId}">
+        <td><a href="https://digilab.cards/tournament/${externalId}" target="_blank" rel="noopener">#${externalId}</a></td>
+        <td>${escapeAdminHtml(formatAdminDate(row.event_date))}</td>
+        <td>${escapeAdminHtml(row.store_name || '—')}</td>
+        <td>${Number(row.player_count) || 0}</td>
+        <td>${escapeAdminHtml(row.format || '—')}</td>
+        <td><span class="admin-digilab-badge status-${escapeAdminHtml(displayStatus)}">${escapeAdminHtml(digilabStatusLabel(displayStatus))}</span>${automaticError}</td>
+        <td>${candidateText}</td>
+        <td class="admin-row-actions">
+            <button type="button" class="admin-digilab-action is-secondary is-small" data-admin-action="digilab-preview" data-id="${externalId}">Detalhes</button>
+            ${canVerify && adminDigilabAutoLinkRunning ? '<span class="admin-digilab-auto-label">Automático</span>' : ''}
+        </td>
+    </tr>`;
+}
+
+function renderDigilabDifferences(external, candidate) {
+    const differences = [];
+    if (candidate.matches?.player_count === false) {
+        differences.push(
+            `<span><b>Jogadores</b> DigiLab ${Number(external.player_count) || 0} × DigiStats ${Number(candidate.player_count) || 0}</span>`
+        );
+    }
+    if (candidate.matches?.store === false) {
+        differences.push(
+            `<span><b>Loja</b> ${escapeAdminHtml(external.store_name || '—')} × ${escapeAdminHtml(candidate.store_name || '—')}</span>`
+        );
+    }
+    if (candidate.matches?.format === false) {
+        differences.push(
+            `<span class="is-info"><b>Formato</b> ${escapeAdminHtml(external.format || '—')} × ${escapeAdminHtml(candidate.format || '—')} (informativo)</span>`
+        );
+    }
+    if (!differences.length && candidate.exact) {
+        return '<span class="admin-digilab-compatible">Dados principais compatíveis</span>';
+    }
+    return differences.length
+        ? `<div class="admin-digilab-differences">${differences.join('')}</div>`
+        : '';
+}
+
+function previewDigilabFromInput() {
+    const id = Number(document.getElementById('adminDigilabId')?.value);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+        setDigilabStatus('Informe um ID DigiLab válido.', true);
+        return;
+    }
+    previewDigilabTournament(id);
+}
+
+async function previewDigilabTournament(id, sourceRow = null) {
+    const detail = mountDigilabDetailRow(id, sourceRow);
+    detail.innerHTML = '<div class="admin-loading"><div class="spinner"></div></div>';
+    setDigilabStatus(`Consultando o torneio #${id}…`);
+    try {
+        const result =
+            adminDigilabPreviewCache.get(id) ||
+            (await callDigilabFunction('preview-digilab-import', {
+                digilab_tournament_id: id
+            }));
+        adminDigilabPreviewCache.set(id, result);
+        renderDigilabDetail(result);
+        setDigilabStatus('Detalhes carregados; 1 requisição ao DigiLab.');
+    } catch (error) {
+        if (detail)
+            detail.innerHTML = `<p class="admin-error">${escapeAdminHtml(error.message)}</p>`;
+        setDigilabStatus(error.message, true);
+    }
+}
+
+function mountDigilabDetailRow(id, sourceRow) {
+    document.getElementById('adminDigilabDetailRow')?.remove();
+    const body = document.getElementById('adminDigilabBody');
+    const matchingRow =
+        sourceRow || body?.querySelector(`tr[data-digilab-id="${Number(id)}"]`) || null;
+    const row = document.createElement('tr');
+    row.id = 'adminDigilabDetailRow';
+    row.className = 'admin-digilab-detail-row';
+    row.innerHTML =
+        '<td colspan="8"><section id="adminDigilabDetail" class="admin-digilab-detail" aria-live="polite"></section></td>';
+    if (matchingRow) matchingRow.insertAdjacentElement('afterend', row);
+    else if (body) body.prepend(row);
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return row.querySelector('#adminDigilabDetail');
+}
+
+function renderDigilabDetail(result) {
+    const detail = document.getElementById('adminDigilabDetail');
+    if (!detail) return;
+    const tournament = result.tournament || {};
+    const candidates = Array.isArray(result.local_candidates) ? result.local_candidates : [];
+    const standings = Array.isArray(result.standings) ? result.standings : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const playerOptions = result.import_resolution?.player_options || [];
+    const deckOptions = result.import_resolution?.deck_options || [];
+    const externalId = Number(tournament.digilab_tournament_id);
+    const linkedTournamentId = Number(result.already_linked?.tournament_id) || null;
+    const isNewImport =
+        !result.already_linked && candidates.every((candidate) => Number(candidate.score) === 0);
+    detail.innerHTML = `
+        <div class="admin-panel-header">
+            <div><h3>Torneio DigiLab #${Number(tournament.digilab_tournament_id)}</h3>
+            <p class="admin-panel-desc">${escapeAdminHtml(formatAdminDate(tournament.date))} · ${escapeAdminHtml(tournament.store?.name || 'Loja não informada')} · ${Number(tournament.player_count) || 0} jogadores · ${escapeAdminHtml(tournament.format || 'Formato não informado')}</p></div>
+            <div class="admin-digilab-detail-actions">
+                ${linkedTournamentId ? `<button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-edit-local" data-id="${linkedTournamentId}">Editar no DigiStats</button>` : ''}
+                <a class="admin-digilab-action is-ghost" href="https://digilab.cards/tournament/${Number(tournament.digilab_tournament_id)}" target="_blank" rel="noopener">Abrir no DigiLab</a>
+            </div>
+        </div>
+        ${warnings.length ? `<p class="admin-warning">Avisos: ${warnings.map(escapeAdminHtml).join(', ')}</p>` : ''}
+        <h4>Candidatos locais</h4>
+        <div class="admin-digilab-candidates">${candidates.length ? candidates.map((item) => renderDigilabCandidateCard(item, externalId, Number(tournament.player_count) || 0)).join('') : '<p>Nenhum candidato na mesma data.</p>'}</div>
+        ${renderDigilabConflictPanel(externalId, candidates)}
+        ${isNewImport ? `<div class="admin-digilab-import-callout"><div class="admin-digilab-import-copy"><strong>Novo torneio no DigiStats</strong><span>Revise o de-para abaixo. Mapeamentos confirmados serão reutilizados nas próximas importações.</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Validando dados e criando o torneio…</small></div></div><button type="button" class="admin-digilab-action is-primary" data-admin-action="digilab-import" data-id="${Number(tournament.digilab_tournament_id)}">Criar no DigiStats</button></div>` : ''}
+        ${result.already_linked ? `<div class="admin-digilab-import-callout is-sync"><div class="admin-digilab-import-copy"><strong>Atualizar dados do torneio vinculado</strong><span>Use esta ação para preencher decks ou pontuações que não estavam disponíveis na primeira importação.</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Sincronizando os resultados…</small></div></div><button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-import" data-mode="sync" data-id="${externalId}">Sincronizar dados</button></div>` : ''}
+        <h4>Classificação e pontos derivados</h4>
+        <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Pos.</th><th>Jogador</th><th>De-para jogador</th><th>Deck DigiLab</th><th>De-para deck</th><th>W-L-D</th><th>Pontos</th></tr></thead><tbody>${standings.map((item) => `<tr><td>${Number(item.placement) || '—'}</td><td>${escapeAdminHtml(item.player?.name || 'Anônimo')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.player?.slug || '—')}</small></td><td>${renderDigilabPlayerMatch(item, playerOptions)}</td><td>${escapeAdminHtml(item.deck?.name || 'Não informado')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.deck?.slug || '—')}</small></td><td>${renderDigilabDeckMatch(item, deckOptions)}</td><td>${Number(item.record?.wins) || 0}-${Number(item.record?.losses) || 0}-${Number(item.record?.ties) || 0}</td><td>${item.match_points ?? '—'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderDigilabCandidateCard(candidate, externalId, externalPlayerCount) {
+    const localId = Number(candidate.tournament_id);
+    const localPlayerCount = Number(candidate.player_count) || 0;
+    const missingPlayers = Math.max(0, externalPlayerCount - localPlayerCount);
+    const reconcileButton = missingPlayers
+        ? `<button type="button" class="admin-digilab-action is-review is-small" data-admin-action="digilab-import" data-mode="reconcile" data-target-id="${localId}" data-id="${Number(externalId)}">Adicionar ${missingPlayers} ausente${missingPlayers === 1 ? '' : 's'}</button>`
+        : '';
+    return `<div>
+        <strong>#${localId} ${escapeAdminHtml(candidate.tournament_name || '')}</strong>
+        <span>Loja: ${escapeAdminHtml(candidate.store_name || '—')} · Jogadores: ${localPlayerCount} · score ${Number(candidate.score) || 0}</span>
+        <div class="admin-digilab-candidate-actions">
+            ${reconcileButton}
+            <button type="button" class="admin-digilab-action is-ghost is-small" data-admin-action="digilab-edit-local" data-id="${localId}">Editar no DigiStats</button>
+        </div>
+    </div>`;
+}
+
+function editLocalDigilabCandidate(tournamentId) {
+    if (!Number.isSafeInteger(tournamentId) || tournamentId <= 0) {
+        setDigilabStatus('ID do torneio DigiStats inválido.', true);
+        return;
+    }
+    if (typeof window.editTournament !== 'function') {
+        setDigilabStatus('O editor de torneios ainda não está disponível nesta página.', true);
+        return;
+    }
+    window.editTournament(tournamentId);
+}
+
+function renderDigilabConflictPanel(externalId, candidates) {
+    const conflict = getDigilabVerificationConflict(externalId);
+    if (!conflict?.mismatches?.length) return '';
+    const localCandidate = candidates.find((candidate) => candidate.exact) || candidates[0] || null;
+    if (!localCandidate?.tournament_id) return '';
+    const reasons = conflict.mismatches
+        .map((reason) => `<li>${escapeAdminHtml(digilabMismatchLabel(reason))}</li>`)
+        .join('');
+    const warnings = conflict.warnings?.length
+        ? `<p><strong>Avisos:</strong> ${conflict.warnings.map((warning) => escapeAdminHtml(digilabWarningLabel(warning))).join('; ')}.</p>`
+        : '';
+    return `<section class="admin-digilab-conflict" aria-label="Divergências da validação">
+        <div class="admin-digilab-conflict-copy">
+            <strong>Por que este vínculo precisa de revisão?</strong>
+            <ul>${reasons}</ul>
+            ${warnings}
+            <small>Confirme somente após conferir o candidato local. As divergências aceitas ficarão registradas no histórico.</small>
+        </div>
+        <button type="button" class="admin-digilab-action is-review" data-admin-action="digilab-force-verify" data-local-id="${Number(localCandidate.tournament_id)}" data-id="${Number(externalId)}">Confirmar vínculo após revisão</button>
+    </section>`;
+}
+
+function getDigilabVerificationConflict(externalId) {
+    const automaticResult = adminDigilabAutoLinkResults.get(Number(externalId));
+    const summary =
+        automaticResult?.result || automaticResult?.payload?.sync?.comparison_summary || null;
+    const comparisons = Array.isArray(summary?.candidates) ? summary.candidates : [];
+    return (
+        comparisons.find(
+            (candidate) => Number(candidate.digilab_tournament_id) === Number(externalId)
+        ) ||
+        comparisons[0] ||
+        null
+    );
+}
+
+function digilabMismatchLabel(reason) {
+    const labels = {
+        date: 'A data do torneio está diferente.',
+        player_count: 'A quantidade de jogadores está diferente.',
+        store: 'A loja está diferente.',
+        scene: 'A scene do torneio não é Curitiba.',
+        dnfs: 'O DigiLab possui um ou mais jogadores marcados como DNF.',
+        standings_count: 'A quantidade de jogadores na classificação está diferente.',
+        standings_players: 'A lista de jogadores da classificação está diferente.'
+    };
+    const placement = String(reason || '').match(/^standing_(\d+)$/);
+    if (placement) return `O jogador da posição ${placement[1]} está diferente.`;
+    return labels[reason] || `Divergência técnica: ${reason}.`;
+}
+
+function digilabWarningLabel(warning) {
+    return (
+        {
+            format: 'o formato informado está diferente',
+            tied_placements: 'o DigiLab retornou colocações empatadas'
+        }[warning] || warning
+    );
+}
+
+function renderDigilabPlayerMatch(standing, playerOptions) {
+    const match = standing.player_match || {};
+    if (match.player_id) {
+        return `<span class="admin-digilab-player-match is-resolved">${escapeAdminHtml(match.player_name)} · ${match.status === 'mapped' ? 'mapeado' : 'nome exato'}</span>`;
+    }
+    const options = playerOptions
+        .map(
+            (player) =>
+                `<option value="${escapeAdminHtml(player.player_id)}">${escapeAdminHtml(player.player_name)}</option>`
+        )
+        .join('');
+    return `<select class="admin-digilab-player-select" data-digilab-player-slug="${escapeAdminHtml(standing.player?.slug || '')}" data-digilab-player-name="${escapeAdminHtml(standing.player?.name || '')}"><option value="">Selecionar jogador…</option>${options}</select>`;
+}
+
+function renderDigilabDeckMatch(standing, deckOptions) {
+    const match = standing.deck_match || {};
+    if (!standing.deck?.slug && !standing.deck?.name) {
+        return '<span class="admin-digilab-player-match">Não informado</span>';
+    }
+    if (match.deck_id) {
+        return `<span class="admin-digilab-player-match is-resolved">${escapeAdminHtml(match.deck_name)} · ${match.status === 'mapped' ? 'mapeado' : 'nome exato'}</span>`;
+    }
+    const options = deckOptions
+        .map(
+            (deck) =>
+                `<option value="${escapeAdminHtml(deck.deck_id)}">${escapeAdminHtml(deck.deck_name)}</option>`
+        )
+        .join('');
+    return `<select class="admin-digilab-player-select admin-digilab-deck-select" data-digilab-deck-slug="${escapeAdminHtml(standing.deck?.slug || '')}" data-digilab-deck-name="${escapeAdminHtml(standing.deck?.name || '')}"><option value="">Selecionar deck…</option>${options}</select>`;
+}
+
+async function importDigilabTournament(externalId, triggerButton = null) {
+    const detail = document.getElementById('adminDigilabDetail');
+    const mappings = [...(detail?.querySelectorAll('[data-digilab-player-slug]') || [])].map(
+        (select) => ({
+            digilab_player_slug: select.dataset.digilabPlayerSlug,
+            digilab_player_name: select.dataset.digilabPlayerName,
+            player_id: select.value
+        })
+    );
+    if (mappings.some((mapping) => !mapping.player_id)) {
+        setDigilabStatus('Selecione o jogador local para todos os nomes sem de-para.', true);
+        return;
+    }
+    const deckMappings = [...(detail?.querySelectorAll('[data-digilab-deck-slug]') || [])].map(
+        (select) => ({
+            digilab_deck_slug: select.dataset.digilabDeckSlug,
+            digilab_deck_name: select.dataset.digilabDeckName,
+            deck_id: select.value
+        })
+    );
+    if (deckMappings.some((mapping) => !mapping.deck_id)) {
+        setDigilabStatus('Selecione o deck local para todos os decks sem de-para.', true);
+        return;
+    }
+
+    const button =
+        triggerButton ||
+        detail?.querySelector(
+            `[data-admin-action="digilab-import"][data-id="${Number(externalId)}"]`
+        );
+    const callout = button?.closest('.admin-digilab-import-callout');
+    const inlineProgress = callout?.querySelector('.admin-digilab-import-progress');
+    const isSync = button?.dataset.mode === 'sync';
+    const isReconcile = button?.dataset.mode === 'reconcile';
+    const targetTournamentId = isReconcile ? Number(button?.dataset.targetId) : null;
+    if (isReconcile) {
+        const confirmed = window.confirm(
+            `Completar o torneio DigiStats #${targetTournamentId} com a classificação do DigiLab? Participantes ausentes serão adicionados e posições, decks e pontos existentes serão atualizados.`
+        );
+        if (!confirmed) return;
+    }
+    if (button?.disabled) return;
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = `<span class="admin-digilab-button-spinner" aria-hidden="true"></span>${isReconcile ? 'Completando…' : isSync ? 'Sincronizando…' : 'Criando…'}`;
+    }
+    callout?.classList.add('is-importing');
+    inlineProgress?.classList.remove('is-error');
+    const inlineMessage = inlineProgress?.querySelector('small');
+    if (inlineMessage) {
+        inlineMessage.textContent = isReconcile
+            ? 'Adicionando ausentes e corrigindo os resultados…'
+            : isSync
+            ? 'Validando e atualizando os resultados…'
+            : 'Validando dados e criando o torneio…';
+    }
+
+    setDigilabStatus(
+        `${isReconcile ? 'Completando' : isSync ? 'Sincronizando' : 'Criando'} o torneio DigiLab #${externalId} no DigiStats…`
+    );
+    try {
+        const result = await callDigilabFunction('import-digilab-tournament', {
+            digilab_tournament_id: externalId,
+            target_tournament_id: targetTournamentId,
+            player_mappings: mappings,
+            deck_mappings: deckMappings
+        });
+        adminDigilabPreviewCache.delete(externalId);
+        adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
+        callout?.classList.add('is-complete');
+        if (inlineMessage) {
+            inlineMessage.textContent = `${isReconcile ? `${Number(result.results_added) || 0} participante(s) adicionado(s)` : isSync ? 'Dados atualizados' : 'Torneio criado'} com sucesso: DigiStats #${result.tournament_id}.`;
+        }
+        setDigilabStatus(
+            `${isReconcile ? `Torneio completado: ${Number(result.results_added) || 0} participante(s) adicionado(s) e ${Number(result.results_updated) || 0} atualizado(s)` : isSync ? 'Torneio atualizado' : 'Torneio criado'} no DigiStats com ID #${result.tournament_id}.`
+        );
+        await loadDigilabInventory(adminDigilabPage, {
+            skipAutoLink: true,
+            skipAutoImport: true
+        });
+    } catch (error) {
+        callout?.classList.remove('is-importing');
+        inlineProgress?.classList.add('is-error');
+        if (inlineMessage)
+            inlineMessage.textContent = `Falha ao ${isReconcile ? 'completar' : isSync ? 'sincronizar' : 'criar'}: ${error.message}`;
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.textContent = 'Tentar novamente';
+        }
+        setDigilabStatus(error.message, true);
+    }
+}
+
+async function verifyDigilabTournament(localId, digilabId, options = {}) {
+    if (!Number.isSafeInteger(localId) || !Number.isSafeInteger(digilabId)) return;
+    const forceMatch = options.forceMatch === true;
+    const button = options.button || null;
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML =
+            '<span class="admin-digilab-button-spinner" aria-hidden="true"></span>Confirmando…';
+    }
+    setDigilabStatus(
+        `${forceMatch ? 'Confirmando' : 'Validando'} DigiStats #${localId} com DigiLab #${digilabId}…`
+    );
+    try {
+        const result = await callDigilabFunction('verify-digilab-tournaments', {
+            tournament_id: localId,
+            digilab_tournament_id: digilabId,
+            force_match: forceMatch
+        });
+        if (result.status !== 'matched' && result.sync?.status !== 'matched') {
+            throw new Error(`A verificação retornou: ${result.status || 'sem correspondência'}.`);
+        }
+        adminDigilabAutoLinkResults.set(digilabId, { status: 'linked' });
+        adminDigilabPreviewCache.delete(digilabId);
+        setDigilabStatus(`Vínculo confirmado: DigiStats #${localId} ↔ DigiLab #${digilabId}.`);
+        await loadDigilabInventory(adminDigilabPage, {
+            skipAutoLink: true,
+            skipAutoImport: true
+        });
+    } catch (error) {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.textContent = 'Tentar confirmar novamente';
+        }
+        setDigilabStatus(error.message, true);
+    }
+}
+
+function setDigilabStatus(message, isError = false) {
+    const host = document.getElementById('adminDigilabStatus');
+    if (!host) return;
+    host.textContent = message;
+    host.classList.toggle('is-error', isError);
+}
+
+function digilabStatusLabel(status) {
+    return (
+        {
+            linked: 'Vinculado',
+            exact_local_candidate: 'Candidato exato',
+            possible_local_candidate: 'Possível candidato',
+            ambiguous: 'Ambíguo',
+            new_import: 'Novo no DigiStats',
+            verification_mismatch: 'Revisar validação',
+            verification_error: 'Erro ao validar',
+            cooldown: 'Aguardando nova tentativa',
+            rate_limited: 'Aguardando limite',
+            import_needs_mapping: 'Mapear jogadores',
+            import_error: 'Erro ao importar'
+        }[status] ||
+        status ||
+        '—'
+    );
+}
+
+async function loadDigilabDeckCatalog(syncFromDigilab) {
+    const host = document.getElementById('adminDigilabDeckCatalog');
+    if (!host) return;
+    host.classList.remove('is-hidden');
+    if (!syncFromDigilab && adminDigilabDeckCatalogLoaded && adminDigilabDeckCatalog) {
+        renderDigilabDeckCatalog();
+        const usedCount = (adminDigilabDeckCatalog.data || []).filter(
+            (row) => row.used_in_digistats
+        ).length;
+        setDigilabDeckStatus(`${usedCount} arquétipos usados no DigiStats carregados.`);
+        return;
+    }
+    host.innerHTML = '<div class="admin-loading"><div class="spinner"></div></div>';
+    setDigilabDeckStatus(
+        syncFromDigilab ? 'Atualizando famílias e arquétipos…' : 'Carregando catálogo salvo…'
+    );
+    try {
+        const result = await callDigilabFunction('digilab-deck-catalog', {
+            action: syncFromDigilab ? 'sync' : 'list'
+        });
+        adminDigilabDeckCatalog = result;
+        adminDigilabDeckCatalogLoaded = true;
+        renderDigilabDeckCatalog();
+        const requestText = syncFromDigilab
+            ? ` ${Number(result.request_count) || 0} requisição(ões) ao DigiLab.`
+            : '';
+        const usedCount = (result.data || []).filter((row) => row.used_in_digistats).length;
+        setDigilabDeckStatus(
+            `${usedCount} arquétipos usados no DigiStats; ${result.family_options?.length || 0} famílias.${requestText}`
+        );
+    } catch (error) {
+        host.innerHTML = `<p class="admin-error">${escapeAdminHtml(error.message)}</p>`;
+        setDigilabDeckStatus(error.message, true);
+    }
+}
+
+function renderDigilabDeckCatalog() {
+    const host = document.getElementById('adminDigilabDeckCatalog');
+    if (!host || !adminDigilabDeckCatalog) return;
+    const allRows = Array.isArray(adminDigilabDeckCatalog.data)
+        ? adminDigilabDeckCatalog.data
+        : [];
+    const rows = allRows.filter((row) => row.used_in_digistats);
+    const familyOptions = Array.isArray(adminDigilabDeckCatalog.family_options)
+        ? adminDigilabDeckCatalog.family_options
+        : [];
+    const visibleCounts = rows.reduce(
+        (summary, row) => {
+            summary[row.status] = (summary[row.status] || 0) + 1;
+            return summary;
+        },
+        { mapped: 0, exact_name: 0, unmapped: 0 }
+    );
+    const query = normalizeDigilabCatalogText(adminDigilabDeckFilters.query);
+    const filteredRows = rows.filter((row) => {
+        const matchesQuery =
+            !query ||
+            normalizeDigilabCatalogText(
+                `${row.name} ${row.slug} ${row.family_name || ''}`
+            ).includes(query);
+        const matchesStatus =
+            adminDigilabDeckFilters.status === 'all' ||
+            row.status === adminDigilabDeckFilters.status;
+        const rowFamily = row.local_family?.family_id || row.family_slug || 'none';
+        const matchesFamily =
+            adminDigilabDeckFilters.family === 'all' ||
+            rowFamily === adminDigilabDeckFilters.family;
+        return matchesQuery && matchesStatus && matchesFamily;
+    });
+    host.innerHTML = `
+        <div class="admin-digilab-catalog-summary">
+            <span><strong>${Number(visibleCounts.mapped) || 0}</strong> mapeados</span>
+            <span><strong>${Number(visibleCounts.exact_name) || 0}</strong> nomes iguais</span>
+            <span><strong>${Number(visibleCounts.unmapped) || 0}</strong> sem correspondente</span>
+            <span><strong>${Math.max(0, allRows.length - rows.length)}</strong> externos sem uso ocultos</span>
+        </div>
+        <div class="admin-digilab-catalog-toolbar">
+            <label class="admin-digilab-catalog-search">
+                <span>Buscar</span>
+                <input type="search" placeholder="Nome, slug ou família" value="${escapeAdminHtml(adminDigilabDeckFilters.query)}" data-digilab-deck-filter="query">
+            </label>
+            <label>
+                <span>Situação</span>
+                <select data-digilab-deck-filter="status">
+                    <option value="all" ${adminDigilabDeckFilters.status === 'all' ? 'selected' : ''}>Todas</option>
+                    <option value="mapped" ${adminDigilabDeckFilters.status === 'mapped' ? 'selected' : ''}>Mapeados</option>
+                    <option value="exact_name" ${adminDigilabDeckFilters.status === 'exact_name' ? 'selected' : ''}>Nomes iguais</option>
+                    <option value="unmapped" ${adminDigilabDeckFilters.status === 'unmapped' ? 'selected' : ''}>Sem correspondente</option>
+                </select>
+            </label>
+            <label>
+                <span>Categoria / família</span>
+                <select data-digilab-deck-filter="family">
+                    <option value="all" ${adminDigilabDeckFilters.family === 'all' ? 'selected' : ''}>Todas</option>
+                    <option value="none" ${adminDigilabDeckFilters.family === 'none' ? 'selected' : ''}>Sem família</option>
+                    ${familyOptions.map((family) => `<option value="${escapeAdminHtml(family.family_id)}" ${adminDigilabDeckFilters.family === family.family_id ? 'selected' : ''}>${escapeAdminHtml(family.family_name)}</option>`).join('')}
+                    ${[...new Map(rows.filter((row) => row.family_slug && !row.local_family).map((row) => [row.family_slug, row.family_name || row.family_slug])).entries()].map(([slug, name]) => `<option value="${escapeAdminHtml(slug)}" ${adminDigilabDeckFilters.family === slug ? 'selected' : ''}>${escapeAdminHtml(name)}</option>`).join('')}
+                </select>
+            </label>
+            <button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-decks-map-exact" ${Number(visibleCounts.exact_name) ? '' : 'disabled'}>
+                Mapear nomes iguais (${Number(visibleCounts.exact_name) || 0})
+            </button>
+        </div>
+        <p class="admin-digilab-catalog-result-count">Exibindo ${filteredRows.length} de ${rows.length} arquétipos usados no DigiStats.</p>
+        <div class="admin-table-wrapper admin-digilab-catalog-table-shell">
+            <table class="admin-table admin-digilab-catalog-table">
+                <thead><tr><th>Arquétipo DigiLab</th><th>Família</th><th>Cores</th><th>Deck DigiStats</th><th>Família local</th><th>Situação</th><th>Ações</th></tr></thead>
+                <tbody>${filteredRows.length ? filteredRows.map(renderDigilabDeckCatalogRow).join('') : `<tr><td colspan="7" class="admin-empty">${rows.length ? 'Nenhum arquétipo corresponde aos filtros.' : 'Nenhum arquétipo usado no DigiStats foi encontrado no catálogo.'}</td></tr>`}</tbody>
+            </table>
+        </div>`;
+}
+
+function normalizeDigilabCatalogText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLocaleLowerCase('pt-BR');
+}
+
+async function mapExactDigilabDecks(button) {
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML =
+            '<span class="admin-digilab-button-spinner" aria-hidden="true"></span>Mapeando…';
+    }
+    setDigilabDeckStatus('Mapeando arquétipos usados com nome igual…');
+    try {
+        const result = await callDigilabFunction('digilab-deck-catalog', {
+            action: 'map_exact_names'
+        });
+        adminDigilabDeckCatalog = result;
+        adminDigilabDeckCatalogLoaded = true;
+        renderDigilabDeckCatalog();
+        setDigilabDeckStatus(
+            `${Number(result.bulk?.mapped) || 0} vínculo(s) criado(s) automaticamente.${Number(result.bulk?.ambiguous) ? ` ${Number(result.bulk.ambiguous)} nome(s) ambíguo(s) mantido(s) para revisão.` : ''}`
+        );
+    } catch (error) {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.textContent = 'Tentar mapear nomes iguais';
+        }
+        setDigilabDeckStatus(error.message, true);
+    }
+}
+
+function renderDigilabDeckCatalogRow(row) {
+    const deckOptions = Array.isArray(adminDigilabDeckCatalog?.deck_options)
+        ? adminDigilabDeckCatalog.deck_options
+        : [];
+    const familyOptions = Array.isArray(adminDigilabDeckCatalog?.family_options)
+        ? adminDigilabDeckCatalog.family_options
+        : [];
+    const selectedDeckId = row.local_deck?.deck_id || '';
+    const selectedFamilyId = row.local_family?.family_id || '';
+    const deckSelect = `<select class="admin-digilab-player-select" data-catalog-deck-id="${Number(row.digilab_archetype_id)}"><option value="">Selecionar deck…</option>${deckOptions.map((deck) => `<option value="${escapeAdminHtml(deck.deck_id)}" ${deck.deck_id === selectedDeckId ? 'selected' : ''}>${escapeAdminHtml(deck.deck_name)}</option>`).join('')}</select>`;
+    const familySelect = `<select class="admin-digilab-player-select" data-catalog-family-id="${Number(row.digilab_archetype_id)}"><option value="">Sem família</option>${familyOptions.map((family) => `<option value="${escapeAdminHtml(family.family_id)}" ${family.family_id === selectedFamilyId ? 'selected' : ''}>${escapeAdminHtml(family.family_name)}</option>`).join('')}</select>`;
+    const statusLabel =
+        {
+            mapped: 'Mapeado',
+            exact_name: 'Nome igual',
+            unmapped: 'Sem correspondente'
+        }[row.status] || row.status;
+    return `<tr data-catalog-archetype-id="${Number(row.digilab_archetype_id)}">
+        <td><strong>${escapeAdminHtml(row.name)}</strong><small class="admin-digilab-player-slug">${escapeAdminHtml(row.slug)}</small></td>
+        <td>${escapeAdminHtml(row.family_name || 'Sem família')}</td>
+        <td>${escapeAdminHtml([row.primary_color, row.secondary_color].filter(Boolean).join(' / ') || '—')}</td>
+        <td>${deckSelect}</td>
+        <td>${familySelect}</td>
+        <td><span class="admin-digilab-badge status-${escapeAdminHtml(row.status)}">${escapeAdminHtml(statusLabel)}</span></td>
+        <td class="admin-row-actions">
+            <button type="button" class="admin-digilab-action is-secondary is-small" data-admin-action="digilab-deck-map" data-id="${Number(row.digilab_archetype_id)}">${row.status === 'mapped' ? 'Atualizar' : 'Mapear'}</button>
+            ${row.status === 'unmapped' ? `<button type="button" class="admin-digilab-action is-ghost is-small" data-admin-action="digilab-deck-create" data-id="${Number(row.digilab_archetype_id)}">Criar arquétipo</button>` : ''}
+        </td>
+    </tr>`;
+}
+
+async function mapDigilabDeck(archetypeId, createDeck, button) {
+    const row = button?.closest('[data-catalog-archetype-id]');
+    const deckId = row?.querySelector('[data-catalog-deck-id]')?.value || '';
+    const familyId = row?.querySelector('[data-catalog-family-id]')?.value || '';
+    if (!createDeck && !deckId) {
+        setDigilabDeckStatus('Selecione um deck local antes de mapear.', true);
+        return;
+    }
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = `<span class="admin-digilab-button-spinner" aria-hidden="true"></span>${createDeck ? 'Criando…' : 'Salvando…'}`;
+    }
+    setDigilabDeckStatus(
+        createDeck ? 'Criando arquétipo e salvando vínculo…' : 'Salvando vínculo do arquétipo…'
+    );
+    try {
+        const result = await callDigilabFunction('digilab-deck-catalog', {
+            action: createDeck ? 'create' : 'map',
+            digilab_archetype_id: archetypeId,
+            deck_id: deckId || null,
+            family_id: familyId || null
+        });
+        adminDigilabDeckCatalog = result;
+        renderDigilabDeckCatalog();
+        setDigilabDeckStatus('Arquétipo e família atualizados.');
+    } catch (error) {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.textContent = createDeck ? 'Tentar criar novamente' : 'Tentar mapear novamente';
+        }
+        setDigilabDeckStatus(error.message, true);
+    }
+}
+
+function setDigilabDeckStatus(message, isError = false) {
+    const host = document.getElementById('adminDigilabDeckStatus');
+    if (!host) return;
+    host.textContent = message;
+    host.classList.toggle('is-error', isError);
+}
+
+function formatAdminDate(value) {
+    if (!value) return '—';
+    const [year, month, day] = String(value).slice(0, 10).split('-');
+    return year && month && day ? `${day}/${month}/${year}` : String(value);
 }
 
 // ============================================================
@@ -185,7 +1426,8 @@ function switchAdminTab(tab) {
 async function loadAdminFormats() {
     const host = document.getElementById('adminFormatsBody');
     if (!host) return;
-    host.innerHTML = '<tr><td colspan="6" class="admin-loading"><div class="spinner"></div></td></tr>';
+    host.innerHTML =
+        '<tr><td colspan="6" class="admin-loading"><div class="spinner"></div></td></tr>';
 
     try {
         const res = await fetch(
@@ -206,7 +1448,8 @@ function renderAdminFormats() {
     if (!host) return;
 
     if (!adminFormats.length) {
-        host.innerHTML = '<tr><td colspan="6" class="admin-empty">Nenhum formato cadastrado.</td></tr>';
+        host.innerHTML =
+            '<tr><td colspan="6" class="admin-empty">Nenhum formato cadastrado.</td></tr>';
         return;
     }
 
@@ -262,7 +1505,9 @@ function openFormatModal(id) {
         if (format?.code) autoDetectFormatBackground(format.code);
     }
 
-    modal.querySelector('.admin-modal-title').textContent = format ? 'Editar formato / Meta' : 'Novo formato / Meta';
+    modal.querySelector('.admin-modal-title').textContent = format
+        ? 'Editar formato / Meta'
+        : 'Novo formato / Meta';
     modal.classList.add('active');
 }
 
@@ -309,7 +1554,7 @@ async function saveFormat(e) {
         const headers = {
             ...window.createSupabaseHeaders(),
             'Content-Type': 'application/json',
-            Prefer: 'return=representation',
+            Prefer: 'return=representation'
         };
 
         if (isDefault) await clearOtherDefaults(id || null);
@@ -321,7 +1566,7 @@ async function saveFormat(e) {
         const res = await fetch(url, {
             method: id ? 'PATCH' : 'POST',
             headers,
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
@@ -337,13 +1582,15 @@ async function saveFormat(e) {
 }
 
 async function clearOtherDefaults(excludeId) {
-    const filter = excludeId
-        ? `is_default=eq.true&id=neq.${excludeId}`
-        : 'is_default=eq.true';
+    const filter = excludeId ? `is_default=eq.true&id=neq.${excludeId}` : 'is_default=eq.true';
     await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?${filter}`, {
         method: 'PATCH',
-        headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({ is_default: false }),
+        headers: {
+            ...window.createSupabaseHeaders(),
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({ is_default: false })
     });
 }
 
@@ -352,13 +1599,13 @@ async function setDefaultFormat(id) {
     const headers = {
         ...window.createSupabaseHeaders(),
         'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
+        Prefer: 'return=minimal'
     };
     await clearOtherDefaults(id);
     const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ is_default: true }),
+        body: JSON.stringify({ is_default: true })
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -375,8 +1622,12 @@ async function toggleFormatActive(id) {
     const newActive = !format.is_active;
     const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`, {
         method: 'PATCH',
-        headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({ is_active: newActive }),
+        headers: {
+            ...window.createSupabaseHeaders(),
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({ is_active: newActive })
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -389,23 +1640,33 @@ async function toggleFormatActive(id) {
 async function deleteFormat(id, name) {
     if (!id) return;
     const wasDefault = adminFormats.find((f) => f.id === id)?.is_default === true;
-    if (!confirm(`Delete format "${name}"? This cannot be undone.\n\nIf this format is linked to tournaments, use "Deactivate" instead.`)) return;
+    if (
+        !confirm(
+            `Delete format "${name}"? This cannot be undone.\n\nIf this format is linked to tournaments, use "Deactivate" instead.`
+        )
+    )
+        return;
     const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${id}`, {
         method: 'DELETE',
-        headers: { ...window.createSupabaseHeaders(), Prefer: 'count=exact' },
+        headers: { ...window.createSupabaseHeaders(), Prefer: 'count=exact' }
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const msg = err.message || err.details || `HTTP ${res.status}`;
-        const isFk = msg.toLowerCase().includes('foreign key') || msg.toLowerCase().includes('violates');
-        alert(`Failed to delete: ${msg}${isFk ? '\n\nThis format is referenced by tournaments. Use "Deactivate" instead.' : ''}`);
+        const isFk =
+            msg.toLowerCase().includes('foreign key') || msg.toLowerCase().includes('violates');
+        alert(
+            `Failed to delete: ${msg}${isFk ? '\n\nThis format is referenced by tournaments. Use "Deactivate" instead.' : ''}`
+        );
         return;
     }
     // count=exact: Content-Range header is "*/N" where N = rows affected
     const contentRange = res.headers.get('Content-Range') || '';
     const deleted = parseInt(contentRange.replace('*/', ''), 10);
     if (!isNaN(deleted) && deleted === 0) {
-        alert('Nothing was deleted. This is likely blocked by a RLS policy on the formats table.\n\nPlease delete directly via the Supabase dashboard, or use "Deactivate" instead.');
+        alert(
+            'Nothing was deleted. This is likely blocked by a RLS policy on the formats table.\n\nPlease delete directly via the Supabase dashboard, or use "Deactivate" instead.'
+        );
         return;
     }
     // If the deleted format was the default, promote the most recently created remaining format
@@ -415,8 +1676,12 @@ async function deleteFormat(id, name) {
         if (newest?.id) {
             await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?id=eq.${newest.id}`, {
                 method: 'PATCH',
-                headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-                body: JSON.stringify({ is_default: true }),
+                headers: {
+                    ...window.createSupabaseHeaders(),
+                    'Content-Type': 'application/json',
+                    Prefer: 'return=minimal'
+                },
+                body: JSON.stringify({ is_default: true })
             });
         }
     }
@@ -435,9 +1700,9 @@ async function uploadFormatBackground(file, code) {
             apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
             Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
             'Content-Type': file.type || 'application/octet-stream',
-            'x-upsert': 'true',
+            'x-upsert': 'true'
         },
-        body: file,
+        body: file
     });
 
     if (!res.ok) {
@@ -455,7 +1720,8 @@ async function uploadFormatBackground(file, code) {
 async function loadAdminBanList() {
     const host = document.getElementById('adminBanListBody');
     if (!host) return;
-    host.innerHTML = '<tr><td colspan="5" class="admin-loading"><div class="spinner"></div></td></tr>';
+    host.innerHTML =
+        '<tr><td colspan="5" class="admin-loading"><div class="spinner"></div></td></tr>';
 
     try {
         const res = await fetch(
@@ -487,14 +1753,14 @@ async function loadAdminBanList() {
     }
 }
 
-
 function renderAdminBanList() {
     const host = document.getElementById('adminBanListBody');
     const countEl = document.getElementById('adminBanListCount');
     if (!host) return;
 
     if (!adminBanList.length) {
-        host.innerHTML = '<tr><td colspan="5" class="admin-empty">Nenhuma restrição cadastrada.</td></tr>';
+        host.innerHTML =
+            '<tr><td colspan="5" class="admin-empty">Nenhuma restrição cadastrada.</td></tr>';
         if (countEl) countEl.textContent = '';
         return;
     }
@@ -502,8 +1768,10 @@ function renderAdminBanList() {
     const query = (document.getElementById('adminBanListSearch')?.value || '').trim().toUpperCase();
     const filtered = query
         ? adminBanList.filter((e) => {
-            const name = adminBanNameMap[e.card_code] || '';
-            return e.card_code.toUpperCase().includes(query) || name.toUpperCase().includes(query);
+              const name = adminBanNameMap[e.card_code] || '';
+              return (
+                  e.card_code.toUpperCase().includes(query) || name.toUpperCase().includes(query)
+              );
           })
         : adminBanList;
 
@@ -521,20 +1789,19 @@ function renderAdminBanList() {
     const LABELS = {
         banned: 'Banned',
         limited: 'Limited (1 copy)',
-        'choice-restricted': 'Choice-Restricted',
+        'choice-restricted': 'Choice-Restricted'
     };
     const BADGE_CLASS = {
         banned: 'admin-badge--banned',
         limited: 'admin-badge--limited',
-        'choice-restricted': 'admin-badge--choice',
+        'choice-restricted': 'admin-badge--choice'
     };
 
     host.innerHTML = filtered
-        .map(
-            (entry) => {
-                const name = adminBanNameMap[entry.card_code];
-                const previewAttr = `data-card-preview-code="${encodeURIComponent(entry.card_code)}"`;
-                return `
+        .map((entry) => {
+            const name = adminBanNameMap[entry.card_code];
+            const previewAttr = `data-card-preview-code="${encodeURIComponent(entry.card_code)}"`;
+            return `
         <tr>
             <td><code class="stats-card-hover" ${previewAttr}>${escapeAdminHtml(entry.card_code)}</code></td>
             <td class="admin-dim">${name ? `<span class="stats-card-hover" ${previewAttr}>${escapeAdminHtml(name)}</span>` : '<span style="opacity:.45">—</span>'}</td>
@@ -545,8 +1812,7 @@ function renderAdminBanList() {
                 <button class="player-history-register-btn admin-btn-danger" data-admin-action="remove-ban" data-code="${escapeAdminHtml(entry.card_code)}">Remover</button>
             </td>
         </tr>`;
-            }
-        )
+        })
         .join('');
 
     if (typeof bindStatisticsCardPreview === 'function') {
@@ -566,7 +1832,9 @@ function openBanModal(cardCode) {
     modal.querySelector('#adminBanRestriction').value = entry?.restriction || 'limited';
     modal.querySelector('#adminBanNotes').value = entry?.notes || '';
     modal.querySelector('#adminBanStatus').textContent = '';
-    modal.querySelector('.admin-modal-title').textContent = entry ? 'Editar restrição' : 'Adicionar restrição';
+    modal.querySelector('.admin-modal-title').textContent = entry
+        ? 'Editar restrição'
+        : 'Adicionar restrição';
     updateBanCardPreview(entry?.card_code || '');
     modal.classList.add('active');
 }
@@ -596,7 +1864,7 @@ async function saveBanEntry(e) {
         const headers = {
             ...window.createSupabaseHeaders(),
             'Content-Type': 'application/json',
-            Prefer: 'return=minimal',
+            Prefer: 'return=minimal'
         };
 
         const isEdit = !!originalCode;
@@ -609,14 +1877,24 @@ async function saveBanEntry(e) {
                 {
                     method: 'PATCH',
                     headers,
-                    body: JSON.stringify({ card_code: cardCode, restriction, notes: notes || null, card_name: adminBanNameMap[cardCode] || null }),
+                    body: JSON.stringify({
+                        card_code: cardCode,
+                        restriction,
+                        notes: notes || null,
+                        card_name: adminBanNameMap[cardCode] || null
+                    })
                 }
             );
         } else {
             res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/ban_list`, {
                 method: 'POST',
                 headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
-                body: JSON.stringify({ card_code: cardCode, restriction, notes: notes || null, card_name: adminBanNameMap[cardCode] || null }),
+                body: JSON.stringify({
+                    card_code: cardCode,
+                    restriction,
+                    notes: notes || null,
+                    card_name: adminBanNameMap[cardCode] || null
+                })
             });
         }
 
@@ -655,7 +1933,7 @@ async function removeBanEntry(cardCode) {
 const CARD_IMAGE_CDNS = [
     (code) => `https://images.digimoncard.io/images/cards/${code}.webp`,
     (code) => `https://images.digimoncard.io/images/cards/${code}.jpg`,
-    (code) => `https://deckbuilder.egmanevents.com//card_images/digimon/${code}.webp`,
+    (code) => `https://deckbuilder.egmanevents.com//card_images/digimon/${code}.webp`
 ];
 
 function updateBanCardPreview(code) {
@@ -735,12 +2013,14 @@ async function fetchAndCacheBanCardName(code) {
                             headers: {
                                 ...window.createSupabaseHeaders(),
                                 'Content-Type': 'application/json',
-                                Prefer: 'return=minimal',
+                                Prefer: 'return=minimal'
                             },
-                            body: JSON.stringify({ card_name: name }),
+                            body: JSON.stringify({ card_name: name })
                         }
                     );
-                } catch (_) { /* best-effort */ }
+                } catch (_) {
+                    /* best-effort */
+                }
             }
         } else {
             if (nameEl) nameEl.textContent = '';
@@ -776,14 +2056,14 @@ async function toggleBucketBrowser() {
                 headers: {
                     apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
                     Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     prefix: '',
                     limit: 200,
                     offset: 0,
-                    sortBy: { column: 'name', order: 'asc' },
-                }),
+                    sortBy: { column: 'name', order: 'asc' }
+                })
             }
         );
 
@@ -869,7 +2149,7 @@ async function toggleStoreBucketBrowser() {
     const listHeaders = {
         apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
         Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
     };
 
     async function listPrefix(prefix) {
@@ -878,7 +2158,12 @@ async function toggleStoreBucketBrowser() {
             {
                 method: 'POST',
                 headers: listHeaders,
-                body: JSON.stringify({ prefix, limit: 200, offset: 0, sortBy: { column: 'name', order: 'asc' } }),
+                body: JSON.stringify({
+                    prefix,
+                    limit: 200,
+                    offset: 0,
+                    sortBy: { column: 'name', order: 'asc' }
+                })
             }
         );
         if (!res.ok) return [];
@@ -896,11 +2181,15 @@ async function toggleStoreBucketBrowser() {
                 .map((f) => ({ name: f.name, url: bucketBase + encodeURIComponent(f.name) })),
             ...subFiles
                 .filter((f) => f.name && !f.name.endsWith('/') && f.id)
-                .map((f) => ({ name: f.name, url: bucketBase + 'stores/' + encodeURIComponent(f.name) })),
+                .map((f) => ({
+                    name: f.name,
+                    url: bucketBase + 'stores/' + encodeURIComponent(f.name)
+                }))
         ];
 
         if (entries.length === 0) {
-            grid.innerHTML = '<p style="padding:12px;opacity:.6;">No logos found in store-logos bucket.</p>';
+            grid.innerHTML =
+                '<p style="padding:12px;opacity:.6;">No logos found in store-logos bucket.</p>';
             return;
         }
 
@@ -970,18 +2259,25 @@ const REPAIR_DIGIMON_API = 'https://digimoncard.io/api-public/search';
 let _repairIncompleteCodesCache = null;
 
 function deriveCardMeta(row) {
-    const typeRaw = String(row?.type || '').trim().toLowerCase();
-    let card_level = Number.isFinite(Number(row?.level)) && row?.level !== '' && row?.level !== null
-        ? Math.trunc(Number(row.level))
-        : null;
+    const typeRaw = String(row?.type || '')
+        .trim()
+        .toLowerCase();
+    let card_level =
+        Number.isFinite(Number(row?.level)) && row?.level !== '' && row?.level !== null
+            ? Math.trunc(Number(row.level))
+            : null;
     let card_type = null;
     if (typeRaw === 'digi-egg' || typeRaw === 'digitama') card_type = 'Digi-Egg';
     else if (typeRaw === 'digimon') card_type = 'Digimon';
-    else if (typeRaw === 'tamer')   card_type = 'Tamer';
-    else if (typeRaw === 'option')  card_type = 'Option';
-    else if (typeRaw === 'dual')    card_type = 'Dual';
+    else if (typeRaw === 'tamer') card_type = 'Tamer';
+    else if (typeRaw === 'option') card_type = 'Option';
+    else if (typeRaw === 'dual') card_type = 'Dual';
     // Option, Tamer, Dual have no meaningful level — normalize null to 0 for consistency
-    if ((card_type === 'Option' || card_type === 'Tamer' || card_type === 'Dual') && card_level === null) card_level = 0;
+    if (
+        (card_type === 'Option' || card_type === 'Tamer' || card_type === 'Dual') &&
+        card_level === null
+    )
+        card_level = 0;
     const is_digi_egg = card_type === 'Digi-Egg';
     return { card_type, card_level, is_digi_egg };
 }
@@ -999,7 +2295,10 @@ function repairLog(msg, type = 'info') {
 
 function repairLogClear() {
     const log = document.getElementById('adminRepairLog');
-    if (log) { log.innerHTML = ''; log.classList.add('is-hidden'); }
+    if (log) {
+        log.innerHTML = '';
+        log.classList.add('is-hidden');
+    }
 }
 
 async function fetchRepairIncompleteCodes() {
@@ -1014,14 +2313,18 @@ async function fetchRepairIncompleteCodes() {
             select: 'card_code,name',
             order: 'card_code.asc',
             limit: String(limit),
-            offset: String(offset),
+            offset: String(offset)
         });
-        const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${params}`, { headers: hdrs });
+        const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${params}`, {
+            headers: hdrs
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const rows = await res.json();
         if (!Array.isArray(rows) || !rows.length) break;
-        rows.forEach(r => {
-            const code = String(r.card_code || '').trim().toUpperCase();
+        rows.forEach((r) => {
+            const code = String(r.card_code || '')
+                .trim()
+                .toUpperCase();
             const name = String(r.name || '').trim();
             // Incomplete if name is missing OR name was set to the card code (stub record)
             if (!name || name === code) out.push(code);
@@ -1054,14 +2357,16 @@ function repairProgressHide() {
 
 async function fetchCardsFromDigimonApiAdmin(codes, onProgress) {
     const CHUNK = 20;
-    const SLEEP_MS = 800;       // ~10 req/10s — safely under the 15/10s limit
+    const SLEEP_MS = 800; // ~10 req/10s — safely under the 15/10s limit
     const SLEEP_MISSED_MS = 400; // individual retries are smaller; 400ms keeps them safe too
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     const result = [];
     const usedCodes = new Set();
     const pushRow = (row) => {
-        const code = String(row?.id || row?.card || '').trim().toUpperCase();
+        const code = String(row?.id || row?.card || '')
+            .trim()
+            .toUpperCase();
         if (!code || usedCodes.has(code)) return;
         usedCodes.add(code);
         const { card_type, card_level, is_digi_egg } = deriveCardMeta(row);
@@ -1074,7 +2379,7 @@ async function fetchCardsFromDigimonApiAdmin(codes, onProgress) {
             card_type,
             card_level,
             is_digi_egg,
-            card_payload: row || {},
+            card_payload: row || {}
         });
     };
 
@@ -1086,7 +2391,11 @@ async function fetchCardsFromDigimonApiAdmin(codes, onProgress) {
     while (ci < chunks.length) {
         const chunk = chunks[ci];
         try {
-            const q = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2), series: 'Digimon Card Game' });
+            const q = new URLSearchParams({
+                card: chunk.join(','),
+                limit: String(chunk.length * 2),
+                series: 'Digimon Card Game'
+            });
             const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
             if (res.status === 429) {
                 repairLog(`Rate limited no chunk ${ci + 1} — aguardando 10s…`, 'warn');
@@ -1102,17 +2411,24 @@ async function fetchCardsFromDigimonApiAdmin(codes, onProgress) {
         await sleep(SLEEP_MS);
 
         // Individual retry for cards not found in the batch
-        const missed = chunk.filter(c => !usedCodes.has(c));
+        const missed = chunk.filter((c) => !usedCodes.has(c));
         for (const code of missed) {
             try {
-                const q = new URLSearchParams({ card: code, limit: '1', series: 'Digimon Card Game' });
+                const q = new URLSearchParams({
+                    card: code,
+                    limit: '1',
+                    series: 'Digimon Card Game'
+                });
                 const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
                 if (res.status === 429) {
                     repairLog(`Rate limited (individual retry ${code}) — aguardando 10s…`, 'warn');
                     await sleep(10000);
                     // retry this code once more
                     const res2 = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
-                    if (res2.ok) { const rows = await res2.json(); if (Array.isArray(rows)) rows.forEach(pushRow); }
+                    if (res2.ok) {
+                        const rows = await res2.json();
+                        if (Array.isArray(rows)) rows.forEach(pushRow);
+                    }
                 } else if (res.ok) {
                     const rows = await res.json();
                     if (Array.isArray(rows)) rows.forEach(pushRow);
@@ -1137,8 +2453,12 @@ async function upsertRepairRows(rows, onProgress) {
         const chunk = rows.slice(i, i + CHUNK);
         const res = await fetch(`${base}/rest/v1/decklist_card_metadata?on_conflict=card_code`, {
             method: 'POST',
-            headers: { ...hdrs, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-            body: JSON.stringify(chunk),
+            headers: {
+                ...hdrs,
+                'Content-Type': 'application/json',
+                Prefer: 'resolution=merge-duplicates,return=minimal'
+            },
+            body: JSON.stringify(chunk)
         });
         if (!res.ok) {
             const detail = await res.text().catch(() => '');
@@ -1167,7 +2487,8 @@ async function runRepairCheck() {
                 : 'All records are complete. Nothing to repair.';
         }
         if (runBtn) runBtn.disabled = codes.length === 0;
-        if (codes.length) repairLog(`${codes.length} incomplete card(s) found. Click "Repair" to fix.`, 'info');
+        if (codes.length)
+            repairLog(`${codes.length} incomplete card(s) found. Click "Repair" to fix.`, 'info');
     } catch (err) {
         if (countEl) countEl.textContent = 'Error scanning records.';
         repairLog(`Error: ${err.message}`, 'error');
@@ -1176,7 +2497,10 @@ async function runRepairCheck() {
 
 async function runRepairRun() {
     const codes = _repairIncompleteCodesCache;
-    if (!codes || !codes.length) { repairLog('Run "Check" first.', 'warn'); return; }
+    if (!codes || !codes.length) {
+        repairLog('Run "Check" first.', 'warn');
+        return;
+    }
 
     const runBtn = document.getElementById('adminRepairRunBtn');
     const checkBtn = document.querySelector('[data-admin-action="repair-check"]');
@@ -1197,22 +2521,25 @@ async function runRepairRun() {
             );
         });
 
-        repairLog(`API retornou dados para ${fetched.length} / ${codes.length} carta(s).`, fetched.length ? 'info' : 'warn');
+        repairLog(
+            `API retornou dados para ${fetched.length} / ${codes.length} carta(s).`,
+            fetched.length ? 'info' : 'warn'
+        );
 
         // For codes the API couldn't find, save a stub so they stop appearing as incomplete
-        const fetchedCodes = new Set(fetched.map(r => r.card_code));
+        const fetchedCodes = new Set(fetched.map((r) => r.card_code));
         const stubs = codes
-            .filter(c => !fetchedCodes.has(c))
-            .map(c => ({
+            .filter((c) => !fetchedCodes.has(c))
+            .map((c) => ({
                 card_code: c,
                 id: c,
-                name: c,           // use card_code as name so name IS NOT NULL
+                name: c, // use card_code as name so name IS NOT NULL
                 pack: c.split('-')[0] || null,
                 color: null,
-                card_type: null,   // genuinely unknown
+                card_type: null, // genuinely unknown
                 card_level: null,
                 is_digi_egg: false,
-                card_payload: {},
+                card_payload: {}
             }));
 
         const allToUpsert = [...fetched, ...stubs];
@@ -1233,7 +2560,8 @@ async function runRepairRun() {
 
         _repairIncompleteCodesCache = null;
         const countEl = document.getElementById('adminRepairMissingCount');
-        if (countEl) countEl.textContent = 'Repair concluído. Clique em "Check" para verificar novamente.';
+        if (countEl)
+            countEl.textContent = 'Repair concluído. Clique em "Check" para verificar novamente.';
     } catch (err) {
         repairProgressHide();
         repairLog(`Erro: ${err.message}`, 'error');
@@ -1262,7 +2590,10 @@ function downloadLog(msg, type = 'info') {
 
 function downloadLogClear() {
     const log = document.getElementById('adminDownloadLog');
-    if (log) { log.innerHTML = ''; log.classList.add('is-hidden'); }
+    if (log) {
+        log.innerHTML = '';
+        log.classList.add('is-hidden');
+    }
 }
 
 function downloadProgressShow(label, pct, detail) {
@@ -1293,12 +2624,22 @@ async function runDownloadCards() {
 
     try {
         // Step 1: fetch all card numbers from getAllCards
-        const params = new URLSearchParams({ series: 'Digimon Card Game', sort: 'card_number', sortdirection: 'asc' });
+        const params = new URLSearchParams({
+            series: 'Digimon Card Game',
+            sort: 'card_number',
+            sortdirection: 'asc'
+        });
         const allRes = await fetch(`${DIGIMON_ALL_CARDS_API}?${params}`);
         if (!allRes.ok) throw new Error(`getAllCards falhou: HTTP ${allRes.status}`);
         const allRows = await allRes.json();
         if (!Array.isArray(allRows)) throw new Error('Resposta inesperada do getAllCards');
-        const allCodes = allRows.map(r => String(r?.cardnumber || '').trim().toUpperCase()).filter(Boolean);
+        const allCodes = allRows
+            .map((r) =>
+                String(r?.cardnumber || '')
+                    .trim()
+                    .toUpperCase()
+            )
+            .filter(Boolean);
         downloadLog(`${allCodes.length} cartas encontradas na API.`, 'info');
 
         if (!allCodes.length) {
@@ -1315,13 +2656,22 @@ async function runDownloadCards() {
         let offset = 0;
         const PAGE = 1000;
         while (true) {
-            const q = new URLSearchParams({ select: 'card_code,name', order: 'card_code.asc', limit: String(PAGE), offset: String(offset) });
-            const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
+            const q = new URLSearchParams({
+                select: 'card_code,name',
+                order: 'card_code.asc',
+                limit: String(PAGE),
+                offset: String(offset)
+            });
+            const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, {
+                headers: hdrs
+            });
             if (!res.ok) throw new Error(`Erro ao ler banco: HTTP ${res.status}`);
             const batch = await res.json();
             if (!Array.isArray(batch) || !batch.length) break;
-            batch.forEach(r => {
-                const c = String(r?.card_code || '').trim().toUpperCase();
+            batch.forEach((r) => {
+                const c = String(r?.card_code || '')
+                    .trim()
+                    .toUpperCase();
                 const n = String(r?.name || '').trim();
                 // Only skip if the record has a real name (not null and not equal to card code = not a stub)
                 if (c && n && n !== c) existingCodes.add(c);
@@ -1329,27 +2679,34 @@ async function runDownloadCards() {
             if (batch.length < PAGE) break;
             offset += PAGE;
         }
-        const codes = allCodes.filter(c => !existingCodes.has(c));
-        downloadLog(`${existingCodes.size} já no banco com nome real — ${codes.length} a baixar (novas + stubs sem nome).`, 'info');
+        const codes = allCodes.filter((c) => !existingCodes.has(c));
+        downloadLog(
+            `${existingCodes.size} já no banco com nome real — ${codes.length} a baixar (novas + stubs sem nome).`,
+            'info'
+        );
 
         if (!codes.length) {
             downloadProgressShow('Concluído!', 100, 'Nenhuma carta nova.');
             downloadLog('Catálogo já está atualizado. Nenhuma carta nova para baixar.', 'success');
-            if (statusEl) statusEl.textContent = `Catálogo atualizado — ${existingCodes.size} cartas no banco.`;
+            if (statusEl)
+                statusEl.textContent = `Catálogo atualizado — ${existingCodes.size} cartas no banco.`;
             if (runBtn) runBtn.disabled = false;
             return;
         }
 
         // Build a name lookup from getAllCards so we can save minimal records as fallback
         const codeToName = new Map();
-        allRows.forEach(r => {
-            const c = String(r?.cardnumber || '').trim().toUpperCase();
+        allRows.forEach((r) => {
+            const c = String(r?.cardnumber || '')
+                .trim()
+                .toUpperCase();
             if (c) codeToName.set(c, String(r?.name || '').trim() || null);
         });
 
         // Step 4: chunk and fetch metadata for new codes only
         const chunks = [];
-        for (let i = 0; i < codes.length; i += DL_CHUNK_SIZE) chunks.push(codes.slice(i, i + DL_CHUNK_SIZE));
+        for (let i = 0; i < codes.length; i += DL_CHUNK_SIZE)
+            chunks.push(codes.slice(i, i + DL_CHUNK_SIZE));
 
         const fetched = [];
         const usedCodes = new Set();
@@ -1359,21 +2716,31 @@ async function runDownloadCards() {
         while (i < chunks.length) {
             const chunk = chunks[i];
             const pct = (i / chunks.length) * 70;
-            downloadProgressShow('Buscando metadados na API…', pct, `chunk ${i + 1}/${chunks.length} · ${fetched.length} cartas`);
+            downloadProgressShow(
+                'Buscando metadados na API…',
+                pct,
+                `chunk ${i + 1}/${chunks.length} · ${fetched.length} cartas`
+            );
 
             try {
-                const q = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2), series: 'Digimon Card Game' });
+                const q = new URLSearchParams({
+                    card: chunk.join(','),
+                    limit: String(chunk.length * 2),
+                    series: 'Digimon Card Game'
+                });
                 const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
                 if (res.status === 429) {
                     downloadLog(`Rate limited no chunk ${i + 1} — aguardando 10s…`, 'warn');
-                    await new Promise(r => setTimeout(r, 10000));
+                    await new Promise((r) => setTimeout(r, 10000));
                     continue; // retry same chunk without incrementing i
                 }
                 if (res.ok) {
                     const rows = await res.json();
                     if (Array.isArray(rows)) {
-                        rows.forEach(row => {
-                            const code = String(row?.id || row?.card || '').trim().toUpperCase();
+                        rows.forEach((row) => {
+                            const code = String(row?.id || row?.card || '')
+                                .trim()
+                                .toUpperCase();
                             if (!code || usedCodes.has(code)) return;
                             usedCodes.add(code);
                             const { card_type, card_level, is_digi_egg } = deriveCardMeta(row);
@@ -1386,7 +2753,7 @@ async function runDownloadCards() {
                                 card_type,
                                 card_level,
                                 is_digi_egg,
-                                card_payload: row || {},
+                                card_payload: row || {}
                             });
                         });
                     }
@@ -1398,10 +2765,13 @@ async function runDownloadCards() {
             }
 
             if ((i + 1) % 10 === 0 || i + 1 === chunks.length) {
-                downloadLog(`Progresso: ${i + 1}/${chunks.length} chunks · ${fetched.length} cartas`, 'info');
+                downloadLog(
+                    `Progresso: ${i + 1}/${chunks.length} chunks · ${fetched.length} cartas`,
+                    'info'
+                );
             }
 
-            await new Promise(r => setTimeout(r, DL_SLEEP_MS));
+            await new Promise((r) => setTimeout(r, DL_SLEEP_MS));
             i++;
         }
 
@@ -1413,7 +2783,7 @@ async function runDownloadCards() {
         // Fallback: for codes not returned by the search API, save a minimal record
         // using the name from getAllCards so they at least exist in the DB.
         const fallback = [];
-        codes.forEach(code => {
+        codes.forEach((code) => {
             if (usedCodes.has(code)) return;
             const name = codeToName.get(code) || null;
             fallback.push({
@@ -1425,11 +2795,14 @@ async function runDownloadCards() {
                 card_type: null,
                 card_level: null,
                 is_digi_egg: false,
-                card_payload: name ? { id: code, name } : {},
+                card_payload: name ? { id: code, name } : {}
             });
         });
         if (fallback.length) {
-            downloadLog(`${fallback.length} carta(s) sem metadados na API — salvas com registro mínimo (nome + código).`, 'warn');
+            downloadLog(
+                `${fallback.length} carta(s) sem metadados na API — salvas com registro mínimo (nome + código).`,
+                'warn'
+            );
             fetched.push(...fallback);
         }
 
@@ -1449,8 +2822,12 @@ async function runDownloadCards() {
         });
 
         downloadProgressShow('Concluído!', 100, `${fetched.length} carta(s) salvas`);
-        downloadLog(`Pronto. ${fetched.length} carta(s) salvas em decklist_card_metadata.`, 'success');
-        if (statusEl) statusEl.textContent = `Última sincronização: ${fetched.length} cartas salvas. Busca no Deck Builder atualizada.`;
+        downloadLog(
+            `Pronto. ${fetched.length} carta(s) salvas em decklist_card_metadata.`,
+            'success'
+        );
+        if (statusEl)
+            statusEl.textContent = `Última sincronização: ${fetched.length} cartas salvas. Busca no Deck Builder atualizada.`;
     } catch (err) {
         downloadProgressHide();
         downloadLog(`Erro: ${err.message}`, 'error');
@@ -1464,7 +2841,7 @@ async function runDownloadCards() {
 // EXPORT CATALOG
 // ============================================================
 const CATALOG_BUCKET = 'card-catalog';
-const CATALOG_FILE   = 'card-catalog.json';
+const CATALOG_FILE = 'card-catalog.json';
 
 function exportLog(msg, type = 'info') {
     const log = document.getElementById('adminExportLog');
@@ -1479,20 +2856,23 @@ function exportLog(msg, type = 'info') {
 
 function exportLogClear() {
     const log = document.getElementById('adminExportLog');
-    if (log) { log.innerHTML = ''; log.classList.add('is-hidden'); }
+    if (log) {
+        log.innerHTML = '';
+        log.classList.add('is-hidden');
+    }
 }
 
 function exportProgressShow(label, pct, detail) {
-    const wrap    = document.getElementById('adminExportProgress');
+    const wrap = document.getElementById('adminExportProgress');
     const labelEl = document.getElementById('adminExportProgressLabel');
-    const pctEl   = document.getElementById('adminExportProgressPct');
-    const bar     = document.getElementById('adminExportProgressBar');
-    const detailEl= document.getElementById('adminExportProgressDetail');
+    const pctEl = document.getElementById('adminExportProgressPct');
+    const bar = document.getElementById('adminExportProgressBar');
+    const detailEl = document.getElementById('adminExportProgressDetail');
     if (!wrap) return;
     wrap.classList.remove('is-hidden');
-    if (labelEl)  labelEl.textContent  = label;
-    if (pctEl)    pctEl.textContent    = `${Math.round(pct)}%`;
-    if (bar)      bar.style.width      = `${Math.min(100, pct)}%`;
+    if (labelEl) labelEl.textContent = label;
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+    if (bar) bar.style.width = `${Math.min(100, pct)}%`;
     if (detailEl && detail != null) detailEl.textContent = detail;
 }
 
@@ -1502,8 +2882,8 @@ function exportProgressHide() {
 }
 
 async function runExportCatalog() {
-    const runBtn  = document.getElementById('adminExportRunBtn');
-    const statusEl= document.getElementById('adminExportStatus');
+    const runBtn = document.getElementById('adminExportRunBtn');
+    const statusEl = document.getElementById('adminExportStatus');
     if (runBtn) runBtn.disabled = true;
     exportLogClear();
     exportProgressShow('Lendo banco de dados…', 0, '');
@@ -1519,16 +2899,22 @@ async function runExportCatalog() {
         while (true) {
             const q = new URLSearchParams({
                 select: 'card_code,name,pack,color,card_type,card_level,card_payload',
-                order:  'card_code.asc',
-                limit:  String(PAGE),
-                offset: String(offset),
+                order: 'card_code.asc',
+                limit: String(PAGE),
+                offset: String(offset)
             });
-            const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
+            const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, {
+                headers: hdrs
+            });
             if (!res.ok) throw new Error(`Erro ao ler banco: HTTP ${res.status}`);
             const batch = await res.json();
             if (!Array.isArray(batch) || !batch.length) break;
             allCards.push(...batch);
-            exportProgressShow('Lendo banco de dados…', Math.min(45, (allCards.length / 5000) * 45), `${allCards.length} cartas lidas…`);
+            exportProgressShow(
+                'Lendo banco de dados…',
+                Math.min(45, (allCards.length / 5000) * 45),
+                `${allCards.length} cartas lidas…`
+            );
             if (batch.length < PAGE) break;
             offset += PAGE;
         }
@@ -1536,25 +2922,25 @@ async function runExportCatalog() {
 
         // Step 2: build lightweight catalog (extract only needed fields from payload)
         exportProgressShow('Gerando catálogo…', 50, '');
-        const catalog = allCards.map(r => {
+        const catalog = allCards.map((r) => {
             const p = r.card_payload || {};
             return {
-                card_code:  r.card_code,
-                name:       r.name       || null,
-                pack:       r.pack       || null,
-                color:      r.color      || null,
-                color2:     p.color2     || null,
-                card_type:  r.card_type  || null,
+                card_code: r.card_code,
+                name: r.name || null,
+                pack: r.pack || null,
+                color: r.color || null,
+                color2: p.color2 || null,
+                card_type: r.card_type || null,
                 card_level: r.card_level ?? null,
-                digi_type:  p.digi_type  || p.digitype  || null,
+                digi_type: p.digi_type || p.digitype || null,
                 digi_type2: p.digi_type2 || null,
                 digi_type3: p.digi_type3 || null,
                 digi_type4: p.digi_type4 || null,
-                play_cost:  p.play_cost  ?? p.playcost ?? null,
-                main_effect:   p.main_effect   || null,
+                play_cost: p.play_cost ?? p.playcost ?? null,
+                main_effect: p.main_effect || null,
                 source_effect: p.source_effect || null,
-                alt_effect:    p.alt_effect    || null,
-                img:        p.img        || null,
+                alt_effect: p.alt_effect || null,
+                img: p.img || null
             };
         });
 
@@ -1572,9 +2958,9 @@ async function runExportCatalog() {
                     ...hdrs,
                     'Content-Type': 'application/json',
                     'Cache-Control': 'public, max-age=86400',
-                    'x-upsert': 'true',
+                    'x-upsert': 'true'
                 },
-                body: json,
+                body: json
             }
         );
 
@@ -1584,8 +2970,12 @@ async function runExportCatalog() {
         }
 
         exportProgressShow('Concluído!', 100, `${catalog.length} cartas exportadas`);
-        exportLog(`Pronto. Arquivo disponível em: ${base}/storage/v1/object/public/${CATALOG_BUCKET}/${CATALOG_FILE}`, 'success');
-        if (statusEl) statusEl.textContent = `Última exportação: ${catalog.length} cartas · ${sizeKb} KB.`;
+        exportLog(
+            `Pronto. Arquivo disponível em: ${base}/storage/v1/object/public/${CATALOG_BUCKET}/${CATALOG_FILE}`,
+            'success'
+        );
+        if (statusEl)
+            statusEl.textContent = `Última exportação: ${catalog.length} cartas · ${sizeKb} KB.`;
     } catch (err) {
         exportProgressHide();
         exportLog(`Erro: ${err.message}`, 'error');
@@ -1607,18 +2997,22 @@ function injectSyncCardsSection() {
 
     // Hide the individual legacy sections — Sync & Export replaces all three
     const legacyIds = [
-        'adminRepairRunBtn', 'adminRepairMissingCount',
-        'adminDownloadRunBtn', 'adminDownloadStatus',
-        'adminExportRunBtn',  'adminExportStatus',
+        'adminRepairRunBtn',
+        'adminRepairMissingCount',
+        'adminDownloadRunBtn',
+        'adminDownloadStatus',
+        'adminExportRunBtn',
+        'adminExportStatus'
     ];
     const hiddenSections = new Set();
-    legacyIds.forEach(id => {
+    legacyIds.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
-        const section = el.closest('[class*="admin-section"]')
-            || el.closest('[class*="section"]')
-            || el.closest('[class*="w-layout"]')
-            || el.parentElement?.parentElement;
+        const section =
+            el.closest('[class*="admin-section"]') ||
+            el.closest('[class*="section"]') ||
+            el.closest('[class*="w-layout"]') ||
+            el.parentElement?.parentElement;
         if (section && !hiddenSections.has(section)) {
             section.style.display = 'none';
             hiddenSections.add(section);
@@ -1627,11 +3021,12 @@ function injectSyncCardsSection() {
 
     // Inject unified section after the last hidden one (or at end of container)
     const lastHidden = [...hiddenSections].at(-1);
-    const container  = document.getElementById('adminContainer');
+    const container = document.getElementById('adminContainer');
 
     const section = document.createElement('div');
     section.id = 'adminSyncCardsSection';
-    section.style.cssText = 'padding:20px;border:1px solid #1e293b;border-radius:8px;background:#0f172a;color:#f1f5f9';
+    section.style.cssText =
+        'padding:20px;border:1px solid #1e293b;border-radius:8px;background:#0f172a;color:#f1f5f9';
     section.innerHTML = `
         <h3 style="margin:0 0 4px;font-size:1rem;font-weight:600;color:#f1f5f9">Sync Cards</h3>
         <p style="margin:0 0 14px;font-size:.85rem;color:#94a3b8">
@@ -1676,7 +3071,10 @@ function syncLog(msg, type = 'info') {
 
 function syncLogClear() {
     const log = document.getElementById('adminSyncLog');
-    if (log) { log.innerHTML = ''; log.style.display = 'none'; }
+    if (log) {
+        log.innerHTML = '';
+        log.style.display = 'none';
+    }
 }
 
 function syncProgressShow(label, pct, detail) {
@@ -1685,8 +3083,10 @@ function syncProgressShow(label, pct, detail) {
     const el = (id) => document.getElementById(id);
     if (el('adminSyncProgressLabel')) el('adminSyncProgressLabel').textContent = label;
     if (el('adminSyncProgressPct')) el('adminSyncProgressPct').textContent = `${Math.round(pct)}%`;
-    if (el('adminSyncProgressBar')) el('adminSyncProgressBar').style.width = `${Math.min(100, pct)}%`;
-    if (detail != null && el('adminSyncProgressDetail')) el('adminSyncProgressDetail').textContent = detail;
+    if (el('adminSyncProgressBar'))
+        el('adminSyncProgressBar').style.width = `${Math.min(100, pct)}%`;
+    if (detail != null && el('adminSyncProgressDetail'))
+        el('adminSyncProgressDetail').textContent = detail;
 }
 
 function syncProgressHide() {
@@ -1707,13 +3107,13 @@ async function fixCardTypesFromPayload() {
             card_type: 'is.null',
             order: 'card_code.asc',
             limit: String(PAGE),
-            offset: String(offset),
+            offset: String(offset)
         });
         const res = await fetch(`${base}/rest/v1/decklist_card_metadata?${q}`, { headers: hdrs });
         if (!res.ok) break;
         const batch = await res.json();
         if (!Array.isArray(batch) || !batch.length) break;
-        batch.forEach(r => {
+        batch.forEach((r) => {
             const { card_type, is_digi_egg } = deriveCardMeta(r.card_payload || {});
             if (card_type) toUpdate.push({ card_code: r.card_code, card_type, is_digi_egg });
         });
@@ -1725,14 +3125,15 @@ async function fixCardTypesFromPayload() {
 
     const CHUNK = 500;
     for (let i = 0; i < toUpdate.length; i += CHUNK) {
-        const res = await fetch(
-            `${base}/rest/v1/decklist_card_metadata?on_conflict=card_code`,
-            {
-                method: 'POST',
-                headers: { ...hdrs, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-                body: JSON.stringify(toUpdate.slice(i, i + CHUNK)),
-            }
-        );
+        const res = await fetch(`${base}/rest/v1/decklist_card_metadata?on_conflict=card_code`, {
+            method: 'POST',
+            headers: {
+                ...hdrs,
+                'Content-Type': 'application/json',
+                Prefer: 'resolution=merge-duplicates,return=minimal'
+            },
+            body: JSON.stringify(toUpdate.slice(i, i + CHUNK))
+        });
         if (!res.ok) {
             const detail = await res.text().catch(() => '');
             throw new Error(`Patch card_type falhou: HTTP ${res.status} — ${detail}`);
@@ -1761,8 +3162,12 @@ async function runSyncCardsFull() {
 
         // Filter to valid DCG card codes only (excludes BO-, MO-, etc.)
         const allCodes = allRows
-            .map(r => String(r?.cardnumber || '').trim().toUpperCase())
-            .filter(c => c && SYNC_VALID_CODE_RE.test(c));
+            .map((r) =>
+                String(r?.cardnumber || '')
+                    .trim()
+                    .toUpperCase()
+            )
+            .filter((c) => c && SYNC_VALID_CODE_RE.test(c));
         syncLog(`${allCodes.length} códigos válidos encontrados no getAllCards.`, 'info');
 
         // Step 2: load current catalog JSON (bypass cache)
@@ -1777,7 +3182,7 @@ async function runSyncCardsFull() {
                 if (catRes.ok) {
                     const catData = await catRes.json();
                     if (Array.isArray(catData)) {
-                        catData.forEach(r => {
+                        catData.forEach((r) => {
                             const code = String(r?.card_code || '').toUpperCase();
                             if (code) catalogMap.set(code, r);
                         });
@@ -1790,18 +3195,25 @@ async function runSyncCardsFull() {
         // Step 3: fix card_type derivable from existing card_payload (no API call)
         syncProgressShow('Verificando card_type no banco…', 12, '');
         const fixedCount = await fixCardTypesFromPayload();
-        if (fixedCount) syncLog(`${fixedCount} registro(s) com card_type corrigido a partir do payload.`, 'info');
+        if (fixedCount)
+            syncLog(
+                `${fixedCount} registro(s) com card_type corrigido a partir do payload.`,
+                'info'
+            );
 
         // Step 4: find which codes still need fetching from API
         // Incomplete = not in catalog OR name is missing/equals card_code (stub)
-        const toFetch = allCodes.filter(code => {
+        const toFetch = allCodes.filter((code) => {
             const entry = catalogMap.get(code);
             if (!entry) return true;
             const name = String(entry?.name || '').trim();
             return !name || name === code;
         });
 
-        syncLog(`${toFetch.length} cartas faltantes ou incompletas no catálogo.`, toFetch.length ? 'warn' : 'info');
+        syncLog(
+            `${toFetch.length} cartas faltantes ou incompletas no catálogo.`,
+            toFetch.length ? 'warn' : 'info'
+        );
 
         if (!toFetch.length && !fixedCount) {
             syncLog('Nenhuma carta precisa ser atualizada.', 'info');
@@ -1813,14 +3225,22 @@ async function runSyncCardsFull() {
         const usedCodes = new Set();
 
         const pushRow = (row) => {
-            const code = String(row?.id || row?.card || '').trim().toUpperCase();
+            const code = String(row?.id || row?.card || '')
+                .trim()
+                .toUpperCase();
             if (!code || usedCodes.has(code)) return;
             usedCodes.add(code);
             const { card_type, card_level, is_digi_egg } = deriveCardMeta(row);
             fetched.push({
-                card_code: code, id: row?.id || code, name: row?.name || null,
-                pack: row?.pack || code.split('-')[0] || null, color: row?.color || null,
-                card_type, card_level, is_digi_egg, card_payload: row || {},
+                card_code: code,
+                id: row?.id || code,
+                name: row?.name || null,
+                pack: row?.pack || code.split('-')[0] || null,
+                color: row?.color || null,
+                card_type,
+                card_level,
+                is_digi_egg,
+                card_payload: row || {}
             });
         };
 
@@ -1839,11 +3259,14 @@ async function runSyncCardsFull() {
                     const q = new URLSearchParams({
                         card: chunk.join(','),
                         limit: String(chunk.length * 2),
-                        series: 'Digimon Card Game',
+                        series: 'Digimon Card Game'
                     });
                     const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
                     if (res.status === 429) {
-                        syncLog(`Rate limited (chunk ${Math.floor(i / CHUNK) + 1}) — aguardando 10s…`, 'warn');
+                        syncLog(
+                            `Rate limited (chunk ${Math.floor(i / CHUNK) + 1}) — aguardando 10s…`,
+                            'warn'
+                        );
                         await sleep(10000);
                         retries++;
                         continue;
@@ -1853,13 +3276,15 @@ async function runSyncCardsFull() {
                         if (Array.isArray(rows)) rows.forEach(pushRow);
                     }
                     break;
-                } catch (_) { retries++; }
+                } catch (_) {
+                    retries++;
+                }
             }
             await sleep(800);
         }
 
         // Step 5: retry missed codes 1-by-1
-        const missed = toFetch.filter(c => !usedCodes.has(c));
+        const missed = toFetch.filter((c) => !usedCodes.has(c));
         if (missed.length) {
             syncLog(`${missed.length} cartas não encontradas no batch — buscando 1 a 1…`, 'warn');
             for (let i = 0; i < missed.length; i++) {
@@ -1867,12 +3292,19 @@ async function runSyncCardsFull() {
                 const pct = 75 + (i / missed.length) * 15;
                 syncProgressShow('Buscando 1 a 1…', pct, `${i + 1} / ${missed.length} · ${code}`);
                 try {
-                    const q = new URLSearchParams({ card: code, limit: '2', series: 'Digimon Card Game' });
+                    const q = new URLSearchParams({
+                        card: code,
+                        limit: '2',
+                        series: 'Digimon Card Game'
+                    });
                     const res = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
                     if (res.status === 429) {
                         await sleep(10000);
                         const res2 = await fetch(`${REPAIR_DIGIMON_API}?${q}`);
-                        if (res2.ok) { const rows = await res2.json(); if (Array.isArray(rows)) rows.forEach(pushRow); }
+                        if (res2.ok) {
+                            const rows = await res2.json();
+                            if (Array.isArray(rows)) rows.forEach(pushRow);
+                        }
                     } else if (res.ok) {
                         const rows = await res.json();
                         if (Array.isArray(rows)) rows.forEach(pushRow);
@@ -1882,7 +3314,11 @@ async function runSyncCardsFull() {
             }
         }
 
-        if (toFetch.length) syncLog(`API retornou dados para ${fetched.length} / ${toFetch.length} carta(s).`, 'info');
+        if (toFetch.length)
+            syncLog(
+                `API retornou dados para ${fetched.length} / ${toFetch.length} carta(s).`,
+                'info'
+            );
 
         // Step 6: upsert to DB
         if (fetched.length) {
@@ -1903,14 +3339,24 @@ async function runSyncCardsFull() {
         syncProgressShow('Sincronizando imagens de decks…', 97, '');
         syncLog('Migrando imagens de decks para o Storage…', 'info');
         const { done: imgDone, failed: imgFailed } = await syncDeckImages((i, total) => {
-            syncProgressShow('Sincronizando imagens de decks…', 97 + (i / total) * 2, `${i} / ${total}`);
+            syncProgressShow(
+                'Sincronizando imagens de decks…',
+                97 + (i / total) * 2,
+                `${i} / ${total}`
+            );
         });
-        syncLog(`${imgDone} imagem(ns) de deck migrada(s) para o Storage.${imgFailed ? ` ${imgFailed} falhou.` : ''}`, imgFailed ? 'warn' : 'info');
+        syncLog(
+            `${imgDone} imagem(ns) de deck migrada(s) para o Storage.${imgFailed ? ` ${imgFailed} falhou.` : ''}`,
+            imgFailed ? 'warn' : 'info'
+        );
 
         syncProgressShow('Concluído!', 100, `${fetched.length} cartas · ${imgDone} imagens`);
-        syncLog(`Sync completo. ${fetched.length} cartas atualizadas, catálogo exportado, ${imgDone} imagens migradas.`, 'success');
-        if (statusEl) statusEl.textContent = `Última sync: ${fetched.length} carta(s) · ${imgDone} imagem(ns) · catálogo exportado.`;
-
+        syncLog(
+            `Sync completo. ${fetched.length} cartas atualizadas, catálogo exportado, ${imgDone} imagens migradas.`,
+            'success'
+        );
+        if (statusEl)
+            statusEl.textContent = `Última sync: ${fetched.length} carta(s) · ${imgDone} imagem(ns) · catálogo exportado.`;
     } catch (err) {
         syncProgressHide();
         syncLog(`Erro: ${err.message}`, 'error');
@@ -1926,7 +3372,9 @@ async function fetchCardImageBlob(src) {
         const res = await fetch(src);
         if (!res.ok) return null;
         blob = await res.blob();
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 
     return new Promise((resolve) => {
         const url = URL.createObjectURL(blob);
@@ -1936,21 +3384,37 @@ async function fetchCardImageBlob(src) {
             try {
                 // Blank check
                 const check = document.createElement('canvas');
-                check.width = 8; check.height = 8;
+                check.width = 8;
+                check.height = 8;
                 check.getContext('2d').drawImage(img, 0, 0, 8, 8);
                 const { data } = check.getContext('2d').getImageData(0, 0, 8, 8);
-                let r = 0, g = 0, b = 0;
+                let r = 0,
+                    g = 0,
+                    b = 0;
                 const px = data.length / 4;
-                for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
-                if ((r / px) > 245 && (g / px) > 245 && (b / px) > 245) { resolve(null); return; }
+                for (let i = 0; i < data.length; i += 4) {
+                    r += data[i];
+                    g += data[i + 1];
+                    b += data[i + 2];
+                }
+                if (r / px > 245 && g / px > 245 && b / px > 245) {
+                    resolve(null);
+                    return;
+                }
                 // Convert to WebP
                 const cv = document.createElement('canvas');
-                cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+                cv.width = img.naturalWidth;
+                cv.height = img.naturalHeight;
                 cv.getContext('2d').drawImage(img, 0, 0);
                 cv.toBlob((webpBlob) => resolve(webpBlob || blob), 'image/webp', 0.92);
-            } catch { resolve(blob); }
+            } catch {
+                resolve(blob);
+            }
         };
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve(null);
+        };
         img.src = url;
     });
 }
@@ -1960,27 +3424,36 @@ async function syncDeckImages(onProgress) {
     const hdrs = window.createSupabaseHeaders();
     const storagePrefix = `${base}/storage/v1/object/public/deck-images/`;
 
-    const res = await fetch(
-        `${base}/rest/v1/deck_images?select=id,image_url&limit=1000`,
-        { headers: hdrs }
-    );
-    if (!res.ok) { syncLog(`syncDeckImages: erro ao ler deck_images (HTTP ${res.status})`, 'warn'); return { done: 0, failed: 0 }; }
+    const res = await fetch(`${base}/rest/v1/deck_images?select=id,image_url&limit=1000`, {
+        headers: hdrs
+    });
+    if (!res.ok) {
+        syncLog(`syncDeckImages: erro ao ler deck_images (HTTP ${res.status})`, 'warn');
+        return { done: 0, failed: 0 };
+    }
     const rows = await res.json();
-    const toMigrate = (Array.isArray(rows) ? rows : []).filter(r =>
-        r.image_url && !String(r.image_url).startsWith(storagePrefix)
+    const toMigrate = (Array.isArray(rows) ? rows : []).filter(
+        (r) => r.image_url && !String(r.image_url).startsWith(storagePrefix)
     );
 
     syncLog(`${toMigrate.length} deck(s) para migrar imagem para o Storage.`, 'info');
     if (!toMigrate.length) return { done: 0, failed: 0 };
 
-    let done = 0, failed = 0;
+    let done = 0,
+        failed = 0;
 
     for (let i = 0; i < toMigrate.length; i++) {
         const row = toMigrate[i];
         if (onProgress) onProgress(i, toMigrate.length);
 
-        const codeMatch = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i);
-        if (!codeMatch) { syncLog(`  sem código válido em: ${row.image_url}`, 'warn'); failed++; continue; }
+        const codeMatch = String(row.image_url || '').match(
+            /([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i
+        );
+        if (!codeMatch) {
+            syncLog(`  sem código válido em: ${row.image_url}`, 'warn');
+            failed++;
+            continue;
+        }
         const code = codeMatch[1].toUpperCase();
 
         // Try Edge Function first (server-side, sem CORS, funciona para todos os sets)
@@ -1989,7 +3462,7 @@ async function syncDeckImages(onProgress) {
             const efRes = await fetch(`${base}/functions/v1/upload-card-image`, {
                 method: 'POST',
                 headers: { ...hdrs, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code }),
+                body: JSON.stringify({ code })
             });
             if (efRes.ok) {
                 const { url } = await efRes.json();
@@ -2007,25 +3480,34 @@ async function syncDeckImages(onProgress) {
                     `${base}/storage/v1/object/deck-images/${encodeURIComponent(code)}.webp`,
                     {
                         method: 'POST',
-                        headers: { apikey: hdrs.apikey, Authorization: hdrs.Authorization, 'Content-Type': 'image/webp', 'x-upsert': 'true' },
-                        body: blob,
+                        headers: {
+                            apikey: hdrs.apikey,
+                            Authorization: hdrs.Authorization,
+                            'Content-Type': 'image/webp',
+                            'x-upsert': 'true'
+                        },
+                        body: blob
                     }
                 );
                 if (uploadRes.ok) newUrl = `${storagePrefix}${encodeURIComponent(code)}.webp`;
             }
         }
 
-        if (!newUrl) { syncLog(`  ${code}: nenhuma fonte funcionou`, 'warn'); failed++; continue; }
+        if (!newUrl) {
+            syncLog(`  ${code}: nenhuma fonte funcionou`, 'warn');
+            failed++;
+            continue;
+        }
 
         await fetch(`${base}/rest/v1/deck_images?id=eq.${row.id}`, {
             method: 'PATCH',
             headers: { ...hdrs, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_url: newUrl }),
+            body: JSON.stringify({ image_url: newUrl })
         });
 
         syncLog(`  ${code}: ✓`, 'info');
         done++;
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 100));
     }
 
     if (onProgress) onProgress(toMigrate.length, toMigrate.length);
@@ -2038,7 +3520,8 @@ async function syncDeckImages(onProgress) {
 async function loadAdminStores() {
     const host = document.getElementById('adminStoresBody');
     if (!host) return;
-    host.innerHTML = '<tr><td colspan="5" class="admin-loading"><div class="spinner"></div></td></tr>';
+    host.innerHTML =
+        '<tr><td colspan="5" class="admin-loading"><div class="spinner"></div></td></tr>';
 
     try {
         const res = await fetch(
@@ -2093,7 +3576,8 @@ async function loadAdminWeeklySchedule() {
         renderAdminWeeklySchedule();
     } catch (err) {
         adminWeeklyScheduleLoaded = false;
-        host.innerHTML = '<span class="admin-error">Agenda indisponível. Execute a migration da agenda semanal.</span>';
+        host.innerHTML =
+            '<span class="admin-error">Agenda indisponível. Execute a migration da agenda semanal.</span>';
     }
 }
 
@@ -2102,7 +3586,10 @@ function renderAdminWeeklySchedule() {
     if (!host) return;
     const options = adminStores
         .filter((store) => store.is_active !== false)
-        .map((store) => `<option value="${escapeAdminHtml(store.id)}">${escapeAdminHtml(store.name)}</option>`)
+        .map(
+            (store) =>
+                `<option value="${escapeAdminHtml(store.id)}">${escapeAdminHtml(store.name)}</option>`
+        )
         .join('');
     host.innerHTML = ADMIN_WEEKDAYS.map((day, weekday) => {
         return `<label class="admin-weekly-schedule-item">
@@ -2115,7 +3602,9 @@ function renderAdminWeeklySchedule() {
     }).join('');
     host.querySelectorAll('[data-admin-schedule-weekday]').forEach((select) => {
         const selected = adminWeeklySchedule.find(
-            (entry) => Number(entry.weekday) === Number(select.dataset.adminScheduleWeekday) && entry.is_active !== false
+            (entry) =>
+                Number(entry.weekday) === Number(select.dataset.adminScheduleWeekday) &&
+                entry.is_active !== false
         );
         select.value = selected?.store_id || '';
     });
@@ -2135,17 +3624,23 @@ async function saveAdminWeeklySchedule() {
             const url = `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/tournament_weekly_schedule`;
             const res = storeId
                 ? await fetch(`${url}?on_conflict=weekday`, {
-                    method: 'POST',
-                    headers: {
-                        ...window.createSupabaseHeaders(),
-                        'Content-Type': 'application/json',
-                        Prefer: 'resolution=merge-duplicates,return=minimal'
-                    },
-                    body: JSON.stringify({ weekday, store_id: storeId, is_active: true, updated_at: new Date().toISOString() })
-                })
+                      method: 'POST',
+                      headers: {
+                          ...window.createSupabaseHeaders(),
+                          'Content-Type': 'application/json',
+                          Prefer: 'resolution=merge-duplicates,return=minimal'
+                      },
+                      body: JSON.stringify({
+                          weekday,
+                          store_id: storeId,
+                          is_active: true,
+                          updated_at: new Date().toISOString()
+                      })
+                  })
                 : await fetch(`${url}?weekday=eq.${weekday}`, {
-                    method: 'DELETE', headers: window.createSupabaseHeaders()
-                });
+                      method: 'DELETE',
+                      headers: window.createSupabaseHeaders()
+                  });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
         }
         if (status) status.textContent = 'Agenda salva. Novos torneios já usarão essas sugestões.';
@@ -2162,7 +3657,8 @@ function renderAdminStores() {
     if (!host) return;
 
     if (!adminStores.length) {
-        host.innerHTML = '<tr><td colspan="5" class="admin-empty">Nenhuma loja cadastrada.</td></tr>';
+        host.innerHTML =
+            '<tr><td colspan="5" class="admin-empty">Nenhuma loja cadastrada.</td></tr>';
         return;
     }
 
@@ -2218,9 +3714,9 @@ async function uploadStoreLogo(file, slug) {
             apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
             Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
             'Content-Type': file.type || 'application/octet-stream',
-            'x-upsert': 'true',
+            'x-upsert': 'true'
         },
-        body: file,
+        body: file
     });
 
     if (!res.ok) {
@@ -2278,29 +3774,37 @@ async function saveStore(e) {
     if (submitBtn) submitBtn.disabled = true;
 
     try {
+        await refreshAdminSessionIfNeeded();
         let res;
         if (id) {
             res = await fetch(
                 `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`,
                 {
                     method: 'PATCH',
-                    headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
-                    body: JSON.stringify(payload),
+                    headers: {
+                        ...createAuthenticatedAdminHeaders(),
+                        Prefer: 'return=representation'
+                    },
+                    body: JSON.stringify(payload)
                 }
             );
         } else {
-            res = await fetch(
-                `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores`,
-                {
-                    method: 'POST',
-                    headers: { ...window.createSupabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
-                    body: JSON.stringify(payload),
-                }
-            );
+            res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores`, {
+                method: 'POST',
+                headers: {
+                    ...createAuthenticatedAdminHeaders(),
+                    Prefer: 'return=representation'
+                },
+                body: JSON.stringify(payload)
+            });
         }
         if (!res.ok) {
             const body = await res.text();
             throw new Error(body || `HTTP ${res.status}`);
+        }
+        const savedRows = await res.json().catch(() => []);
+        if (!Array.isArray(savedRows) || savedRows.length !== 1) {
+            throw new Error('Nenhuma loja foi alterada. Verifique a permissão administrativa.');
         }
         closeStoreModal();
         adminStoresLoaded = false;
@@ -2315,11 +3819,19 @@ async function saveStore(e) {
 async function deleteStore(id, name) {
     if (!confirm(`Delete store "${name}"? This cannot be undone.`)) return;
     try {
+        await refreshAdminSessionIfNeeded();
         const res = await fetch(
             `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`,
-            { method: 'DELETE', headers: window.createSupabaseHeaders() }
+            {
+                method: 'DELETE',
+                headers: createAuthenticatedAdminHeaders({ Prefer: 'return=representation' })
+            }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const deletedRows = await res.json().catch(() => []);
+        if (!Array.isArray(deletedRows) || deletedRows.length !== 1) {
+            throw new Error('Nenhuma loja foi excluída. Verifique a permissão administrativa.');
+        }
         adminStoresLoaded = false;
         await loadAdminStores();
     } catch (err) {

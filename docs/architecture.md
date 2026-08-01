@@ -2,12 +2,13 @@
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | HTML + CSS + Vanilla JavaScript (no framework) |
-| Backend | Supabase (PostgreSQL + PostgREST REST API) |
-| Auth | Supabase anon key + RLS policies |
-| PWA | `sw.js` (service worker) + `manifest.json` |
+| Layer                    | Technology                                     |
+| ------------------------ | ---------------------------------------------- |
+| Frontend                 | HTML + CSS + Vanilla JavaScript (no framework) |
+| Backend                  | Supabase (PostgreSQL + PostgREST REST API)     |
+| Server-side integrations | Supabase Edge Functions                        |
+| Auth                     | Supabase anon key + RLS policies               |
+| PWA                      | `sw.js` (service worker) + `manifest.json`     |
 
 ---
 
@@ -29,35 +30,41 @@
 ## Module Responsibilities
 
 ### `torneios/list-tournaments/script.js`
+
 Core dashboard. Loads and renders the tournament list, manages the create/edit tournament modal flows, handles OCR import, and manages store/player/deck associations.
 
 ### `torneios/edit-tournament/modal.js`
+
 Inline modal for editing an existing tournament's metadata (store, date, format, rounds). Injected into `index.html`.
 
 ### `torneios/decklist-builder/script.js`
+
 Decklist editor. Loads an existing decklist from DB via `resultId` URL param, supports manual card entry and search, validates deck limits, sorts cards by type/level/set, and saves to `decklists` + `decklist_cards` tables.
 
 ### `decks/page.js`
+
 Deck browser. Lists decks with monthly ranking metrics from `v_deck_rank`. Supports list/compact/grid views, search, format/month filters, and the deck history panel (all tournament results for a deck with their decklists).
 
 ### `players/script.js`
+
 Player browser. Lists players with pagination, supports expand-to-see-history per player (tournament results + decklist cards).
 
 ### `torneios/list-tournaments/calendar-view/calendar.js`
+
 Calendar visualization of tournament dates. Injected into the list-tournaments page.
 
 ---
 
 ## Configuration Layer (`config/`)
 
-| File | Purpose |
-|---|---|
-| `supabase.js` | Injects `window.APP_CONFIG` (URL + anon key), exposes `window.createSupabaseHeaders()` |
-| `api-client.js` | Exposes `window.supabaseApi` — shared fetch helper with error handling |
-| `ui-state.js` | Shared UI helpers (theme toggle, sidebar state) |
-| `app-version.js` | Version constant used for cache busting |
-| `validation.js` | Input validation utilities (`window.validation`) |
-| `register-sw.js` | Registers the service worker |
+| File             | Purpose                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `supabase.js`    | Injects `window.APP_CONFIG` (URL + anon key), exposes `window.createSupabaseHeaders()` |
+| `api-client.js`  | Exposes `window.supabaseApi` — shared fetch helper with error handling                 |
+| `ui-state.js`    | Shared UI helpers (theme toggle, sidebar state)                                        |
+| `app-version.js` | Version constant used for cache busting                                                |
+| `validation.js`  | Input validation utilities (`window.validation`)                                       |
+| `register-sw.js` | Registers the service worker                                                           |
 
 All config files are loaded via `<script>` tags before the page script, populating `window.*` globals.
 
@@ -67,16 +74,33 @@ All config files are loaded via `<script>` tags before the page script, populati
 
 All data fetching uses PostgREST (Supabase REST API) directly from the browser. There is no backend server.
 
+External services that require secrets are the exception: they must be called by Supabase Edge Functions. The DigiLab API key, for example, is never available to browser code.
+
 ```js
 // Standard fetch pattern
 const res = await fetch(`${SUPABASE_URL}/rest/v1/table_name?select=*&filter=value`, {
-    headers: window.createSupabaseHeaders()  // apikey + Authorization
+    headers: window.createSupabaseHeaders() // apikey + Authorization
 });
 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 const data = await res.json();
 ```
 
+## Edge Functions
+
+| Function                     | Responsibility                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| `send-feedback`              | Persists feedback and sends transactional email                                 |
+| `upload-card-image`          | Fetches and stores card images                                                  |
+| `digilab-health`             | Validates DigiLab secret and API connectivity without returning sensitive data  |
+| `verify-digilab-tournaments` | Discovers, compares and persists a verified DigiLab tournament link             |
+| `preview-digilab-import`     | Lists Curitiba tournaments and previews reverse imports without database writes |
+| `import-digilab-tournament`  | Creates a DigiStats tournament and its results in one transaction               |
+| `digilab-deck-catalog`       | Synchronizes DigiLab archetypes/families and manages reviewed local mappings    |
+
+The DigiLab functions accept either the operational test token or a validated Supabase Auth JWT whose user exists in `public.admin_users`. The browser uses only the JWT; the DigiLab API key and service-role key remain inside the functions. See `docs/features/digilab-integration.md`.
+
 **PostgREST key features used:**
+
 - `?select=col1,col2,relation(col)` — column selection + embedded relations
 - `?column=eq.value` — equality filter
 - `?column=not.is.null` — null check
@@ -141,6 +165,7 @@ See `docs/css-guide.md` for conventions and how to extend.
 ## Service Worker (`sw.js`)
 
 Strategy:
+
 - **Navigation requests** → Network First (fallback: `offline.html`)
 - **Scripts/Styles** → Network First (cache on success)
 - **Images/Fonts/Manifest** → Cache First (fetch if not cached)

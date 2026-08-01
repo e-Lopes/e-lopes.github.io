@@ -12,11 +12,14 @@ const headers = window.createSupabaseHeaders
 const CARD_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
 let allPlayers = [];
 let filteredPlayers = [];
+let playerSearchTerm = '';
 let editingPlayerId = null;
 let currentPage = 1;
 const PAGE_SIZE_STORAGE_KEY = 'playersPageSize';
+const INCLUDE_INACTIVE_STORAGE_KEY = 'playersIncludeInactive';
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 30, 50, 100];
 let itemsPerPage = getInitialPageSize();
+let includeInactivePlayers = localStorage.getItem(INCLUDE_INACTIVE_STORAGE_KEY) === 'true';
 let playersPageInitialized = false;
 let playerModalKeydownAttached = false;
 let expandedPlayerId = null;
@@ -51,6 +54,8 @@ function initPlayersPage() {
 window.initPlayersPage = initPlayersPage;
 window.resetPlayersPage = function resetPlayersPage() {
     playersPageInitialized = false;
+    playerSearchTerm = '';
+    currentPage = 1;
 };
 
 if (document.readyState === 'loading') {
@@ -138,11 +143,24 @@ function setupEventListeners() {
     });
 
     document.getElementById('searchInput').addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase().trim();
-        filteredPlayers = allPlayers.filter((p) => p.name.toLowerCase().includes(term));
+        playerSearchTerm = e.target.value.toLowerCase().trim();
         currentPage = 1;
-        renderPaginatedList();
+        applyPlayerFilters();
     });
+
+    const includeInactiveInput = document.getElementById('includeInactivePlayers');
+    if (includeInactiveInput) {
+        includeInactiveInput.checked = includeInactivePlayers;
+        includeInactiveInput.addEventListener('change', (e) => {
+            includeInactivePlayers = e.target.checked;
+            localStorage.setItem(
+                INCLUDE_INACTIVE_STORAGE_KEY,
+                String(includeInactivePlayers)
+            );
+            currentPage = 1;
+            applyPlayerFilters();
+        });
+    }
 
     const playersList = document.getElementById('playersList');
     if (playersList) {
@@ -217,10 +235,10 @@ async function loadPlayers() {
     try {
         const res = window.supabaseApi
             ? await window.supabaseApi.get(
-                  '/rest/v1/players?is_active=eq.true&select=*&order=name.asc'
+                  '/rest/v1/players?select=*&order=name.asc'
               )
             : await fetch(
-                  `${SUPABASE_URL}/rest/v1/players?is_active=eq.true&select=*&order=name.asc`,
+                  `${SUPABASE_URL}/rest/v1/players?select=*&order=name.asc`,
                   { headers }
               );
 
@@ -229,11 +247,8 @@ async function loadPlayers() {
         }
 
         allPlayers = await res.json();
-        filteredPlayers = allPlayers;
         if (!list?.isConnected) return;
-        const totalPlayersCount = document.getElementById('totalPlayersCount');
-        if (totalPlayersCount) totalPlayersCount.textContent = String(allPlayers.length);
-        renderPaginatedList();
+        applyPlayerFilters();
     } catch (error) {
         console.error(error);
         showToast('Erro ao carregar jogadores', 'error');
@@ -262,9 +277,10 @@ function renderPaginatedList() {
     const rowsHtml = paginatedItems
         .map((p) => {
             const isExpanded = String(expandedPlayerId || '') === String(p.id);
+            const isInactive = p.is_active === false;
             const historyRows = playerHistoryCache.get(String(p.id));
             return `
-                <tr class="players-table-row ${isExpanded ? 'is-expanded' : ''}">
+                <tr class="players-table-row ${isExpanded ? 'is-expanded' : ''} ${isInactive ? 'is-inactive' : ''}">
                     <td class="players-cell-name">
                         <button
                             class="player-main-toggle"
@@ -273,7 +289,7 @@ function renderPaginatedList() {
                             data-player-id="${p.id}"
                             aria-expanded="${isExpanded ? 'true' : 'false'}"
                         >
-                            <span class="player-main-name"><strong>${escapeHtml(p.name)}</strong></span>
+                            <span class="player-main-name"><strong>${escapeHtml(p.name)}</strong>${isInactive ? '<small class="player-status-badge">Inativo</small>' : ''}</span>
                             <span class="player-main-hint">${isExpanded ? 'Ocultar histórico' : 'Mostrar histórico'}</span>
                         </button>
                     </td>
@@ -285,7 +301,7 @@ function renderPaginatedList() {
                                     <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                                 </svg>
                             </button>
-                            <button class="btn-action btn-danger btn-icon-only" type="button" title="Inativar jogador" aria-label="Inativar jogador" data-action="deactivate-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
+                            ${isInactive ? '' : `<button class="btn-action btn-danger btn-icon-only" type="button" title="Inativar jogador" aria-label="Inativar jogador" data-action="deactivate-player" data-player-id="${p.id}" data-player-name="${escapeHtmlAttribute(p.name)}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <polyline points="3 6 5 6 21 6"/>
                                     <path d="M8 6V4h8v2"/>
@@ -293,7 +309,7 @@ function renderPaginatedList() {
                                     <line x1="10" y1="11" x2="10" y2="17"/>
                                     <line x1="14" y1="11" x2="14" y2="17"/>
                                 </svg>
-                            </button>
+                            </button>`}
                         </div>
                     </td>
                 </tr>
@@ -594,9 +610,11 @@ function renderPagination(totalPages) {
 async function handleSubmit() {
     const nameInput = document.getElementById('playerName');
     const bandaiIdInput = document.getElementById('playerBandaiId');
+    const bandaiNickInput = document.getElementById('playerBandaiNick');
     const digilabNameInput = document.getElementById('playerDigilabName');
     const name = String(nameInput?.value || '').trim();
     const bandaiId = String(bandaiIdInput?.value || '').trim();
+    const bandaiNick = String(bandaiNickInput?.value || '').trim();
     const digilabName = String(digilabNameInput?.value || '').trim();
     if (!name) return;
 
@@ -616,6 +634,7 @@ async function handleSubmit() {
     const payload = {
         name,
         bandai_id: bandaiId || null,
+        bandai_nick: bandaiNick || null,
         digilab_name: digilabName || null
     };
 
@@ -647,16 +666,32 @@ function editPlayer(id) {
     editingPlayerId = id;
     const nameInput = document.getElementById('playerName');
     const bandaiIdInput = document.getElementById('playerBandaiId');
+    const bandaiNickInput = document.getElementById('playerBandaiNick');
     const digilabNameInput = document.getElementById('playerDigilabName');
     if (nameInput) nameInput.value = String(player.name || '');
     if (bandaiIdInput) bandaiIdInput.value = String(player.bandai_id || '');
+    if (bandaiNickInput) bandaiNickInput.value = String(player.bandai_nick || '');
     if (digilabNameInput) digilabNameInput.value = String(player.digilab_name || '');
     openPlayerModal('Editar jogador');
 }
 
+function applyPlayerFilters() {
+    const activityFiltered = allPlayers.filter(
+        (player) => includeInactivePlayers || player.is_active !== false
+    );
+    filteredPlayers = activityFiltered.filter((player) =>
+        String(player.name || '')
+            .toLowerCase()
+            .includes(playerSearchTerm)
+    );
+    const totalPlayersCount = document.getElementById('totalPlayersCount');
+    if (totalPlayersCount) totalPlayersCount.textContent = String(activityFiltered.length);
+    renderPaginatedList();
+}
+
 function cancelEdit() {
     editingPlayerId = null;
-    ['playerName', 'playerBandaiId', 'playerDigilabName'].forEach((inputId) => {
+    ['playerName', 'playerBandaiId', 'playerBandaiNick', 'playerDigilabName'].forEach((inputId) => {
         const input = document.getElementById(inputId);
         if (input) input.value = '';
     });

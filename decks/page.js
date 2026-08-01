@@ -1076,7 +1076,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                             <h3 class="deck-name" title="${escapeHtmlAttribute(deck.name)}">${escapeHtmlAttribute(deckNameDisplay)}</h3>
                             ${renderDeckColorsInline(deck.colors, 'card-inline')}
                         </div>
-                        <span class="player-main-hint">${isExpanded ? 'Ocultar listas de Deck' : 'Mostrar listas de Deck'}</span>
+                        <span class="player-main-hint">${isExpanded ? 'Recolher' : 'Expandir'}</span>
                     </button>
                     ${deckCode ? `<div class="deck-code">${deckCode}</div>` : ''}
                     ${renderDeckColorsInline(deck.colors, 'card-below')}
@@ -1202,7 +1202,7 @@ function displayDecks(decks, imagesMap, isFiltered = false) {
                                     ${renderDeckColorsInline(deck.colors, 'table')}
                                 </span>
                             </span>
-                            <span class="player-main-hint">${isExpanded ? 'Ocultar listas de Deck' : 'Mostrar listas de Deck'}</span>
+                            <span class="player-main-hint">${isExpanded ? 'Recolher' : 'Expandir'}</span>
                         </button>
                     </td>
                     <td class="decks-num-cell">${numericSquare(stats, 'monthly_appearances')}</td>
