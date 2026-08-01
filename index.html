@@ -1218,17 +1218,26 @@
                             </button>
                         </div>
                         <div class="admin-digilab-toolbar">
-                            <button
-                                type="button"
-                                class="admin-digilab-action is-primary"
-                                data-admin-action="digilab-refresh"
-                            >
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
-                                    <path d="M20 4v6h-6"></path>
-                                </svg>
-                                Atualizar e sincronizar
-                            </button>
+                            <div class="admin-digilab-toolbar-actions">
+                                <button
+                                    type="button"
+                                    class="admin-digilab-action is-primary"
+                                    data-admin-action="digilab-refresh"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+                                        <path d="M20 4v6h-6"></path>
+                                    </svg>
+                                    Atualizar inventário
+                                </button>
+                                <button
+                                    type="button"
+                                    class="admin-digilab-action is-secondary"
+                                    data-admin-action="digilab-sync-linked"
+                                >
+                                    Sincronizar dados pendentes
+                                </button>
+                            </div>
                             <div class="admin-digilab-lookup">
                                 <label for="adminDigilabId">Consultar torneio</label>
                                 <div>
@@ -1254,6 +1263,22 @@
                                 class="admin-form-status"
                                 role="status"
                             ></span>
+                            <div
+                                id="adminDigilabBulkProgress"
+                                class="admin-digilab-bulk-progress"
+                                role="status"
+                                aria-live="polite"
+                                hidden
+                            >
+                                <div>
+                                    <strong id="adminDigilabBulkProgressTitle">Preparando sincronização…</strong>
+                                    <span id="adminDigilabBulkProgressCount">0 de 0</span>
+                                </div>
+                                <div class="admin-digilab-progress-track" aria-hidden="true">
+                                    <span id="adminDigilabBulkProgressBar"></span>
+                                </div>
+                                <small id="adminDigilabBulkProgressMessage"></small>
+                            </div>
                         </div>
                         <div id="adminDigilabSummary" class="admin-digilab-summary"></div>
                         <div class="admin-table-wrapper admin-digilab-table-shell">
@@ -1958,16 +1983,6 @@
                     />
                 </div>
                 <div class="player-modal-field">
-                    <label for="playerBandaiId">Bandai ID</label>
-                    <input
-                        type="text"
-                        id="playerBandaiId"
-                        class="players-name-input player-modal-input"
-                        placeholder="Ex.: 0000238403"
-                        autocomplete="off"
-                    />
-                </div>
-                <div class="player-modal-field">
                     <label for="playerBandaiNick">Bandai Nick</label>
                     <input
                         type="text"
@@ -1985,6 +2000,20 @@
                         class="players-name-input player-modal-input"
                         placeholder="Nome usado no Digilab"
                         autocomplete="off"
+                    />
+                </div>
+                <div class="player-modal-field">
+                    <label for="playerBandaiId">
+                        Bandai ID
+                        <span class="player-modal-optional">Opcional</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="playerBandaiId"
+                        class="players-name-input player-modal-input"
+                        placeholder="Ex.: 0000238403"
+                        autocomplete="off"
+                        inputmode="numeric"
                     />
                 </div>
                 <div class="player-modal-actions">

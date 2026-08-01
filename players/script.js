@@ -22,6 +22,10 @@ let itemsPerPage = getInitialPageSize();
 let includeInactivePlayers = localStorage.getItem(INCLUDE_INACTIVE_STORAGE_KEY) === 'true';
 let playersPageInitialized = false;
 let playerModalKeydownAttached = false;
+const playerAliasAutofill = {
+    bandaiNick: true,
+    digilabName: true
+};
 let expandedPlayerId = null;
 let expandedHistoryEntryKey = null;
 const playerHistoryCache = new Map();
@@ -84,6 +88,9 @@ function showToast(message, type = 'success') {
 function openPlayerModal(title = 'Novo jogador') {
     const modal = document.getElementById('playerModal');
     const titleEl = document.getElementById('playerModalTitle');
+    const isNewPlayer = !editingPlayerId;
+    playerAliasAutofill.bandaiNick = isNewPlayer;
+    playerAliasAutofill.digilabName = isNewPlayer;
     if (titleEl) titleEl.textContent = title;
     if (modal) modal.classList.remove('u-hidden');
     const input = document.getElementById('playerName');
@@ -140,6 +147,25 @@ function setupEventListeners() {
                 handleSubmit();
             }
         });
+    });
+
+    const playerNameInput = document.getElementById('playerName');
+    const bandaiNickInput = document.getElementById('playerBandaiNick');
+    const digilabNameInput = document.getElementById('playerDigilabName');
+    playerNameInput?.addEventListener('input', () => {
+        if (editingPlayerId) return;
+        if (bandaiNickInput && playerAliasAutofill.bandaiNick) {
+            bandaiNickInput.value = playerNameInput.value;
+        }
+        if (digilabNameInput && playerAliasAutofill.digilabName) {
+            digilabNameInput.value = playerNameInput.value;
+        }
+    });
+    bandaiNickInput?.addEventListener('input', () => {
+        if (!editingPlayerId) playerAliasAutofill.bandaiNick = false;
+    });
+    digilabNameInput?.addEventListener('input', () => {
+        if (!editingPlayerId) playerAliasAutofill.digilabName = false;
     });
 
     document.getElementById('searchInput').addEventListener('input', (e) => {

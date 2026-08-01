@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
             match_points: deriveMatchPoints(standing.record)
         }));
         const tournamentName = String(
-            input.tournament_name || tournament.event_type || 'Torneio DigiLab'
+            input.tournament_name || mapDigilabTournamentName(tournament.event_type)
         )
             .trim()
             .slice(0, 120);
@@ -342,6 +342,18 @@ function deriveMatchPoints(record: JsonRecord | null | undefined) {
     const wins = Number(record?.wins);
     const ties = Number(record?.ties);
     return Number.isSafeInteger(wins) && Number.isSafeInteger(ties) ? wins * 3 + ties : null;
+}
+
+function mapDigilabTournamentName(eventType: unknown) {
+    const raw = String(eventType || '').trim();
+    const normalized = raw
+        .toLocaleLowerCase('en-US')
+        .replace(/[\s-]+/g, '_');
+    const names: Record<string, string> = {
+        locals: 'Semanal',
+        evo_cup: 'Evo Cup'
+    };
+    return names[normalized] || 'Semanal';
 }
 
 class DigilabHttpError extends Error {

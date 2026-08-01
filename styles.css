@@ -7779,9 +7779,24 @@ body {
 }
 
 .player-modal-field label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     color: #c8d8f4;
     font-size: 0.85rem;
     font-weight: 600;
+}
+
+.player-modal-optional {
+    padding: 2px 6px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.08);
+    color: #96a3bd;
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
 .player-modal-actions {
@@ -15031,6 +15046,51 @@ body[data-theme='dark'] .admin-change-password-modal input {
     flex-wrap: wrap;
 }
 
+.admin-digilab-toolbar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.admin-digilab-bulk-progress {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 7px;
+    padding: 12px;
+    border: 1px solid rgba(96, 165, 250, 0.24);
+    border-radius: 9px;
+    background: rgba(96, 165, 250, 0.07);
+}
+
+.admin-digilab-bulk-progress[hidden] {
+    display: none;
+}
+
+.admin-digilab-bulk-progress > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #dbe7ff;
+    font-size: 0.76rem;
+}
+
+.admin-digilab-bulk-progress > div:first-child span,
+.admin-digilab-bulk-progress small {
+    color: var(--dl-muted);
+    font-size: 0.7rem;
+}
+
+.admin-digilab-bulk-progress .admin-digilab-progress-track {
+    height: 7px;
+}
+
+.admin-digilab-bulk-progress .admin-digilab-progress-track span {
+    width: 0;
+    transition: width 0.25s ease;
+}
+
 .admin-digilab-toolbar label {
     margin-left: auto;
     font-size: 0.82rem;
@@ -16659,7 +16719,8 @@ body[data-theme='light'] .admin-bg-fallback-label {
 
 .admin-digilab-badge.status-ambiguous,
 .admin-digilab-badge.status-possible_local_candidate,
-.admin-digilab-badge.status-cooldown {
+.admin-digilab-badge.status-cooldown,
+.admin-digilab-badge.status-linked_needs_mapping {
     border-color: rgba(244, 193, 82, 0.2);
     background: rgba(244, 193, 82, 0.11);
     color: #f7d783;
@@ -16677,7 +16738,8 @@ body[data-theme='light'] .admin-bg-fallback-label {
 
 .admin-digilab-badge.status-verification_mismatch,
 .admin-digilab-badge.status-verification_error,
-.admin-digilab-badge.status-rate_limited {
+.admin-digilab-badge.status-rate_limited,
+.admin-digilab-badge.status-linked_sync_error {
     border-color: rgba(248, 113, 113, 0.2);
     background: rgba(248, 113, 113, 0.1);
     color: #fca5a5;
@@ -16784,6 +16846,59 @@ body[data-theme='light'] .admin-bg-fallback-label {
     border-color: rgba(244, 193, 82, 0.72);
     background: rgba(244, 193, 82, 0.22);
     color: #fff5d6;
+}
+
+.admin-digilab-missing-players {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 16px;
+    padding: 15px 16px;
+    border: 1px solid rgba(244, 193, 82, 0.32);
+    border-radius: 10px;
+    background: rgba(244, 193, 82, 0.08);
+}
+
+.admin-digilab-missing-players-copy {
+    display: grid;
+    flex: 1;
+    gap: 6px;
+    min-width: 0;
+}
+
+.admin-digilab-missing-players-copy > strong {
+    color: #f7d783;
+}
+
+.admin-digilab-missing-players-copy > span {
+    color: var(--dl-muted);
+    font-size: 0.7rem;
+}
+
+.admin-digilab-missing-players-copy ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.admin-digilab-missing-players-copy li {
+    display: grid;
+    gap: 1px;
+    padding: 7px 9px;
+    border: 1px solid rgba(244, 193, 82, 0.2);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.35);
+    color: #f5dfaa;
+    font-size: 0.72rem;
+}
+
+.admin-digilab-missing-players-copy li small {
+    color: var(--dl-muted);
+    font-size: 0.62rem;
 }
 
 .admin-digilab-import-callout {
@@ -17113,6 +17228,15 @@ body[data-theme='light'] .admin-digilab-action.is-ghost {
         justify-self: start;
     }
 
+    .admin-digilab-toolbar-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin-digilab-toolbar-actions .admin-digilab-action {
+        width: 100%;
+    }
+
     .admin-digilab-summary {
         grid-template-columns: repeat(2, minmax(130px, 1fr));
     }
@@ -17150,6 +17274,15 @@ body[data-theme='light'] .admin-digilab-action.is-ghost {
     .admin-digilab-import-callout {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .admin-digilab-missing-players {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin-digilab-missing-players > .admin-digilab-action {
+        width: 100%;
     }
 
     .admin-digilab-conflict {

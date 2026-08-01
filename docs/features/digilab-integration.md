@@ -277,9 +277,17 @@ A aba administrativa oferece:
 - de-para persistente por `player.slug`, com seleção manual apenas para nomes não resolvidos.
 - de-para persistente por `deck.slug`, preenchendo `tournament_results.deck_id` e permitindo seleção manual quando o nome do arquétipo divergir.
 
-Entrar na aba e trocar de página apenas carregam dados, sem criar vínculos ou torneios. A automação é iniciada explicitamente pelo botão **Atualizar e sincronizar**, é sequencial e não faz polling. O cooldown local pula apenas o candidato afetado e permite processar os demais; um `429` real do DigiLab interrompe a sequência e respeita `Retry-After`.
+Entrar na aba e trocar de página apenas carregam dados, sem criar vínculos ou torneios. A automação de vínculos e novos torneios é iniciada explicitamente pelo botão **Atualizar inventário**, é sequencial e não faz polling. O cooldown local pula apenas o candidato afetado e permite processar os demais; um `429` real do DigiLab interrompe a sequência e respeita `Retry-After`.
+
+O botão **Sincronizar dados pendentes** processa em lote tanto os torneios já vinculados quanto os itens **Novo no DigiStats** da página atual. Para cada item, ele carrega a prévia e exige loja, formato, jogadores e decks com de-para completo. Torneios vinculados recebem a atualização idempotente de `deck_id` e `match_points`; torneios novos são criados com seus participantes, classificação, decks e pontos. O painel mostra progresso, permite interromper após o item atual e deixa torneios incompletos marcados para revisão. As chamadas são sequenciais, com intervalo de 1,3 segundo, para permanecer abaixo do limite por IP do DigiLab.
+
+Quando a prévia encontra nomes DigiLab sem jogador local, os detalhes exibem a lista em **Jogadores ainda não cadastrados**. O botão **Cadastrar jogadores** pede confirmação mostrando todos os nomes e faz uma inserção única no cadastro existente de `players`. Cada novo jogador recebe inicialmente o mesmo valor em `name`, `bandai_nick` e `digilab_name`; `bandai_id` permanece `NULL`. Após a criação, a prévia é recarregada para resolver o de-para por nome exato. Casos anônimos, sem slug, ambíguos ou com nomes externos duplicados continuam disponíveis apenas para revisão manual.
+
+O botão **Detalhes** funciona como alternador: um segundo clique no mesmo torneio fecha a linha expandida.
 
 A criação inversa exige a Edge Function `import-digilab-tournament`, cujo código está em [`supabase/functions/import-digilab-tournament/index.ts`](../../supabase/functions/import-digilab-tournament/index.ts). Ela usa `import_digilab_tournament_transaction`, de modo que torneio, resultados, vínculo e mapeamentos sejam gravados ou revertidos juntos. Se a função estiver ausente ou indisponível, o lote para no primeiro erro sistêmico e nenhum outro torneio é tentado.
+
+Na criação do torneio, os tipos externos são convertidos para os nomes aceitos pelo DigiStats: `locals` vira **Semanal** e `evo_cup` vira **Evo Cup**. Tipos ausentes ou ainda não reconhecidos usam **Semanal** como padrão. A migration `20260801000000_map_digilab_tournament_types.sql` aplica o mesmo ajuste retroativamente apenas aos torneios com vínculo confirmado em `tournament_digilab_sync`, preenchendo também os tipos nulos ou vazios.
 
 A migration `20260731040000_add_digilab_deck_sync.sql` cria `digilab_deck_sync` e torna a importação idempotente também para resultados: chamar novamente a função para um torneio já vinculado atualiza decks e pontos pelo `player_id`, sem criar outro torneio. Na prévia de um vínculo existente, o botão **Sincronizar dados** executa esse backfill.
 
