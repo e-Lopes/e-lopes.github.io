@@ -176,9 +176,6 @@ function setupAdminActions() {
     if (loginForm) loginForm.addEventListener('submit', loginAdmin);
     const passwordForm = document.getElementById('adminChangePasswordForm');
     if (passwordForm) passwordForm.addEventListener('submit', changeAdminPassword);
-    document.getElementById('adminChangePasswordModal')?.addEventListener('click', (event) => {
-        if (event.target.id === 'adminChangePasswordModal') closeAdminPasswordModal();
-    });
     container.addEventListener('keydown', (event) => {
         if (
             event.key === 'Escape' &&

@@ -14806,6 +14806,8 @@ body[data-theme='light'] .donut-hole {
 
 .admin-change-password-header h2 {
     margin: 0;
+    padding: 0;
+    border: 0;
 }
 
 .admin-change-password-close {
