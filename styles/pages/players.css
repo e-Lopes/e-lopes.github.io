@@ -44,6 +44,12 @@
     accent-color: var(--color-primary, #667eea);
 }
 
+.decks-filter-options {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .player-main-name {
     display: inline-flex;
     align-items: center;
@@ -77,14 +83,16 @@ body[data-theme='dark'] .player-status-badge {
 }
 
 @media (max-width: 768px) {
-    .players-row-search {
+    .players-row-search,
+    .decks-row-search {
         width: 100%;
         flex-direction: column;
         align-items: stretch;
         gap: 10px !important;
     }
 
-    .players-row-search .players-search-input {
+    .players-row-search .players-search-input,
+    .decks-row-search .decks-search-input {
         flex: 0 0 auto !important;
         width: 100% !important;
         min-width: 100% !important;
@@ -99,16 +107,40 @@ body[data-theme='dark'] .player-status-badge {
         box-shadow: none !important;
     }
 
-    .players-row-search .players-search-input::placeholder {
+    .players-row-search .players-search-input::placeholder,
+    .decks-row-search .decks-search-input::placeholder {
         color: #9fafd0 !important;
         opacity: 1;
     }
 
-    .players-row-search .players-search-input:focus {
+    .players-row-search .players-search-input:focus,
+    .decks-row-search .decks-search-input:focus {
         border-color: #9b7cf4 !important;
         background: #151f37 !important;
         color: #fff !important;
         box-shadow: 0 0 0 3px rgba(155, 124, 244, 0.2) !important;
+    }
+
+    .decks-row-search .decks-month-select {
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 0;
+        margin: 0;
+    }
+
+    .decks-row-search .decks-filter-options {
+        display: flex;
+        width: 100%;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .decks-row-search .btn-view-toggle {
+        flex: 0 0 48px;
+        width: 48px;
+        min-width: 48px;
+        min-height: 48px;
+        margin: 0;
     }
 
     .players-inactive-filter {

@@ -28,6 +28,8 @@ const STATS_COLUMN_WIDTHS_STORAGE_KEY = 'dashboardStatisticsColumnWidths';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const OCR_API_BASE_URL = 'https://digimon-ocr-api.vercel.app';
 const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
+const DIGILAB_BACKGROUND_INTERVAL_MS = 15 * 60 * 1000;
+const DIGILAB_BACKGROUND_REFRESH_DELAY_MS = 35 * 1000;
 const ENABLE_TOP_CARDS_API_LOOKUP = window.APP_CONFIG?.ENABLE_TOP_CARDS_API_LOOKUP !== false;
 const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
 const DEFAULT_SORT = { field: 'tournament_date', direction: 'desc' };
@@ -271,6 +273,8 @@ let calendarMonthKey = '';
 let currentDashboardView = 'tournaments';
 let tournamentListNeedsRefresh = false;
 let tournamentListRefreshPromise = null;
+let digilabObservedCycleStart = null;
+let digilabScheduledRefreshTimer = null;
 let currentStatisticsView = getSavedStatisticsView();
 let decksViewMounted = false;
 let decksScriptsPromise = null;
@@ -923,6 +927,7 @@ function setupTournamentModalLayouts() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     setupTournamentModalLayouts();
+    setupDigilabSyncCountdown();
     setupPerPageSelector();
     setupViewToggle();
     bindStaticActions();
@@ -1132,6 +1137,66 @@ async function refreshTournamentListAfterExternalChange() {
     } finally {
         tournamentListRefreshPromise = null;
     }
+}
+
+function getDigilabCycleStart(timestamp = Date.now()) {
+    return Math.floor(timestamp / DIGILAB_BACKGROUND_INTERVAL_MS) * DIGILAB_BACKGROUND_INTERVAL_MS;
+}
+
+function refreshTournamentListAfterScheduledDigilabSync() {
+    digilabScheduledRefreshTimer = null;
+    tournamentListNeedsRefresh = true;
+    if (currentDashboardView === 'tournaments') {
+        void refreshTournamentListAfterExternalChange();
+    }
+}
+
+function scheduleTournamentRefreshForDigilabCycle(cycleStart, now = Date.now()) {
+    if (digilabScheduledRefreshTimer) clearTimeout(digilabScheduledRefreshTimer);
+    const refreshAt = cycleStart + DIGILAB_BACKGROUND_REFRESH_DELAY_MS;
+    const delay = Math.max(0, refreshAt - now);
+    digilabScheduledRefreshTimer = setTimeout(
+        refreshTournamentListAfterScheduledDigilabSync,
+        delay
+    );
+}
+
+function updateDigilabSyncCountdown() {
+    const countdown = document.getElementById('digilabSyncCountdown');
+    const hint = document.getElementById('digilabSyncCountdownHint');
+    if (!countdown || !hint) return;
+
+    const now = Date.now();
+    const cycleStart = getDigilabCycleStart(now);
+    const elapsedInCycle = now - cycleStart;
+    if (digilabObservedCycleStart === null) {
+        digilabObservedCycleStart = cycleStart;
+        if (elapsedInCycle < DIGILAB_BACKGROUND_REFRESH_DELAY_MS) {
+            scheduleTournamentRefreshForDigilabCycle(cycleStart, now);
+        }
+    } else if (cycleStart > digilabObservedCycleStart) {
+        digilabObservedCycleStart = cycleStart;
+        scheduleTournamentRefreshForDigilabCycle(cycleStart, now);
+    }
+
+    if (elapsedInCycle < DIGILAB_BACKGROUND_REFRESH_DELAY_MS) {
+        countdown.textContent = 'Atualizando…';
+        hint.textContent = 'Consultando novos torneios';
+        return;
+    }
+
+    const nextCycle = cycleStart + DIGILAB_BACKGROUND_INTERVAL_MS;
+    const remainingSeconds = Math.max(0, Math.ceil((nextCycle - now) / 1000));
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    countdown.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    hint.textContent = 'Próxima busca automática';
+}
+
+function setupDigilabSyncCountdown() {
+    if (!document.getElementById('digilabSyncCountdown')) return;
+    updateDigilabSyncCountdown();
+    window.setInterval(updateDigilabSyncCountdown, 1000);
 }
 
 async function reloadTournamentsAfterEdit(tournamentId) {

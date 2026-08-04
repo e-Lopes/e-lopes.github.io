@@ -15,6 +15,8 @@ Create a tournament and persist results reliably.
 - New Tournament modal
 
 ## Components
+- DigiLab tournament URL/ID import
+- Multi-image Bandai TCG+ OCR import
 - Date picker
 - Store selector + quick add
 - Format selector
@@ -24,11 +26,12 @@ Create a tournament and persist results reliably.
 ## Steps
 1. User opens the dashboard.
 2. Clicks "New Tournament".
-3. Fills tournament fields (name, date, store, format).
-4. Adds results (placement, player, deck, points).
-5. Validations run in real time.
-6. Clicks Save.
-7. UI confirms success and updates list/calendar.
+3. Optionally imports a DigiLab URL/ID or one or more Bandai TCG+ screenshots.
+4. Reviews the imported fields or fills them manually (date, store, format).
+5. Adds or adjusts results (placement, player, deck, points).
+6. Validations run in real time.
+7. Clicks Save.
+8. UI confirms success and updates list/calendar.
 
 ## UI States
 - `idle` -> `editing` -> `saving` -> `success | error`
@@ -93,17 +96,19 @@ Import tournament data from screenshots and validate before saving.
 - OCR modal inside New Tournament
 
 ## Components
-- File upload
+- Multi-file selection and desktop drag-and-drop
 - Progress status
 - Preview / review table
 - Inline corrections
 
 ## Steps
-1. User uploads screenshot(s).
+1. User selects or drags one or more screenshots.
 2. State: `uploading -> parsing`.
-3. OCR returns players/store/date.
-4. User reviews and edits.
-5. Confirms and saves.
+3. OCR results are combined and return players, optional Bandai IDs, points, store and date.
+4. Existing players are resolved by Bandai ID or name, including inactive records.
+5. If a matched player lacks Bandai ID, the value extracted from the screenshot updates the existing record.
+6. Only unresolved players are offered for registration.
+7. User reviews, edits, confirms and saves.
 
 ## UI States
 - `idle` -> `uploading` -> `parsing` -> `review` -> `saving` -> `success | error`
@@ -117,6 +122,22 @@ Import tournament data from screenshots and validate before saving.
 - "OCR completed. Please review."
 - "Fix the highlighted issues."
 - "Failed to parse. Try again."
+
+---
+
+# Flow 3B: Import from DigiLab
+
+## Goal
+Fill or create a tournament from its public DigiLab URL without requiring Admin access.
+
+## Steps
+1. User opens **Novo torneio**.
+2. Pastes a URL such as `https://digilab.cards/tournament/7187` or a positive DigiLab ID.
+3. DigiStats requests a read-only preview for that exact tournament.
+4. Store, date, format, standings, decks and points are filled when available.
+5. User reviews the data and saves the tournament.
+
+The Admin also maintains a Curitiba inventory. A scheduled worker checks it every 15 minutes, processes newly discovered rows in the same cycle, creates only unambiguous new players and imports fully resolved tournaments. The desktop sidebar counts down to the next cycle and refreshes the tournament list after it runs. Conflicts remain available for administrative review.
 
 ---
 
@@ -316,4 +337,3 @@ Provide insights, dependent on decklist submission volume.
 
 ## Messages
 - "Data is incomplete. Encourage decklist submission."
-

@@ -97,4 +97,5 @@ Additional DigiLab/Admin migrations:
 - `20260731030000_allow_admin_store_writes.sql`: allows only authenticated allowlisted admins to create, rename and delete stores.
 - `20260731040000_add_digilab_deck_sync.sql`: persistent deck mapping and idempotent backfill of decks and points for an existing DigiLab link.
 - `20260731050000_create_deck_families_and_digilab_catalog.sql`: two-level family/archetype model, mirrored DigiLab catalog and family statistics view.
-- `20260803010000_background_digilab_import.sql`: persistent background queue plus a 15-minute `pg_cron` trigger for fully resolved new Curitiba tournaments.
+- `20260803010000_background_digilab_import.sql`: persistent background queue plus a 15-minute `pg_cron` trigger. The worker creates unambiguous new players before importing a resolved Curitiba tournament; ambiguous players, unresolved decks and possible duplicate tournaments remain queued for review.
+- `20260804010000_cleanup_digilab_queue_on_tournament_delete.sql`: removes orphaned imported queue entries and changes the queue foreign key to `ON DELETE CASCADE`, so deleting a DigiStats tournament also clears its background-import state.

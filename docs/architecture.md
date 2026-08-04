@@ -31,7 +31,7 @@
 
 ### `torneios/list-tournaments/script.js`
 
-Core dashboard. Loads and renders the tournament list, manages the create/edit tournament modal flows, handles OCR import, and manages store/player/deck associations.
+Core dashboard. Loads and renders the tournament list, manages the create/edit tournament modal flows, handles multi-image OCR and public DigiLab URL imports, shows the next scheduled DigiLab cycle, refreshes the list after background/external imports, and manages store/player/deck associations.
 
 ### `torneios/edit-tournament/modal.js`
 
@@ -93,12 +93,12 @@ const data = await res.json();
 | `upload-card-image`          | Fetches and stores card images                                                  |
 | `digilab-health`             | Validates DigiLab secret and API connectivity without returning sensitive data  |
 | `verify-digilab-tournaments` | Discovers, compares and persists a verified DigiLab tournament link             |
-| `preview-digilab-import`     | Lists Curitiba tournaments and previews reverse imports without database writes |
+| `preview-digilab-import`     | Lists Curitiba tournaments for admins and publicly previews one requested tournament without database writes |
 | `import-digilab-tournament`  | Creates a DigiStats tournament and its results in one transaction               |
-| `sync-new-digilab-tournaments` | Imports fully resolved new Curitiba tournaments from a background schedule     |
+| `sync-new-digilab-tournaments` | Every 15 minutes, discovers new Curitiba tournaments, creates unambiguous players and imports resolved events |
 | `digilab-deck-catalog`       | Synchronizes DigiLab archetypes/families and manages reviewed local mappings    |
 
-The DigiLab functions accept either the operational test token or a validated Supabase Auth JWT whose user exists in `public.admin_users`. The browser uses only the JWT; the DigiLab API key and service-role key remain inside the functions. See `docs/features/digilab-integration.md`.
+Administrative DigiLab operations accept either the operational test token or a validated Supabase Auth JWT whose user exists in `public.admin_users`. A single explicitly requested tournament preview also accepts the application's public key so the regular tournament form can import a DigiLab URL. The scheduled worker uses its own background token. The DigiLab API key and service-role key always remain inside Edge Functions. See `docs/features/digilab-integration.md`.
 
 **PostgREST key features used:**
 

@@ -46,7 +46,10 @@ Centralizar operacoes de:
 
 ## OCR (Bandai TCG+)
 
-- O modal `New Tournament` suporta importacao de print(s) para OCR.
+- O modal **Novo torneio** aceita um ou mais prints da Bandai TCG+ para OCR.
+- No desktop, vários arquivos podem ser selecionados ou arrastados juntos para **Carregar print(s) e preencher**.
+- Os resultados de cada imagem são combinados no formulário para revisão antes do salvamento.
+- Jogadores existentes, inclusive inativos ou ainda sem `bandai_id`, são reutilizados; quando o print fornece o Bandai ID ausente, o cadastro local é atualizado em vez de duplicado.
 - Endpoint esperado no momento: `POST https://e-lopes-digimon-ocr-api.hf.space/process` com `multipart/form-data` (`file`).
 - Retorno utilizado pelo frontend:
     - `players[]` para autopreencher resultados
@@ -80,6 +83,7 @@ npm run test
 - `npm run test`: executa testes Node (`node --test`)
 - `npm run format`: formata arquivos com Prettier
 - `npm run db:snapshot`: exporta snapshot de schema/roles do Supabase
+- `node scripts/generate-admin-guide-pdf.js`: atualiza o HTML e o PDF distribuível do guia de administradores a partir do Markdown
 
 ## Banco de Dados (Supabase)
 
@@ -107,9 +111,12 @@ Detalhes adicionais em `database/README.md`.
 ## Integração DigiLab
 
 - O frontend gera standings para publicação manual no DigiLab.
+- Qualquer usuário pode colar a URL completa ou o ID de um torneio DigiLab no modal **Novo torneio** para carregar loja, data, formato, jogadores, decks e pontos antes de salvar.
 - A chave da API fica em `DIGILAB_API_KEY`, nos secrets das Edge Functions.
 - `digilab-health` valida secret e conectividade sem expor credenciais ou dados de torneios.
-- A aba **Admin → DigiLab** usa Supabase Auth, lista/pré-visualiza torneios de Curitiba, confirma vínculos em `tournament_digilab_sync` e cria torneios pela função `import-digilab-tournament`.
+- A aba **Admin → DigiLab**, aberta por padrão no Admin, usa Supabase Auth, lista e pré-visualiza torneios de Curitiba, confirma vínculos em `tournament_digilab_sync` e cria ou sincroniza torneios pela função `import-digilab-tournament`.
+- A rotina `sync-new-digilab-tournaments` é executada em background a cada 15 minutos. Ela cadastra jogadores inequivocamente novos, refaz a validação e cria o torneio no mesmo ciclo; casos ambíguos ficam para revisão.
+- No desktop, a barra lateral mostra a contagem regressiva para a próxima busca DigiLab. Após o ciclo, a lista de torneios é recarregada automaticamente.
 - A allowlist administrativa fica em `admin_users`; secrets nunca são enviados ao navegador.
 
 Configuração, operação e estado da implementação: `docs/features/digilab-integration.md`.
@@ -148,6 +155,8 @@ git commit -m "feat(players): improve pagination layout"
 - `docs/naming-and-language.md`
 - `docs/security-rls.md`
 - `docs/features/digilab-integration.md`
+- `docs/features/ocr-import.md`
+- `docs/guides/guia-administradores-digistats.md`
 - `post-preview/README.md`
 
 ## Seguranca

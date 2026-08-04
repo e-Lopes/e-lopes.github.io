@@ -11,10 +11,10 @@
         <link rel="icon" type="image/png" href="icons/favicon/favicon.png" />
         <link rel="apple-touch-icon" href="icons/icons-192.png" />
         <link rel="manifest" href="manifest.json" />
-        <link rel="stylesheet" href="styles.css?v=2026.08.04.2" />
+        <link rel="stylesheet" href="styles.css?v=2026.08.04.5" />
         <link rel="stylesheet" href="styles/components/utilities.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/components/states.css?v=2026.03.27.1" />
-        <link rel="stylesheet" href="styles/pages/players.css?v=2026.08.04.1" />
+        <link rel="stylesheet" href="styles/pages/players.css?v=2026.08.04.2" />
     </head>
     <body class="dashboard-home">
         <div class="container">
@@ -111,6 +111,18 @@
                         <span>Mais</span>
                     </button>
                 </div>
+                <aside
+                    class="sidebar-digilab-sync"
+                    aria-label="Próxima atualização automática do DigiLab"
+                    title="A busca automática por novos torneios acontece a cada 15 minutos."
+                >
+                    <span class="sidebar-digilab-sync-label">
+                        <span class="sidebar-digilab-sync-dot" aria-hidden="true"></span>
+                        Atualização DigiLab
+                    </span>
+                    <strong id="digilabSyncCountdown">--:--</strong>
+                    <small id="digilabSyncCountdownHint">Próxima busca automática</small>
+                </aside>
                 <div class="sidebar-feedback-links" aria-label="Ajuda e feedback">
                     <span class="sidebar-feedback-label">Ajuda e feedback</span>
                     <a href="#feedback-bug" class="sidebar-feedback-link" data-feedback-type="bug">
@@ -504,21 +516,23 @@
                             class="search-input decks-search-input"
                             placeholder="Buscar Deck por nome..."
                         />
-                        <select
-                            id="deckRankMonthSelect"
-                            class="deck-month-select decks-month-select"
-                            title="Filtrar por mês"
-                            aria-label="Filtrar por mês"
-                        >
-                            <option value="">Mês mais recente</option>
-                        </select>
-                        <button
-                            type="button"
-                            id="viewToggleBtn"
-                            class="btn-view-toggle"
-                            title="Alterar visualização"
-                            aria-label="Alterar visualização"
-                        ></button>
+                        <div class="decks-filter-options">
+                            <select
+                                id="deckRankMonthSelect"
+                                class="deck-month-select decks-month-select"
+                                title="Filtrar por mês"
+                                aria-label="Filtrar por mês"
+                            >
+                                <option value="">Mês mais recente</option>
+                            </select>
+                            <button
+                                type="button"
+                                id="viewToggleBtn"
+                                class="btn-view-toggle"
+                                title="Alterar visualização"
+                                aria-label="Alterar visualização"
+                            ></button>
+                        </div>
                     </div>
 
                     <!-- Row 3: total + per page -->
@@ -1970,14 +1984,14 @@
         <script src="config/supabase.js?v=2026.03.27.1"></script>
         <script src="config/api-client.js?v=2026.03.27.1"></script>
         <script src="config/ui-state.js?v=2026.03.27.1"></script>
-        <script src="config/app-version.js?v=2026.08.04.4"></script>
+        <script src="config/app-version.js?v=2026.08.04.5"></script>
         <script src="config/register-sw.js?v=2026.03.27.1"></script>
         <script src="torneios/list-tournaments/calendar-view/calendar.js?v=2026.07.29.18"></script>
         <script src="config/tournament-utils.js?v=2026.08.04.2"></script>
         <script src="config/digilab-export.js?v=2026.07.29.18"></script>
         <script src="torneios/tournament-ocr-files.js?v=2026.07.29.18"></script>
         <script src="feedback/feedback.js?v=2026.07.29.18"></script>
-        <script src="torneios/list-tournaments/script.js?v=2026.08.04.2"></script>
+        <script src="torneios/list-tournaments/script.js?v=2026.08.04.5"></script>
         <script src="torneios/edit-tournament/modal.js?v=2026.07.29.18"></script>
 
         <!-- Player add/edit modal — fora do container para position:fixed funcionar -->

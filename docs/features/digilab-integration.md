@@ -4,7 +4,7 @@
 
 O DigiStats exporta standings para publicação manual no DigiLab e usa a API oficial para confirmar posteriormente que o torneio publicado corresponde ao registro local.
 
-Estado em 31/07/2026:
+Estado em 04/08/2026:
 
 - Exportação manual de standings implementada no frontend.
 - Secret `DIGILAB_API_KEY` configurado nos secrets das Edge Functions.
@@ -12,6 +12,10 @@ Estado em 31/07/2026:
 - Migration de persistência executada no projeto remoto em 31/07/2026.
 - `DIGILAB_VERIFY_TOKEN` configurado e função `verify-digilab-tournaments` publicada no Supabase em 31/07/2026.
 - Teste real concluído: torneio DigiStats `104` associado ao DigiLab `7018` com status `matched`, uma requisição externa e um candidato comparado.
+- Prévia individual por URL ou ID disponível no modal público **Novo torneio**.
+- Aba DigiLab posicionada primeiro e selecionada por padrão no Admin.
+- Criação manual e automática de jogadores inequivocamente novos antes da importação do torneio.
+- Fila em background executada a cada 15 minutos pelo `pg_cron`, sem depender de navegador aberto.
 
 O plano detalhado e os critérios de correspondência estão em [`proposta_sincronizacao_digistats_digilab.md`](../../proposta_sincronizacao_digistats_digilab.md).
 
@@ -67,8 +71,9 @@ O login pede somente a senha. Para o Supabase Auth identificar a conta sem um ca
 | Matheus Fonseca | `fonseca@admin.digistats.local`  | `fonseca`     |
 | Carlos Fortes   | `fortes@admin.digistats.local`   | `fortes`      |
 | Eduardo Lopes   | `lopes@admin.digistats.local`    | `lopes`       |
+| Oliveira        | `oliveira@admin.digistats.local` | `oliveira`    |
 
-As senhas não são criadas pela migration nem armazenadas em SQL. Criar os cinco usuários em **Authentication → Users → Add user**, marcar o e-mail como confirmado e então executar o bloco de associação fornecido junto da migration. E-mails técnicos não recebem recuperação de senha; redefinições são feitas pelo Dashboard.
+As senhas não são criadas pela migration nem armazenadas em SQL. Criar os seis usuários em **Authentication → Users → Add user**, marcar o e-mail como confirmado e então executar o bloco de associação fornecido junto da migration. E-mails técnicos não recebem recuperação de senha; redefinições são feitas pelo Dashboard.
 
 O Admin mantém o login com um único campo. Credenciais antigas continuam usando o e-mail técnico derivado do sobrenome. Depois da primeira troca pelo botão **Trocar senha**, a Edge Function `change-admin-password` confirma a senha atual e altera senha e e-mail técnico em conjunto. O novo e-mail usa somente um hash SHA-256 da senha, permitindo qualquer combinação entre 3 e 72 caracteres sem expor seu conteúdo no endereço interno. Após a troca, todas as sessões locais são encerradas e o administrador entra novamente com a nova senha.
 
@@ -116,7 +121,7 @@ Interpretação:
 
 ## Ordem de implantação do Admin
 
-1. Criar e confirmar os cinco usuários técnicos em **Authentication → Users**.
+1. Criar e confirmar os seis usuários técnicos em **Authentication → Users**.
 2. Executar `20260731010000_create_admin_users.sql` no SQL Editor.
 3. Republicar `digilab-health`, `preview-digilab-import` e `verify-digilab-tournaments` com o código versionado.
 4. Publicar o frontend com a nova aba Admin.
@@ -147,7 +152,7 @@ Estados persistidos:
 - `mismatch`: candidato encontrado com divergências.
 - `api_error`: falha de autenticação, limite ou disponibilidade.
 
-Somente `service_role`, usado pela futura Edge Function de integração, pode escrever. Clientes `anon` e `authenticated` podem ler apenas ID local, ID/URL DigiLab, status e datas de verificação. `comparison_summary` e `last_error_code` não são concedidos ao frontend.
+Somente `service_role`, usado pelas Edge Functions de integração, pode escrever. Clientes `anon` e `authenticated` podem ler apenas ID local, ID/URL DigiLab, status e datas de verificação. `comparison_summary` e `last_error_code` não são concedidos ao frontend.
 
 ## Edge Function `verify-digilab-tournaments`
 
@@ -155,7 +160,7 @@ O código está em [`supabase/functions/verify-digilab-tournament/index.ts`](../
 
 ### Autorização
 
-As três funções aceitam um JWT de usuário autenticado cuja identidade esteja na allowlist `public.admin_users`. A aba **Admin → DigiLab** usa esse caminho e nunca recebe os secrets da integração.
+As funções administrativas aceitam um JWT de usuário autenticado cuja identidade esteja na allowlist `public.admin_users`. A aba **Admin → DigiLab** usa esse caminho e nunca recebe os secrets da integração. A prévia pública aceita apenas a consulta individual por ID; inventário e operações de escrita continuam protegidos.
 
 Para testes manuais no Dashboard, continua disponível o segundo secret operacional:
 
@@ -226,13 +231,13 @@ Um administrador pode resolver um `mismatch` pela aba DigiLab usando **Confirmar
 3. No teste do Dashboard, usar `POST`, enviar o header `x-digilab-verify-token` e o body com o ID local.
 4. Confirmar a resposta e a linha criada em `tournament_digilab_sync`.
 
-## Próximas etapas
+## Validações operacionais contínuas
 
-1. Testar descoberta automática sem fornecer `digilab_tournament_id`.
-2. Testar casos `not_found`, `mismatch` e `ambiguous` de forma controlada.
-3. Validar novamente os nomes de loja após a padronização manual.
-4. Implementar prévia e confirmação da importação DigiLab → DigiStats.
-5. Exibir status e link do DigiLab nos detalhes do torneio.
+1. Acompanhar casos `not_found`, `mismatch` e `ambiguous` de forma controlada.
+2. Revisar nomes de loja e formatos sempre que o DigiLab introduzir novas variações.
+3. Conferir periodicamente a fila `digilab_background_imports` e o histórico do job `digilab-background-sync`.
+4. Manter os mapeamentos de decks atualizados para reduzir itens em revisão.
+5. Confirmar após cada release que prévia pública, importação autenticada e execução agendada continuam funcionando.
 
 ## Edge Function `preview-digilab-import`
 
@@ -267,27 +272,32 @@ A aba administrativa oferece:
 - inventário paginado da scene Curitiba;
 - totais por situação de mapeamento;
 - consulta direta por ID DigiLab;
+- execução manual imediata da mesma rotina agendada pelo botão **Executar automação agora**;
 - detalhe sanitizado, standings e pontuação derivada;
 - confirmação do vínculo quando existe exatamente um candidato local compatível.
 - vínculo automático e sequencial dos candidatos exatos, com intervalo de 1,3 segundo entre chamadas;
 - explicação dos motivos de `Revisar validação` e confirmação administrativa auditável do vínculo;
 - distinção entre vínculo confirmado, dados ainda não revisados e dados já sincronizados;
 - auditoria dos decks ao abrir os detalhes, mostrando decks ausentes ou divergentes no DigiStats antes da sincronização;
-- criação automática de torneios novos quando loja, formato e todos os jogadores estão resolvidos;
+- cadastro automático de jogadores inequivocamente novos e criação do torneio em sequência quando loja, formato e decks estão resolvidos e não existe candidato local conflitante;
 - de-para persistente por `player.slug`, com seleção manual apenas para nomes não resolvidos.
 - de-para persistente por `deck.slug`, preenchendo `tournament_results.deck_id` e permitindo seleção manual quando o nome do arquétipo divergir.
 
-Entrar na aba e trocar de página apenas carregam dados. O botão **Atualizar inventário** continua executando os vínculos exatos e as importações resolvidas sob demanda. O processamento manual é sequencial e não faz polling. O cooldown local pula apenas o candidato afetado e permite processar os demais; um `429` real do DigiLab interrompe a sequência e respeita `Retry-After`.
+Entrar na aba e trocar de página apenas carregam dados. O botão **Atualizar inventário** executa os vínculos exatos e as importações resolvidas sob demanda. **Sincronizar dados pendentes** percorre os itens da página, enquanto **Executar automação agora** chama o worker agendado e antecipa a nova tentativa dos itens em revisão. O processamento manual é sequencial e não faz polling. O cooldown local pula apenas o candidato afetado e permite processar os demais; um `429` real do DigiLab interrompe a sequência e respeita `Retry-After`.
 
 ### Importação em background
 
-A Edge Function `sync-new-digilab-tournaments` é chamada a cada 15 minutos por `pg_cron`, sem depender de navegador ou sessão administrativa. Ela consulta a primeira página da scene Curitiba, registra os itens **Novo no DigiStats** em `digilab_background_imports` e processa no máximo oito por execução. A listagem oficial possui cache de 15 minutos, por isso uma frequência menor não anteciparia de forma confiável a descoberta.
+A Edge Function `sync-new-digilab-tournaments` é chamada nos minutos `00`, `15`, `30` e `45` por `pg_cron`, sem depender de navegador ou sessão administrativa. Ela consulta a primeira página da scene Curitiba, registra os itens **Novo no DigiStats** em `digilab_background_imports` com vencimento imediato e os processa na mesma execução, até o limite de oito por ciclo. A listagem oficial possui cache de 15 minutos, por isso uma frequência menor não anteciparia de forma confiável a descoberta.
 
 Somente torneios com loja, formato e decks totalmente resolvidos e sem candidato local conflitante são importados. Jogadores inequivocamente novos são cadastrados automaticamente antes de uma nova validação e da criação do torneio. Itens ambíguos ou incompletos recebem `needs_review` e voltam a ser avaliados depois de seis horas; erros transitórios usam `retry`, respeitando `Retry-After`. A importação continua transacional e idempotente pela função existente `import-digilab-tournament`. O job usa dois segredos no Vault (`digilab_background_sync_url` e `digilab_background_sync_token`), e a Edge Function compara o token com `DIGILAB_BACKGROUND_SYNC_TOKEN`.
 
-O botão **Sincronizar dados pendentes** processa em lote tanto os torneios já vinculados quanto os itens **Novo no DigiStats** da página atual. Para cada item, ele carrega a prévia e exige loja, formato, jogadores e decks com de-para completo. Torneios vinculados recebem a atualização idempotente de `deck_id` e `match_points`; torneios novos são criados com seus participantes, classificação, decks e pontos. O painel mostra progresso, permite interromper após o item atual e deixa torneios incompletos marcados para revisão. As chamadas são sequenciais, com intervalo de 1,3 segundo, para permanecer abaixo do limite por IP do DigiLab.
+O worker só marca um item como `imported` depois de consultar novamente a prévia e confirmar o vínculo em `tournament_digilab_sync`. A exclusão manual de um torneio remove por cascata o vínculo, os arquivos OCR, a entrada correspondente da fila de background e os demais registros dependentes; os objetos do Storage são apagados em seguida pelo cliente. Se o torneio continuar publicado no DigiLab, ele volta a ser considerado novo e poderá ser importado novamente em um ciclo posterior.
 
-Quando a prévia encontra nomes DigiLab sem jogador local, os detalhes exibem a lista em **Jogadores ainda não cadastrados**. O botão **Cadastrar jogadores** pede confirmação mostrando todos os nomes e faz uma inserção única no cadastro existente de `players`. Cada novo jogador recebe inicialmente o mesmo valor em `name`, `bandai_nick` e `digilab_name`; `bandai_id` permanece `NULL`. Após a criação, a prévia é recarregada para resolver o de-para por nome exato. Casos anônimos, sem slug, ambíguos ou com nomes externos duplicados continuam disponíveis apenas para revisão manual.
+No desktop, a barra lateral calcula a contagem regressiva até o próximo quarto de hora. Durante os primeiros segundos do ciclo ela mostra **Atualizando** e, após 35 segundos, recarrega a lista local de torneios. Se o usuário estiver em outra seção, a atualização fica marcada e ocorre ao retornar para **Torneios**. O contador informa o horário do job; o cache externo ainda pode adiar a descoberta para o ciclo seguinte.
+
+O botão **Sincronizar dados pendentes** processa em lote tanto os torneios já vinculados quanto os itens **Novo no DigiStats** da página atual. Para cada item, ele carrega a prévia, cadastra primeiro os jogadores inequivocamente novos e exige loja, formato e decks com de-para completo. Torneios vinculados recebem a atualização idempotente de `deck_id` e `match_points`; torneios novos são criados com seus participantes, classificação, decks e pontos. O painel mostra progresso, permite interromper após o item atual e deixa torneios incompletos marcados para revisão. As chamadas são sequenciais, com intervalo de 1,3 segundo, para permanecer abaixo do limite por IP do DigiLab.
+
+Quando a prévia encontra nomes DigiLab sem jogador local, os detalhes exibem a lista em **Jogadores ainda não cadastrados**. O botão **Cadastrar jogadores** continua disponível como ação explícita, mas **Criar no DigiStats**, **Sincronizar dados pendentes** e o worker em background também cadastram esses jogadores antes do torneio quando todos forem inequívocos. Cada novo jogador recebe inicialmente o mesmo valor em `name`, `bandai_nick` e `digilab_name`; `bandai_id` permanece `NULL`, pois a API DigiLab não fornece esse identificador. Após a criação, a prévia é recarregada para resolver o de-para por nome exato. Casos anônimos, sem slug, ambíguos ou com nomes externos duplicados continuam disponíveis apenas para revisão manual.
 
 O botão **Detalhes** funciona como alternador: um segundo clique no mesmo torneio fecha a linha expandida.
 

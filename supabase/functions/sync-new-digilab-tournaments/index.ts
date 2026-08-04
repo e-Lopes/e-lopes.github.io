@@ -57,6 +57,13 @@ Deno.serve(async (req) => {
         await restRequest(
             supabaseUrl,
             serviceRoleKey,
+            'digilab_background_imports?status=eq.imported&tournament_id=is.null',
+            { method: 'DELETE', headers: { Prefer: 'return=minimal' } }
+        );
+
+        await restRequest(
+            supabaseUrl,
+            serviceRoleKey,
             `digilab_background_imports?status=eq.processing&last_attempt_at=lt.${encodeURIComponent(addTime({ minutes: -30 }))}`,
             {
                 method: 'PATCH',
@@ -109,7 +116,8 @@ Deno.serve(async (req) => {
                             event_date: row.event_date || null,
                             store_name: row.store_name || null,
                             format: row.format || null,
-                            player_count: row.player_count ?? null
+                            player_count: row.player_count ?? null,
+                            next_attempt_at: startedAt
                         }
                     ]
                 }
@@ -184,10 +192,32 @@ Deno.serve(async (req) => {
                             'import-digilab-tournament',
                             { digilab_tournament_id: externalId }
                         );
+                        const returnedTournamentId = positiveInteger(imported.tournament_id)
+                            ? Number(imported.tournament_id)
+                            : null;
+                        await delay(REQUEST_DELAY_MS);
+                        const confirmation = await callFunction(
+                            supabaseUrl,
+                            serviceRoleKey,
+                            verifyToken,
+                            'preview-digilab-import',
+                            { digilab_tournament_id: externalId }
+                        );
+                        const confirmedTournamentId = positiveInteger(
+                            confirmation.already_linked?.tournament_id
+                        )
+                            ? Number(confirmation.already_linked.tournament_id)
+                            : null;
+                        const importedTournamentId = confirmedTournamentId || returnedTournamentId;
+                        if (!importedTournamentId || !confirmedTournamentId) {
+                            throw new Error(
+                                'A importação retornou sucesso, mas o vínculo do torneio não foi confirmado.'
+                            );
+                        }
                         summary.imported += 1;
                         await updateQueue(supabaseUrl, serviceRoleKey, externalId, {
                             status: 'imported',
-                            tournament_id: Number(imported.tournament_id) || null,
+                            tournament_id: importedTournamentId,
                             imported_at: new Date().toISOString(),
                             next_attempt_at: farFuture()
                         });

@@ -18476,11 +18476,51 @@ body[data-theme='light'] .admin-weekly-schedule {
 }
 
 /* Sidebar support links and feedback modal. */
+.sidebar-digilab-sync {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: auto;
+    padding: 12px 10px 4px;
+    color: #d8e1f5;
+}
+
+.sidebar-digilab-sync-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #9cabc8;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.sidebar-digilab-sync-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #32d296;
+    box-shadow: 0 0 0 3px rgba(50, 210, 150, 0.12), 0 0 10px rgba(50, 210, 150, 0.48);
+}
+
+.sidebar-digilab-sync strong {
+    color: #f1f5ff;
+    font-size: 1.08rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+}
+
+.sidebar-digilab-sync small {
+    color: #7f90af;
+    font-size: 0.68rem;
+}
+
 .sidebar-feedback-links {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    margin-top: auto;
+    margin-top: 8px;
     padding: 14px 8px 4px;
     border-top: 1px solid rgba(91, 113, 158, 0.38);
 }
@@ -18710,6 +18750,19 @@ body[data-theme='light'] .sidebar-feedback-label {
     color: #6f7a91;
 }
 
+body[data-theme='light'] .sidebar-digilab-sync {
+    color: #26385d;
+}
+
+body[data-theme='light'] .sidebar-digilab-sync-label,
+body[data-theme='light'] .sidebar-digilab-sync small {
+    color: #66748f;
+}
+
+body[data-theme='light'] .sidebar-digilab-sync strong {
+    color: #26385d;
+}
+
 body[data-theme='light'] #feedbackMessage,
 body[data-theme='light'] #feedbackContactEmail {
     border-color: #cbd5e1;
@@ -18718,6 +18771,10 @@ body[data-theme='light'] #feedbackContactEmail {
 }
 
 @media (max-width: 1023px) {
+    .sidebar-digilab-sync {
+        display: none;
+    }
+
     .sidebar-feedback-links {
         align-items: center;
         flex-direction: row;

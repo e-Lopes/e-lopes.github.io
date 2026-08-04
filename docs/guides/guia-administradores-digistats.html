@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guia do Administrador — DigiStats</title>
+<style>
+@page { size: A4; margin: 16mm 16mm 18mm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #18233b; font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5pt; line-height: 1.46; }
+h1 { margin: 0 0 6mm; padding: 13mm 10mm; color: #fff; background: linear-gradient(135deg,#17243f,#6559e8); border-radius: 5mm; font-size: 26pt; line-height: 1.1; }
+h1 + p { color: #53617b; font-weight: 600; }
+h2 { margin: 8mm 0 3mm; color: #263c73; border-bottom: 1.5px solid #8092f2; padding-bottom: 1.5mm; font-size: 16pt; break-after: avoid; }
+h3 { margin: 5mm 0 2mm; color: #3b4e78; font-size: 12.5pt; break-after: avoid; }
+p { margin: 0 0 3mm; orphans: 3; widows: 3; }
+ul, ol { margin: 1.5mm 0 3.5mm 6mm; padding-left: 5mm; }
+li { margin: 0 0 1.3mm; break-inside: avoid; }
+strong { color: #142a5a; }
+code { padding: .3mm 1.2mm; border-radius: 1mm; background: #eef1fb; color: #253a72; font-family: Consolas, monospace; font-size: 9.5pt; }
+hr { margin: 8mm 0; border: 0; border-top: 1px solid #d8deed; }
+a { color: #4b52be; text-decoration: none; }
+@media print { h1, h2, h3 { break-inside: avoid; } }
+</style>
+</head>
+<body><h1>Guia do Administrador — DigiStats</h1>
+<p>Versão 1.0 — 4 de agosto de 2026</p>
+<p>Este guia apresenta as rotinas administrativas do DigiStats, com foco na integração DigiLab, cadastro de torneios, manutenção dos catálogos e resolução dos problemas mais comuns.</p>
+<hr>
+<h2>1. Acesso ao Admin</h2>
+<ol>
+<li>Abra o DigiStats e selecione <strong>Admin</strong> no menu lateral.</li>
+<li>Digite sua senha individual.</li>
+<li>Após o login, a seção <strong>DigiLab</strong> será aberta por padrão.</li>
+</ol>
+<p>Use <strong>Trocar senha</strong> no topo da página para alterar sua credencial. Depois da troca, todas as sessões anteriores são encerradas e será necessário entrar novamente.</p>
+<p>Use <strong>Sair</strong> ao terminar, especialmente em computadores compartilhados. Nunca compartilhe sua senha ou armazene credenciais em documentos, prints ou mensagens públicas.</p>
+<h2>2. Seções administrativas</h2>
+<p>O Admin possui cinco áreas:</p>
+<ul>
+<li><strong>DigiLab:</strong> consulta, importação, vínculo e sincronização de torneios e decks.</li>
+<li><strong>Formatos / Meta:</strong> cadastro dos formatos usados nos torneios e definição do formato padrão.</li>
+<li><strong>Lista de restrições:</strong> manutenção de cartas banidas, limitadas ou sujeitas a regras especiais.</li>
+<li><strong>Lojas:</strong> cadastro de lojas, logos e agenda semanal padrão.</li>
+<li><strong>Reparo de dados:</strong> manutenção técnica dos metadados e do catálogo de cartas.</li>
+</ul>
+<h2>3. DigiLab</h2>
+<h3>3.1 O que acontece automaticamente</h3>
+<p>O DigiStats consulta os torneios da scene Curitiba nos minutos 00, 15, 30 e 45 de cada hora, sem depender de navegador aberto ou de uma sessão administrativa.</p>
+<p>Quando encontra um torneio novo, a rotina:</p>
+<ol>
+<li>Carrega os dados do DigiLab.</li>
+<li>Resolve loja, formato, jogadores e decks.</li>
+<li>Cadastra jogadores identificados como realmente novos e sem conflito.</li>
+<li>Refaz a validação após o cadastro dos jogadores.</li>
+<li>Cria o torneio e seus resultados no mesmo ciclo quando tudo estiver resolvido.</li>
+</ol>
+<p>A listagem do DigiLab também possui cache. Por isso, um torneio recém-publicado pode levar aproximadamente 15 a 30 minutos para aparecer no DigiStats.</p>
+<p>No desktop, a barra lateral mostra uma contagem regressiva para a próxima busca. Ao chegar a zero, o indicador muda temporariamente para <strong>Atualizando</strong> e a lista de torneios é recarregada automaticamente após o processamento. O contador representa o horário da busca; ele não elimina o cache do próprio DigiLab.</p>
+<h3>3.2 Quando o jogador é cadastrado automaticamente</h3>
+<p>O cadastro é automático somente quando o jogador possui nome e identificador DigiLab válidos e não existe correspondência local ambígua.</p>
+<p>O sistema não cria automaticamente o jogador quando encontra duplicidade de nome, possível correspondência com um cadastro existente, jogador anônimo ou qualquer informação insuficiente. Nesses casos, o torneio fica aguardando revisão.</p>
+<p>Como a API DigiLab não fornece Bandai Member Number, jogadores criados por esse fluxo ficam inicialmente com <code>bandai_id</code> vazio.</p>
+<h3>3.3 Ações disponíveis</h3>
+<ul>
+<li><strong>Testar conexão:</strong> verifica a disponibilidade da integração. Use para diagnóstico, não como atualização rotineira.</li>
+<li><strong>Atualizar inventário:</strong> recarrega a listagem e executa vínculos e importações que já estejam resolvidos.</li>
+<li><strong>Sincronizar dados pendentes:</strong> percorre os itens da página atual, atualizando torneios vinculados e tentando criar torneios novos.</li>
+<li><strong>Executar automação agora:</strong> executa imediatamente a mesma rotina agendada e antecipa a nova tentativa dos itens em revisão.</li>
+<li><strong>Consultar torneio:</strong> permite buscar diretamente um torneio pelo ID DigiLab.</li>
+<li><strong>Detalhes:</strong> abre standings, candidatos locais, correspondências de jogadores e decks, avisos e ações disponíveis.</li>
+</ul>
+<p>O botão <strong>Detalhes</strong> funciona como alternador: clique novamente para fechar o mesmo item.</p>
+<h3>3.4 Criar no DigiStats</h3>
+<p>Para um torneio marcado como novo:</p>
+<ol>
+<li>Abra <strong>Detalhes</strong>.</li>
+<li>Confira data, loja, formato, quantidade de jogadores e classificação.</li>
+<li>Revise os jogadores e decks sem correspondência.</li>
+<li>Use <strong>Criar no DigiStats</strong>.</li>
+</ol>
+<p>Se existirem jogadores inequivocamente novos, o próprio botão os cadastra primeiro, atualiza a prévia e cria o torneio em seguida. Não é necessário usar <strong>Cadastrar jogadores</strong> separadamente nesses casos.</p>
+<h3>3.5 Situações que exigem revisão</h3>
+<p>Um torneio não será criado automaticamente quando houver:</p>
+<ul>
+<li>loja sem correspondência;</li>
+<li>formato sem correspondência;</li>
+<li>deck sem correspondência;</li>
+<li>jogador anônimo, duplicado ou ambíguo;</li>
+<li>possível torneio local na mesma data;</li>
+<li>divergência relevante ou aviso na prévia;</li>
+<li>indisponibilidade temporária ou limite de requisições do DigiLab.</li>
+</ul>
+<p>Abra <strong>Detalhes</strong>, revise os candidatos e selecione manualmente a correspondência correta. Nunca confirme um vínculo apenas porque as datas são iguais; confira também loja, jogadores e quantidade de participantes.</p>
+<h3>3.6 Torneios já vinculados</h3>
+<p>Use <strong>Sincronizar dados</strong> quando um torneio já existir no DigiStats, mas ainda precisar receber decks, pontuações ou outras informações do DigiLab. A operação atualiza o torneio vinculado sem criar uma cópia.</p>
+<p>Quando o DigiLab possuir participantes ausentes no torneio local, a opção <strong>Adicionar ausentes</strong> pode reconciliar os resultados. Participantes locais excedentes não são excluídos automaticamente.</p>
+<p>Ao excluir manualmente um torneio pela lista do DigiStats, seus resultados, vínculo DigiLab, arquivos OCR e estado da fila automática também são removidos. Atenção: se o torneio continuar publicado no DigiLab, a automação poderá encontrá-lo e cadastrá-lo novamente em um ciclo posterior.</p>
+<h3>3.7 Catálogo de decks DigiLab</h3>
+<p>Use <strong>Abrir catálogo</strong> para comparar arquétipos e famílias externas com os decks locais. Use <strong>Atualizar do DigiLab</strong> para buscar a versão mais recente do catálogo.</p>
+<p>Correspondências exatas podem ser vinculadas automaticamente. Nomes divergentes devem ser revisados manualmente para evitar misturar arquétipos diferentes.</p>
+<h2>4. Importar um torneio pelo link DigiLab</h2>
+<p>Esse fluxo está disponível no cadastro normal e não exige acesso administrativo.</p>
+<ol>
+<li>Abra <strong>Novo torneio</strong>.</li>
+<li>Cole o link completo, por exemplo <code>https://digilab.cards/tournament/7187</code>, ou informe somente o ID.</li>
+<li>Aguarde o preenchimento dos dados.</li>
+<li>Revise loja, data, formato, jogadores, decks e pontos.</li>
+<li>Faça os ajustes necessários e salve.</li>
+</ol>
+<p>O link apenas preenche o formulário. O usuário continua responsável por revisar os dados antes do salvamento.</p>
+<p>Depois de uma criação feita pelo Admin/DigiLab, a lista de torneios é atualizada automaticamente, sem necessidade de recarregar a página.</p>
+<h2>5. Importar prints da Bandai TCG+</h2>
+<ol>
+<li>Abra <strong>Novo torneio</strong>.</li>
+<li>Clique em <strong>Carregar print(s) e preencher</strong> ou arraste os arquivos para a área de upload.</li>
+<li>No desktop, vários prints podem ser selecionados ou arrastados juntos.</li>
+<li>Aguarde o processamento de todas as imagens.</li>
+<li>Revise jogadores, Bandai IDs, pontuações, loja e data.</li>
+<li>Confirme os jogadores realmente novos e salve o torneio.</li>
+</ol>
+<p>O DigiStats procura primeiro pelo Bandai ID e depois pelo nome. Jogadores inativos também são considerados. Se o jogador já existir sem Bandai ID e o print fornecer esse valor, o cadastro existente será atualizado e reativado em vez de duplicado.</p>
+<p>Para melhores resultados, use imagens nítidas, sem cortes nos nomes, IDs ou pontuações. Sempre revise o formulário: o OCR é uma ajuda de preenchimento, não uma confirmação definitiva.</p>
+<h2>6. Formatos / Meta</h2>
+<p>Nesta seção é possível:</p>
+<ul>
+<li>criar e editar formatos;</li>
+<li>ativar ou inativar formatos;</li>
+<li>definir o formato padrão do cadastro de torneios;</li>
+<li>configurar a imagem de fundo usada pelo formato.</li>
+</ul>
+<p>Antes de inativar ou renomear um formato, verifique se ele ainda é utilizado por torneios ou mapeamentos DigiLab.</p>
+<h2>7. Lista de restrições</h2>
+<p>Use esta seção para registrar regras aplicadas às novas decklists.</p>
+<ol>
+<li>Pesquise pelo código ou nome da carta antes de criar uma regra.</li>
+<li>Informe o tipo de restrição e as observações necessárias.</li>
+<li>Revise o código da carta antes de salvar.</li>
+</ol>
+<p>Alterações nessa lista valem para novas validações de decklist e não reescrevem automaticamente listas antigas.</p>
+<h2>8. Lojas</h2>
+<p>Nesta seção é possível criar, editar, ativar ou inativar lojas e gerenciar seus logos.</p>
+<p>A <strong>Agenda semanal padrão</strong> sugere automaticamente uma loja conforme o dia da data escolhida no cadastro do torneio. A sugestão continua editável no formulário.</p>
+<p>Evite criar variações do mesmo nome. Nomes consistentes melhoram a correspondência com OCR e DigiLab.</p>
+<h2>9. Reparo de dados</h2>
+<p>As ferramentas de reparo executam operações técnicas e devem ser usadas somente quando houver necessidade identificada:</p>
+<ul>
+<li><strong>Check:</strong> verifica metadados incompletos.</li>
+<li><strong>Repair:</strong> tenta preencher os registros encontrados pelo diagnóstico.</li>
+<li><strong>Download All Cards:</strong> sincroniza o catálogo completo de cartas usado nas buscas.</li>
+<li><strong>Export Catalog:</strong> gera e publica o arquivo consolidado do catálogo.</li>
+</ul>
+<p>Não feche a página enquanto uma operação estiver em andamento. Se houver erro, registre a mensagem exibida antes de tentar novamente.</p>
+<h2>10. Solução de problemas</h2>
+<h3>“Não autorizado”</h3>
+<p>Saia e entre novamente. Se continuar, confirme que está usando sua senha administrativa individual e solicite ao responsável técnico a verificação da sua conta na lista de administradores.</p>
+<h3>O torneio DigiLab ainda não apareceu</h3>
+<p>Aguarde até 30 minutos por causa do intervalo da automação e do cache externo. Para antecipar, use <strong>Executar automação agora</strong>. Se o item aparecer como revisão, abra <strong>Detalhes</strong>.</p>
+<p>Se um torneio importado foi excluído manualmente, ele deixa de ser considerado importado. Enquanto continuar disponível no DigiLab, poderá reaparecer após uma nova execução automática.</p>
+<h3>O torneio ficou em revisão</h3>
+<p>Confira a mensagem apresentada. Normalmente existe loja, formato, jogador, deck ou candidato local que precisa de decisão manual.</p>
+<h3>Erro de jogador duplicado</h3>
+<p>Pesquise o jogador na tela <strong>Jogadores</strong>, incluindo os inativos. Não exclua um cadastro apenas para contornar o erro sem antes verificar seu histórico. Prefira atualizar ou reativar o registro correto.</p>
+<h3>Limite temporário ou erro 429</h3>
+<p>Aguarde o tempo informado e tente novamente. Evite clicar repetidamente nas ações de atualização, pois todas consomem a mesma cota externa.</p>
+<h3>OCR não reconheceu corretamente</h3>
+<p>Use prints mais nítidos, processe novamente e corrija manualmente os campos. Nunca salve sem revisar nomes, IDs e pontos.</p>
+<h2>11. Checklist rápido</h2>
+<p>Antes de criar ou vincular um torneio:</p>
+<ul>
+<li>confira data e loja;</li>
+<li>confira formato e quantidade de jogadores;</li>
+<li>valide nomes, decks, pontuações e colocações;</li>
+<li>verifique se já existe torneio local semelhante;</li>
+<li>resolva somente correspondências das quais tenha certeza;</li>
+<li>confirme que a lista foi atualizada após salvar.</li>
+</ul>
+<p>Ao terminar:</p>
+<ul>
+<li>aguarde a conclusão de qualquer processamento;</li>
+<li>registre mensagens de erro relevantes;</li>
+<li>saia do Admin em dispositivos compartilhados.</li>
+</ul>
+<h2>12. Suporte</h2>
+<p>Ao reportar um problema, informe:</p>
+<ul>
+<li>ação executada;</li>
+<li>ID ou link do torneio DigiLab, quando aplicável;</li>
+<li>data e loja do torneio;</li>
+<li>mensagem de erro completa;</li>
+<li>print da tela sem senhas ou outros dados sensíveis.</li>
+</ul>
+<p>Nunca envie chaves de API, tokens do Supabase ou credenciais administrativas.</p></body>
+</html>
