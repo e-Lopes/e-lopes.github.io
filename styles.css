@@ -4007,9 +4007,69 @@ body.decklist-builder-page .decklist-search-card img {
     align-items: center;
 }
 
+.create-digilab-import {
+    display: grid;
+    gap: 8px;
+}
+
+.create-digilab-import > label {
+    margin: 0;
+    color: #c8d5ef;
+    font-weight: 700;
+}
+
+.create-digilab-import-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
+.create-digilab-import-row input {
+    width: 100%;
+    min-width: 0;
+}
+
+.create-digilab-import-row .btn-add-result {
+    min-width: 172px;
+    margin: 0;
+    white-space: nowrap;
+}
+
+#createDigilabStatus.is-error {
+    color: #ff9ca5 !important;
+}
+
+#createDigilabStatus.is-success {
+    color: #70e2aa !important;
+}
+
+.create-import-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 12px;
+    color: #91a4cc;
+    font-size: 0.76rem;
+}
+
+.create-import-divider::before,
+.create-import-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #364562;
+}
+
 #createModal .ocr-import-actions .btn-add-result,
 #editModal .ocr-import-actions .btn-add-result {
     margin-bottom: 0;
+}
+
+#createModal .ocr-import-actions.is-drag-over .btn-add-result {
+    border-color: #8fb0ff;
+    background: #263b61;
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(116, 147, 224, 0.24);
 }
 
 #createModal .btn-add-result,
@@ -16127,10 +16187,20 @@ body[data-theme='light'] .admin-bg-fallback-label {
 
 #registerPlayersModal,
 #registerDecksModal {
-    z-index: 1120;
+    /* These confirmations are opened from inside the create/edit modal. */
+    z-index: 1300;
 }
 
 @media (max-width: 768px) {
+    .create-digilab-import-row {
+        grid-template-columns: 1fr;
+    }
+
+    .create-digilab-import-row .btn-add-result {
+        width: 100%;
+        min-width: 0;
+    }
+
     #createModal,
     #editModal {
         align-items: stretch;

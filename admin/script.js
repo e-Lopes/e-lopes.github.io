@@ -12,7 +12,7 @@ let adminBanListLoaded = false;
 let adminFormatsLoaded = false;
 let adminStoresLoaded = false;
 let adminWeeklyScheduleLoaded = false;
-let adminActiveTab = 'formats';
+let adminActiveTab = 'digilab';
 let _banPreviewDebounceTimer = null;
 let adminAuthSession = null;
 let adminAuthProfile = null;
@@ -33,6 +33,14 @@ const DIGILAB_AUTO_LINK_DELAY_MS = 1300;
 const ADMIN_AUTH_STORAGE_KEY = 'digistats.admin.session';
 const ADMIN_AUTH_DOMAIN = 'admin.digistats.local';
 
+function notifyTournamentListChanged(tournamentId, source = 'digilab') {
+    window.dispatchEvent(
+        new CustomEvent('digistats:tournaments-changed', {
+            detail: { tournamentId: Number(tournamentId) || null, source }
+        })
+    );
+}
+
 // ============================================================
 // INIT / RESET (called by list-tournaments/script.js)
 // ============================================================
@@ -45,7 +53,7 @@ window.initAdminPage = function () {
     adminFormatsLoaded = false;
     adminStoresLoaded = false;
     adminWeeklyScheduleLoaded = false;
-    adminActiveTab = 'formats';
+    adminActiveTab = 'digilab';
     setupAdminActions();
     initializeAdminAuth();
 };
@@ -137,6 +145,7 @@ function setupAdminActions() {
             loadDigilabInventory(adminDigilabPage, { runAutomation: true });
         }
         if (action === 'digilab-sync-linked') syncAllPendingDigilabTournaments(btn);
+        if (action === 'digilab-run-background') runDigilabBackgroundAutomation(btn);
         if (action === 'digilab-preview-id') previewDigilabFromInput();
         if (action === 'digilab-preview') {
             previewDigilabTournament(Number(btn.dataset.id), btn.closest('tr'));
@@ -670,6 +679,46 @@ async function testDigilabHealth() {
     }
 }
 
+async function runDigilabBackgroundAutomation(button) {
+    if (!button || button.disabled) return;
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.innerHTML =
+        '<span class="admin-digilab-button-spinner" aria-hidden="true"></span>Executando…';
+    setDigilabStatus('Executando a mesma rotina agendada do DigiLab…');
+
+    try {
+        const result = await callDigilabFunction('sync-new-digilab-tournaments', {
+            retry_review_now: true
+        });
+        const discovered = Number(result.discovered) || 0;
+        const attempted = Number(result.attempted) || 0;
+        const imported = Number(result.imported) || 0;
+        const playersCreated = Number(result.players_created) || 0;
+        const needsReview = Number(result.needs_review) || 0;
+        const failed = Number(result.failed) || 0;
+        const skipped = Number(result.skipped) || 0;
+        setDigilabStatus(
+            `Automação concluída: ${discovered} novo(s) descoberto(s), ${attempted} processado(s), ${playersCreated} jogador(es) cadastrado(s), ${imported} importado(s), ${needsReview} para revisão, ${skipped} já vinculado(s) e ${failed} falha(s).`,
+            failed > 0
+        );
+        if (imported > 0) notifyTournamentListChanged(null, 'digilab-background');
+        adminDigilabAutoLinkResults.clear();
+        adminDigilabPreviewCache.clear();
+        await loadDigilabInventory(adminDigilabPage, {
+            skipAutoLink: true,
+            skipAutoImport: true
+        });
+    } catch (error) {
+        setDigilabStatus(error.message || 'Não foi possível executar a automação.', true);
+    } finally {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.textContent = originalText;
+    }
+}
+
 async function loadDigilabInventory(page = 1, options = {}) {
     const body = document.getElementById('adminDigilabBody');
     if (body)
@@ -849,6 +898,7 @@ async function autoImportNewDigilabTournaments() {
             const imported = await callDigilabFunction('import-digilab-tournament', {
                 digilab_tournament_id: externalId
             });
+            notifyTournamentListChanged(imported.tournament_id, 'digilab-auto-import');
             row.mapping_status = 'linked_data_ok';
             row.linked_tournament_id = imported.tournament_id;
             adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
@@ -1034,9 +1084,13 @@ async function syncAllPendingDigilabTournaments(button) {
                     needsReview += 1;
                 } else {
                     await waitFor(DIGILAB_AUTO_LINK_DELAY_MS);
-                    await callDigilabFunction('import-digilab-tournament', {
+                    const imported = await callDigilabFunction('import-digilab-tournament', {
                         digilab_tournament_id: externalId
                     });
+                    notifyTournamentListChanged(
+                        imported.tournament_id,
+                        createsNewTournament ? 'digilab-bulk-import' : 'digilab-bulk-sync'
+                    );
                     row.mapping_status = 'linked_synced';
                     adminDigilabPreviewCache.delete(externalId);
                     adminDigilabAutoLinkResults.set(externalId, {
@@ -1308,6 +1362,7 @@ function renderDigilabDetail(result) {
     const deckComparison = result.deck_comparison || null;
     const externalId = Number(tournament.digilab_tournament_id);
     const linkedTournamentId = Number(result.already_linked?.tournament_id) || null;
+    const creatablePlayerCount = getCreatableDigilabPlayers(result).length;
     const isNewImport =
         !result.already_linked && candidates.every((candidate) => Number(candidate.score) === 0);
     updateDigilabRowFromDeckComparison(externalId, deckComparison);
@@ -1326,7 +1381,7 @@ function renderDigilabDetail(result) {
         ${renderDigilabConflictPanel(externalId, candidates)}
         ${renderMissingDigilabPlayersCallout(result, externalId)}
         ${renderDigilabDeckComparisonSummary(deckComparison)}
-        ${isNewImport ? `<div class="admin-digilab-import-callout"><div class="admin-digilab-import-copy"><strong>Novo torneio no DigiStats</strong><span>Revise o de-para abaixo. Mapeamentos confirmados serão reutilizados nas próximas importações.</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Validando dados e criando o torneio…</small></div></div><button type="button" class="admin-digilab-action is-primary" data-admin-action="digilab-import" data-id="${Number(tournament.digilab_tournament_id)}">Criar no DigiStats</button></div>` : ''}
+        ${isNewImport ? `<div class="admin-digilab-import-callout"><div class="admin-digilab-import-copy"><strong>Novo torneio no DigiStats</strong><span>${creatablePlayerCount ? `${creatablePlayerCount} jogador(es) listado(s) acima será(ão) cadastrado(s) automaticamente antes do torneio.` : 'Revise o de-para abaixo. Mapeamentos confirmados serão reutilizados nas próximas importações.'}</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Validando dados e criando o torneio…</small></div></div><button type="button" class="admin-digilab-action is-primary" data-admin-action="digilab-import" data-id="${Number(tournament.digilab_tournament_id)}">Criar no DigiStats</button></div>` : ''}
         ${result.already_linked ? `<div class="admin-digilab-import-callout is-sync"><div class="admin-digilab-import-copy"><strong>Atualizar dados do torneio vinculado</strong><span>Use esta ação para preencher decks ou pontuações que não estavam disponíveis na primeira importação.</span><div class="admin-digilab-import-progress" role="status" aria-live="polite"><div class="admin-digilab-progress-track"><span></span></div><small>Sincronizando os resultados…</small></div></div><button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-import" data-mode="sync" data-id="${externalId}">Sincronizar dados</button></div>` : ''}
         <h4>Classificação e pontos derivados</h4>
         <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Pos.</th><th>Jogador</th><th>De-para jogador</th><th>Deck DigiLab</th><th>De-para deck</th><th>W-L-D</th><th>Pontos</th></tr></thead><tbody>${standings.map((item) => `<tr><td>${Number(item.placement) || '—'}</td><td>${escapeAdminHtml(item.player?.name || 'Anônimo')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.player?.slug || '—')}</small></td><td>${renderDigilabPlayerMatch(item, playerOptions)}</td><td>${escapeAdminHtml(item.deck?.name || 'Não informado')}<small class="admin-digilab-player-slug">${escapeAdminHtml(item.deck?.slug || '—')}</small></td><td>${renderDigilabDeckMatch(item, deckOptions)}${renderDigilabDeckDifference(item, deckComparison)}</td><td>${Number(item.record?.wins) || 0}-${Number(item.record?.losses) || 0}-${Number(item.record?.ties) || 0}</td><td>${item.match_points ?? '—'}</td></tr>`).join('')}</tbody></table></div>`;
@@ -1376,6 +1431,34 @@ function renderMissingDigilabPlayersCallout(result, externalId) {
     </section>`;
 }
 
+async function insertMissingDigilabPlayers(players) {
+    const config = getAdminConfig();
+    await refreshAdminSessionIfNeeded();
+    const response = await fetch(`${config.SUPABASE_URL}/rest/v1/players`, {
+        method: 'POST',
+        headers: createAuthenticatedAdminHeaders({ Prefer: 'return=representation' }),
+        body: JSON.stringify(
+            players.map((player) => ({
+                name: player.name,
+                bandai_id: null,
+                bandai_nick: player.name,
+                digilab_name: player.name,
+                is_active: true
+            }))
+        )
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+        const duplicate = response.status === 409;
+        throw new Error(
+            duplicate
+                ? 'Um dos jogadores já foi cadastrado. Atualize os detalhes e revise o de-para.'
+                : payload?.message || payload?.error || 'Não foi possível cadastrar os jogadores.'
+        );
+    }
+    return Array.isArray(payload) ? payload : [];
+}
+
 async function createMissingDigilabPlayers(externalId, button) {
     const preview = adminDigilabPreviewCache.get(Number(externalId));
     const players = getCreatableDigilabPlayers(preview);
@@ -1394,30 +1477,7 @@ async function createMissingDigilabPlayers(externalId, button) {
     button.textContent = 'Cadastrando…';
     setDigilabStatus(`Cadastrando ${players.length} jogador(es)…`);
     try {
-        const config = getAdminConfig();
-        await refreshAdminSessionIfNeeded();
-        const response = await fetch(`${config.SUPABASE_URL}/rest/v1/players`, {
-            method: 'POST',
-            headers: createAuthenticatedAdminHeaders({ Prefer: 'return=representation' }),
-            body: JSON.stringify(
-                players.map((player) => ({
-                    name: player.name,
-                    bandai_id: null,
-                    bandai_nick: player.name,
-                    digilab_name: player.name,
-                    is_active: true
-                }))
-            )
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-            const duplicate = response.status === 409;
-            throw new Error(
-                duplicate
-                    ? 'Um dos jogadores já foi cadastrado. Atualize os detalhes e revise o de-para.'
-                    : payload?.message || payload?.error || 'Não foi possível cadastrar os jogadores.'
-            );
-        }
+        await insertMissingDigilabPlayers(players);
 
         adminDigilabPreviewCache.delete(Number(externalId));
         adminDigilabAutoLinkResults.delete(Number(externalId));
@@ -1431,6 +1491,50 @@ async function createMissingDigilabPlayers(externalId, button) {
         button.removeAttribute('aria-busy');
         button.textContent = 'Tentar novamente';
         setDigilabStatus(error.message, true);
+    }
+}
+
+async function prepareMissingPlayersForDigilabImport(externalId, button) {
+    const preview = adminDigilabPreviewCache.get(Number(externalId));
+    const players = getCreatableDigilabPlayers(preview);
+    if (!players.length) return true;
+
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML =
+            '<span class="admin-digilab-button-spinner" aria-hidden="true"></span>Cadastrando jogadores…';
+    }
+    setDigilabStatus(
+        `Cadastrando ${players.length} jogador(es) antes de criar o torneio DigiLab #${externalId}…`
+    );
+
+    try {
+        await insertMissingDigilabPlayers(players);
+        adminDigilabPreviewCache.delete(Number(externalId));
+        adminDigilabAutoLinkResults.delete(Number(externalId));
+
+        const refreshedPreview = await callDigilabFunction('preview-digilab-import', {
+            digilab_tournament_id: Number(externalId)
+        });
+        adminDigilabPreviewCache.set(Number(externalId), refreshedPreview);
+        renderDigilabDetail(refreshedPreview);
+        setDigilabStatus(
+            `${players.length} jogador(es) cadastrado(s). Criando o torneio no DigiStats…`
+        );
+        return true;
+    } catch (error) {
+        const currentButton = document.querySelector(
+            `[data-admin-action="digilab-import"][data-id="${Number(externalId)}"]`
+        );
+        const targetButton = currentButton || button;
+        if (targetButton) {
+            targetButton.disabled = false;
+            targetButton.removeAttribute('aria-busy');
+            targetButton.textContent = 'Tentar novamente';
+        }
+        setDigilabStatus(error.message, true);
+        return false;
     }
 }
 
@@ -1618,6 +1722,8 @@ function renderDigilabDeckMatch(standing, deckOptions) {
 }
 
 async function importDigilabTournament(externalId, triggerButton = null) {
+    if (!(await prepareMissingPlayersForDigilabImport(externalId, triggerButton))) return;
+
     const detail = document.getElementById('adminDigilabDetail');
     const mappings = [...(detail?.querySelectorAll('[data-digilab-player-slug]') || [])].map(
         (select) => ({
@@ -1643,10 +1749,9 @@ async function importDigilabTournament(externalId, triggerButton = null) {
     }
 
     const button =
-        triggerButton ||
         detail?.querySelector(
             `[data-admin-action="digilab-import"][data-id="${Number(externalId)}"]`
-        );
+        ) || triggerButton;
     const callout = button?.closest('.admin-digilab-import-callout');
     const inlineProgress = callout?.querySelector('.admin-digilab-import-progress');
     const isSync = button?.dataset.mode === 'sync';
@@ -1685,6 +1790,10 @@ async function importDigilabTournament(externalId, triggerButton = null) {
             player_mappings: mappings,
             deck_mappings: deckMappings
         });
+        notifyTournamentListChanged(
+            result.tournament_id,
+            isReconcile ? 'digilab-reconcile' : isSync ? 'digilab-sync' : 'digilab-import'
+        );
         adminDigilabPreviewCache.delete(externalId);
         adminDigilabAutoLinkResults.set(externalId, { status: 'linked' });
         callout?.classList.add('is-complete');

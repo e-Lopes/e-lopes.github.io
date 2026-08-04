@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Lista de torneios - Digimon TCG</title>
         <link rel="icon" type="image/png" href="../../icons/favicon/favicon.png" />
-        <link rel="stylesheet" href="../../styles.css?v=2026.07.26.1" />
+        <link rel="stylesheet" href="../../styles.css?v=2026.08.04.2" />
         <link rel="stylesheet" href="../../styles/components/utilities.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="../../styles/components/states.css?v=2026.03.27.1" />
     </head>
@@ -249,6 +249,23 @@
                 <form id="createTournamentForm">
                     <div class="form-group">
                         <label>Importar print da Bandai TCG+</label>
+                        <div class="create-digilab-import">
+                            <label for="createDigilabTournamentUrl">Link do torneio DigiLab</label>
+                            <div class="create-digilab-import-row">
+                                <input
+                                    type="text"
+                                    id="createDigilabTournamentUrl"
+                                    placeholder="https://digilab.cards/tournament/7187"
+                                    inputmode="url"
+                                    autocomplete="off"
+                                />
+                                <button type="button" id="btnImportCreateDigilab" class="btn-add-result">
+                                    Buscar e preencher
+                                </button>
+                            </div>
+                            <small id="createDigilabStatus" class="field-hint" role="status"></small>
+                        </div>
+                        <div class="create-import-divider"><span>ou use print da Bandai TCG+</span></div>
                         <input
                             type="file"
                             id="createOcrFilesInput"
@@ -467,12 +484,12 @@
         <script src="../../config/supabase.js?v=2026.03.27.1"></script>
         <script src="../../config/api-client.js?v=2026.03.27.1"></script>
         <script src="../../config/ui-state.js?v=2026.03.27.1"></script>
-        <script src="../../config/app-version.js?v=2026.07.26.1"></script>
+        <script src="../../config/app-version.js?v=2026.08.04.2"></script>
         <script src="../../config/validation.js?v=2026.03.27.1"></script>
-        <script src="../../config/tournament-utils.js?v=2026.07.25.6"></script>
+        <script src="../../config/tournament-utils.js?v=2026.08.04.2"></script>
         <script src="calendar-view/calendar.js?v=2026.07.26.1"></script>
         <script src="../tournament-ocr-files.js?v=2026.07.26.1"></script>
-        <script src="script.js?v=2026.07.26.1"></script>
+        <script src="script.js?v=2026.08.04.2"></script>
         <script src="../edit-tournament/modal.js?v=2026.07.26.1"></script>
         <script src="../../config/register-sw.js?v=2026.03.27.1"></script>
     </body>

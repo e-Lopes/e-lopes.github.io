@@ -236,7 +236,7 @@ Um administrador pode resolver um `mismatch` pela aba DigiLab usando **Confirmar
 
 ## Edge Function `preview-digilab-import`
 
-O código read-only está em [`supabase/functions/preview-digilab-import/index.ts`](../../supabase/functions/preview-digilab-import/index.ts). A função usa os mesmos secrets e aceita tanto a sessão de um admin autorizado quanto o header operacional de testes.
+O código read-only está em [`supabase/functions/preview-digilab-import/index.ts`](../../supabase/functions/preview-digilab-import/index.ts). A consulta de inventário exige uma sessão de admin autorizada ou o header operacional de testes. A consulta de um único torneio por `digilab_tournament_id` também aceita a chave pública do aplicativo, permitindo preencher o modal **Novo torneio** a partir de uma URL DigiLab sem exigir acesso ao Admin.
 
 Sem um ID externo, ela lista uma página do inventário da scene Curitiba:
 
@@ -277,7 +277,13 @@ A aba administrativa oferece:
 - de-para persistente por `player.slug`, com seleção manual apenas para nomes não resolvidos.
 - de-para persistente por `deck.slug`, preenchendo `tournament_results.deck_id` e permitindo seleção manual quando o nome do arquétipo divergir.
 
-Entrar na aba e trocar de página apenas carregam dados, sem criar vínculos ou torneios. A automação de vínculos e novos torneios é iniciada explicitamente pelo botão **Atualizar inventário**, é sequencial e não faz polling. O cooldown local pula apenas o candidato afetado e permite processar os demais; um `429` real do DigiLab interrompe a sequência e respeita `Retry-After`.
+Entrar na aba e trocar de página apenas carregam dados. O botão **Atualizar inventário** continua executando os vínculos exatos e as importações resolvidas sob demanda. O processamento manual é sequencial e não faz polling. O cooldown local pula apenas o candidato afetado e permite processar os demais; um `429` real do DigiLab interrompe a sequência e respeita `Retry-After`.
+
+### Importação em background
+
+A Edge Function `sync-new-digilab-tournaments` é chamada a cada 15 minutos por `pg_cron`, sem depender de navegador ou sessão administrativa. Ela consulta a primeira página da scene Curitiba, registra os itens **Novo no DigiStats** em `digilab_background_imports` e processa no máximo oito por execução. A listagem oficial possui cache de 15 minutos, por isso uma frequência menor não anteciparia de forma confiável a descoberta.
+
+Somente torneios com loja, formato e decks totalmente resolvidos e sem candidato local conflitante são importados. Jogadores inequivocamente novos são cadastrados automaticamente antes de uma nova validação e da criação do torneio. Itens ambíguos ou incompletos recebem `needs_review` e voltam a ser avaliados depois de seis horas; erros transitórios usam `retry`, respeitando `Retry-After`. A importação continua transacional e idempotente pela função existente `import-digilab-tournament`. O job usa dois segredos no Vault (`digilab_background_sync_url` e `digilab_background_sync_token`), e a Edge Function compara o token com `DIGILAB_BACKGROUND_SYNC_TOKEN`.
 
 O botão **Sincronizar dados pendentes** processa em lote tanto os torneios já vinculados quanto os itens **Novo no DigiStats** da página atual. Para cada item, ele carrega a prévia e exige loja, formato, jogadores e decks com de-para completo. Torneios vinculados recebem a atualização idempotente de `deck_id` e `match_points`; torneios novos são criados com seus participantes, classificação, decks e pontos. O painel mostra progresso, permite interromper após o item atual e deixa torneios incompletos marcados para revisão. As chamadas são sequenciais, com intervalo de 1,3 segundo, para permanecer abaixo do limite por IP do DigiLab.
 

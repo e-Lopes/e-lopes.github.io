@@ -5,8 +5,18 @@ const {
     findScheduledStoreId,
     getWeekdayFromIsoDate,
     normalizeEntityName,
-    normalizeMatchPoints
+    normalizeMatchPoints,
+    parseDigilabTournamentId
 } = require('../config/tournament-utils.js');
+
+test('DigiLab tournament ID is extracted only from valid links or positive IDs', () => {
+    assert.equal(parseDigilabTournamentId('https://digilab.cards/tournament/7187'), 7187);
+    assert.equal(parseDigilabTournamentId('https://www.digilab.cards/tournament/7187/'), 7187);
+    assert.equal(parseDigilabTournamentId('7187'), 7187);
+    assert.equal(parseDigilabTournamentId('https://example.com/tournament/7187'), null);
+    assert.equal(parseDigilabTournamentId('https://digilab.cards/player/7187'), null);
+    assert.equal(parseDigilabTournamentId('0'), null);
+});
 
 test('match points preserve zero and leave missing values null', () => {
     assert.equal(normalizeMatchPoints(0), 0);

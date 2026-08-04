@@ -95,6 +95,7 @@ const data = await res.json();
 | `verify-digilab-tournaments` | Discovers, compares and persists a verified DigiLab tournament link             |
 | `preview-digilab-import`     | Lists Curitiba tournaments and previews reverse imports without database writes |
 | `import-digilab-tournament`  | Creates a DigiStats tournament and its results in one transaction               |
+| `sync-new-digilab-tournaments` | Imports fully resolved new Curitiba tournaments from a background schedule     |
 | `digilab-deck-catalog`       | Synchronizes DigiLab archetypes/families and manages reviewed local mappings    |
 
 The DigiLab functions accept either the operational test token or a validated Supabase Auth JWT whose user exists in `public.admin_users`. The browser uses only the JWT; the DigiLab API key and service-role key remain inside the functions. See `docs/features/digilab-integration.md`.

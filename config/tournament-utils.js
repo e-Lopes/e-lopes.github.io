@@ -19,6 +19,25 @@
             .trim();
     }
 
+    function parseDigilabTournamentId(value) {
+        const raw = String(value || '').trim();
+        if (/^\d+$/.test(raw)) {
+            const id = Number(raw);
+            return Number.isSafeInteger(id) && id > 0 ? id : null;
+        }
+
+        try {
+            const url = new URL(raw);
+            const host = url.hostname.toLowerCase().replace(/^www\./, '');
+            const match = url.pathname.match(/^\/tournament\/(\d+)\/?$/i);
+            if (host !== 'digilab.cards' || !match) return null;
+            const id = Number(match[1]);
+            return Number.isSafeInteger(id) && id > 0 ? id : null;
+        } catch {
+            return null;
+        }
+    }
+
     function getWeekdayFromIsoDate(value) {
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
         if (!match) return null;
@@ -39,5 +58,11 @@
         return entry?.store_id ? String(entry.store_id) : null;
     }
 
-    return { findScheduledStoreId, getWeekdayFromIsoDate, normalizeEntityName, normalizeMatchPoints };
+    return {
+        findScheduledStoreId,
+        getWeekdayFromIsoDate,
+        normalizeEntityName,
+        normalizeMatchPoints,
+        parseDigilabTournamentId
+    };
 });

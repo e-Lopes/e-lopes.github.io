@@ -84,6 +84,7 @@ fujisawa@admin.digistats.local
 fonseca@admin.digistats.local
 fortes@admin.digistats.local
 lopes@admin.digistats.local
+oliveira@admin.digistats.local
 ```
 
 The migration finds those identities in `auth.users` and adds them idempotently to `public.admin_users`. It never creates or stores passwords. If an Auth user is created after the migration, rerun only the migration's final `insert into public.admin_users ...` statement.
@@ -96,3 +97,4 @@ Additional DigiLab/Admin migrations:
 - `20260731030000_allow_admin_store_writes.sql`: allows only authenticated allowlisted admins to create, rename and delete stores.
 - `20260731040000_add_digilab_deck_sync.sql`: persistent deck mapping and idempotent backfill of decks and points for an existing DigiLab link.
 - `20260731050000_create_deck_families_and_digilab_catalog.sql`: two-level family/archetype model, mirrored DigiLab catalog and family statistics view.
+- `20260803010000_background_digilab_import.sql`: persistent background queue plus a 15-minute `pg_cron` trigger for fully resolved new Curitiba tournaments.

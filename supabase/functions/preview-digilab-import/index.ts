@@ -37,9 +37,6 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
         auth: { persistSession: false, autoRefreshToken: false }
     });
-    if (!(await authorizeRequest(req, supabase, verifyToken || ''))) {
-        return json({ error: 'Não autorizado.' }, 401);
-    }
 
     let body: JsonRecord = {};
     try {
@@ -56,6 +53,14 @@ Deno.serve(async (req) => {
             : Number(rawRequestedId);
     if (requestedId !== null && (!Number.isSafeInteger(requestedId) || requestedId <= 0)) {
         return json({ error: 'digilab_tournament_id deve ser um inteiro positivo.' }, 400);
+    }
+
+    const publicSingleTournamentRequest = Boolean(requestedId);
+    if (
+        !publicSingleTournamentRequest &&
+        !(await authorizeRequest(req, supabase, verifyToken || ''))
+    ) {
+        return json({ error: 'Não autorizado.' }, 401);
     }
 
     try {

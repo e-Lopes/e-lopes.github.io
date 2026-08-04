@@ -48,7 +48,8 @@ from (
         ('fujisawa@admin.digistats.local', 'fujisawa', 'Lukas Fujisawa'),
         ('fonseca@admin.digistats.local', 'fonseca', 'Matheus Fonseca'),
         ('fortes@admin.digistats.local', 'fortes', 'Carlos Fortes'),
-        ('lopes@admin.digistats.local', 'lopes', 'Eduardo Lopes')
+        ('lopes@admin.digistats.local', 'lopes', 'Eduardo Lopes'),
+        ('oliveira@admin.digistats.local', 'oliveira', 'Oliveira')
 ) as seed(email, username, display_name)
 join auth.users as auth_user on lower(auth_user.email) = seed.email
 on conflict (user_id) do update

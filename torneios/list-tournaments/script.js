@@ -261,6 +261,7 @@ let createStores = [];
 let tournamentWeeklySchedule = [];
 let createResults = [];
 let createOcrImportInProgress = false;
+let createDigilabImportInProgress = false;
 let createOcrSelectedFiles = [];
 let createOcrProcessedFiles = [];
 let createTournamentSaveInProgress = false;
@@ -268,6 +269,8 @@ let selectedTournamentId = null;
 let currentViewMode = getSavedViewMode();
 let calendarMonthKey = '';
 let currentDashboardView = 'tournaments';
+let tournamentListNeedsRefresh = false;
+let tournamentListRefreshPromise = null;
 let currentStatisticsView = getSavedStatisticsView();
 let decksViewMounted = false;
 let decksScriptsPromise = null;
@@ -319,6 +322,13 @@ const FALLBACK_FORMAT_OPTIONS = [
 ];
 let tournamentFormats = [];
 let tournamentFormatsLoaded = false;
+
+window.addEventListener('digistats:tournaments-changed', () => {
+    tournamentListNeedsRefresh = true;
+    if (currentDashboardView === 'tournaments') {
+        void refreshTournamentListAfterExternalChange();
+    }
+});
 
 // ============================================================
 // FORMAT DATE FUNCTION
@@ -791,7 +801,7 @@ function enhanceTournamentFormLayout(mode) {
     nav.className = 'tournament-mobile-jump-nav';
     nav.setAttribute('aria-label', 'Navegar pelo formulario');
     nav.innerHTML = `
-        <button type="button" data-tournament-jump="${mode}TournamentOcrSection">Print Bandai</button>
+        <button type="button" data-tournament-jump="${mode}TournamentOcrSection">Importar</button>
         <button type="button" data-tournament-jump="${mode}TournamentResultsSection">Classificação</button>
         <button type="button" data-tournament-jump="${mode}TournamentGeneralSection">Dados</button>`;
 
@@ -848,7 +858,9 @@ function enhanceTournamentFormLayout(mode) {
     ocrDetails.className = 'tournament-ocr-section';
     ocrDetails.open = isCreate;
     const summary = document.createElement('summary');
-    summary.innerHTML = '<strong>Importar print da Bandai TCG+</strong><span>Preenchimento automático</span>';
+    summary.innerHTML = isCreate
+        ? '<strong>Importar dados</strong><span>DigiLab ou print da Bandai</span>'
+        : '<strong>Importar print da Bandai TCG+</strong><span>Preenchimento automático</span>';
     ocrGroup.querySelector(':scope > label')?.remove();
     ocrDetails.append(summary, ocrGroup);
 
@@ -949,6 +961,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnSelectOcrPrints = document.getElementById('btnSelectOcrPrints');
     const btnProcessOcrPrints = document.getElementById('btnProcessOcrPrints');
     const createOcrFilesInput = document.getElementById('createOcrFilesInput');
+    const btnImportCreateDigilab = document.getElementById('btnImportCreateDigilab');
+    const createDigilabTournamentUrl = document.getElementById('createDigilabTournamentUrl');
+    if (btnImportCreateDigilab && createDigilabTournamentUrl) {
+        btnImportCreateDigilab.addEventListener('click', importCreateTournamentFromDigilab);
+        createDigilabTournamentUrl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            importCreateTournamentFromDigilab();
+        });
+    }
     if (btnSelectOcrPrints && createOcrFilesInput) {
         btnSelectOcrPrints.addEventListener('click', () => {
             if (createOcrImportInProgress) return;
@@ -958,6 +980,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnProcessOcrPrints.addEventListener('click', processCreateOcrFiles);
         }
         createOcrFilesInput.addEventListener('change', onCreateOcrFilesSelected);
+        setupCreateOcrDropZone(btnSelectOcrPrints.closest('.ocr-import-actions'));
     }
 
     // Submit edit form
@@ -1089,6 +1112,25 @@ async function loadTournaments() {
     } catch (err) {
         console.error(err);
         alert('Falha ao carregar dados.');
+    }
+}
+
+async function refreshTournamentListAfterExternalChange() {
+    if (!tournamentListNeedsRefresh) return;
+    if (tournamentListRefreshPromise) return tournamentListRefreshPromise;
+
+    tournamentListRefreshPromise = (async () => {
+        do {
+            tournamentListNeedsRefresh = false;
+            await loadTournaments();
+            applyFilters();
+        } while (tournamentListNeedsRefresh && currentDashboardView === 'tournaments');
+    })();
+
+    try {
+        await tournamentListRefreshPromise;
+    } finally {
+        tournamentListRefreshPromise = null;
     }
 }
 
@@ -1674,6 +1716,11 @@ async function switchDashboardView(view) {
     currentDashboardView = view;
     saveDashboardViewPreference();
     updateDashboardViewUi();
+
+    if (view === 'tournaments') {
+        await refreshTournamentListAfterExternalChange();
+        return;
+    }
 
     if (view === 'decks') {
         try {
@@ -8077,6 +8124,7 @@ async function openCreateTournamentModal(defaultDate = '') {
 
     createResults = [];
     resetCreateOcrImportUi();
+    resetCreateDigilabImportUi();
 
     // Carrega dados base para o modal
     try {
@@ -8103,11 +8151,174 @@ async function openCreateTournamentModal(defaultDate = '') {
 }
 
 function closeCreateModal() {
-    if (createOcrImportInProgress || createTournamentSaveInProgress) return;
+    if (createOcrImportInProgress || createDigilabImportInProgress || createTournamentSaveInProgress) return;
     document.getElementById('createModal').classList.remove('active');
     createResults = [];
     resetCreateOcrImportUi();
+    resetCreateDigilabImportUi();
     renderCreateResultsRows();
+}
+
+function resetCreateDigilabImportUi() {
+    createDigilabImportInProgress = false;
+    const input = document.getElementById('createDigilabTournamentUrl');
+    const button = document.getElementById('btnImportCreateDigilab');
+    const status = document.getElementById('createDigilabStatus');
+    if (input) input.value = '';
+    if (button) {
+        button.disabled = false;
+        button.textContent = 'Buscar e preencher';
+    }
+    if (status) {
+        status.textContent = '';
+        status.classList.remove('is-error', 'is-success');
+    }
+}
+
+function setCreateDigilabStatus(message, tone = 'info') {
+    const status = document.getElementById('createDigilabStatus');
+    if (!status) return;
+    status.textContent = message || '';
+    status.classList.toggle('is-error', tone === 'error');
+    status.classList.toggle('is-success', tone === 'success');
+}
+
+function parseDigilabTournamentId(value) {
+    if (window.tournamentUtils?.parseDigilabTournamentId) {
+        return window.tournamentUtils.parseDigilabTournamentId(value);
+    }
+    const raw = String(value || '').trim();
+    if (/^\d+$/.test(raw)) {
+        const id = Number(raw);
+        return Number.isSafeInteger(id) && id > 0 ? id : null;
+    }
+
+    try {
+        const url = new URL(raw);
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        const match = url.pathname.match(/^\/tournament\/(\d+)\/?$/i);
+        if (host !== 'digilab.cards' || !match) return null;
+        const id = Number(match[1]);
+        return Number.isSafeInteger(id) && id > 0 ? id : null;
+    } catch {
+        return null;
+    }
+}
+
+function mapDigilabEventTypeToTournamentName(eventType) {
+    const normalized = String(eventType || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_');
+    return normalized === 'evo_cup' ? 'Evo Cup' : 'Semanal';
+}
+
+function applyDigilabPreviewToCreateForm(preview) {
+    if (preview?.already_linked?.tournament_id) {
+        throw new Error(
+            `Este torneio DigiLab já está vinculado ao DigiStats #${preview.already_linked.tournament_id}.`
+        );
+    }
+
+    const tournament = preview?.tournament || {};
+    const standings = Array.isArray(preview?.standings) ? preview.standings : [];
+    if (!standings.length) throw new Error('O DigiLab não retornou jogadores para este torneio.');
+    if (standings.length > 36) throw new Error('O torneio possui mais de 36 jogadores.');
+
+    resetCreateOcrImportUi();
+
+    const date = String(tournament.date || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        document.getElementById('createTournamentDate').value = date;
+    }
+
+    const storeId = preview?.import_resolution?.store?.store_id;
+    const storeByName = resolveStoreFromOcrName(tournament.store?.name || '');
+    document.getElementById('createStoreSelect').value = String(storeId || storeByName?.id || '');
+    document.getElementById('createTournamentName').value =
+        mapDigilabEventTypeToTournamentName(tournament.event_type);
+
+    populateTournamentFormatSelect('createTournamentFormat', {
+        selectedId: preview?.import_resolution?.format?.format_id,
+        selectedValue:
+            preview?.import_resolution?.format?.format_code || tournament.format || ''
+    });
+
+    createResults = [...standings]
+        .sort((left, right) => Number(left.placement) - Number(right.placement))
+        .map((standing) => ({
+            player_id: standing.player_match?.player_id || '',
+            deck_id: standing.deck_match?.deck_id || '',
+            player_name: standing.player_match?.player_name || standing.player?.name || '',
+            deck_name: standing.deck_match?.deck_name || standing.deck?.name || '',
+            match_points: normalizeOcrMatchPoints(standing.match_points),
+            ocr_member_id: '',
+            ocr_player_unmatched: !standing.player_match?.player_id
+        }));
+
+    document.getElementById('createTotalPlayers').value = String(createResults.length);
+    renderCreateResultsRows();
+    setTournamentFormDirty('create', true);
+
+    const unresolvedPlayers = createResults.filter((row) => !row.player_id).length;
+    const unresolvedDecks = createResults.filter(
+        (row) => row.deck_name && !row.deck_id
+    ).length;
+    const warnings = [];
+    if (unresolvedPlayers) warnings.push(`${unresolvedPlayers} jogador(es) novo(s)`);
+    if (unresolvedDecks) warnings.push(`${unresolvedDecks} deck(s) novo(s)`);
+    if (!document.getElementById('createStoreSelect').value) warnings.push('loja não encontrada');
+    return warnings;
+}
+
+async function importCreateTournamentFromDigilab() {
+    if (createDigilabImportInProgress) return;
+    const input = document.getElementById('createDigilabTournamentUrl');
+    const button = document.getElementById('btnImportCreateDigilab');
+    const externalId = parseDigilabTournamentId(input?.value);
+    if (!externalId) {
+        setCreateDigilabStatus(
+            'Informe um link válido, como https://digilab.cards/tournament/7187.',
+            'error'
+        );
+        input?.focus();
+        return;
+    }
+
+    createDigilabImportInProgress = true;
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Buscando…';
+    }
+    setCreateDigilabStatus(`Buscando o torneio DigiLab #${externalId}…`);
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/preview-digilab-import`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ digilab_tournament_id: externalId })
+        });
+        const preview = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(preview.error || `Não foi possível consultar o DigiLab (${response.status}).`);
+        }
+
+        const warnings = applyDigilabPreviewToCreateForm(preview);
+        setCreateDigilabStatus(
+            warnings.length
+                ? `Dados preenchidos. Revise: ${warnings.join(', ')}.`
+                : `Torneio DigiLab #${externalId} preenchido com sucesso.`,
+            warnings.length ? 'info' : 'success'
+        );
+    } catch (error) {
+        setCreateDigilabStatus(error.message || 'Não foi possível importar o torneio.', 'error');
+    } finally {
+        createDigilabImportInProgress = false;
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Buscar e preencher';
+        }
+    }
 }
 
 function syncCreateResultsByTotal() {
@@ -8129,6 +8340,7 @@ function syncCreateResultsByTotal() {
                 player_name: '',
                 deck_name: '',
                 match_points: null,
+                ocr_member_id: '',
                 ocr_player_unmatched: false
             }
         );
@@ -8288,6 +8500,13 @@ function findPlayerMatchFromOcr(ocrPlayer) {
         if (byName?.id) {
             return byName;
         }
+
+        const byDigilabName = createPlayers.find(
+            (player) => normalizeLookupName(player.digilab_name) === ocrName
+        );
+        if (byDigilabName?.id) {
+            return byDigilabName;
+        }
     }
 
     return null;
@@ -8299,20 +8518,27 @@ async function loadInactivePlayersMatchingOcr(ocrPlayers) {
             .map((player) => normalizeMemberId(player.member_id))
             .filter((memberId) => memberId && !isGuestMemberId(memberId))
     );
-    if (!memberIds.size) return;
+    const playerNames = new Set(
+        ocrPlayers.map((player) => normalizeLookupName(player.name)).filter(Boolean)
+    );
+    if (!memberIds.size && !playerNames.size) return;
 
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/players?is_active=eq.false&bandai_id=not.is.null&select=id,name,bandai_id,bandai_nick,is_active`,
+        `${SUPABASE_URL}/rest/v1/players?is_active=eq.false&select=id,name,bandai_id,bandai_nick,digilab_name,is_active`,
         { headers }
     );
     if (!res.ok) {
-        throw new Error('Erro ao consultar players inativos pelo Bandai ID');
+        throw new Error('Erro ao consultar players inativos para conciliar o OCR');
     }
 
     const inactivePlayers = await res.json();
     inactivePlayers.forEach((player) => {
         const memberId = normalizeMemberId(player.bandai_id);
-        if (!memberIds.has(memberId)) return;
+        const matchesMemberId = memberId && memberIds.has(memberId);
+        const matchesName = [player.name, player.bandai_nick, player.digilab_name]
+            .map(normalizeLookupName)
+            .some((name) => name && playerNames.has(name));
+        if (!matchesMemberId && !matchesName) return;
         if (createPlayers.some((item) => String(item.id) === String(player.id))) return;
         createPlayers.push({
             ...player,
@@ -8408,20 +8634,66 @@ function resolveStoreFromOcrName(storeName) {
     return includes || null;
 }
 
-function onCreateOcrFilesSelected(event) {
-    const files = Array.from(event.target?.files || []);
+function isSupportedOcrImageFile(file) {
+    if (!(file instanceof File)) return false;
+    if (String(file.type || '').toLowerCase().startsWith('image/')) return true;
+    return /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.name || '');
+}
+
+function selectCreateOcrFiles(fileList) {
+    const droppedFiles = Array.from(fileList || []);
+    const files = droppedFiles.filter(isSupportedOcrImageFile);
+    const ignoredCount = droppedFiles.length - files.length;
     createOcrSelectedFiles = files;
     if (files.length === 0) {
         createOcrProcessedFiles = [];
         renderOcrFilePreview('createOcrPreview', []);
         setCreateOcrSelectedInfo('');
-        setCreateOcrStatus('');
+        setCreateOcrStatus(
+            ignoredCount ? 'Arraste somente arquivos de imagem.' : '',
+            ignoredCount ? 'error' : 'info'
+        );
         return;
     }
-    setCreateOcrSelectedInfo(`${files.length} print(s) selecionado(s).`);
+    setCreateOcrSelectedInfo(
+        `${files.length} print(s) selecionado(s).${ignoredCount ? ` ${ignoredCount} arquivo(s) não compatível(is) ignorado(s).` : ''}`
+    );
     renderOcrFilePreview('createOcrPreview', files);
     setCreateOcrStatus('Processando...');
     processCreateOcrFiles();
+}
+
+function onCreateOcrFilesSelected(event) {
+    selectCreateOcrFiles(event.target?.files);
+}
+
+function setupCreateOcrDropZone(dropZone) {
+    if (!dropZone || dropZone.dataset.dropZoneReady === 'true') return;
+
+    const preventFileNavigation = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    };
+
+    dropZone.addEventListener('dragenter', (event) => {
+        preventFileNavigation(event);
+        if (!createOcrImportInProgress) dropZone.classList.add('is-drag-over');
+    });
+    dropZone.addEventListener('dragover', preventFileNavigation);
+    dropZone.addEventListener('dragleave', (event) => {
+        preventFileNavigation(event);
+        if (!dropZone.contains(event.relatedTarget)) {
+            dropZone.classList.remove('is-drag-over');
+        }
+    });
+    dropZone.addEventListener('drop', (event) => {
+        preventFileNavigation(event);
+        dropZone.classList.remove('is-drag-over');
+        if (createOcrImportInProgress) return;
+        selectCreateOcrFiles(event.dataTransfer?.files);
+    });
+    dropZone.dataset.dropZoneReady = 'true';
 }
 
 async function requestOcrFromImage(file) {
@@ -8502,12 +8774,14 @@ async function processCreateOcrFiles() {
 
         createResults = mergedPlayers.map((ocrPlayer) => {
             const matchedPlayer = findPlayerMatchFromOcr(ocrPlayer);
+            const ocrMemberId = normalizeMemberId(ocrPlayer.member_id);
             return {
                 player_id: matchedPlayer?.id || '',
                 deck_id: '',
                 player_name: ocrPlayer.name || '',
                 deck_name: '',
                 match_points: ocrPlayer.points,
+                ocr_member_id: isGuestMemberId(ocrMemberId) ? '' : ocrMemberId,
                 ocr_player_unmatched: !matchedPlayer?.id
             };
         });
@@ -9302,7 +9576,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
 
 async function loadPlayersToCreate() {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/players?is_active=eq.true&select=id,name,bandai_id,bandai_nick,is_active&order=name.asc`,
+        `${SUPABASE_URL}/rest/v1/players?is_active=eq.true&select=id,name,bandai_id,bandai_nick,digilab_name,is_active&order=name.asc`,
         {
             headers
         }
@@ -9337,6 +9611,7 @@ function addCreateResultRow() {
         player_name: '',
         deck_name: '',
         match_points: null,
+        ocr_member_id: '',
         ocr_player_unmatched: false
     });
     setTournamentFormDirty('create', true);
@@ -9543,38 +9818,53 @@ function openRegisterPlayersModal(playerNames) {
 
 window.openRegisterPlayersModal = openRegisterPlayersModal;
 
-async function reactivateSelectedOcrPlayers() {
-    const selectedPlayerIds = new Set(
-        createResults.map((row) => String(row.player_id || '')).filter(Boolean)
-    );
-    const inactiveIds = createPlayers
-        .filter(
-            (player) =>
-                player.is_active === false && selectedPlayerIds.has(String(player.id || ''))
-        )
-        .map((player) => String(player.id));
-    if (!inactiveIds.length) return;
+async function syncSelectedOcrPlayers() {
+    const updatesByPlayerId = new Map();
 
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/players?id=in.(${inactiveIds.join(',')})`,
-        {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({ is_active: true })
+    createResults.forEach((row) => {
+        const playerId = String(row.player_id || '');
+        if (!playerId) return;
+        const player = createPlayers.find((item) => String(item.id) === playerId);
+        if (!player) return;
+
+        const update = updatesByPlayerId.get(playerId) || {};
+        if (player.is_active === false) update.is_active = true;
+
+        const ocrMemberId = normalizeMemberId(row.ocr_member_id);
+        const currentMemberId = normalizeMemberId(player.bandai_id);
+        if (ocrMemberId && !isGuestMemberId(ocrMemberId)) {
+            if (currentMemberId && currentMemberId !== ocrMemberId) {
+                throw new Error(
+                    `O player "${player.name}" já possui outro Bandai ID (${currentMemberId}). Revise o print antes de continuar.`
+                );
+            }
+            if (!currentMemberId) update.bandai_id = ocrMemberId;
         }
-    );
-    if (!res.ok) {
-        throw new Error('Erro ao reativar player identificado pelo Bandai ID');
-    }
 
-    const reactivatedIds = new Set(inactiveIds);
-    createPlayers.forEach((player) => {
-        if (reactivatedIds.has(String(player.id))) player.is_active = true;
+        if (Object.keys(update).length) updatesByPlayerId.set(playerId, update);
     });
+
+    for (const [playerId, update] of updatesByPlayerId) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}`,
+            {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify(update)
+            }
+        );
+        if (!res.ok) {
+            const detail = await res.text();
+            throw new Error(`Erro ao atualizar o cadastro do player (${res.status}): ${detail}`);
+        }
+
+        const player = createPlayers.find((item) => String(item.id) === playerId);
+        if (player) Object.assign(player, update);
+    }
 }
 
 async function ensurePlayersRegisteredForCreate() {
-    await reactivateSelectedOcrPlayers();
+    await syncSelectedOcrPlayers();
     const { missingRows, pendingNames } = getPendingPlayerRegistrations(createResults, createPlayers);
     if (missingRows.length) {
         throw new Error('Informe o player nas colocacoes: ' + missingRows.join(', '));
@@ -9788,6 +10078,7 @@ function bindCreateResultsAutocomplete() {
             updateCreateResultField(rowIndex, field, '');
             updateCreateResultField(rowIndex, `${type}_name`, input.value.trim());
             if (type === 'player') {
+                updateCreateResultField(rowIndex, 'ocr_member_id', '');
                 updateCreateResultField(rowIndex, 'ocr_player_unmatched', Boolean(input.value.trim()));
             }
             renderOptions(input.value);
@@ -9919,7 +10210,7 @@ async function createTournamentFormSubmit(e) {
     submitBtn.textContent = 'Criando...';
     createTournamentSaveInProgress = true;
     document.getElementById('createTournamentForm')?.setAttribute('aria-busy', 'true');
-    ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints'].forEach((id) => {
+    ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints', 'btnImportCreateDigilab'].forEach((id) => {
         const button = document.getElementById(id);
         if (button) button.disabled = true;
     });
@@ -10047,7 +10338,7 @@ async function createTournamentFormSubmit(e) {
     } finally {
         createTournamentSaveInProgress = false;
         document.getElementById('createTournamentForm')?.removeAttribute('aria-busy');
-        ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints'].forEach((id) => {
+        ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints', 'btnImportCreateDigilab'].forEach((id) => {
             const button = document.getElementById(id);
             if (button) button.disabled = false;
         });

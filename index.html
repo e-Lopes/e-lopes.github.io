@@ -11,10 +11,10 @@
         <link rel="icon" type="image/png" href="icons/favicon/favicon.png" />
         <link rel="apple-touch-icon" href="icons/icons-192.png" />
         <link rel="manifest" href="manifest.json" />
-        <link rel="stylesheet" href="styles.css?v=2026.07.29.18" />
+        <link rel="stylesheet" href="styles.css?v=2026.08.04.2" />
         <link rel="stylesheet" href="styles/components/utilities.css?v=2026.03.27.1" />
         <link rel="stylesheet" href="styles/components/states.css?v=2026.03.27.1" />
-        <link rel="stylesheet" href="styles/pages/players.css?v=2026.07.31.1" />
+        <link rel="stylesheet" href="styles/pages/players.css?v=2026.08.04.1" />
     </head>
     <body class="dashboard-home">
         <div class="container">
@@ -780,6 +780,13 @@
                             <button
                                 type="button"
                                 class="admin-tab-btn is-active"
+                                data-admin-tab="digilab"
+                            >
+                                DigiLab
+                            </button>
+                            <button
+                                type="button"
+                                class="admin-tab-btn"
                                 data-admin-tab="formats"
                             >
                                 Formatos / Meta
@@ -792,9 +799,6 @@
                             </button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">
                                 Reparo de dados
-                            </button>
-                            <button type="button" class="admin-tab-btn" data-admin-tab="digilab">
-                                DigiLab
                             </button>
                         </div>
                     </div>
@@ -1237,6 +1241,13 @@
                                 >
                                     Sincronizar dados pendentes
                                 </button>
+                                <button
+                                    type="button"
+                                    class="admin-digilab-action is-secondary"
+                                    data-admin-action="digilab-run-background"
+                                >
+                                    Executar automação agora
+                                </button>
                             </div>
                             <div class="admin-digilab-lookup">
                                 <label for="adminDigilabId">Consultar torneio</label>
@@ -1675,6 +1686,23 @@
                 <form id="createTournamentForm">
                     <div class="form-group">
                         <label>Importar print da Bandai TCG+</label>
+                        <div class="create-digilab-import">
+                            <label for="createDigilabTournamentUrl">Link do torneio DigiLab</label>
+                            <div class="create-digilab-import-row">
+                                <input
+                                    type="text"
+                                    id="createDigilabTournamentUrl"
+                                    placeholder="https://digilab.cards/tournament/7187"
+                                    inputmode="url"
+                                    autocomplete="off"
+                                />
+                                <button type="button" id="btnImportCreateDigilab" class="btn-add-result">
+                                    Buscar e preencher
+                                </button>
+                            </div>
+                            <small id="createDigilabStatus" class="field-hint" role="status"></small>
+                        </div>
+                        <div class="create-import-divider"><span>ou use print da Bandai TCG+</span></div>
                         <input
                             type="file"
                             id="createOcrFilesInput"
@@ -1942,14 +1970,14 @@
         <script src="config/supabase.js?v=2026.03.27.1"></script>
         <script src="config/api-client.js?v=2026.03.27.1"></script>
         <script src="config/ui-state.js?v=2026.03.27.1"></script>
-        <script src="config/app-version.js?v=2026.07.29.18"></script>
+        <script src="config/app-version.js?v=2026.08.04.4"></script>
         <script src="config/register-sw.js?v=2026.03.27.1"></script>
         <script src="torneios/list-tournaments/calendar-view/calendar.js?v=2026.07.29.18"></script>
-        <script src="config/tournament-utils.js?v=2026.07.25.6"></script>
+        <script src="config/tournament-utils.js?v=2026.08.04.2"></script>
         <script src="config/digilab-export.js?v=2026.07.29.18"></script>
         <script src="torneios/tournament-ocr-files.js?v=2026.07.29.18"></script>
         <script src="feedback/feedback.js?v=2026.07.29.18"></script>
-        <script src="torneios/list-tournaments/script.js?v=2026.07.29.18"></script>
+        <script src="torneios/list-tournaments/script.js?v=2026.08.04.2"></script>
         <script src="torneios/edit-tournament/modal.js?v=2026.07.29.18"></script>
 
         <!-- Player add/edit modal — fora do container para position:fixed funcionar -->
