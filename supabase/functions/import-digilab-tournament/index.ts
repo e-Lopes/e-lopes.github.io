@@ -322,20 +322,68 @@ async function resolveImport(
     const stores = (storesResult.data || []).filter(
         (store: JsonRecord) => normalize(store.name) === normalize(tournament.store?.name)
     );
-    const formats = (formatsResult.data || []).filter((format: JsonRecord) => format.is_active);
-    const exactFormats = formats.filter(
-        (format: JsonRecord) => normalizeFormat(format.code) === normalizeFormat(tournament.format)
-    );
+    const formats = formatsResult.data || [];
     const format =
-        exactFormats.length === 1
-            ? exactFormats[0]
-            : formats.find((item: JsonRecord) => item.is_default);
+        (await ensureDigilabFormat(supabase, formats, tournament.format)) ||
+        formats.find((item: JsonRecord) => item.is_active && item.is_default);
     return {
         players: resolvedPlayers,
         decks: resolvedDecks,
         store: stores.length === 1 ? { store_id: stores[0].id, store_name: stores[0].name } : null,
         format: format ? { format_id: format.id, format_code: format.code } : null
     };
+}
+
+async function ensureDigilabFormat(
+    supabase: any,
+    knownFormats: JsonRecord[],
+    externalFormat: unknown
+) {
+    const code = String(externalFormat || '').trim();
+    const normalizedCode = normalizeFormat(code);
+    if (!normalizedCode) return null;
+
+    const matches = knownFormats.filter(
+        (format: JsonRecord) => normalizeFormat(format.code) === normalizedCode
+    );
+    const exactCodeMatches = matches.filter((format: JsonRecord) => String(format.code) === code);
+    const format = exactCodeMatches.length === 1 ? exactCodeMatches[0] : matches[0];
+    if (format) {
+        if (format.is_active) return format;
+        const { data, error } = await supabase
+            .from('formats')
+            .update({ is_active: true })
+            .eq('id', format.id)
+            .select('id,code,is_default,is_active')
+            .single();
+        if (error || !data) throw new Error('Falha ao reativar o meta recebido do DigiLab.');
+        return data;
+    }
+
+    const { data, error } = await supabase
+        .from('formats')
+        .insert({
+            code,
+            name: code,
+            background_path: null,
+            background_url: null,
+            is_active: true,
+            is_default: false
+        })
+        .select('id,code,is_default,is_active')
+        .single();
+    if (!error && data) return data;
+
+    // Another import may have created the same format concurrently.
+    if (error?.code === '23505') {
+        const { data: existing, error: existingError } = await supabase
+            .from('formats')
+            .select('id,code,is_default,is_active')
+            .eq('code', code)
+            .maybeSingle();
+        if (!existingError && existing) return existing;
+    }
+    throw new Error('Falha ao criar o meta recebido do DigiLab.');
 }
 
 function deriveMatchPoints(record: JsonRecord | null | undefined) {
@@ -346,9 +394,7 @@ function deriveMatchPoints(record: JsonRecord | null | undefined) {
 
 function mapDigilabTournamentName(eventType: unknown) {
     const raw = String(eventType || '').trim();
-    const normalized = raw
-        .toLocaleLowerCase('en-US')
-        .replace(/[\s-]+/g, '_');
+    const normalized = raw.toLocaleLowerCase('en-US').replace(/[\s-]+/g, '_');
     const names: Record<string, string> = {
         locals: 'Semanal',
         evo_cup: 'Evo Cup'

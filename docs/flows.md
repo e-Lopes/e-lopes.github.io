@@ -133,7 +133,7 @@ Fill or create a tournament from its public DigiLab URL without requiring Admin 
 ## Steps
 1. User opens **Novo torneio**.
 2. Pastes a URL such as `https://digilab.cards/tournament/7187` or a positive DigiLab ID.
-3. DigiStats requests a read-only preview for that exact tournament.
+3. DigiStats requests a preview for that exact tournament and automatically creates its meta locally when needed.
 4. Store, date, format, standings, decks and points are filled when available.
 5. User reviews the data and saves the tournament.
 

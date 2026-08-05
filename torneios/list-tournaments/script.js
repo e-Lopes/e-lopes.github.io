@@ -8290,6 +8290,23 @@ function applyDigilabPreviewToCreateForm(preview) {
     if (!standings.length) throw new Error('O DigiLab não retornou jogadores para este torneio.');
     if (standings.length > 36) throw new Error('O torneio possui mais de 36 jogadores.');
 
+    const previewFormat = preview?.import_resolution?.format;
+    const previewFormatId = Number(previewFormat?.format_id);
+    const previewFormatCode = normalizeFormatCode(previewFormat?.format_code || tournament.format);
+    if (
+        Number.isFinite(previewFormatId) &&
+        previewFormatId > 0 &&
+        previewFormatCode &&
+        !tournamentFormats.some((format) => Number(format?.id) === previewFormatId)
+    ) {
+        tournamentFormats.push({
+            id: previewFormatId,
+            code: previewFormatCode,
+            label: previewFormatCode,
+            isDefault: false
+        });
+    }
+
     resetCreateOcrImportUi();
 
     const date = String(tournament.date || '');

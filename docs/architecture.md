@@ -93,7 +93,7 @@ const data = await res.json();
 | `upload-card-image`          | Fetches and stores card images                                                  |
 | `digilab-health`             | Validates DigiLab secret and API connectivity without returning sensitive data  |
 | `verify-digilab-tournaments` | Discovers, compares and persists a verified DigiLab tournament link             |
-| `preview-digilab-import`     | Lists Curitiba tournaments for admins and publicly previews one requested tournament without database writes |
+| `preview-digilab-import`     | Lists Curitiba tournaments, previews one requested tournament and ensures its DigiLab meta exists locally |
 | `import-digilab-tournament`  | Creates a DigiStats tournament and its results in one transaction               |
 | `sync-new-digilab-tournaments` | Every 15 minutes, discovers new Curitiba tournaments, creates unambiguous players and imports resolved events |
 | `digilab-deck-catalog`       | Synchronizes DigiLab archetypes/families and manages reviewed local mappings    |

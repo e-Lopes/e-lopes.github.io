@@ -241,7 +241,7 @@ Um administrador pode resolver um `mismatch` pela aba DigiLab usando **Confirmar
 
 ## Edge Function `preview-digilab-import`
 
-O código read-only está em [`supabase/functions/preview-digilab-import/index.ts`](../../supabase/functions/preview-digilab-import/index.ts). A consulta de inventário exige uma sessão de admin autorizada ou o header operacional de testes. A consulta de um único torneio por `digilab_tournament_id` também aceita a chave pública do aplicativo, permitindo preencher o modal **Novo torneio** a partir de uma URL DigiLab sem exigir acesso ao Admin.
+O código está em [`supabase/functions/preview-digilab-import/index.ts`](../../supabase/functions/preview-digilab-import/index.ts). A consulta de inventário exige uma sessão de admin autorizada ou o header operacional de testes. A consulta de um único torneio por `digilab_tournament_id` também aceita a chave pública do aplicativo, permitindo preencher o modal **Novo torneio** a partir de uma URL DigiLab sem exigir acesso ao Admin. Ao encontrar nesse detalhe um meta ainda inexistente no DigiStats, a função cria somente o registro correspondente em `formats`, com nome e código iguais aos recebidos, ativo, sem imagem de fundo e sem alterar o meta padrão.
 
 Sem um ID externo, ela lista uma página do inventário da scene Curitiba:
 
@@ -302,6 +302,8 @@ Quando a prévia encontra nomes DigiLab sem jogador local, os detalhes exibem a 
 O botão **Detalhes** funciona como alternador: um segundo clique no mesmo torneio fecha a linha expandida.
 
 A criação inversa exige a Edge Function `import-digilab-tournament`, cujo código está em [`supabase/functions/import-digilab-tournament/index.ts`](../../supabase/functions/import-digilab-tournament/index.ts). Ela usa `import_digilab_tournament_transaction`, de modo que torneio, resultados, vínculo e mapeamentos sejam gravados ou revertidos juntos. Se a função estiver ausente ou indisponível, o lote para no primeiro erro sistêmico e nenhum outro torneio é tentado.
+
+O meta informado pelo DigiLab também é garantido nessa função antes da importação. Se o código ainda não existir, `formats` recebe um registro ativo com `name = code`, `background_path` e `background_url` nulos e `is_default = false`. Um registro correspondente que esteja inativo é reativado; metas já existentes preservam as demais configurações.
 
 Na criação do torneio, os tipos externos são convertidos para os nomes aceitos pelo DigiStats: `locals` vira **Semanal** e `evo_cup` vira **Evo Cup**. Tipos ausentes ou ainda não reconhecidos usam **Semanal** como padrão. A migration `20260801000000_map_digilab_tournament_types.sql` faz o primeiro ajuste retroativo nos torneios vinculados. A migration `20260801010000_normalize_tournament_types.sql` amplia o backfill para qualquer registro legado com esses aliases e instala um trigger no banco, garantindo a conversão também em futuros inserts e updates, independentemente da versão do cliente ou da Edge Function.
 
