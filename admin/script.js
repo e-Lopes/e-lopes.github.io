@@ -4433,6 +4433,8 @@ function clearStoreLogo() {
 }
 
 async function uploadStoreLogo(file, slug) {
+    await refreshAdminSessionIfNeeded();
+
     const ext = file.name.split('.').pop().toLowerCase() || 'png';
     const path = `stores/${slug}-${Date.now()}.${ext}`;
     const bucket = 'store-logos';
@@ -4440,12 +4442,10 @@ async function uploadStoreLogo(file, slug) {
 
     const res = await fetch(uploadUrl, {
         method: 'POST',
-        headers: {
-            apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
+        headers: createAuthenticatedAdminHeaders({
             'Content-Type': file.type || 'application/octet-stream',
             'x-upsert': 'true'
-        },
+        }),
         body: file
     });
 
