@@ -2,6 +2,7 @@
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const FANDOM_BASE_URL = 'https://digimoncardgame.fandom.com/wiki/Special:FilePath/';
+    const PRODIGI_IMAGE_BASE_URL = 'https://card-list.prodigi.dev/images/cards/';
     const COLOR_OPTIONS = [
         { code: 'r', label: 'Red', className: 'is-red' },
         { code: 'u', label: 'Blue', className: 'is-blue' },
@@ -277,6 +278,10 @@
 
         let lastFocused = null;
         let familyOptionsLoaded = false;
+        let previewRequestId = 0;
+        let previewCandidates = [];
+        let previewCandidateIndex = 0;
+        let previewBackendAttempted = false;
         const selectedColors = new Set();
 
         const renderColorButtons = () => {
@@ -314,16 +319,66 @@
             }
         };
 
+        const loadNextPreviewCandidate = async (requestId, code) => {
+            if (requestId !== previewRequestId || !previewImage || !preview) return;
+
+            if (previewCandidateIndex < previewCandidates.length) {
+                previewImage.src = previewCandidates[previewCandidateIndex++];
+                return;
+            }
+
+            if (previewBackendAttempted) {
+                preview.style.display = 'none';
+                previewImage.removeAttribute('src');
+                return;
+            }
+            previewBackendAttempted = true;
+
+            // As fontes de imagem bloqueiam hotlink em alguns navegadores. Nesse caso,
+            // usa a mesma Edge Function do salvamento e exibe o arquivo já no Storage.
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            if (
+                requestId !== previewRequestId ||
+                codeInput?.value.trim().toUpperCase() !== code
+            ) return;
+            const storedUrl = await uploadDeckImageViaEdgeFunction(supabaseUrl, headers, code);
+            if (
+                requestId !== previewRequestId ||
+                codeInput?.value.trim().toUpperCase() !== code
+            ) return;
+
+            if (storedUrl) {
+                previewImage.src = `${storedUrl}${storedUrl.includes('?') ? '&' : '?'}preview=${Date.now()}`;
+            } else {
+                preview.style.display = 'none';
+                previewImage.removeAttribute('src');
+            }
+        };
+
         const updatePreview = () => {
             if (!codeInput || !preview || !previewImage) return;
             const code = codeInput.value.trim().toUpperCase();
+            const requestId = ++previewRequestId;
             if (!isValidDeckCode(code)) {
                 preview.style.display = 'none';
                 previewImage.removeAttribute('src');
                 return;
             }
-            previewImage.src = FANDOM_BASE_URL + code + '-Sample.png';
-            preview.style.display = 'flex';
+
+            const encodedCode = encodeURIComponent(code);
+            previewCandidates = [
+                `${supabaseUrl}/storage/v1/object/public/deck-images/${encodedCode}.webp`,
+                `${PRODIGI_IMAGE_BASE_URL}${encodedCode}.webp`,
+                `${PRODIGI_IMAGE_BASE_URL}${encodedCode}.png`,
+                `${FANDOM_BASE_URL}${encodedCode}-Sample.png`,
+                `${IMAGE_BASE_URL}${encodedCode}.webp`,
+                `${IMAGE_BASE_URL}${encodedCode}.jpg`,
+                `${LEGACY_IMAGE_BASE_URL}${encodedCode}.webp`
+            ];
+            previewCandidateIndex = 0;
+            previewBackendAttempted = false;
+            preview.style.display = 'none';
+            loadNextPreviewCandidate(requestId, code);
         };
 
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
@@ -341,16 +396,8 @@
 
         if (previewImage && preview) {
             previewImage.addEventListener('error', () => {
-                const src = previewImage.getAttribute('src') || '';
-                if (src.startsWith(FANDOM_BASE_URL)) {
-                    const code = src.slice(FANDOM_BASE_URL.length).replace(/-Sample\.png$/, '');
-                    previewImage.src = IMAGE_BASE_URL + code + '.webp';
-                } else if (src.startsWith(IMAGE_BASE_URL)) {
-                    const code = src.slice(IMAGE_BASE_URL.length).replace(/\.webp$/, '');
-                    previewImage.src = LEGACY_IMAGE_BASE_URL + code + '.webp';
-                } else {
-                    preview.style.display = 'none';
-                }
+                const code = codeInput?.value.trim().toUpperCase() || '';
+                loadNextPreviewCandidate(previewRequestId, code);
             });
             previewImage.addEventListener('load', () => {
                 if (previewImage.getAttribute('src')) preview.style.display = 'flex';
