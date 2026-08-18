@@ -6,6 +6,7 @@ const CORS = {
 };
 
 const CANDIDATES = (code: string) => [
+    `https://digilab.cards/api/card/${code}.jpg`,
     `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${code}-Sample.png`,
     `https://images.digimoncard.io/images/cards/${code}.webp`,
     `https://images.digimoncard.io/images/cards/${code}.jpg`,

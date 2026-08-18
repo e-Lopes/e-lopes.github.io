@@ -2,6 +2,7 @@
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const FANDOM_BASE_URL = 'https://digimoncardgame.fandom.com/wiki/Special:FilePath/';
+    const DIGILAB_CARD_IMAGE_BASE_URL = 'https://digilab.cards/api/card/';
     const COLOR_OPTIONS = [
         { code: 'r', label: 'Red', className: 'is-red' },
         { code: 'u', label: 'Blue', className: 'is-blue' },
@@ -136,8 +137,9 @@
         const edgeUrl = await uploadDeckImageViaEdgeFunction(supabaseUrl, headers, deckCode);
         if (edgeUrl) return edgeUrl;
 
-        // Fallback browser-side (funciona para sets disponíveis no egmanevents)
+        // Fallback browser-side quando a Edge Function estiver indisponível
         const candidates = [
+            `${DIGILAB_CARD_IMAGE_BASE_URL}${deckCode}.jpg`,
             `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${deckCode}-Sample.png`,
             `${IMAGE_BASE_URL}${deckCode}.webp`,
             `${IMAGE_BASE_URL}${deckCode}.jpg`,
@@ -245,7 +247,7 @@
                 return;
             }
 
-            const imageUrl = FANDOM_BASE_URL + code + '-Sample.png';
+            const imageUrl = DIGILAB_CARD_IMAGE_BASE_URL + code + '.jpg';
             previewImage.src = imageUrl;
             preview.style.display = 'flex';
         };
@@ -293,7 +295,12 @@
         if (previewImage && preview) {
             previewImage.addEventListener('error', () => {
                 const src = previewImage.getAttribute('src') || '';
-                if (src.startsWith(FANDOM_BASE_URL)) {
+                if (src.startsWith(DIGILAB_CARD_IMAGE_BASE_URL)) {
+                    const code = src
+                        .slice(DIGILAB_CARD_IMAGE_BASE_URL.length)
+                        .replace(/\.jpg$/, '');
+                    previewImage.src = FANDOM_BASE_URL + code + '-Sample.png';
+                } else if (src.startsWith(FANDOM_BASE_URL)) {
                     const code = src.slice(FANDOM_BASE_URL.length).replace(/-Sample\.png$/, '');
                     previewImage.src = IMAGE_BASE_URL + code + '.webp';
                 } else if (src.startsWith(IMAGE_BASE_URL)) {

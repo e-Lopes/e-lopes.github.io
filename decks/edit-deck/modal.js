@@ -2,7 +2,7 @@
     const IMAGE_BASE_URL = 'https://images.digimoncard.io/images/cards/';
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const FANDOM_BASE_URL = 'https://digimoncardgame.fandom.com/wiki/Special:FilePath/';
-    const PRODIGI_IMAGE_BASE_URL = 'https://card-list.prodigi.dev/images/cards/';
+    const DIGILAB_CARD_IMAGE_BASE_URL = 'https://digilab.cards/api/card/';
     const COLOR_OPTIONS = [
         { code: 'r', label: 'Red', className: 'is-red' },
         { code: 'u', label: 'Blue', className: 'is-blue' },
@@ -174,8 +174,9 @@
         const edgeUrl = await uploadDeckImageViaEdgeFunction(supabaseUrl, headers, deckCode);
         if (edgeUrl) return edgeUrl;
 
-        // Fallback browser-side (funciona para sets disponíveis no egmanevents)
+        // Fallback browser-side quando a Edge Function estiver indisponível
         const candidates = [
+            `${DIGILAB_CARD_IMAGE_BASE_URL}${deckCode}.jpg`,
             `https://digimoncardgame.fandom.com/wiki/Special:FilePath/${deckCode}-Sample.png`,
             `${IMAGE_BASE_URL}${deckCode}.webp`,
             `${IMAGE_BASE_URL}${deckCode}.jpg`,
@@ -329,13 +330,15 @@
 
             if (previewBackendAttempted) {
                 preview.style.display = 'none';
+                preview.classList.remove('is-loading');
+                preview.setAttribute('aria-busy', 'false');
                 previewImage.removeAttribute('src');
                 return;
             }
             previewBackendAttempted = true;
 
-            // As fontes de imagem bloqueiam hotlink em alguns navegadores. Nesse caso,
-            // usa a mesma Edge Function do salvamento e exibe o arquivo já no Storage.
+            // Se ainda não estiver no cache público, usa a mesma Edge Function do
+            // salvamento. Ela valida a resposta antes de gravar a imagem no Storage.
             await new Promise((resolve) => setTimeout(resolve, 300));
             if (
                 requestId !== previewRequestId ||
@@ -351,6 +354,8 @@
                 previewImage.src = `${storedUrl}${storedUrl.includes('?') ? '&' : '?'}preview=${Date.now()}`;
             } else {
                 preview.style.display = 'none';
+                preview.classList.remove('is-loading');
+                preview.setAttribute('aria-busy', 'false');
                 previewImage.removeAttribute('src');
             }
         };
@@ -361,6 +366,8 @@
             const requestId = ++previewRequestId;
             if (!isValidDeckCode(code)) {
                 preview.style.display = 'none';
+                preview.classList.remove('is-loading');
+                preview.setAttribute('aria-busy', 'false');
                 previewImage.removeAttribute('src');
                 return;
             }
@@ -368,16 +375,13 @@
             const encodedCode = encodeURIComponent(code);
             previewCandidates = [
                 `${supabaseUrl}/storage/v1/object/public/deck-images/${encodedCode}.webp`,
-                `${PRODIGI_IMAGE_BASE_URL}${encodedCode}.webp`,
-                `${PRODIGI_IMAGE_BASE_URL}${encodedCode}.png`,
-                `${FANDOM_BASE_URL}${encodedCode}-Sample.png`,
-                `${IMAGE_BASE_URL}${encodedCode}.webp`,
-                `${IMAGE_BASE_URL}${encodedCode}.jpg`,
-                `${LEGACY_IMAGE_BASE_URL}${encodedCode}.webp`
+                `${DIGILAB_CARD_IMAGE_BASE_URL}${encodedCode}.jpg`
             ];
             previewCandidateIndex = 0;
             previewBackendAttempted = false;
-            preview.style.display = 'none';
+            preview.style.display = 'flex';
+            preview.classList.add('is-loading');
+            preview.setAttribute('aria-busy', 'true');
             loadNextPreviewCandidate(requestId, code);
         };
 
@@ -400,7 +404,10 @@
                 loadNextPreviewCandidate(previewRequestId, code);
             });
             previewImage.addEventListener('load', () => {
-                if (previewImage.getAttribute('src')) preview.style.display = 'flex';
+                if (!previewImage.getAttribute('src')) return;
+                preview.classList.remove('is-loading');
+                preview.setAttribute('aria-busy', 'false');
+                preview.style.display = 'flex';
             });
         }
 

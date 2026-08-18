@@ -8934,6 +8934,35 @@ body[data-theme='dark'] .edit-deck-code-help summary {
 .modal-preview-thumb {
     width: 130px;
     height: 130px;
+    position: relative;
+}
+
+.modal-preview .modal-preview-thumb .deck-thumb-image {
+    transition: opacity 0.15s ease;
+}
+
+.modal-preview.is-loading .modal-preview-thumb .deck-thumb-image {
+    opacity: 0;
+}
+
+.modal-preview.is-loading .modal-preview-thumb::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    margin: -18px 0 0 -18px;
+    border: 4px solid rgba(115, 130, 180, 0.3);
+    border-top-color: #7c6ce0;
+    border-radius: 50%;
+    animation: modal-preview-spin 0.75s linear infinite;
+}
+
+@keyframes modal-preview-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .code-examples {
