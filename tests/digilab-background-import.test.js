@@ -4,12 +4,14 @@ const { readFileSync } = require('node:fs');
 const { stripTypeScriptTypes } = require('node:module');
 const { webcrypto } = require('node:crypto');
 const vm = require('node:vm');
+const source = readFileSync('supabase/functions/sync-new-digilab-tournaments/index.ts', 'utf8');
 
-test('scheduled routine delegates missing players and decks to the shared importer', async () => {
+async function runWorker(options = {}) {
     let handler;
+    let claims = 0;
     const calls = [];
+    const finishes = [];
     const updates = [];
-    let previews = 0;
     const context = vm.createContext({
         Deno: {
             env: { get: () => 'test-value' },
@@ -19,18 +21,41 @@ test('scheduled routine delegates missing players and decks to the shared import
         },
         TextEncoder: globalThis.TextEncoder,
         Response: globalThis.Response,
+        AbortSignal: globalThis.AbortSignal,
         crypto: webcrypto,
         setTimeout: (callback) => callback(),
-        fetch: async (url, options) => {
-            calls.push(url);
-            const body = options.body ? JSON.parse(options.body) : null;
+        fetch: async (url, request) => {
+            const body = request.body ? JSON.parse(request.body) : null;
+            calls.push({ url, body });
             let payload = [];
-            if (url.includes('/functions/v1/preview-digilab-import')) {
-                if (!body.digilab_tournament_id) payload = { data: [] };
-                else if (++previews === 1)
+            let status = 200;
+            if (url.includes('/auth/v1/user')) payload = { id: 'admin' };
+            else if (url.includes('/rest/v1/admin_users')) payload = [{ user_id: 'admin' }];
+            else if (url.endsWith('/rpc/start_digilab_sync_run'))
+                payload = { run_id: 'run-1', next_page: 4, busy: options.busy || false };
+            else if (url.endsWith('/rpc/claim_digilab_sync_item'))
+                payload =
+                    claims++ === 0
+                        ? [
+                              {
+                                  digilab_tournament_id: 123,
+                                  attempt_count: 1,
+                                  event_date: new Date().toISOString().slice(0, 10)
+                              }
+                          ]
+                        : [];
+            else if (url.endsWith('/rpc/finish_digilab_sync_item')) finishes.push(body);
+            else if (url.endsWith('/functions/v1/preview-digilab-import')) {
+                if (!body.digilab_tournament_id)
+                    payload = { data: [], pagination: { last_page: 5 } };
+                else
                     payload = {
-                        can_auto_import: true,
+                        already_linked: options.linked ? { tournament_id: 42 } : null,
+                        can_auto_import: !options.blocked,
+                        tournament: { date: new Date().toISOString().slice(0, 10) },
                         import_resolution: {
+                            store: { store_id: 'store' },
+                            format: { status: 'auto_create' },
                             unresolved_players: [
                                 {
                                     status: 'unmatched',
@@ -47,31 +72,90 @@ test('scheduled routine delegates missing players and decks to the shared import
                             ]
                         }
                     };
-                else payload = { already_linked: { tournament_id: 42 } };
-            } else if (url.includes('/functions/v1/import-digilab-tournament')) {
-                payload = { tournament_id: 42, players_created: 1, decks_created: 1 };
-            } else if (url.includes('select=digilab_tournament_id')) {
-                payload = [{ digilab_tournament_id: 123, status: 'pending', attempt_count: 0 }];
-            } else if (options.method === 'PATCH') updates.push(body);
-            return new globalThis.Response(JSON.stringify(payload), { status: 200 });
+            } else if (url.endsWith('/functions/v1/import-digilab-tournament')) {
+                payload = options.error
+                    ? { error: 'Failure' }
+                    : {
+                          tournament_id: 42,
+                          players_created: 1,
+                          decks_created: 1,
+                          reused: options.linked || false,
+                          results_updated: options.linked ? 2 : 0
+                      };
+                status = options.error || 200;
+            } else if (request.method === 'PATCH') updates.push(body);
+            return new globalThis.Response(JSON.stringify(payload), {
+                status,
+                headers: options.error === 429 ? { 'Retry-After': '7200' } : {}
+            });
         }
     });
-    const source = readFileSync('supabase/functions/sync-new-digilab-tournaments/index.ts', 'utf8');
     vm.runInContext(stripTypeScriptTypes(source), context);
     const response = await handler(
         new globalThis.Request('https://example.com', {
             method: 'POST',
-            headers: { 'x-digilab-background-token': 'test-value' },
-            body: '{}'
+            headers: options.admin
+                ? { Authorization: 'Bearer admin' }
+                : { 'x-digilab-background-token': 'test-value' },
+            body: JSON.stringify(options.input || {})
         })
     );
-    const result = await response.json();
+    return { result: await response.json(), status: response.status, calls, finishes, updates };
+}
+
+test('routine imports new registrations and resumes the historical cursor while checking page one', async () => {
+    const { result, calls, finishes, updates } = await runWorker();
     assert.equal(result.imported, 1);
     assert.equal(result.players_created, 1);
     assert.equal(result.decks_created, 1);
-    assert.equal(result.needs_review, 0);
-    assert.equal(result.failed, 0);
-    assert.ok(calls.some((url) => url.includes('/functions/v1/import-digilab-tournament')));
-    assert.ok(!calls.some((url) => url.includes('/rest/v1/players')));
-    assert.ok(updates.some((row) => row.status === 'imported' && row.tournament_id === 42));
+    assert.deepEqual(
+        calls.filter((row) => row.body?.page).map((row) => row.body.page),
+        [1, 4]
+    );
+    assert.ok(updates.some((row) => row.next_page === 2)); // short last response resets traversal
+    assert.equal(finishes[0].p_outcome, 'imported');
+    assert.ok(!calls.some((row) => row.url.includes('/rest/v1/players')));
+});
+
+test('already linked tournaments are synchronized instead of skipped', async () => {
+    const { result, finishes } = await runWorker({ linked: true });
+    assert.equal(result.updated, 1);
+    assert.equal(finishes[0].p_outcome, 'updated');
+    assert.ok(Date.parse(finishes[0].p_next_attempt) < Date.now() + 7 * 3600000);
+});
+
+test('busy routine never claims or imports an item', async () => {
+    const { result, calls } = await runWorker({ busy: true });
+    assert.equal(result.busy, true);
+    assert.equal(calls.length, 1);
+});
+
+test('422 is recorded for review and rate limiting preserves Retry-After', async () => {
+    const review = await runWorker({ error: 422 });
+    assert.equal(review.finishes[0].p_outcome, 'needs_review');
+    const limited = await runWorker({ error: 429 });
+    assert.equal(limited.finishes[0].p_outcome, 'retry');
+    assert.ok(Date.parse(limited.finishes[0].p_next_attempt) > Date.now() + 7100000);
+});
+
+test('history is read-only and targeted admin retry bypasses inventory discovery', async () => {
+    const history = await runWorker({ admin: true, input: { action: 'history' } });
+    assert.equal(history.status, 200);
+    assert.ok(!history.calls.some((row) => row.url.includes('/rpc/')));
+    const retry = await runWorker({
+        admin: true,
+        input: { action: 'retry', digilab_tournament_id: 123 }
+    });
+    assert.ok(!retry.calls.some((row) => row.body?.page));
+    assert.equal(
+        retry.calls.find((row) => row.url.endsWith('/rpc/claim_digilab_sync_item')).body
+            .p_external_id,
+        123
+    );
+});
+
+test('background token cannot request admin history or retry actions', async () => {
+    const { status, calls } = await runWorker({ input: { action: 'history' } });
+    assert.equal(status, 403);
+    assert.equal(calls.length, 0);
 });

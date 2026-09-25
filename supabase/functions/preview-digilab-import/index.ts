@@ -236,7 +236,10 @@ async function previewTournament(supabase: any, apiKey: string, externalId: numb
             warnings.length === 0 &&
             localCandidates.every((candidate: JsonRecord) => candidate.score === 0) &&
             Boolean(importResolution.store?.store_id) &&
-            Boolean(importResolution.format?.format_id) &&
+            Boolean(
+                importResolution.format?.format_id ||
+                importResolution.format?.status === 'auto_create'
+            ) &&
             importResolution.player_matches.every(
                 (match: JsonRecord) =>
                     match.player_id ||
@@ -395,9 +398,13 @@ async function resolveImportContext(
         (store: JsonRecord) => normalize(store.name) === normalize(tournament.store?.name)
     );
     const formats = formatsResult.data || [];
-    const digilabFormat = await ensureDigilabFormat(supabase, formats, tournament.format);
+    const formatCode = String(tournament.format || '').trim();
+    const digilabFormat = formats.find(
+        (format: JsonRecord) => normalizeFormat(format.code) === normalizeFormat(formatCode)
+    );
     const selectedFormat =
         digilabFormat ||
+        (normalizeFormat(formatCode) ? { id: null, code: formatCode } : null) ||
         formats.find((format: JsonRecord) => format.is_active && format.is_default) ||
         null;
 
@@ -419,64 +426,16 @@ async function resolveImportContext(
                 : { status: stores.length > 1 ? 'ambiguous' : 'unmatched', store_id: null },
         format: selectedFormat
             ? {
-                  status: digilabFormat ? 'matched' : 'default_fallback',
+                  status: digilabFormat
+                      ? 'matched'
+                      : normalizeFormat(formatCode)
+                        ? 'auto_create'
+                        : 'default_fallback',
                   format_id: selectedFormat.id,
                   format_code: selectedFormat.code
               }
             : { status: 'unmatched', format_id: null }
     };
-}
-
-async function ensureDigilabFormat(
-    supabase: any,
-    knownFormats: JsonRecord[],
-    externalFormat: unknown
-) {
-    const code = String(externalFormat || '').trim();
-    const normalizedCode = normalizeFormat(code);
-    if (!normalizedCode) return null;
-
-    const matches = knownFormats.filter(
-        (format: JsonRecord) => normalizeFormat(format.code) === normalizedCode
-    );
-    const exactCodeMatches = matches.filter((format: JsonRecord) => String(format.code) === code);
-    const format = exactCodeMatches.length === 1 ? exactCodeMatches[0] : matches[0];
-    if (format) {
-        if (format.is_active) return format;
-        const { data, error } = await supabase
-            .from('formats')
-            .update({ is_active: true })
-            .eq('id', format.id)
-            .select('id,code,is_default,is_active')
-            .single();
-        if (error || !data) throw new Error('Falha ao reativar o meta recebido do DigiLab.');
-        return data;
-    }
-
-    const { data, error } = await supabase
-        .from('formats')
-        .insert({
-            code,
-            name: code,
-            background_path: null,
-            background_url: null,
-            is_active: true,
-            is_default: false
-        })
-        .select('id,code,is_default,is_active')
-        .single();
-    if (!error && data) return data;
-
-    // Another import may have created the same format concurrently.
-    if (error?.code === '23505') {
-        const { data: existing, error: existingError } = await supabase
-            .from('formats')
-            .select('id,code,is_default,is_active')
-            .eq('code', code)
-            .maybeSingle();
-        if (!existingError && existing) return existing;
-    }
-    throw new Error('Falha ao criar o meta recebido do DigiLab.');
 }
 
 async function loadSyncRows(supabase: any, externalIds: number[]) {

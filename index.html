@@ -1288,6 +1288,24 @@
                                 class="admin-form-status"
                                 role="status"
                             ></span>
+                            <details class="admin-digilab-history" id="adminDigilabHistoryPanel">
+                                <summary>Histórico da sincronização</summary>
+                                <p>
+                                    Últimas 20 execuções e 80 resultados. Torneios dos últimos 30
+                                    dias são revistos a cada 6 horas; o histórico anterior é
+                                    percorrido gradualmente.
+                                </p>
+                                <button
+                                    type="button"
+                                    class="admin-digilab-action is-secondary"
+                                    data-admin-action="digilab-history"
+                                >
+                                    Atualizar histórico
+                                </button>
+                                <div id="adminDigilabHistory" aria-live="polite">
+                                    Carregando histórico…
+                                </div>
+                            </details>
                             <div
                                 id="adminDigilabBulkProgress"
                                 class="admin-digilab-bulk-progress"

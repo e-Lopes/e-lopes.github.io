@@ -6,7 +6,6 @@ const CORS = {
         'authorization, x-client-info, apikey, content-type, x-digilab-verify-token'
 };
 const DIGILAB_API_URL = 'https://api.digilab.cards';
-const DIGILAB_SITE_URL = 'https://digilab.cards';
 const DIGILAB_SCENE = 'curitiba';
 type JsonRecord = Record<string, any>;
 
@@ -64,114 +63,28 @@ Deno.serve(async (req) => {
             return json({ error: 'Jogador anônimo exige revisão manual.' }, 422);
         }
 
-        const resolution = await resolveImport(
-            supabase,
-            tournament,
-            standings,
-            Array.isArray(input.player_mappings) ? input.player_mappings : [],
-            Array.isArray(input.deck_mappings) ? input.deck_mappings : []
-        );
-        if (!resolution.store?.store_id || !resolution.format?.format_id) {
-            return json({ error: 'Loja ou formato local não resolvido.', resolution }, 422);
-        }
-        const registrations = await createMissingRegistrations(supabase, resolution);
-        const unresolved = resolution.players.filter((player: JsonRecord) => !player.player_id);
-        if (unresolved.length) {
-            return json(
-                { error: 'Existem jogadores sem de-para.', unresolved_players: unresolved },
-                422
+        const { data, error } = await supabase.rpc('sync_digilab_tournament_atomic', {
+            p_external_id: externalId,
+            p_tournament: {
+                ...tournament,
+                tournament_name: String(
+                    input.tournament_name || mapDigilabTournamentName(tournament.event_type)
+                )
+                    .trim()
+                    .slice(0, 120)
+            },
+            p_standings: standings,
+            p_player_mappings: Array.isArray(input.player_mappings) ? input.player_mappings : [],
+            p_deck_mappings: Array.isArray(input.deck_mappings) ? input.deck_mappings : [],
+            p_target_id: targetTournamentId
+        });
+        if (error) {
+            const review = ['22023', '22P02', '23502', '23503', '23505', '23514', 'P0002'].includes(
+                error.code
             );
+            return json({ error: error.message }, review ? 422 : 500);
         }
-        const playerIds = resolution.players.map((player: JsonRecord) => player.player_id);
-        if (new Set(playerIds).size !== playerIds.length) {
-            return json(
-                { error: 'Dois jogadores DigiLab apontam para a mesma pessoa local.' },
-                422
-            );
-        }
-        const unresolvedDecks = resolution.decks.filter(
-            (deck: JsonRecord) => deck.digilab_deck_slug && !deck.deck_id
-        );
-        if (unresolvedDecks.length) {
-            return json(
-                { error: 'Existem decks sem de-para.', unresolved_decks: unresolvedDecks },
-                422
-            );
-        }
-
-        const sortedStandings = [...standings].sort(
-            (left, right) => Number(left.placement) - Number(right.placement)
-        );
-        const resolvedBySlug = new Map(
-            resolution.players.map((player: JsonRecord) => [player.digilab_player_slug, player])
-        );
-        const resolvedDeckBySlug = new Map(
-            resolution.decks.map((deck: JsonRecord) => [deck.digilab_deck_slug, deck])
-        );
-        const results = sortedStandings.map((standing: JsonRecord) => ({
-            placement: Number(standing.placement),
-            player_id: resolvedBySlug.get(standing.player.slug)?.player_id,
-            deck_id: standing.deck?.slug
-                ? resolvedDeckBySlug.get(standing.deck.slug)?.deck_id || null
-                : null,
-            digilab_deck_slug: standing.deck?.slug || null,
-            digilab_deck_name: standing.deck?.name || null,
-            match_points: deriveMatchPoints(standing.record)
-        }));
-        const tournamentName = String(
-            input.tournament_name || mapDigilabTournamentName(tournament.event_type)
-        )
-            .trim()
-            .slice(0, 120);
-        const payload = {
-            store_id: resolution.store.store_id,
-            tournament_date: tournament.date,
-            tournament_name: tournamentName || 'Torneio DigiLab',
-            total_players: standings.length,
-            instagram_link: null,
-            format_id: resolution.format.format_id,
-            rounds: tournament.rounds ?? null
-        };
-        const mappings = resolution.players.map((player: JsonRecord) => ({
-            digilab_player_slug: player.digilab_player_slug,
-            digilab_player_name: player.digilab_player_name,
-            player_id: player.player_id
-        }));
-        if (targetTournamentId) {
-            const { data: target, error: targetError } = await supabase
-                .from('tournament')
-                .select('id,tournament_date,store_id')
-                .eq('id', targetTournamentId)
-                .maybeSingle();
-            if (targetError || !target) {
-                return json({ error: 'Torneio DigiStats escolhido não encontrado.' }, 404);
-            }
-            if (
-                String(target.tournament_date) !== String(payload.tournament_date) ||
-                String(target.store_id) !== String(payload.store_id)
-            ) {
-                return json(
-                    {
-                        error: 'A reconciliação exige a mesma data e loja nos dois torneios.'
-                    },
-                    422
-                );
-            }
-        }
-        const rpcName = targetTournamentId
-            ? 'reconcile_digilab_tournament_results'
-            : 'import_digilab_tournament_transaction';
-        const rpcArgs: JsonRecord = {
-            p_digilab_tournament_id: externalId,
-            p_digilab_url: `${DIGILAB_SITE_URL}/tournament/${externalId}`,
-            p_tournament: payload,
-            p_results: results,
-            p_player_mappings: mappings
-        };
-        if (targetTournamentId) rpcArgs.p_tournament_id = targetTournamentId;
-        const { data, error } = await supabase.rpc(rpcName, rpcArgs);
-        if (error) throw new Error(error.message);
-        return json({ ok: true, request_count: 1, ...data, ...registrations });
+        return json({ ok: true, request_count: 1, ...data });
     } catch (error) {
         if (error instanceof DigilabHttpError) {
             return json(
@@ -190,275 +103,6 @@ Deno.serve(async (req) => {
         );
     }
 });
-
-async function resolveImport(
-    supabase: any,
-    tournament: JsonRecord,
-    standings: JsonRecord[],
-    manualMappings: JsonRecord[],
-    manualDeckMappings: JsonRecord[]
-) {
-    const slugs = standings.map((row) => String(row.player.slug));
-    const deckSlugs = standings.map((row) => String(row.deck?.slug || '').trim()).filter(Boolean);
-    const [
-        playersResult,
-        mappingsResult,
-        storesResult,
-        formatsResult,
-        decksResult,
-        deckMappingsResult
-    ] = await Promise.all([
-        supabase.from('players').select('id,name,digilab_name'),
-        supabase
-            .from('digilab_player_sync')
-            .select('digilab_player_slug,player_id')
-            .in('digilab_player_slug', slugs),
-        supabase.from('stores').select('id,name'),
-        supabase.from('formats').select('id,code,is_default,is_active'),
-        supabase.from('decks').select('id,name'),
-        deckSlugs.length
-            ? supabase
-                  .from('digilab_deck_sync')
-                  .select('digilab_deck_slug,deck_id')
-                  .in('digilab_deck_slug', deckSlugs)
-            : Promise.resolve({ data: [], error: null })
-    ]);
-    if (
-        playersResult.error ||
-        mappingsResult.error ||
-        storesResult.error ||
-        formatsResult.error ||
-        decksResult.error ||
-        deckMappingsResult.error
-    ) {
-        throw new Error('Falha ao resolver o de-para local.');
-    }
-    const players = playersResult.data || [];
-    const playersById = new Map(players.map((player: JsonRecord) => [player.id, player]));
-    const persisted = new Map(
-        (mappingsResult.data || []).map((row: JsonRecord) => [
-            row.digilab_player_slug,
-            row.player_id
-        ])
-    );
-    const manual = new Map(
-        manualMappings.map((row: JsonRecord) => [
-            String(row.digilab_player_slug || ''),
-            String(row.player_id || '')
-        ])
-    );
-    const resolvedPlayers = standings.map((standing: JsonRecord) => {
-        const slug = String(standing.player.slug);
-        const name = String(standing.player.name || '');
-        const selectedId = manual.get(slug) || persisted.get(slug);
-        const selected = playersById.get(selectedId);
-        if (selected) {
-            return {
-                digilab_player_slug: slug,
-                digilab_player_name: name,
-                player_id: selected.id,
-                player_name: selected.name,
-                status: manual.has(slug) ? 'manual' : 'mapped'
-            };
-        }
-        const exact = players.filter(
-            (player: JsonRecord) =>
-                normalize(player.digilab_name) === normalize(name) ||
-                normalize(player.name) === normalize(name)
-        );
-        return {
-            digilab_player_slug: slug,
-            digilab_player_name: name,
-            player_id: exact.length === 1 ? exact[0].id : null,
-            player_name: exact.length === 1 ? exact[0].name : null,
-            status: exact.length === 1 ? 'exact_name' : exact.length > 1 ? 'ambiguous' : 'unmatched'
-        };
-    });
-    const decks = decksResult.data || [];
-    const decksById = new Map(decks.map((deck: JsonRecord) => [deck.id, deck]));
-    const persistedDecks = new Map(
-        (deckMappingsResult.data || []).map((row: JsonRecord) => [
-            row.digilab_deck_slug,
-            row.deck_id
-        ])
-    );
-    const manualDecks = new Map(
-        manualDeckMappings.map((row: JsonRecord) => [
-            String(row.digilab_deck_slug || ''),
-            String(row.deck_id || '')
-        ])
-    );
-    const resolvedDecks = standings.map((standing: JsonRecord) => {
-        const slug = String(standing.deck?.slug || '').trim();
-        const name = String(standing.deck?.name || '').trim();
-        if (!slug && !name) {
-            return {
-                digilab_deck_slug: null,
-                digilab_deck_name: null,
-                deck_id: null,
-                deck_name: null,
-                status: 'not_informed'
-            };
-        }
-        const selectedId = manualDecks.get(slug) || persistedDecks.get(slug);
-        const selected = decksById.get(selectedId);
-        if (selected) {
-            return {
-                digilab_deck_slug: slug,
-                digilab_deck_name: name,
-                deck_id: selected.id,
-                deck_name: selected.name,
-                status: manualDecks.has(slug) ? 'manual' : 'mapped'
-            };
-        }
-        const exact = decks.filter((deck: JsonRecord) => normalize(deck.name) === normalize(name));
-        return {
-            digilab_deck_slug: slug || null,
-            digilab_deck_name: name || null,
-            deck_id: exact.length === 1 ? exact[0].id : null,
-            deck_name: exact.length === 1 ? exact[0].name : null,
-            status: exact.length === 1 ? 'exact_name' : exact.length > 1 ? 'ambiguous' : 'unmatched'
-        };
-    });
-    const stores = (storesResult.data || []).filter(
-        (store: JsonRecord) => normalize(store.name) === normalize(tournament.store?.name)
-    );
-    const formats = formatsResult.data || [];
-    const format =
-        (await ensureDigilabFormat(supabase, formats, tournament.format)) ||
-        formats.find((item: JsonRecord) => item.is_active && item.is_default);
-    return {
-        players: resolvedPlayers,
-        decks: resolvedDecks,
-        store: stores.length === 1 ? { store_id: stores[0].id, store_name: stores[0].name } : null,
-        format: format ? { format_id: format.id, format_code: format.code } : null
-    };
-}
-
-// Resolve sequentially so repeated archetypes reuse the same newly created deck.
-async function createMissingRegistrations(supabase: any, resolution: JsonRecord) {
-    const counts = { players_created: 0, decks_created: 0 };
-    for (const [kind, rows] of [
-        ['player', resolution.players],
-        ['deck', resolution.decks]
-    ] as const) {
-        const table = kind === 'player' ? 'players' : 'decks';
-        for (const row of rows) {
-            const name = String(row[`digilab_${kind}_name`] || '').trim();
-            if (row[`${kind}_id`] || row.status !== 'unmatched' || !normalize(name)) continue;
-            if (!row[`digilab_${kind}_slug`]) continue;
-            // Recheck current data, including registrations from earlier rows/imports.
-            const { data: known, error: readError } = await supabase
-                .from(table)
-                .select(kind === 'player' ? 'id,name,digilab_name' : 'id,name');
-            if (readError) throw new Error(`Falha ao consultar ${table}: ${readError.message}`);
-            const matches = (known || []).filter(
-                (item: JsonRecord) =>
-                    normalize(item.name) === normalize(name) ||
-                    (kind === 'player' && normalize(item.digilab_name) === normalize(name))
-            );
-            if (matches.length > 1) {
-                row.status = 'ambiguous';
-                continue;
-            }
-            let saved = matches[0];
-            if (!saved) {
-                const values =
-                    kind === 'player'
-                        ? {
-                              name,
-                              bandai_nick: name,
-                              digilab_name: name,
-                              bandai_id: null,
-                              is_active: true
-                          }
-                        : { name, is_active: true };
-                // Only the archetype is registered; no decklist or Deck Code is created.
-                const { data, error } = await supabase
-                    .from(table)
-                    .insert(values)
-                    .select('id,name')
-                    .single();
-                if (error?.code === '23505') {
-                    const retry = await supabase
-                        .from(table)
-                        .select('id,name')
-                        .eq('name', name)
-                        .single();
-                    if (retry.error) throw new Error(retry.error.message);
-                    saved = retry.data;
-                } else {
-                    if (error) throw new Error(error.message);
-                    saved = data;
-                    if (saved) counts[`${kind}s_created`] += 1;
-                }
-            }
-            if (!saved) throw new Error(`Falha ao cadastrar ${name}.`);
-            row[`${kind}_id`] = saved.id;
-            row[`${kind}_name`] = saved.name;
-            row.status = 'exact_name';
-        }
-    }
-    return counts;
-}
-
-async function ensureDigilabFormat(
-    supabase: any,
-    knownFormats: JsonRecord[],
-    externalFormat: unknown
-) {
-    const code = String(externalFormat || '').trim();
-    const normalizedCode = normalizeFormat(code);
-    if (!normalizedCode) return null;
-
-    const matches = knownFormats.filter(
-        (format: JsonRecord) => normalizeFormat(format.code) === normalizedCode
-    );
-    const exactCodeMatches = matches.filter((format: JsonRecord) => String(format.code) === code);
-    const format = exactCodeMatches.length === 1 ? exactCodeMatches[0] : matches[0];
-    if (format) {
-        if (format.is_active) return format;
-        const { data, error } = await supabase
-            .from('formats')
-            .update({ is_active: true })
-            .eq('id', format.id)
-            .select('id,code,is_default,is_active')
-            .single();
-        if (error || !data) throw new Error('Falha ao reativar o meta recebido do DigiLab.');
-        return data;
-    }
-
-    const { data, error } = await supabase
-        .from('formats')
-        .insert({
-            code,
-            name: code,
-            background_path: null,
-            background_url: null,
-            is_active: true,
-            is_default: false
-        })
-        .select('id,code,is_default,is_active')
-        .single();
-    if (!error && data) return data;
-
-    // Another import may have created the same format concurrently.
-    if (error?.code === '23505') {
-        const { data: existing, error: existingError } = await supabase
-            .from('formats')
-            .select('id,code,is_default,is_active')
-            .eq('code', code)
-            .maybeSingle();
-        if (!existingError && existing) return existing;
-    }
-    throw new Error('Falha ao criar o meta recebido do DigiLab.');
-}
-
-function deriveMatchPoints(record: JsonRecord | null | undefined) {
-    const wins = Number(record?.wins);
-    const ties = Number(record?.ties);
-    return Number.isSafeInteger(wins) && Number.isSafeInteger(ties) ? wins * 3 + ties : null;
-}
 
 function mapDigilabTournamentName(eventType: unknown) {
     const raw = String(eventType || '').trim();
@@ -532,12 +176,6 @@ function normalize(value: unknown) {
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()
         .replace(/\s+/g, ' ');
-}
-
-function normalizeFormat(value: unknown) {
-    return String(value || '')
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '');
 }
 
 function json(data: unknown, status = 200, extraHeaders?: Record<string, string>) {

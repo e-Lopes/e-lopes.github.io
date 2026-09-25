@@ -13,6 +13,7 @@
         "cards:sync-all": "node scripts/sync-all.js"
     },
     "devDependencies": {
+        "@electric-sql/pglite": "^0.5.8",
         "eslint": "^9.20.1",
         "prettier": "^3.5.2"
     }

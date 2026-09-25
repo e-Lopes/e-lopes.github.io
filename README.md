@@ -115,7 +115,7 @@ Detalhes adicionais em `database/README.md`.
 - A chave da API fica em `DIGILAB_API_KEY`, nos secrets das Edge Functions.
 - `digilab-health` valida secret e conectividade sem expor credenciais ou dados de torneios.
 - A aba **Admin → DigiLab**, aberta por padrão no Admin, usa Supabase Auth, lista e pré-visualiza torneios de Curitiba, confirma vínculos em `tournament_digilab_sync` e cria ou sincroniza torneios pela função `import-digilab-tournament`.
-- A rotina `sync-new-digilab-tournaments` é executada em background a cada 15 minutos. Ela cadastra jogadores inequivocamente novos, refaz a validação e cria o torneio no mesmo ciclo; casos ambíguos ficam para revisão.
+- A rotina `sync-new-digilab-tournaments` é executada a cada 15 minutos: percorre o histórico gradualmente, revisa torneios recentes e cadastra jogadores/decks ausentes na mesma transação do torneio. O Admin mostra o histórico das execuções e permite tentar novamente uma pendência. Casos ambíguos ficam para revisão.
 - No desktop, a barra lateral mostra a contagem regressiva para a próxima busca DigiLab. Após o ciclo, a lista de torneios é recarregada automaticamente.
 - A allowlist administrativa fica em `admin_users`; secrets nunca são enviados ao navegador.
 

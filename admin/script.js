@@ -146,6 +146,8 @@ function setupAdminActions() {
         }
         if (action === 'digilab-sync-linked') syncAllPendingDigilabTournaments(btn);
         if (action === 'digilab-run-background') runDigilabBackgroundAutomation(btn);
+        if (action === 'digilab-history') loadDigilabSyncHistory();
+        if (action === 'digilab-retry') runDigilabBackgroundAutomation(btn, Number(btn.dataset.id));
         if (action === 'digilab-preview-id') previewDigilabFromInput();
         if (action === 'digilab-preview') {
             previewDigilabTournament(Number(btn.dataset.id), btn.closest('tr'));
@@ -672,7 +674,7 @@ async function testDigilabHealth() {
     }
 }
 
-async function runDigilabBackgroundAutomation(button) {
+async function runDigilabBackgroundAutomation(button, retryId = null) {
     if (!button || button.disabled) return;
     const originalText = button.textContent;
     button.disabled = true;
@@ -683,8 +685,17 @@ async function runDigilabBackgroundAutomation(button) {
 
     try {
         const result = await callDigilabFunction('sync-new-digilab-tournaments', {
+            action: retryId ? 'retry' : 'run',
+            digilab_tournament_id: retryId,
             retry_review_now: true
         });
+        if (result.busy) {
+            setDigilabStatus('Uma sincronização já está em andamento. Acompanhe pelo histórico.');
+            await loadDigilabSyncHistory();
+            return;
+        }
+        const updated = Number(result.updated) || 0;
+        const decksCreated = Number(result.decks_created) || 0;
         const discovered = Number(result.discovered) || 0;
         const attempted = Number(result.attempted) || 0;
         const imported = Number(result.imported) || 0;
@@ -693,10 +704,10 @@ async function runDigilabBackgroundAutomation(button) {
         const failed = Number(result.failed) || 0;
         const skipped = Number(result.skipped) || 0;
         setDigilabStatus(
-            `Automação concluída: ${discovered} novo(s) descoberto(s), ${attempted} processado(s), ${playersCreated} jogador(es) cadastrado(s), ${imported} importado(s), ${needsReview} para revisão, ${skipped} já vinculado(s) e ${failed} falha(s).`,
+            `Automação concluída: ${discovered} incluído(s) na fila, ${attempted} processado(s), ${playersCreated} jogador(es) e ${decksCreated} deck(s) cadastrado(s), ${imported} importado(s), ${updated} atualizado(s), ${needsReview} para revisão, ${skipped} sem alterações e ${failed} falha(s).`,
             failed > 0
         );
-        if (imported > 0) notifyTournamentListChanged(null, 'digilab-background');
+        if (imported > 0 || updated > 0) notifyTournamentListChanged(null, 'digilab-background');
         adminDigilabAutoLinkResults.clear();
         adminDigilabPreviewCache.clear();
         await loadDigilabInventory(adminDigilabPage, {
@@ -710,6 +721,89 @@ async function runDigilabBackgroundAutomation(button) {
         button.removeAttribute('aria-busy');
         button.textContent = originalText;
     }
+}
+
+async function loadDigilabSyncHistory() {
+    const host = document.getElementById('adminDigilabHistory');
+    if (!host) return;
+    try {
+        const history = await callDigilabFunction('sync-new-digilab-tournaments', {
+            action: 'history'
+        });
+        renderDigilabSyncHistory(host, history);
+    } catch (error) {
+        host.innerHTML = `<p class="admin-error">${escapeAdminHtml(error.message)}</p>`;
+    }
+}
+
+function renderDigilabSyncHistory(host, history) {
+    const date = (value) =>
+        value ? escapeAdminHtml(new Date(value).toLocaleString('pt-BR')) : '—';
+    const labels = {
+        running: 'Em andamento',
+        completed: 'Concluída',
+        failed: 'Falhou',
+        interrupted: 'Interrompida',
+        imported: 'Importado',
+        updated: 'Atualizado',
+        unchanged: 'Sem alterações',
+        needs_review: 'Revisão necessária',
+        retry: 'Nova tentativa agendada',
+        processing: 'Processando'
+    };
+    const pending = history.pending || [];
+    const events = history.events || [];
+    const runs = history.runs || [];
+    host.innerHTML = `
+        <h4>Execuções recentes</h4>
+        <div class="admin-table-wrapper"><table class="admin-table">
+            <thead><tr><th>Início / fim</th><th>Origem</th><th>Status</th><th>Importados / atualizados</th><th>Jogadores / decks criados</th><th>Pendências / falhas</th></tr></thead>
+            <tbody>${
+                runs.length
+                    ? runs
+                          .map((run) => {
+                              const counts = run.summary || {};
+                              return `<tr><td>${date(run.started_at)}<br>${date(run.finished_at)}</td><td>${run.source === 'admin' ? 'Admin' : 'Agendada'}</td>
+                    <td>${escapeAdminHtml(labels[run.status] || run.status)}${run.error ? `<br>${escapeAdminHtml(run.error)}` : ''}</td>
+                    <td>${Number(counts.imported) || 0} / ${Number(counts.updated) || 0}</td>
+                    <td>${Number(counts.players_created) || 0} / ${Number(counts.decks_created) || 0}</td>
+                    <td>${Number(counts.needs_review) || 0} / ${Number(counts.failed) || 0}</td></tr>`;
+                          })
+                          .join('')
+                    : '<tr><td colspan="6">Nenhuma execução registrada.</td></tr>'
+            }</tbody>
+        </table></div>
+        <h4>Pendências</h4>
+        <div class="admin-table-wrapper"><table class="admin-table">
+            <thead><tr><th>DigiLab</th><th>Status / motivo</th><th>Próxima tentativa</th><th>Ação</th></tr></thead>
+            <tbody>${
+                pending.length
+                    ? pending
+                          .map(
+                              (row) => `<tr><td>#${Number(row.digilab_tournament_id)}</td>
+                <td>${escapeAdminHtml(labels[row.status] || row.status)}<br>${escapeAdminHtml(row.last_error || '')}</td>
+                <td>${date(row.next_attempt_at)}</td><td><button type="button" class="admin-digilab-action is-secondary is-small" data-admin-action="digilab-retry" data-id="${Number(row.digilab_tournament_id)}" ${row.status === 'processing' ? 'disabled' : ''}>Tentar novamente</button></td></tr>`
+                          )
+                          .join('')
+                    : '<tr><td colspan="4">Nenhuma pendência.</td></tr>'
+            }</tbody>
+        </table></div>
+        <h4>Resultados por torneio</h4>
+        <div class="admin-table-wrapper"><table class="admin-table">
+            <thead><tr><th>Data</th><th>DigiLab</th><th>Resultado</th><th>Detalhes</th></tr></thead>
+            <tbody>${
+                events.length
+                    ? events
+                          .map(
+                              (
+                                  event
+                              ) => `<tr><td>${date(event.created_at)}</td><td>#${Number(event.digilab_tournament_id)}</td>
+                <td>${escapeAdminHtml(labels[event.outcome] || event.outcome)}</td><td>${event.details?.error ? escapeAdminHtml(event.details.error) : `${Number(event.details?.players_created) || 0} jogador(es), ${Number(event.details?.decks_created) || 0} deck(s) criado(s); ${Number(event.details?.results_updated) || 0} resultado(s) alterado(s).`}</td></tr>`
+                          )
+                          .join('')
+                    : '<tr><td colspan="4">Nenhum resultado registrado.</td></tr>'
+            }</tbody>
+        </table></div>`;
 }
 
 async function loadDigilabInventory(page = 1, options = {}) {
@@ -741,6 +835,7 @@ async function loadDigilabInventory(page = 1, options = {}) {
         if (options.runAutomation && linkingCanContinue) {
             await autoImportNewDigilabTournaments();
         }
+        await loadDigilabSyncHistory();
     } catch (error) {
         if (body)
             body.innerHTML = '<tr><td colspan="8" class="admin-empty">Falha ao carregar.</td></tr>';
@@ -1042,7 +1137,10 @@ async function syncAllPendingDigilabTournaments(button) {
                 );
                 const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
                 const storeResolved = Boolean(preview.import_resolution?.store?.store_id);
-                const formatResolved = Boolean(preview.import_resolution?.format?.format_id);
+                const formatResolved = Boolean(
+                    preview.import_resolution?.format?.format_id ||
+                    preview.import_resolution?.format?.status === 'auto_create'
+                );
                 const hasLocalCandidate = (preview.local_candidates || []).some(
                     (candidate) => Number(candidate.score) > 0
                 );
