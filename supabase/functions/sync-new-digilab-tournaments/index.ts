@@ -26,10 +26,7 @@ Deno.serve(async (req) => {
     const backgroundAuthorized = Boolean(
         backgroundToken && (await secretsMatch(providedToken, backgroundToken))
     );
-    if (
-        !backgroundAuthorized &&
-        !(await isAuthorizedAdmin(req, supabaseUrl, serviceRoleKey))
-    ) {
+    if (!backgroundAuthorized && !(await isAuthorizedAdmin(req, supabaseUrl, serviceRoleKey))) {
         return json({ error: 'Não autorizado.' }, 401);
     }
 
@@ -48,6 +45,7 @@ Deno.serve(async (req) => {
         attempted: 0,
         imported: 0,
         players_created: 0,
+        decks_created: 0,
         needs_review: 0,
         failed: 0,
         skipped: 0
@@ -142,7 +140,7 @@ Deno.serve(async (req) => {
             });
 
             try {
-                let preview = await callFunction(
+                const preview = await callFunction(
                     supabaseUrl,
                     serviceRoleKey,
                     verifyToken,
@@ -158,24 +156,6 @@ Deno.serve(async (req) => {
                         next_attempt_at: farFuture()
                     });
                 } else {
-                    const creatablePlayers = getAutomaticallyCreatablePlayers(preview);
-                    if (creatablePlayers.length) {
-                        const created = await createBackgroundPlayers(
-                            supabaseUrl,
-                            serviceRoleKey,
-                            creatablePlayers
-                        );
-                        summary.players_created += created;
-                        await delay(REQUEST_DELAY_MS);
-                        preview = await callFunction(
-                            supabaseUrl,
-                            serviceRoleKey,
-                            verifyToken,
-                            'preview-digilab-import',
-                            { digilab_tournament_id: externalId }
-                        );
-                    }
-
                     if (!preview.can_auto_import) {
                         summary.needs_review += 1;
                         await updateQueue(supabaseUrl, serviceRoleKey, externalId, {
@@ -192,6 +172,8 @@ Deno.serve(async (req) => {
                             'import-digilab-tournament',
                             { digilab_tournament_id: externalId }
                         );
+                        summary.players_created += Number(imported.players_created) || 0;
+                        summary.decks_created += Number(imported.decks_created) || 0;
                         const returnedTournamentId = positiveInteger(imported.tournament_id)
                             ? Number(imported.tournament_id)
                             : null;
@@ -229,7 +211,10 @@ Deno.serve(async (req) => {
                 const retrySeconds = Math.max(0, Number(functionError?.retryAfter) || 0);
                 await updateQueue(supabaseUrl, serviceRoleKey, externalId, {
                     status: 'retry',
-                    last_error: error instanceof Error ? error.message.slice(0, 1000) : 'Falha desconhecida.',
+                    last_error:
+                        error instanceof Error
+                            ? error.message.slice(0, 1000)
+                            : 'Falha desconhecida.',
                     next_attempt_at: retrySeconds
                         ? addTime({ seconds: retrySeconds })
                         : addTime({ minutes: ERROR_RETRY_MINUTES })
@@ -239,7 +224,12 @@ Deno.serve(async (req) => {
             await delay(REQUEST_DELAY_MS);
         }
 
-        return json({ ok: true, started_at: startedAt, finished_at: new Date().toISOString(), ...summary });
+        return json({
+            ok: true,
+            started_at: startedAt,
+            finished_at: new Date().toISOString(),
+            ...summary
+        });
     } catch (error) {
         return json(
             {
@@ -338,89 +328,20 @@ function describeReviewReasons(preview: JsonRecord) {
     const resolution = preview.import_resolution || {};
     if (!resolution.store?.store_id) reasons.push('loja sem de-para');
     if (!resolution.format?.format_id) reasons.push('formato sem de-para');
-    if (resolution.unresolved_players?.length) {
-        reasons.push(`${resolution.unresolved_players.length} jogador(es) sem de-para`);
-    }
-    if (resolution.unresolved_decks?.length) {
-        reasons.push(`${resolution.unresolved_decks.length} deck(s) sem de-para`);
+    for (const kind of ['player', 'deck']) {
+        const blocked = (resolution[`unresolved_${kind}s`] || []).filter(
+            (row: JsonRecord) =>
+                row.status !== 'unmatched' ||
+                !row[`digilab_${kind}_slug`] ||
+                !String(row[`digilab_${kind}_name`] || '').trim()
+        );
+        if (blocked.length) reasons.push(`${blocked.length} ${kind}(s) sem de-para`);
     }
     if (preview.local_candidates?.some((candidate: JsonRecord) => Number(candidate.score) > 0)) {
         reasons.push('possível torneio local na mesma data');
     }
     if (preview.warnings?.length) reasons.push(preview.warnings.join(', '));
     return (reasons.join(' · ') || 'revisão manual necessária').slice(0, 1000);
-}
-
-function getAutomaticallyCreatablePlayers(preview: JsonRecord) {
-    const resolution = preview?.import_resolution || {};
-    const unresolved = Array.isArray(resolution.unresolved_players)
-        ? resolution.unresolved_players
-        : [];
-    const hasOtherBlocker =
-        !resolution.store?.store_id ||
-        !resolution.format?.format_id ||
-        (Array.isArray(resolution.unresolved_decks) && resolution.unresolved_decks.length > 0) ||
-        (Array.isArray(preview?.warnings) && preview.warnings.length > 0) ||
-        (Array.isArray(preview?.local_candidates) &&
-            preview.local_candidates.some((candidate: JsonRecord) => Number(candidate.score) > 0));
-    if (!unresolved.length || hasOtherBlocker) return [];
-
-    const uniqueBySlug = new Map<string, JsonRecord>();
-    for (const player of unresolved) {
-        const slug = String(player?.digilab_player_slug || '').trim();
-        const name = String(player?.digilab_player_name || '').replace(/\s+/g, ' ').trim();
-        if (player?.status !== 'unmatched' || !slug || !name || uniqueBySlug.has(slug)) return [];
-        uniqueBySlug.set(slug, { slug, name });
-    }
-
-    const players = [...uniqueBySlug.values()];
-    const normalizedNames = players.map((player) => normalizePlayerName(player.name));
-    if (normalizedNames.some((name) => !name)) return [];
-    if (new Set(normalizedNames).size !== normalizedNames.length) return [];
-    return players;
-}
-
-async function createBackgroundPlayers(
-    supabaseUrl: string,
-    serviceRoleKey: string,
-    players: JsonRecord[]
-) {
-    const response = await fetch(`${supabaseUrl}/rest/v1/players`, {
-        method: 'POST',
-        headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation'
-        },
-        body: JSON.stringify(
-            players.map((player) => ({
-                name: player.name,
-                bandai_id: null,
-                bandai_nick: player.name,
-                digilab_name: player.name,
-                is_active: true
-            }))
-        )
-    });
-    if (response.status === 409) return 0;
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-        throw new Error(
-            String(payload?.message || payload?.error || `Falha ao cadastrar jogadores (${response.status})`)
-        );
-    }
-    return Array.isArray(payload) ? payload.length : players.length;
-}
-
-function normalizePlayerName(value: unknown) {
-    return String(value || '')
-        .normalize('NFKD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLocaleLowerCase('pt-BR')
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim()
-        .replace(/\s+/g, ' ');
 }
 
 function positiveInteger(value: unknown) {

@@ -237,9 +237,18 @@ async function previewTournament(supabase: any, apiKey: string, externalId: numb
             localCandidates.every((candidate: JsonRecord) => candidate.score === 0) &&
             Boolean(importResolution.store?.store_id) &&
             Boolean(importResolution.format?.format_id) &&
-            importResolution.player_matches.every((match: JsonRecord) => match.player_id) &&
+            importResolution.player_matches.every(
+                (match: JsonRecord) =>
+                    match.player_id ||
+                    (match.status === 'unmatched' &&
+                        match.digilab_player_slug &&
+                        normalize(match.digilab_player_name))
+            ) &&
             importResolution.deck_matches.every(
-                (match: JsonRecord) => !match.digilab_deck_slug || match.deck_id
+                (match: JsonRecord) =>
+                    !match.digilab_deck_slug ||
+                    match.deck_id ||
+                    (match.status === 'unmatched' && normalize(match.digilab_deck_name))
             ),
         next_step: 'confirm_player_mapping_and_import'
     });

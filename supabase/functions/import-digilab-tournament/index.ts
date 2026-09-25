@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
         if (!resolution.store?.store_id || !resolution.format?.format_id) {
             return json({ error: 'Loja ou formato local não resolvido.', resolution }, 422);
         }
+        const registrations = await createMissingRegistrations(supabase, resolution);
         const unresolved = resolution.players.filter((player: JsonRecord) => !player.player_id);
         if (unresolved.length) {
             return json(
@@ -170,7 +171,7 @@ Deno.serve(async (req) => {
         if (targetTournamentId) rpcArgs.p_tournament_id = targetTournamentId;
         const { data, error } = await supabase.rpc(rpcName, rpcArgs);
         if (error) throw new Error(error.message);
-        return json({ ok: true, request_count: 1, ...data });
+        return json({ ok: true, request_count: 1, ...data, ...registrations });
     } catch (error) {
         if (error instanceof DigilabHttpError) {
             return json(
@@ -332,6 +333,73 @@ async function resolveImport(
         store: stores.length === 1 ? { store_id: stores[0].id, store_name: stores[0].name } : null,
         format: format ? { format_id: format.id, format_code: format.code } : null
     };
+}
+
+// Resolve sequentially so repeated archetypes reuse the same newly created deck.
+async function createMissingRegistrations(supabase: any, resolution: JsonRecord) {
+    const counts = { players_created: 0, decks_created: 0 };
+    for (const [kind, rows] of [
+        ['player', resolution.players],
+        ['deck', resolution.decks]
+    ] as const) {
+        const table = kind === 'player' ? 'players' : 'decks';
+        for (const row of rows) {
+            const name = String(row[`digilab_${kind}_name`] || '').trim();
+            if (row[`${kind}_id`] || row.status !== 'unmatched' || !normalize(name)) continue;
+            if (!row[`digilab_${kind}_slug`]) continue;
+            // Recheck current data, including registrations from earlier rows/imports.
+            const { data: known, error: readError } = await supabase
+                .from(table)
+                .select(kind === 'player' ? 'id,name,digilab_name' : 'id,name');
+            if (readError) throw new Error(`Falha ao consultar ${table}: ${readError.message}`);
+            const matches = (known || []).filter(
+                (item: JsonRecord) =>
+                    normalize(item.name) === normalize(name) ||
+                    (kind === 'player' && normalize(item.digilab_name) === normalize(name))
+            );
+            if (matches.length > 1) {
+                row.status = 'ambiguous';
+                continue;
+            }
+            let saved = matches[0];
+            if (!saved) {
+                const values =
+                    kind === 'player'
+                        ? {
+                              name,
+                              bandai_nick: name,
+                              digilab_name: name,
+                              bandai_id: null,
+                              is_active: true
+                          }
+                        : { name, is_active: true };
+                // Only the archetype is registered; no decklist or Deck Code is created.
+                const { data, error } = await supabase
+                    .from(table)
+                    .insert(values)
+                    .select('id,name')
+                    .single();
+                if (error?.code === '23505') {
+                    const retry = await supabase
+                        .from(table)
+                        .select('id,name')
+                        .eq('name', name)
+                        .single();
+                    if (retry.error) throw new Error(retry.error.message);
+                    saved = retry.data;
+                } else {
+                    if (error) throw new Error(error.message);
+                    saved = data;
+                    if (saved) counts[`${kind}s_created`] += 1;
+                }
+            }
+            if (!saved) throw new Error(`Falha ao cadastrar ${name}.`);
+            row[`${kind}_id`] = saved.id;
+            row[`${kind}_name`] = saved.name;
+            row.status = 'exact_name';
+        }
+    }
+    return counts;
 }
 
 async function ensureDigilabFormat(
