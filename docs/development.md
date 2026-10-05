@@ -21,7 +21,7 @@ Centralizar operacoes de:
 
 ## Estrutura do Projeto
 
-- `index.html`: entrada compatível da dashboard original; preserva parâmetros ao abrir `demo-v2/`
+- `index.html`: entrada compilada da nova interface na raiz do site, com parâmetros e rotas preservados
 - `tools.html`: shell compartilhado de torneios, jogadores, decks, estatísticas e Admin
 - `demo-v2/`: interface 2.0, com navegação própria e ferramentas em páginas completas
 - `frontend/`: shell React, contratos e quatro micro-frontends
@@ -41,7 +41,7 @@ Centralizar operacoes de:
 
 ## Rotas Ativas (Frontend)
 
-- `/` -> `index.html` -> `demo-v2/` (nova interface, com parâmetros preservados)
+- `/` -> `index.html` (nova interface, sem redirecionamento para `/demo-v2/`)
 - `/demo-v2/` -> interface 2.0 com as ferramentas compartilhadas
 - `/torneios/list-tournaments/` -> pagina de listagem/calendario de torneios
 - `/torneios/create-tournament/` -> fluxo antigo de criacao (mantido por compatibilidade)

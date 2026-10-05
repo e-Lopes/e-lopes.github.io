@@ -1,6 +1,6 @@
 # Preparação da nova interface
 
-A entrada `index.html` encaminha para `demo-v2/`, preservando os parâmetros e a rota. Os templates de `tools.html` continuam disponíveis para os controladores e links antigos.
+A entrada `index.html` renderiza a nova interface diretamente na raiz, preservando os parâmetros e a rota. O endereço principal não recebe `/demo-v2/`. Os templates de `tools.html` e os endereços antigos em `demo-v2/` continuam disponíveis por compatibilidade. O build gera as duas entradas com os caminhos de assets e import maps correspondentes.
 
 ## Gerar a versão de produção
 
@@ -10,7 +10,7 @@ O comando prepara o site completo em `.tmp/site/`. Publique o conteúdo dessa pa
 
 Os diretórios gerados estão no `.gitignore`. O CI compila, verifica e publica o pacote completo no GitHub Pages após pushes na branch `main`. Pull requests executam as verificações sem publicar. O artefato `digimon-cwb-site` também fica disponível para consulta. Em Settings → Pages, a origem da publicação deve ser **GitHub Actions**.
 
-Esta revisão identifica a interface como `2026.10.05.4` e o cache como `v89`. A alteração de cache permite que instalações existentes recebam os recursos novos.
+Esta revisão identifica a interface como `2026.10.05.5` e o cache como `v90`. A alteração de cache permite que instalações existentes recebam os recursos novos.
 
 ## Experiência mobile
 

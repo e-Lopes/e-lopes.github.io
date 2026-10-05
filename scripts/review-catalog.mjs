@@ -125,9 +125,9 @@ try {
     });
     await call('Network.setCacheDisabled', { cacheDisabled: true });
     await call('Page.navigate', { url: 'about:blank' });
-    await call('Page.navigate', { url: 'http://127.0.0.1:4175/index.html?releaseCheck=1#players' });
+    await call('Page.navigate', { url: 'http://127.0.0.1:4175/?releaseCheck=1#players' });
     await waitFor('document.querySelectorAll(".catalog-row").length===20');
-    assert.equal(await evaluate('location.pathname'), '/demo-v2/');
+    assert.equal(await evaluate('location.pathname'), '/');
     assert.equal(await evaluate('new URLSearchParams(location.search).get("releaseCheck")'), '1');
     assert.equal(await evaluate('document.querySelectorAll("#v2Tools").length'), 0);
     await waitFor('!!document.querySelector(".site-theme-picker")');

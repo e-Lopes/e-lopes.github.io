@@ -73,6 +73,13 @@ if (!target || target === 'shell') {
         .readFileSync(path.join(root, 'demo-v2/app-shell/index.html'), 'utf8')
         .replaceAll('./assets/', './app-shell/assets/');
     fs.writeFileSync(path.join(root, 'demo-v2/index.html'), built);
+    fs.writeFileSync(
+        path.join(root, 'index.html'),
+        built
+            .replaceAll('"../', '"./')
+            .replaceAll('./app-shell/', './demo-v2/app-shell/')
+            .replaceAll('./mfe/', './demo-v2/mfe/')
+    );
     for (const file of ['tools.html', 'deckbuilder.html'])
         fs.writeFileSync(
             path.join(root, 'demo-v2', file),
