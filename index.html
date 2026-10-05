@@ -15,18 +15,21 @@
         <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" sizes="180x180" href="./icons/digimon-cwb-app-180.png" />
         <link rel="manifest" href="./manifest.json" />
-
         <script type="importmap">
             {
                 "imports": {
-                    "react": "./demo-v2/mfe/shared/react.js",
-                    "react/jsx-runtime": "./demo-v2/mfe/shared/jsx.js",
-                    "react-dom/client": "./demo-v2/mfe/shared/dom.js",
-                    "react-dom": "./demo-v2/mfe/shared/dom.js"
+                    "react": "./demo-v2/mfe/shared/react.js?v=2026.10.05.9",
+                    "react/jsx-runtime": "./demo-v2/mfe/shared/jsx.js?v=2026.10.05.9",
+                    "react-dom/client": "./demo-v2/mfe/shared/dom.js?v=2026.10.05.9",
+                    "react-dom": "./demo-v2/mfe/shared/dom.js?v=2026.10.05.9"
                 }
             }
         </script>
-      <script type="module" crossorigin src="./demo-v2/app-shell/assets/index-Bp8oueYV.js"></script>
+        <link rel="modulepreload" href="./demo-v2/mfe/shared/react.js?v=2026.10.05.9" />
+        <link rel="modulepreload" href="./demo-v2/mfe/shared/jsx.js?v=2026.10.05.9" />
+        <link rel="modulepreload" href="./demo-v2/mfe/shared/dom.js?v=2026.10.05.9" />
+
+      <script type="module" crossorigin src="./demo-v2/app-shell/assets/index-BYg_Ofqd.js"></script>
       <link rel="stylesheet" crossorigin href="./demo-v2/app-shell/assets/index-Dn-AaRsd.css">
     </head>
     <body>

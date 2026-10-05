@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Manifest, MicroModule, MicroHandle, MicroContext, RouteName } from '../contracts';
 import { Loader } from '../shared/runtime';
-import { bootstrap, asset, dataService, loadScript } from './services';
+import { bootstrap, asset, dataService, loadScript, scriptVersion } from './services';
 import { readRoute, subscribeRoute, href, navigate } from './routes';
 import styles from './Shell.module.css';
 import { SiteFooter } from './SiteFooter';
@@ -111,7 +111,7 @@ function Shell() {
         };
         (async () => {
             manifest.current ||= await (
-                await fetch(asset('demo-v2/microfrontends.json'), { cache: 'no-store' })
+                await fetch(asset(`demo-v2/microfrontends.json?v=${scriptVersion}`), { cache: 'no-cache' })
             ).json();
             if (cancelled) return;
             if (manifest.current?.apiVersion !== 1)
@@ -137,6 +137,12 @@ function Shell() {
             );
             document.body.classList.toggle('decklist-builder-page', name === 'builder');
             if (!handles.current.has(name)) {
+                const entry = new URL(asset(config.entry));
+                if (retry) entry.searchParams.set('retry', String(retry));
+                // Start the module and styles together instead of waiting for CSS first.
+                const moduleRequest = import(/* @vite-ignore */ entry.href) as Promise<MicroModule>;
+                // Keep a failed early import handled while the styles are loading.
+                void moduleRequest.catch(() => {});
                 await Promise.all(
                     (config.styles || []).map(
                         (path) =>
@@ -145,7 +151,9 @@ function Shell() {
                                     return resolve();
                                 const link = document.createElement('link');
                                 link.rel = 'stylesheet';
-                                link.href = asset(path);
+                                const styleUrl = new URL(asset(path));
+                                styleUrl.searchParams.set('v', scriptVersion);
+                                link.href = styleUrl.href;
                                 link.dataset.mfeStyle = path;
                                 link.onload = () => resolve();
                                 link.onerror = () => {
@@ -157,9 +165,7 @@ function Shell() {
                     )
                 );
                 if (cancelled) return;
-                const entry = new URL(asset(config.entry));
-                if (retry) entry.searchParams.set('retry', String(retry));
-                const module = (await import(/* @vite-ignore */ entry.href)) as MicroModule;
+                const module = await moduleRequest;
                 if (cancelled) return;
                 if (module.apiVersion !== 1) throw Error('Componente incompatível.');
                 const element = document.createElement('div');

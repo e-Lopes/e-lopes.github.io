@@ -1,54 +1,11 @@
-const CACHE_VERSION = 'v93';
+const CACHE_VERSION = 'v94';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
+// Cache screens as they are visited, rather than downloading every tool during
+// the first visit and competing with the community data and images.
 const APP_SHELL_ASSETS = [
-    './',
-    './index.html',
-    './tools.html',
-    './config/legacy-entry.js',
-    './shared/workspace/tools.css',
-    './shared/workspace/base.css',
-    './shared/workspace/components.css',
-    './shared/workspace/tournaments.css',
-    './shared/workspace/details.css',
-    './shared/workspace/decks.css',
-    './shared/workspace/players.css',
-    './shared/workspace/admin.css',
-    './shared/workspace/forms.css',
-    './shared/workspace/navigation.js',
-    './shared/theme.css',
-    './shared/data/tournaments.js',
-    './shared/workspace/native.css',
-    './shared/workspace/native.js',
-    './demo-v2/tools.html',
-    './demo-v2/deckbuilder.html',
-    './demo-v2/index.html',
-    './demo-v2/microfrontends.json',
-    './demo-v2/mfe/shared/react.js',
-    './demo-v2/mfe/shared/jsx.js',
-    './demo-v2/mfe/shared/dom.js',
-    './demo-v2/mfe/dashboard/remote.js',
-    './demo-v2/mfe/workspace/remote.js',
-    './demo-v2/mfe/studio/remote.js',
-    './demo-v2/mfe/builder/remote.js',
     './offline.html',
-    './styles.css',
-    './styles/components/utilities.css',
-    './styles/components/states.css',
     './manifest.json',
-    './config/app-version.js',
-    './config/supabase.js',
-    './config/api-client.js',
-    './config/ui-state.js',
-    './config/validation.js',
-    './config/tournament-utils.js',
-    './config/digilab-export.js',
-    './feedback/feedback.js',
-    './config/register-sw.js',
-    './torneios/list-tournaments/calendar-view/calendar.js',
-    './torneios/tournament-ocr-files.js',
-    './torneios/list-tournaments/script.js',
-    './torneios/edit-tournament/modal.js',
     './icons/digimon-cwb-app-180.png',
     './icons/digimon-cwb-app-192.png',
     './icons/digimon-cwb-app-512.png',
@@ -110,6 +67,12 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (isScriptOrStyle) {
+        // Versioned and content-hashed files are immutable within a release.
+        // Unversioned files still check the network to pick up new deployments.
+        if (url.searchParams.has('v') || /\/(?:assets|mfe\/shared)\/[^/]+-[\w-]{8,}\.(?:m?js|css)$/.test(url.pathname)) {
+            event.respondWith(cacheFirst(request));
+            return;
+        }
         event.respondWith(networkFirst(request));
         return;
     }

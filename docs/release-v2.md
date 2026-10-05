@@ -10,7 +10,7 @@ O comando prepara o site completo em `.tmp/site/`. Publique o conteúdo dessa pa
 
 Os diretórios gerados estão no `.gitignore`. O CI compila, verifica e publica o pacote completo no GitHub Pages após pushes na branch `main`. Pull requests executam as verificações sem publicar. O artefato `digimon-cwb-site` também fica disponível para consulta. Em Settings → Pages, a origem da publicação deve ser **GitHub Actions**.
 
-Esta revisão identifica a interface como `2026.10.05.8` e o cache como `v92`. A alteração de cache permite que instalações existentes recebam os recursos novos. Entradas antigas em cache e links para `/demo-v2/` retornam à raiz, mantendo os parâmetros e a tela aberta. Um parâmetro temporário evita reutilizar o HTML antigo e é removido assim que a interface principal inicia.
+Esta revisão identifica a interface como `2026.10.05.9` e o cache como `v92`. A alteração de cache permite que instalações existentes recebam os recursos novos. Entradas antigas em cache e links para `/demo-v2/` retornam à raiz, mantendo os parâmetros e a tela aberta. Um parâmetro temporário evita reutilizar o HTML antigo e é removido assim que a interface principal inicia.
 
 ## Experiência mobile
 

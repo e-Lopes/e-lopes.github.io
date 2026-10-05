@@ -6,9 +6,9 @@ export const projectRoot = new URL(
 );
 export const asset = (path: string) => new URL(path, projectRoot).href;
 const scripts = new Map<string, Promise<void>>();
-// Keep a single script instance per page while preventing an older cached
-// domain script from being paired with newly built React forms.
-const scriptVersion = Date.now().toString(36);
+// The build version allows repeat visits to reuse scripts without mixing releases.
+declare const __CWB_ASSET_VERSION__: string;
+export const scriptVersion = __CWB_ASSET_VERSION__;
 export function loadScript(path: string) {
     const source = new URL(path.startsWith('https:') ? path : asset(path));
     if (!path.startsWith('https:')) source.searchParams.set('v', scriptVersion);
@@ -103,14 +103,13 @@ export async function bootstrap() {
     window.DIGISTATS_NATIVE_V2 = true;
     window.digiStatsComponentRoot = () => document.getElementById('v2Tools') || document.body;
     window.digistatsNavigate = navigate;
-    for (const path of [
+    await Promise.all([
         'config/supabase.js',
         'config/app-version.js',
         'shared/data/tournaments.js',
         'shared/data/statistics.js',
         'shared/data/admin-session.js'
-    ])
-        await loadScript(path);
+    ].map(loadScript));
     window.addEventListener('digistats:tournaments-changed', () => void dataService.refresh());
     void dataService.refresh();
 }

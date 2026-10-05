@@ -6,6 +6,11 @@ const project = resolve(import.meta.dirname, '../..');
 export default defineConfig(({ command }) => ({
     root: resolve(project, 'frontend/shell'),
     base: command === 'build' ? './' : '/',
+    define: {
+        __CWB_ASSET_VERSION__: JSON.stringify(
+            fs.readFileSync(resolve(project, 'config/app-version.js'), 'utf8').match(/2026\.\d+\.\d+\.\d+/)?.[0] || 'dev'
+        )
+    },
     plugins: [
         react(),
         {
