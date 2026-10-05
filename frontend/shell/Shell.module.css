@@ -55,7 +55,8 @@
         gap: 4px;
         margin-top: 12px;
     }
-    .navigation :global(.nav-group) {
+    .root .navigation :global(.nav-group) {
+        display: block;
         width: 100%;
         border: 0;
         margin: 0;
@@ -72,7 +73,10 @@
         border-radius: 9px;
         width: 100%;
     }
-    .navigation :global(.nav-submenu) {
+    .root .navigation :global(.nav-submenu) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        order: 0;
         position: static;
         width: auto;
         margin: 4px 0 8px 14px;

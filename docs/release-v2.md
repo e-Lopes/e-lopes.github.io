@@ -10,7 +10,7 @@ O comando prepara o site completo em `.tmp/site/`. Publique o conteúdo dessa pa
 
 Os diretórios gerados estão no `.gitignore`. O CI compila, verifica e publica o pacote completo no GitHub Pages após pushes na branch `main`. Pull requests executam as verificações sem publicar. O artefato `digimon-cwb-site` também fica disponível para consulta. Em Settings → Pages, a origem da publicação deve ser **GitHub Actions**.
 
-Esta revisão identifica a interface como `2026.10.05.6` e o cache como `v91`. A alteração de cache permite que instalações existentes recebam os recursos novos. Entradas antigas em cache e links para `/demo-v2/` retornam à raiz, mantendo os parâmetros e a tela aberta. Um parâmetro temporário evita reutilizar o HTML antigo e é removido assim que a interface principal inicia.
+Esta revisão identifica a interface como `2026.10.05.7` e o cache como `v92`. A alteração de cache permite que instalações existentes recebam os recursos novos. Entradas antigas em cache e links para `/demo-v2/` retornam à raiz, mantendo os parâmetros e a tela aberta. Um parâmetro temporário evita reutilizar o HTML antigo e é removido assim que a interface principal inicia.
 
 ## Experiência mobile
 
@@ -27,3 +27,5 @@ Antes de publicar, confira também um aparelho físico com login autorizado, tec
 O manifest mantém a URL `manifest.json`, o identificador `./` e a entrada `./index.html` da instalação original. O nome passa a ser **Digimon CWB**, e os ícones usam a nova marca em 192 e 512 pixels. As entradas principal e antiga também usam o ícone Apple de 180 pixels e o título novo. O service worker busca o manifest pela rede, com o cache como alternativa offline.
 
 Em instalações Chrome/Android por WebAPK, o navegador pode atualizar nome e ícone depois de abrir o aplicativo; a atualização não é imediata. Atalhos simples e algumas plataformas podem exigir remover o atalho e adicioná-lo novamente. O site não pode forçar uma alteração no launcher do aparelho. Referências: [atualizações do manifest no Chrome](https://web.dev/articles/manifest-updates) e [atualização de PWAs](https://web.dev/learn/pwa/update).
+
+Os arquivos antigos `icons/icons-192.png`, `icons/icons-512.png` e `icons/favicon/favicon.png` também recebem a nova marca, para páginas e instalações que ainda consultam esses endereços. A tela de abertura roxa do WebAPK antigo é gerada pelo Android a partir dos metadados da instalação; limpar o cache do site não a substitui. Para atualizar imediatamente, remova a instalação antiga e instale novamente pelo Chrome. Para preservar a instalação, o Chrome oferece a verificação manual em `about://webapks`, conforme a documentação acima.

@@ -33,6 +33,15 @@ test('installed app keeps its identity and uses the new name and correctly sized
     assert.equal(manifest.start_url, './index.html');
     assert.equal(manifest.name, 'Digimon CWB');
     assert.equal(manifest.short_name, 'Digimon CWB');
+    assert.equal(manifest.background_color, '#080a0b');
+    assert.deepEqual(
+        fs.readFileSync('icons/icons-192.png'),
+        fs.readFileSync('icons/digimon-cwb-app-192.png')
+    );
+    assert.deepEqual(
+        fs.readFileSync('icons/icons-512.png'),
+        fs.readFileSync('icons/digimon-cwb-app-512.png')
+    );
     for (const icon of manifest.icons) {
         const image = fs.readFileSync(icon.src);
         assert.deepEqual(image.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));

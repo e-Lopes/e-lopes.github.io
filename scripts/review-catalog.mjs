@@ -70,7 +70,7 @@ await call('Page.addScriptToEvaluateOnNewDocument', {
    if(table==='players') { if(options.method==='POST')players.push({id:99,...payload,is_active:true}); else Object.assign(players.find(p=>String(p.id)===url.searchParams.get('id')?.slice(3)),payload); }
    return new Response(JSON.stringify(table==='upload-card-image'?{url:image}:table==='decks'&&options.method==='POST'?[{id:99}]:{}),{status:200,headers:{'Content-Type':'application/json'}});
   }
-  let data=({players,decks,stores,tournament:tournaments,formats:[{id:1,code:'BT26',name:'Timeless Bonds',created_at:'2026-09-01',is_active:true}],deck_images:decks.map(d=>({deck_id:d.id,image_url:image})),deck_families:[{id:'family1',name:'Família A',is_active:true}],tournament_weekly_schedule:[],v_podium_full:tournaments.map(t=>({id:t.id,tournament_id:t.id,store_id:t.store_id,tournament_date:t.tournament_date,placement:1,player:'Ana Santos',deck:'Glowing Dawn',image_url:image})),tournament_results:histories,decklists:[{id:'list1',decklist_cards:[{card_code:'BT26-001',qty:4,position:0}]}]})[table]||[];
+  let data=({players,decks,stores,tournament:tournaments,formats:[{id:1,code:'BT26',name:'Timeless Bonds',created_at:'2026-09-01',is_active:true}],deck_images:decks.map(d=>({deck_id:d.id,image_url:image})),deck_families:[{id:'family1',name:'Família A',is_active:true}],tournament_weekly_schedule:[],v_podium_full:tournaments.flatMap(t=>decks.map((d,i)=>({id:t.id,tournament_id:t.id,store_id:t.store_id,tournament_date:t.tournament_date,placement:i+1,player:i===0?'Ana Santos':'Jogador '+(i+1),deck:d.name,image_url:image}))),tournament_results:histories,decklists:[{id:'list1',decklist_cards:[{card_code:'BT26-001',qty:4,position:0}]}]})[table]||[];
   if(table==='tournament_results'&&url.searchParams.get('select')?.startsWith('id,tournament_id,deck_id')) {window.__metaReads++;}
   if(table==='tournament_results'&&url.searchParams.get('select')?.startsWith('id,tournament_id,deck_id')) data=histories.map(r=>({...r,decklists:[{id:'list1'}]}));
   if(table==='tournament'&&url.searchParams.has('id')) data=data.filter(d=>String(d.id)===url.searchParams.get('id').slice(3));
@@ -408,6 +408,29 @@ try {
         assert.ok(menu.aligned, 'Mobile navigation must form one column at ' + width);
         assert.equal(menu.columns, 1, 'Mobile support must form one column');
         assert.equal(menu.overflow, false, 'Mobile menu overflow at ' + width);
+        for (const name of ['tournaments', 'decks', 'players']) {
+            await evaluate(
+                `document.querySelector('button[aria-controls="submenu-${name}"]').click()`
+            );
+            const layout = await evaluate(`(() => {
+                const submenu=document.querySelector('#submenu-${name}');
+                const group=submenu.parentElement;
+                const box=submenu.getBoundingClientRect();
+                const heading=group.querySelector('button').getBoundingClientRect();
+                const next=group.nextElementSibling?.getBoundingClientRect();
+                const links=[...submenu.querySelectorAll('a')].map(link=>link.getBoundingClientRect());
+                return { visible:box.height>0, below:box.top>=heading.bottom, inside:box.bottom<=group.getBoundingClientRect().bottom+1, beforeNext:!next||box.bottom<=next.top+1, stacked:links[1].top>=links[0].bottom };
+            })()`);
+            assert.deepEqual(
+                layout,
+                { visible: true, below: true, inside: true, beforeNext: true, stacked: true },
+                name + ' submenu placement at ' + width
+            );
+            if (width === 390 && name === 'decks') await screenshot('decks-submenu-mobile');
+            await evaluate(
+                `document.querySelector('button[aria-controls="submenu-${name}"]').click()`
+            );
+        }
         if (width === 390) await screenshot('navigation-mobile');
         await evaluate('document.querySelector("button[aria-controls=app-navigation]").click()');
         for (const [route, selector] of [
@@ -424,6 +447,22 @@ try {
                 await evaluate('document.documentElement.scrollWidth<=innerWidth'),
                 route + ' overflow at ' + width
             );
+            if (route === 'overview') {
+                await waitFor(
+                    '!!document.querySelector(".swiper-slide-active .recent-event-card .card-podium-row")'
+                );
+                await evaluate('scrollTo(0,0)');
+                const card = await evaluate(`(() => {
+                    const element=document.querySelector('.swiper-slide-active .recent-event-card');
+                    const rect=element.getBoundingClientRect();
+                    return {bottom:rect.bottom,rows:element.querySelectorAll('.card-podium-row').length,height:innerHeight};
+                })()`);
+                assert.equal(card.rows, 3, 'Mobile card includes the full podium');
+                assert.ok(
+                    card.bottom <= card.height - 12,
+                    'Complete tournament card fits mobile viewport at ' + width
+                );
+            }
             if (width === 390) await screenshot(route + '-mobile-release');
         }
     }

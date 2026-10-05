@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v91';
+const CACHE_VERSION = 'v92';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
