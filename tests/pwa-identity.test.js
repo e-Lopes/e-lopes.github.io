@@ -7,6 +7,27 @@ const { Response } = globalThis;
 
 const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 
+test('cached legacy entry returns to the root and preserves navigation context', () => {
+    let destination;
+    vm.runInNewContext(fs.readFileSync('config/legacy-entry.js', 'utf8'), {
+        URL,
+        window: {
+            location: {
+                href: 'https://example.test/community/index.html?deckId=12#decks',
+                search: '?deckId=12',
+                hash: '#decks',
+                replace: (url) => {
+                    destination = new URL(url);
+                }
+            }
+        }
+    });
+    assert.equal(destination.pathname, '/community/');
+    assert.equal(destination.searchParams.get('deckId'), '12');
+    assert.ok(destination.searchParams.has('__cwb_release'));
+    assert.equal(destination.hash, '#decks');
+});
+
 test('installed app keeps its identity and uses the new name and correctly sized icons', () => {
     assert.equal(manifest.id, './');
     assert.equal(manifest.start_url, './index.html');

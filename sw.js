@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v90';
+const CACHE_VERSION = 'v91';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -125,7 +125,7 @@ self.addEventListener('fetch', (event) => {
 async function networkFirst(request, fallbackAsset) {
     const cache = await caches.open(CACHE_NAME);
     try {
-        const response = await fetch(request);
+        const response = await fetch(request, { cache: 'no-store' });
         if (response && response.ok) {
             cache.put(request, response.clone());
         }

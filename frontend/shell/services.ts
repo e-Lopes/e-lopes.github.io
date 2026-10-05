@@ -83,6 +83,19 @@ export const dataService: DataService = {
     }
 };
 export async function bootstrap() {
+    if (/\/demo-v2\/(?:index\.html)?$/.test(location.pathname)) {
+        const canonical = new URL(projectRoot.href);
+        canonical.search = location.search;
+        canonical.hash = location.hash;
+        canonical.searchParams.set('__cwb_release', '2026.10.05.6');
+        location.replace(canonical.href);
+        return new Promise<void>(() => {});
+    }
+    if (new URLSearchParams(location.search).has('__cwb_release')) {
+        const canonical = new URL(location.href);
+        canonical.searchParams.delete('__cwb_release');
+        history.replaceState(history.state, '', canonical.href);
+    }
     const base = document.createElement('base');
     base.href = projectRoot.href;
     document.head.prepend(base);

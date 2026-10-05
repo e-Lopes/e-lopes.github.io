@@ -83,7 +83,7 @@ if (!target || target === 'shell') {
     for (const file of ['tools.html', 'deckbuilder.html'])
         fs.writeFileSync(
             path.join(root, 'demo-v2', file),
-            `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DIGIMON CWB</title></head><body><script>const params=new URLSearchParams(location.search);const view=params.get('view')||'tournaments';const name=${JSON.stringify(file)}==='deckbuilder.html'?'builder':({tournaments:'manage',statistics:'statistics',decks:'decks',players:'players',admin:'admin'}[view]||'manage');location.replace(new URL('./?'+params.toString()+'#'+name,location.href));</script></body></html>`
+            `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DIGIMON CWB</title></head><body><script>const params=new URLSearchParams(location.search);const view=params.get('view')||'tournaments';const name=${JSON.stringify(file)}==='deckbuilder.html'?'builder':({tournaments:'manage',statistics:'statistics',decks:'decks',players:'players',admin:'admin'}[view]||'manage');params.set('__cwb_release','2026.10.05.6');location.replace(new URL('../?'+params.toString()+'#'+name,location.href));</script></body></html>`
         );
 }
 const version = Date.now().toString(36);
