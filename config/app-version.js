@@ -1,8 +1,9 @@
 ﻿(function setAppVersion() {
-    window.APP_VERSION = '2026.08.04.5';
+    window.APP_VERSION = '2026.10.05.4';
 })();
 
 (function initThemeToggle() {
+    if (window.DIGISTATS_MICRO_FRONTENDS) return;
     const STORAGE_KEY = 'digistats-theme';
     const THEME_LIGHT = 'light';
     const THEME_DARK = 'dark';

@@ -7,6 +7,17 @@
         "test": "node --test",
         "lint": "eslint \"**/*.js\"",
         "format": "prettier --write \"**/*.{js,css,html,md,json}\"",
+        "predev": "npm run build",
+        "dev": "vite --config frontend/shell/vite.config.mts",
+        "build": "node scripts/build-frontend.mjs",
+        "package:site": "node scripts/package-site.mjs",
+        "build:release": "npm run build && npm run package:site",
+        "build:v2": "node scripts/build-frontend.mjs",
+        "build:dashboard": "node scripts/build-frontend.mjs --app=dashboard",
+        "build:workspace": "node scripts/build-frontend.mjs --app=workspace",
+        "build:studio": "node scripts/build-frontend.mjs --app=studio",
+        "build:builder": "node scripts/build-frontend.mjs --app=builder",
+        "typecheck": "tsc -p tsconfig.json",
         "db:snapshot": "powershell -ExecutionPolicy Bypass -File scripts/export-supabase-schema.ps1",
         "cards:sync-metadata": "node scripts/sync-card-metadata.js",
         "cards:sync-metadata:apply": "node scripts/sync-card-metadata.js --update-decklist-cards",
@@ -14,7 +25,19 @@
     },
     "devDependencies": {
         "@electric-sql/pglite": "^0.5.8",
+        "@types/node": "^26.6.4",
+        "@types/react": "^19.3.0",
+        "@types/react-dom": "^19.3.0",
+        "@vitejs/plugin-react": "^6.1.1",
         "eslint": "^9.20.1",
-        "prettier": "^3.5.2"
+        "parse5": "^8.0.1",
+        "prettier": "^3.5.2",
+        "typescript": "^7.0.2",
+        "vite": "^8.3.2"
+    },
+    "dependencies": {
+        "react": "^19.3.0",
+        "react-dom": "^19.3.0",
+        "swiper": "^14.3.0"
     }
 }

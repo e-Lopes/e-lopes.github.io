@@ -1,0 +1,114 @@
+:root.v2-tools
+    #v2Tools
+    :is(
+        .admin-panel,
+        .admin-weekly-schedule,
+        .admin-weekly-schedule-item,
+        .admin-repair-section,
+        .admin-repair-row,
+        .admin-sync-section,
+        .admin-table-wrapper,
+        .admin-session-bar
+    ) {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+    color: var(--ds-text) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools .admin-panel {
+    padding: 0 !important;
+    border: 0 !important;
+}
+:root.v2-tools #v2Tools :is(.admin-panel-header, .admin-weekly-schedule-header, .admin-repair-row) {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+:root.v2-tools #v2Tools :is(.admin-weekly-schedule, .admin-repair-section, .admin-sync-section) {
+    padding: 24px !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 12px !important;
+    margin: 20px 0 !important;
+}
+:root.v2-tools #v2Tools .admin-weekly-schedule-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+    gap: 12px !important;
+}
+:root.v2-tools #v2Tools .admin-weekly-schedule-item {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--ds-line);
+    border-radius: 8px;
+}
+:root.v2-tools #v2Tools .admin-weekly-schedule-item select {
+    width: 100%;
+    min-width: 0 !important;
+}
+:root.v2-tools #v2Tools .admin-panel-title {
+    font-size: 22px;
+    margin: 0 0 8px !important;
+}
+:root.v2-tools #v2Tools .admin-panel-desc {
+    font-size: 14px !important;
+    line-height: 1.6;
+    color: var(--ds-muted) !important;
+}
+:root.v2-tools #v2Tools .admin-session-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 10px !important;
+    margin-bottom: 20px !important;
+}
+:root.v2-tools #v2Tools .admin-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 !important;
+    margin: 0 0 24px !important;
+}
+:root.v2-tools #v2Tools .admin-repair-row + .admin-repair-row {
+    border-top: 1px solid var(--ds-line);
+    padding-top: 20px;
+    margin-top: 20px;
+}
+:root.v2-tools #v2Tools .admin-auth-card {
+    max-width: 460px;
+    margin: 0 auto;
+    border: 1px solid var(--ds-line) !important;
+    padding: 28px !important;
+    border-radius: 12px;
+    background: var(--ds-panel) !important;
+}
+:root.v2-tools #v2Tools #adminSyncCardsSection {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+    padding: 24px !important;
+    border-radius: 12px !important;
+}
+:root.v2-tools #v2Tools #adminSyncCardsSection code {
+    background: var(--ds-raised) !important;
+}
+:root.v2-tools #v2Tools #adminSyncProgressBar {
+    background: var(--ds-red) !important;
+}
+:root.v2-tools #v2Tools #adminSyncLog {
+    background: var(--ds-raised) !important;
+    color: var(--ds-text) !important;
+}
+@media (max-width: 600px) {
+    :root.v2-tools
+        #v2Tools
+        :is(.admin-weekly-schedule, .admin-repair-section, .admin-sync-section) {
+        padding: 16px !important;
+    }
+    :root.v2-tools #v2Tools .admin-weekly-schedule-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}

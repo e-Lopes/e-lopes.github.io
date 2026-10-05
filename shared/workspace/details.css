@@ -1,0 +1,243 @@
+/* Expanded results use the same surfaces and page scroll as the v2. */
+:root.v2-tools
+    #v2Tools
+    :is(
+        .tournament-details-header,
+        .details-block,
+        .details-pie-panel,
+        .details-podium-card,
+        .details-empty-state,
+        .details-pie-store-logo,
+        .results-mini-item,
+        .details-card-image-wrapper
+    ) {
+    background: var(--ds-panel) !important;
+    color: var(--ds-text) !important;
+    border-color: var(--ds-line) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools :is(.details-deck-card-footer, .results-mini-main) {
+    background: transparent !important;
+    border: 0;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .details-header-meta,
+        .details-section-title,
+        .details-pie-legend-name,
+        .results-mini-main strong,
+        .details-deck-name
+    ) {
+    color: var(--ds-text) !important;
+    text-shadow: none !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .details-header-meta > div,
+        .details-player-name,
+        .results-mini-main span,
+        .results-mini-points,
+        .details-title-icon
+    ) {
+    color: var(--ds-muted) !important;
+}
+:root.v2-tools #v2Tools .details-header-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+:root.v2-tools #v2Tools .details-header-meta {
+    font-size: 14px;
+    line-height: 1.7;
+}
+:root.v2-tools #v2Tools .details-header-meta strong {
+    font-size: 18px;
+}
+:root.v2-tools #v2Tools .details-pie-store-logo {
+    width: 100px !important;
+    height: 64px !important;
+    padding: 6px;
+    border: 0;
+    border-radius: 0;
+    object-fit: contain;
+}
+:root.v2-tools #v2Tools .details-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+:root.v2-tools #v2Tools .details-header-actions button {
+    min-height: 44px;
+    font-size: 13px;
+    padding: 10px 14px;
+}
+:root.v2-tools #v2Tools .details-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    margin-top: 20px;
+}
+:root.v2-tools #v2Tools .details-grid > .details-block {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 16px;
+    border: 1px solid var(--ds-line);
+    border-radius: 10px;
+    overflow: visible;
+}
+:root.v2-tools #v2Tools .details-section-title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 16px;
+    margin: 0 0 16px;
+}
+:root.v2-tools #v2Tools :is(.details-podium, .results-mini, .details-pie-legend) {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+:root.v2-tools #v2Tools .details-podium-card {
+    display: flex;
+    position: relative;
+    align-items: center;
+    gap: 12px;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid var(--ds-line);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+:root.v2-tools #v2Tools .details-rank-badge {
+    position: static !important;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    background: var(--ds-raised) !important;
+    border: 1px solid var(--ds-line);
+    border-radius: 50%;
+    color: var(--ds-muted);
+    box-shadow: none !important;
+    text-shadow: none;
+    font-size: 13px;
+}
+:root.v2-tools #v2Tools .first-place .details-rank-badge {
+    color: #e2bb68 !important;
+}
+:root.v2-tools #v2Tools .second-place .details-rank-badge {
+    color: #c8ced5 !important;
+}
+:root.v2-tools #v2Tools .third-place .details-rank-badge {
+    color: #cb7b43 !important;
+}
+:root.v2-tools #v2Tools .fourth-place .details-rank-badge {
+    color: var(--ds-green) !important;
+}
+:root.v2-tools #v2Tools .details-deck-card-footer {
+    padding: 0;
+    min-width: 0;
+    flex: 1;
+}
+:root.v2-tools #v2Tools .details-deck-name {
+    font-size: 14px;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+    text-transform: none;
+}
+:root.v2-tools #v2Tools .details-player-name {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+:root.v2-tools #v2Tools .details-card-image-wrapper {
+    position: static !important;
+    transform: none !important;
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+    border: 2px solid var(--ds-line) !important;
+    box-shadow: none;
+}
+:root.v2-tools #v2Tools .results-mini-item {
+    padding: 12px;
+    gap: 12px;
+    border: 1px solid var(--ds-line);
+    border-radius: 8px;
+}
+:root.v2-tools #v2Tools .results-mini-item.with-action:hover {
+    border-color: var(--ds-red) !important;
+    background: var(--ds-red-soft) !important;
+}
+:root.v2-tools #v2Tools .results-mini-rank {
+    background: var(--ds-raised) !important;
+    color: var(--ds-muted) !important;
+    border-color: var(--ds-line) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools .results-mini-item.first-place .results-mini-rank {
+    color: #e2bb68 !important;
+}
+:root.v2-tools #v2Tools .results-mini-item.second-place .results-mini-rank {
+    color: #c8ced5 !important;
+}
+:root.v2-tools #v2Tools .results-mini-item.third-place .results-mini-rank {
+    color: #cb7b43 !important;
+}
+:root.v2-tools #v2Tools .results-mini-main strong {
+    font-size: 14px;
+}
+:root.v2-tools #v2Tools .results-mini-main span {
+    font-size: 13px;
+}
+:root.v2-tools #v2Tools .details-pie-panel {
+    padding: 0;
+    border: 0;
+}
+:root.v2-tools #v2Tools .details-pie-container {
+    width: min(100%, 240px);
+    border: 2px solid var(--ds-line) !important;
+    background: var(--ds-raised) !important;
+    box-shadow: none;
+}
+:root.v2-tools #v2Tools .details-pie-legend {
+    margin-top: 16px;
+}
+:root.v2-tools #v2Tools .details-pie-legend-item {
+    font-size: 13px;
+    padding: 6px 0;
+    gap: 8px;
+}
+:root.v2-tools #v2Tools .details-bandai-print-status {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: normal;
+    background: var(--ds-raised) !important;
+    border-color: var(--ds-line) !important;
+    color: var(--ds-muted) !important;
+}
+@media (max-width: 1150px) {
+    :root.v2-tools #v2Tools .details-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    :root.v2-tools #v2Tools .details-pie-block {
+        grid-column: 1 / -1;
+    }
+}
+@media (max-width: 780px) {
+    :root.v2-tools #v2Tools .details-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :root.v2-tools #v2Tools .details-header-actions {
+        width: 100%;
+    }
+    :root.v2-tools #v2Tools .details-grid > .details-block {
+        padding: 12px;
+    }
+}

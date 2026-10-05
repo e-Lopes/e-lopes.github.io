@@ -26,7 +26,7 @@
                 <input id="createDeckName" class="form-input" type="text" required>
             </div>
             <div class="form-group">
-                <label class="form-label" for="createDeckCode">Deck Code*</label>
+                <label class="form-label" for="createDeckCode">Código da carta*</label>
                 <input id="createDeckCode" class="form-input" type="text" placeholder="BT16-064" required>
                 <div class="code-examples">
                     <div class="code-example" data-code="BT24-030">BT24-030</div>
@@ -46,15 +46,15 @@
             </div>
             <div class="modal-actions">
                 <button type="button" id="btnCloseCreateDeckModal" class="btn-modal-cancel">Cancelar</button>
-                <button type="submit" class="btn-modal-save">Create</button>
+                <button type="submit" class="btn-modal-save">Criar deck</button>
             </div>
             <div class="modal-tips">
-                <h4>💡 How to find the card code:</h4>
+                <h4>Como encontrar o código da carta</h4>
                 <ul>
-                    <li>The code follows the format: <strong>SET-NUMBER</strong></li>
-                    <li><strong>SET:</strong> BT16, ST22, EX5, P (promo)...</li>
-                    <li><strong>NUMBER:</strong> 001 - 120 (can be 1-3 digits)</li>
-                    <li><strong>Examples:</strong> BT24-030, ST22-05, EX5-001, P-183</li>
+                    <li>Use o formato <strong>COLEÇÃO-NÚMERO</strong>.</li>
+                    <li><strong>Coleção:</strong> BT16, ST22, EX5, P (promo)...</li>
+                    <li><strong>Número:</strong> 001–120, com 1 a 3 dígitos.</li>
+                    <li><strong>Exemplos:</strong> BT24-030, ST22-05, EX5-001, P-183</li>
                 </ul>
             </div>
         </form>
@@ -200,6 +200,9 @@
             throw new Error('Error saving deck image');
         }
     }
+
+    // Reuse the established image upload and persistence flow from the React catalog.
+    window.digistatsDeckMutations = { ...window.digistatsDeckMutations, create: createDeck };
 
     window.initCreateDeckModal = async function initCreateDeckModal(config) {
         const { supabaseUrl, headers, onCreated } = config || {};

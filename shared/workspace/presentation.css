@@ -1,0 +1,1012 @@
+/* Final visual layer for imported tools. Scoped so standalone pages keep their theme. */
+.workspace-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 26px 0 24px;
+}
+.workspace-page-header .page-heading {
+    margin: 0;
+    min-width: 0;
+}
+.workspace-page-header .native-back-link {
+    margin: 0;
+    flex-shrink: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-container > .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-session-bar {
+    width: 100%;
+    margin: 0 !important;
+    padding: 14px 18px !important;
+    gap: 10px;
+    align-items: center;
+    white-space: normal;
+    background: var(--ds-card-gradient) !important;
+    border-radius: 12px !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-session-identity {
+    display: flex;
+    flex: 1 1 180px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-session-identity small {
+    font-size: 11px;
+    color: var(--ds-muted);
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-session-identity strong {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-session-logout {
+    min-height: 40px;
+    padding: 9px 14px;
+    background: #191e23;
+    border-color: #36363c;
+    font-size: 12px;
+    font-weight: 600;
+}
+@media (max-width: 650px) {
+    .workspace-page-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+}
+:root.v2-tools body.native-v2 #v2Tools {
+    --color-primary: var(--ds-red);
+    --color-background: var(--ds-bg);
+    --color-surface: var(--ds-panel);
+    --color-text: var(--ds-text);
+    --color-border: var(--ds-line);
+    --color-table-header: var(--ds-raised);
+    --color-row-hover: color-mix(in srgb, var(--accent) 3.14%, transparent);
+    color-scheme: dark;
+    scrollbar-color: #4d353c var(--ds-panel);
+    background: transparent !important;
+}
+/* Layout containers stay transparent; only cards and controls receive a surface. */
+:root.v2-tools body.native-v2 [data-workspace-root],
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .container,
+        .admin-container,
+        .admin-panel,
+        .statistics-container,
+        .statistics-container-embedded,
+        .statistics-results,
+        .decks-container,
+        .players-container-embedded,
+        .decklist-builder-layout
+    ) {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(input, textarea)::placeholder {
+    color: #87918d !important;
+    opacity: 1;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .placements-empty,
+        .details-empty-state,
+        .calendar-empty-state,
+        .decklist-search-empty,
+        .meta-overview-empty,
+        .meta-pilots-loading,
+        .admin-loading,
+        .admin-empty,
+        .statistics-status
+    ) {
+    background: var(--ds-panel) !important;
+    color: var(--ds-muted) !important;
+    border-color: var(--ds-line) !important;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-panel {
+    --dl-bg: var(--ds-bg) !important;
+    --dl-surface: var(--ds-panel) !important;
+    --dl-surface-raised: var(--ds-raised) !important;
+    --dl-border: var(--ds-line) !important;
+    --dl-border-strong: var(--ds-accent-line) !important;
+    --dl-text: var(--ds-text) !important;
+    --dl-muted: var(--ds-muted) !important;
+    --dl-primary: var(--ds-red) !important;
+    --dl-primary-strong: color-mix(in srgb, var(--accent) 80%, black) !important;
+}
+/* Surfaces that previously retained their own blue or purple palette. */
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-hero,
+        .admin-digilab-toolbar,
+        .admin-digilab-summary > div,
+        .admin-digilab-catalog-card,
+        .statistics-data-card,
+        .statistics-highlight-card,
+        .calendar-panel,
+        .details-block,
+        .details-podium-card,
+        .deck-history-panel,
+        .deck-history-panel-compact,
+        .decklist-builder-header,
+        .decklist-builder-main,
+        .decklist-builder-stats,
+        .decklist-builder-breakdown,
+        .modal-content,
+        .player-modal-box,
+        .decklist-import-dialog
+    ) {
+    background: var(--ds-card-gradient) !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: var(--ds-card-radius) !important;
+    color: var(--ds-text) !important;
+    box-shadow: inset 0 1px 0 #ffffff05 !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-table-shell,
+        .admin-digilab-catalog-table-shell,
+        .statistics-table-wrapper,
+        .decks-table-wrapper,
+        .players-table-wrapper
+    ) {
+    background: var(--ds-panel) !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-detail-row > td,
+        .admin-digilab-detail,
+        .admin-digilab-candidates > div,
+        .admin-digilab-lookup > div,
+        .admin-repair-log,
+        .admin-repair-progress,
+        .decklist-builder-meta-pill,
+        .decklist-builder-breakdown-group,
+        .decklist-import-body,
+        .player-history,
+        .player-history-loading,
+        .player-history-empty,
+        .player-history-error,
+        .player-history-item,
+        .player-history-entry,
+        .deck-history-list,
+        .calendar-weekdays,
+        .calendar-year-nav,
+        .statistics-formula-hint,
+        .statistics-points-legend,
+        .statistics-coverage-note
+    ) {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+    color: var(--ds-muted) !important;
+    box-shadow: none !important;
+}
+/* DigiLab header, actions and lookup fit the available width rather than overflowing. */
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-hero {
+    padding: 22px !important;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-hero-copy {
+    flex: 1 1 240px;
+    text-align: left;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-hero-copy :is(h2, p) {
+    text-align: left !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-toolbar > details {
+    grid-column: 1 / -1;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-hero-icon {
+    background: color-mix(in srgb, var(--accent) 5.1%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 18.82%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-eyebrow {
+    color: color-mix(in srgb, var(--accent) 75%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 360px) !important;
+    padding: 20px !important;
+    gap: 18px !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-toolbar-actions,
+        .admin-digilab-catalog-actions,
+        .admin-digilab-detail-actions,
+        .admin-repair-actions,
+        .player-actions,
+        .decklist-builder-header-actions
+    ) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-lookup > div {
+    gap: 6px;
+    padding: 4px;
+    overflow: visible;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-toolbar .admin-digilab-lookup input {
+    border: 0 !important;
+    background: transparent !important;
+    min-width: 0;
+    padding: 8px !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-lookup > div:focus-within {
+    outline: 2px solid color-mix(in srgb, var(--accent) 31.37%, transparent);
+    outline-offset: 2px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .admin-digilab-toolbar
+    .admin-digilab-lookup
+    input:is(:focus, :focus-visible) {
+    outline: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-lookup input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-lookup input::-webkit-inner-spin-button,
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-lookup input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-history,
+:root.v2-tools body.native-v2 #v2Tools #adminDigilabHistory,
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-history > p,
+:root.v2-tools body.native-v2 #v2Tools #adminDigilabHistory > h4 {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-history > p {
+    margin: 14px 0;
+    font-size: 13px;
+    line-height: 1.6;
+}
+:root.v2-tools body.native-v2 #v2Tools #adminDigilabHistory {
+    margin-top: 20px;
+    min-width: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools #adminDigilabHistory > h4 {
+    margin: 24px 0 12px;
+    font-size: 15px;
+    text-align: left;
+}
+:root.v2-tools body.native-v2 #v2Tools #adminDigilabHistory > h4:first-child {
+    margin-top: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 14px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-summary > div {
+    padding: 18px !important;
+    gap: 7px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-summary > div small {
+    color: var(--ds-muted) !important;
+    font-size: 12px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-summary > .tone-new::before {
+    background: var(--ds-red) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-catalog-header {
+    flex-wrap: wrap;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-catalog-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: 14px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-import-callout,
+        .admin-digilab-missing-players-copy li,
+        .admin-digilab-catalog-summary span
+    ) {
+    background: #ffffff03 !important;
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-badge.status-new_import {
+    background: color-mix(in srgb, var(--accent) 6.27%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 18.82%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-progress-track span {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 80%, black),
+        var(--ds-red)
+    ) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .admin-digilab-import-callout.is-complete
+    .admin-digilab-progress-track
+    span {
+    background: var(--ds-green) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .admin-digilab-import-progress.is-error
+    .admin-digilab-progress-track
+    span {
+    background: var(--ds-red) !important;
+}
+/* Buttons keep compact icon controls, while full actions match the shell. */
+:root.v2-tools body.native-v2 #v2Tools :is(.modal-overlay, .player-modal-overlay) .btn-cancel {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-modal-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-modal-heading .admin-modal-title {
+    margin: 0;
+    font-size: 20px;
+    text-align: left;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-modal-heading .player-modal-close {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-action.is-secondary,
+        .admin-digilab-action.is-ghost,
+        .btn-cancel,
+        .btn-pagination-number,
+        .decklist-builder-action-btn,
+        .decklist-search-page-btn,
+        .decklist-import-close,
+        .player-modal-close,
+        .filter-chip,
+        .stats-staple-toggle
+    ) {
+    background: #191e23 !important;
+    border: 1px solid #36363c !important;
+    color: var(--ds-text) !important;
+    border-radius: var(--ds-control-radius) !important;
+    font-weight: 600;
+    text-shadow: none !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-action,
+        .btn-cancel,
+        .btn-primary,
+        .btn-secondary,
+        .btn-save,
+        .btn-modal-save,
+        .btn-modal-cancel,
+        .admin-tab-btn,
+        .statistics-view-btn,
+        .decklist-builder-action-btn
+    ) {
+    min-height: 44px;
+    font-size: 13px;
+    white-space: normal;
+    line-height: 1.4;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-action.is-small {
+    min-height: 34px;
+    font-size: 12px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-digilab-action.is-secondary,
+        .admin-digilab-action.is-ghost,
+        .btn-cancel,
+        .btn-pagination-number,
+        .decklist-builder-action-btn,
+        .decklist-search-page-btn,
+        .filter-chip
+    ):hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 6.27%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(button, a, summary):focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 43.92%, transparent) !important;
+    outline-offset: 3px;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.filter-chip, .btn-pagination-number).is-active {
+    background: color-mix(in srgb, var(--accent) 7.84%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .decklist-builder-action-btn.btn-primary {
+    background: var(--ds-red) !important;
+    border-color: var(--ds-red) !important;
+    color: #190c0e !important;
+}
+/* Search/control rows use consistent spacing without forcing legacy inline tools wider. */
+:root.v2-tools body.native-v2 #v2Tools :is(.players-row-search, .decks-list-controls) {
+    padding: 18px !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 12px !important;
+    background: var(--ds-panel) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.statistics-view-tabs, .statistics-secondary-controls) {
+    flex-wrap: wrap !important;
+    gap: 10px;
+}
+:root.v2-tools body.native-v2 #v2Tools .statistics-primary-controls {
+    align-items: flex-end;
+    gap: 16px;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.statistics-view-btn, .admin-tab-btn) {
+    text-transform: none;
+    letter-spacing: 0;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.statistics-main-selects, .statistics-secondary-controls, .admin-digilab-catalog-toolbar)
+    > :is(input, select, label) {
+    min-width: 0 !important;
+    max-width: 100%;
+}
+/* Tables and disclosures retain data/status colours but lose legacy decoration. */
+:root.v2-tools body.native-v2 #v2Tools .admin-panel-header {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0;
+    margin-bottom: 18px;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-panel-desc {
+    opacity: 1 !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-table-wrapper {
+    background: var(--ds-panel) !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 12px !important;
+    overflow-x: auto;
+    padding: 0 !important;
+    max-width: 100%;
+}
+/* The exclusion also matches the specificity of the shared legacy table rules. */
+:root.v2-tools body.native-v2 #v2Tools table:not(#tournamentsTable) {
+    margin: 0 !important;
+    border-spacing: 0 !important;
+    border-collapse: separate !important;
+    box-shadow: none !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .admin-table-wrapper,
+        .statistics-table-wrapper,
+        .decks-table-wrapper,
+        .players-table-wrapper
+    )
+    table:not(#tournamentsTable) {
+    border: 0 !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table:not(#tournamentsTable) th {
+    padding: 13px 16px !important;
+    background: #191d20 !important;
+    color: var(--ds-muted) !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--ds-line) !important;
+    font:
+        700 11px/1.5 Arial,
+        Helvetica,
+        sans-serif !important;
+    letter-spacing: 0.5px;
+    text-align: left;
+}
+:root.v2-tools body.native-v2 #v2Tools table:not(#tournamentsTable) td {
+    padding: 14px 16px !important;
+    border-top: 0 !important;
+    border-bottom: 1px solid #ffffff0b !important;
+    color: var(--ds-text) !important;
+    font:
+        400 14px/1.5 Arial,
+        Helvetica,
+        sans-serif !important;
+    vertical-align: middle;
+}
+:root.v2-tools body.native-v2 #v2Tools table:not(#tournamentsTable) tr:last-child > td {
+    border-bottom: 0 !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table:not(#tournamentsTable) .admin-digilab-detail-row > td {
+    padding: 0 !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-badge--default {
+    background: color-mix(in srgb, var(--accent) 7.84%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table :is(th, td) {
+    border-color: #ffffff0b !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table td {
+    color: var(--ds-text) !important;
+    background-color: transparent !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table tbody tr:nth-child(even) {
+    background: #ffffff02 !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table tbody tr:hover > td {
+    background-color: color-mix(in srgb, var(--accent) 3.14%, transparent) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .admin-digilab-table a:not(.admin-digilab-action) {
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools details > summary {
+    padding: 12px 14px;
+    background: #ffffff03 !important;
+    border: 1px solid var(--ds-line);
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ds-text) !important;
+    cursor: pointer;
+}
+:root.v2-tools body.native-v2 #v2Tools details[open] > summary {
+    margin-bottom: 12px;
+    border-color: color-mix(in srgb, var(--accent) 18.82%, transparent);
+}
+/* Player histories share the card instead of inserting a blue loading strip. */
+:root.v2-tools body.native-v2 #v2Tools .player-history-toggle {
+    background: #ffffff03 !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+    border: 0 !important;
+    border-top: 1px solid var(--ds-line) !important;
+    border-radius: 0 !important;
+    padding: 14px 20px !important;
+    font-size: 13px;
+    min-height: 46px;
+}
+:root.v2-tools body.native-v2 #v2Tools .player-history-toggle:hover {
+    background: color-mix(in srgb, var(--accent) 3.14%, transparent) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.player-history-loading, .player-history-empty, .player-history-error) {
+    padding: 20px !important;
+    font-size: 13px;
+    line-height: 1.6;
+    border-radius: 10px;
+}
+:root.v2-tools body.native-v2 #v2Tools .player-history-error {
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.modal-header, .player-modal-header, .decklist-import-header) {
+    background: linear-gradient(135deg, #21191f, #161b1e 70%) !important;
+    border-bottom: 1px solid #ffffff0c !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.modal-footer, .decklist-import-footer) {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+}
+/* Detailed reports: charts, period navigation, rankings and drill-downs. */
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.stats-chart-wrap, .meta-kpi-card, .meta-top-deck-card, .meta-deck-modal) {
+    background: var(--ds-card-gradient) !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: var(--ds-card-radius) !important;
+    box-shadow: inset 0 1px 0 #ffffff05 !important;
+    min-width: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.stats-chart-wrap, .meta-top-deck-card) {
+    padding: 20px !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-kpi-card {
+    padding: 18px 20px;
+    gap: 8px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .meta-kpi-value,
+        .meta-top-deck-name,
+        .meta-score-value,
+        .meta-top-deck-pct-value,
+        .meta-deck-modal-name,
+        .meta-deck-modal-stat-val,
+        .meta-donut-title,
+        .color-bar-title,
+        .color-bar-label,
+        .chart-legend-label,
+        .meta-evol-title,
+        .meta-evol-list-name,
+        .meta-evol-point-label
+    ) {
+    color: var(--ds-text) !important;
+    text-shadow: none !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .meta-kpi-label,
+        .meta-kpi-sub,
+        .meta-top-decks-label,
+        .meta-top-deck-pct-label,
+        .meta-top-deck-pct-sub,
+        .meta-score-label,
+        .meta-top-deck-trend-label,
+        .meta-diversity-pill-detail,
+        .meta-diversity-scale-item,
+        .meta-diversity-scale-sep,
+        .meta-deck-score-breakdown,
+        .meta-deck-modal-stat-label,
+        .meta-deck-modal-section-label,
+        .meta-donut-title-sub,
+        .meta-donut-subtitle,
+        .color-bar-subtitle,
+        .color-bar-pct,
+        .chart-legend-pct,
+        .meta-evol-label,
+        .meta-evol-list-sub,
+        .meta-evol-month-label
+    ) {
+    color: var(--ds-muted) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.meta-kpi-label, .meta-top-decks-label, .meta-score-label) {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-kpi-strip {
+    gap: 14px;
+    margin: 20px 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-decks-label {
+    color: color-mix(in srgb, var(--accent) 75%, white) !important;
+    margin-bottom: 4px;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-period-bar {
+    padding: 14px;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--ds-panel);
+    border: 1px solid var(--ds-line);
+    border-radius: 12px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .meta-period-btn,
+        .meta-tab-btn,
+        .meta-evol-tab-btn,
+        .meta-evol-month-pill,
+        .meta-deck-modal-close
+    ) {
+    background: #191e23 !important;
+    border: 1px solid #36363c !important;
+    border-radius: 9px !important;
+    color: var(--ds-text) !important;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.meta-period-btn, .meta-tab-btn, .meta-evol-tab-btn, .meta-evol-month-pill):hover {
+    background: color-mix(in srgb, var(--accent) 4.71%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.meta-period-btn, .meta-tab-btn, .meta-evol-tab-btn, .meta-evol-month-pill).is-active {
+    background: color-mix(in srgb, var(--accent) 7.84%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.meta-evol-tabs, .meta-deck-modal-stats-row, .meta-evol-list, .meta-evol-legend-item) {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+    border-radius: 10px;
+}
+:root.v2-tools body.native-v2 #v2Tools .color-bar-track {
+    background: #ffffff09 !important;
+    border-color: #ffffff06 !important;
+    border-radius: 6px;
+    height: 14px;
+}
+:root.v2-tools body.native-v2 #v2Tools .color-bar-row {
+    gap: 12px;
+    min-height: 38px;
+}
+:root.v2-tools body.native-v2 #v2Tools .color-bar-trend.neutral {
+    color: var(--ds-muted) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.stats-donut-chart, .meta-donut-canvas-wrap, .meta-evol-canvas-wrap) {
+    background: transparent !important;
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .stats-chart-legend {
+    gap: 9px;
+    font-size: 13px;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-decks-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-deck-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #ffffff0b;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-deck-name {
+    font-size: 15px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-deck-body {
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 8px;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-deck-trend {
+    flex: 1 1 100%;
+    padding-top: 10px;
+    border-top: 1px solid #ffffff08;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-top-deck-card:hover,
+:root.v2-tools body.native-v2 #v2Tools .meta-top-deck-card.is-active {
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+    background: linear-gradient(145deg, #241a20, #111517) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-deck-modal-header {
+    background: linear-gradient(135deg, #21191f, #161b1e 70%) !important;
+    border-color: var(--ds-line) !important;
+    padding-right: 64px;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-deck-modal-name {
+    text-transform: none;
+    letter-spacing: -0.4px;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.meta-deck-modal-stat, .meta-deck-modal-pilots-wrap) {
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .meta-deck-modal-close {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+}
+@media (max-width: 1200px) {
+    :root.v2-tools body.native-v2 #v2Tools .meta-top-decks-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :root.v2-tools body.native-v2 #v2Tools .admin-digilab-toolbar {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    :root.v2-tools body.native-v2 #v2Tools .admin-digilab-catalog-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 650px) {
+    :root.v2-tools body.native-v2 #v2Tools .players-row-search {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+    :root.v2-tools body.native-v2 #v2Tools .decks-list-controls {
+        flex-wrap: wrap;
+    }
+    :root.v2-tools body.native-v2 #v2Tools .meta-kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    :root.v2-tools body.native-v2 #v2Tools .color-bar-row {
+        grid-template-columns: 48px minmax(0, 1fr) 44px;
+        gap: 8px;
+    }
+    :root.v2-tools body.native-v2 #v2Tools .color-bar-trend {
+        grid-column: 2 / -1;
+        justify-content: flex-end;
+        min-width: 0;
+        margin-bottom: 8px;
+    }
+    :root.v2-tools body.native-v2 #v2Tools .admin-digilab-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    :root.v2-tools
+        body.native-v2
+        #v2Tools
+        :is(.admin-digilab-hero, .admin-digilab-toolbar, .admin-digilab-catalog-card) {
+        padding: 16px !important;
+    }
+    :root.v2-tools body.native-v2 #v2Tools .admin-digilab-catalog-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :root.v2-tools
+        body.native-v2
+        #v2Tools
+        :is(
+            .admin-digilab-conflict,
+            .admin-digilab-missing-players,
+            .admin-digilab-import-callout
+        ) {
+        flex-wrap: wrap;
+    }
+}
+:root.v2-tools body.native-v2 #v2Tools .workspace-list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--ds-line);
+    border-radius: 14px;
+    background: var(--ds-panel);
+    margin-bottom: 16px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .workspace-list-toolbar
+    > :is(.decks-row-add, .players-row-add) {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0 !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .workspace-list-toolbar
+    > :is(.decks-row-search, .players-row-search) {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0 !important;
+    min-width: 0;
+    gap: 12px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .workspace-list-toolbar
+    :is(input.search-input, .btn-primary, .btn-view-toggle) {
+    min-height: 44px;
+    height: 44px;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.decks-row-meta, .players-row-meta) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin: 0 0 18px !important;
+    color: var(--ds-muted);
+}
+:root.v2-tools body.native-v2 #v2Tools .legacy-select-native {
+    display: none !important;
+}
+:root.v2-tools body.native-v2 #v2Tools .legacy-page-size {
+    display: inline-block;
+    width: 100px;
+    flex: 0 0 100px;
+    vertical-align: middle;
+}
+:root.v2-tools body.native-v2 #v2Tools .legacy-page-size .ds-select {
+    width: 100%;
+    margin: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools .legacy-page-size .format-select-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
+}
+:root.v2-tools body.native-v2 #v2Tools .legacy-page-size .format-select-trigger {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px !important;
+    background: var(--ds-panel) !important;
+    color: var(--ds-text) !important;
+    border: 1px solid var(--ds-line) !important;
+    text-align: left;
+}
+:root.v2-tools body.native-v2 #v2Tools .legacy-page-size .format-select-options [role='option'] {
+    width: 100%;
+    padding: 10px 12px !important;
+    background: transparent !important;
+    color: var(--ds-text) !important;
+    border: 0 !important;
+    text-align: left;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    .legacy-page-size
+    .format-select-options
+    [role='option']:is(:hover, :focus-visible, [aria-selected='true']) {
+    background: color-mix(in srgb, var(--accent) 9.41%, transparent) !important;
+    color: var(--ds-accent) !important;
+}
+@media (max-width: 900px) {
+    :root.v2-tools body.native-v2 #v2Tools .workspace-list-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :root.v2-tools
+        body.native-v2
+        #v2Tools
+        .workspace-list-toolbar
+        > :is(.decks-row-add, .players-row-add) {
+        grid-column: 1;
+        grid-row: 2;
+    }
+}

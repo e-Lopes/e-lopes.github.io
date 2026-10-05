@@ -15,7 +15,7 @@
                 <div class="decklist-builder-header-main">
                     <div class="decklist-builder-header-left">
                         <a href="../../index.html" class="nav-button decklist-builder-back-nav">
-                            <span>&larr; Voltar ao DigiStats</span>
+                            <span>&larr; Voltar ao DIGIMON CWB</span>
                         </a>
                         <h1>Deck Builder</h1>
                     </div>
@@ -31,7 +31,7 @@
                                         <path d="M14 11v6"></path>
                                     </svg>
                                 </span>
-                                <span>Clear</span>
+                                <span>Limpar</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderImport" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -41,7 +41,7 @@
                                         <path d="M5 21h14"></path>
                                     </svg>
                                 </span>
-                                <span>Import</span>
+                                <span>Importar</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderExport" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -51,7 +51,7 @@
                                         <path d="M5 3h14"></path>
                                     </svg>
                                 </span>
-                                <span>Export</span>
+                                <span>Exportar</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderExportImage" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -61,7 +61,7 @@
                                         <path d="m21 15-5-5L5 21"></path>
                                     </svg>
                                 </span>
-                                <span>Image</span>
+                                <span>Imagem</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderSortCards" class="btn-secondary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -74,7 +74,7 @@
                                         <path d="m14 10 3-3 3 3"></path>
                                     </svg>
                                 </span>
-                                <span>Sort</span>
+                                <span>Ordenar</span>
                             </button>
                             <button type="button" id="btnDecklistBuilderSave" class="btn-primary decklist-builder-action-btn">
                                 <span class="decklist-builder-btn-icon" aria-hidden="true">
@@ -84,7 +84,7 @@
                                         <path d="M7 3v5h8"></path>
                                     </svg>
                                 </span>
-                                <span>Save</span>
+                                <span>Salvar</span>
                             </button>
                         </div>
                     </div>
@@ -103,7 +103,7 @@
                         <div id="decklistBuilderMeta" class="decklist-builder-meta" aria-live="polite"></div>
                         <div class="decklist-builder-zoom-hint">
                             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hint-icon"><circle cx="8" cy="8" r="6"/><path d="M8 7v4"/><circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none"/></svg>
-                            Right-click to preview full art &middot; Drag to reorder
+                            Clique com o botão direito para ver a carta &middot; Arraste para ordenar
                         </div>
                         <div id="decklistBuilderSaveStatus" class="decklist-builder-save-status" aria-live="polite"></div>
                     </div>
@@ -116,7 +116,7 @@
                     <aside class="decklist-builder-side">
                         <section class="decklist-search-panel" aria-label="Card Search">
                             <div class="decklist-search-bar">
-                                <input type="text" id="cardSearchText" class="form-input" placeholder="Enter text..." />
+                                <input type="text" id="cardSearchText" class="form-input" placeholder="Buscar carta..." />
                                 <button type="button" id="btnCardSearch" class="btn-primary btn-icon-only" aria-label="Search" title="Search">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <circle cx="11" cy="11" r="7"></circle>
@@ -205,13 +205,13 @@
         <div id="decklistImportModal" class="decklist-import-modal" aria-hidden="true">
             <div class="decklist-import-dialog" role="dialog" aria-modal="true" aria-labelledby="decklistImportTitle">
                 <div class="decklist-import-header">
-                    <h2 id="decklistImportTitle">Import Deck</h2>
+                    <h2 id="decklistImportTitle">Importar deck</h2>
                     <button type="button" id="btnDecklistImportClose" class="decklist-import-close" aria-label="Close import modal">
                         &times;
                     </button>
                 </div>
                 <div class="decklist-import-body">
-                    <label for="decklistImportTextarea">Paste Decklist</label>
+                    <label for="decklistImportTextarea">Cole a decklist</label>
                     <textarea
                         id="decklistImportTextarea"
                         rows="12"
@@ -219,8 +219,8 @@
                     ></textarea>
                 </div>
                 <div class="decklist-import-footer">
-                    <button type="button" id="btnDecklistImportCancel" class="btn-secondary">Cancel</button>
-                    <button type="button" id="btnDecklistImportConfirm" class="btn-primary">Import</button>
+                    <button type="button" id="btnDecklistImportCancel" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="btnDecklistImportConfirm" class="btn-primary">Importar</button>
                 </div>
             </div>
         </div>
@@ -228,17 +228,17 @@
         <div id="decklistClearModal" class="decklist-import-modal" aria-hidden="true">
             <div class="decklist-import-dialog" role="dialog" aria-modal="true" aria-labelledby="decklistClearTitle">
                 <div class="decklist-import-header">
-                    <h2 id="decklistClearTitle">Clear Decklist</h2>
+                    <h2 id="decklistClearTitle">Limpar decklist</h2>
                     <button type="button" id="btnDecklistClearClose" class="decklist-import-close" aria-label="Close">
                         &times;
                     </button>
                 </div>
                 <div class="decklist-import-body">
-                    <p>Are you sure you want to clear all cards from the decklist? This action cannot be undone.</p>
+                    <p>Deseja remover todas as cartas desta decklist?</p>
                 </div>
                 <div class="decklist-import-footer">
-                    <button type="button" id="btnDecklistClearCancel" class="btn-secondary">Cancel</button>
-                    <button type="button" id="btnDecklistClearConfirm" class="btn-danger">Clear Decklist</button>
+                    <button type="button" id="btnDecklistClearCancel" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="btnDecklistClearConfirm" class="btn-danger">Limpar decklist</button>
                 </div>
             </div>
         </div>
@@ -246,7 +246,7 @@
         <div id="decklistSaveWarningModal" class="decklist-import-modal" aria-hidden="true">
             <div class="decklist-import-dialog" role="dialog" aria-modal="true" aria-labelledby="decklistSaveWarningTitle">
                 <div class="decklist-import-header">
-                    <h2 id="decklistSaveWarningTitle">Incomplete Deck</h2>
+                    <h2 id="decklistSaveWarningTitle">Deck incompleto</h2>
                     <button type="button" id="btnDecklistSaveWarningClose" class="decklist-import-close" aria-label="Close">
                         &times;
                     </button>
@@ -255,8 +255,8 @@
                     <p id="decklistSaveWarningMsg"></p>
                 </div>
                 <div class="decklist-import-footer">
-                    <button type="button" id="btnDecklistSaveWarningCancel" class="btn-secondary">Cancel</button>
-                    <button type="button" id="btnDecklistSaveWarningConfirm" class="btn-primary">Save Anyway</button>
+                    <button type="button" id="btnDecklistSaveWarningCancel" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="btnDecklistSaveWarningConfirm" class="btn-primary">Salvar mesmo assim</button>
                 </div>
             </div>
         </div>

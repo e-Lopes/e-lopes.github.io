@@ -1,0 +1,137 @@
+/* Mobile tournament rows are cards: keep date/logo separate from readable text. */
+@media (max-width: 768px) {
+    :root.v2-tools #v2Tools #tournamentFilters:not(.filters-expanded) {
+        display: none !important;
+    }
+    :root.v2-tools #v2Tools #tournamentFilters.is-hidden {
+        display: none !important;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+    :root.v2-tools #v2Tools :is(.mobile-view-segment, .mobile-filter-button) {
+        background: var(--ds-panel) !important;
+        border-color: var(--ds-line) !important;
+    }
+    :root.v2-tools #v2Tools .mobile-view-option {
+        background: transparent !important;
+        color: var(--ds-muted) !important;
+    }
+    :root.v2-tools #v2Tools .mobile-view-option.is-active {
+        background: var(--ds-red-soft) !important;
+        color: var(--ds-red) !important;
+    }
+    :root.v2-tools #v2Tools .mobile-filter-count {
+        background: var(--ds-red) !important;
+        color: #190c0e !important;
+    }
+    :root.v2-tools #v2Tools [hidden] {
+        display: none !important;
+    }
+    :root.v2-tools #v2Tools #tournamentsTable {
+        background: transparent !important;
+        border: 0 !important;
+    }
+    :root.v2-tools #v2Tools #tournamentsTable tr.clickable-row > td:first-child {
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-card {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 10px 14px;
+        padding: 16px;
+        background: var(--ds-panel) !important;
+        border: 1px solid var(--ds-line);
+        box-shadow: none;
+        align-items: start;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-date {
+        grid-column: 1;
+        grid-row: 1;
+        width: 56px;
+        min-height: 56px;
+        background: var(--ds-red-soft) !important;
+        color: var(--ds-red) !important;
+        border: 0;
+        border-radius: 8px;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-date strong {
+        color: var(--ds-red) !important;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-logo-wrap {
+        grid-column: 1;
+        grid-row: 2;
+        width: 56px;
+        height: 40px;
+        background: transparent !important;
+        border: 0 !important;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-logo-wrap img {
+        width: 56px;
+        height: 40px;
+        object-fit: contain;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-main {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        min-width: 0;
+        padding-right: 0;
+    }
+    :root.v2-tools #v2Tools .mobile-tournament-name {
+        display: block;
+        padding-right: 36px;
+        font-size: 17px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    :root.v2-tools #v2Tools :is(.mobile-tournament-store, .mobile-tournament-players) {
+        font-size: 14px;
+        color: var(--ds-muted) !important;
+        line-height: 1.5;
+    }
+    :root.v2-tools #v2Tools .mobile-card-actions {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+    }
+    :root.v2-tools #v2Tools .mobile-card-menu-trigger {
+        background: var(--ds-raised) !important;
+        color: var(--ds-text) !important;
+        border-color: var(--ds-line) !important;
+        width: 36px;
+        height: 36px;
+        min-height: 36px;
+    }
+    :root.v2-tools #v2Tools .mobile-champion-badges {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        margin-top: 12px;
+    }
+    :root.v2-tools #v2Tools .mobile-champion-badge {
+        max-width: 100%;
+        background: #282317 !important;
+        border-color: #645432 !important;
+        color: #e2bb68 !important;
+        white-space: normal;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+    }
+    :root.v2-tools #v2Tools .mobile-champion-badge.is-deck {
+        background: var(--ds-red-soft) !important;
+        border-color: #754249 !important;
+        color: var(--ds-red) !important;
+    }
+}
+@media (max-width: 420px) {
+    :root.v2-tools #v2Tools #tournamentFilters {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    :root.v2-tools #v2Tools #tournamentFilters .filter-actions {
+        grid-column: 1;
+    }
+}

@@ -1,0 +1,541 @@
+.meta-format-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 20px;
+    background: var(--panel);
+}
+.meta-controls {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background:
+        radial-gradient(
+            ellipse at 0 0,
+            color-mix(in srgb, var(--accent) 7%, transparent),
+            transparent 65%
+        ),
+        linear-gradient(145deg, #171c1f, #111517);
+    margin-bottom: 20px;
+}
+.meta-controls .meta-format-heading {
+    border: 0;
+    background: none;
+    margin-bottom: 0;
+    padding: 22px 22px 18px;
+}
+.meta-controls .meta-format-heading h2 {
+    font-size: 22px;
+    letter-spacing: -0.4px;
+}
+.meta-controls .meta-filters {
+    padding: 0 22px 22px;
+    margin: 0;
+    gap: 14px;
+}
+.meta-controls .ds-select {
+    width: 100%;
+    max-width: none;
+}
+.metagame-view .metrics {
+    gap: 12px;
+}
+.metagame-view .metric {
+    position: relative;
+    padding: 18px 20px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #171c1f, #111517);
+}
+.metagame-view .metric::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0.6;
+}
+.metagame-view .metric-label {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+}
+.metagame-view .metric strong {
+    font-size: 30px;
+    margin: 10px 0 6px;
+    font-variant-numeric: tabular-nums;
+}
+.metagame-view .metric small {
+    color: var(--muted);
+    font-size: 11px;
+}
+.meta-record-coverage {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    margin: 0 0 14px;
+    font-size: 11px;
+}
+.meta-record-coverage svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    color: var(--accent);
+    opacity: 0.75;
+}
+.metagame-view .analysis-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 5px;
+    background: #111517;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin: 0;
+}
+.metagame-view .analysis-tabs button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: none;
+    padding: 9px 14px;
+    color: var(--muted);
+    font-size: 13px;
+}
+.meta-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 23px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: #ffffff06;
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.metagame-view .analysis-tabs button[aria-pressed='true'] .meta-tab-count {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.metagame-view .meta-table-tools {
+    margin: 18px 0 12px;
+}
+.meta-results-table thead th {
+    padding-top: 15px;
+    padding-bottom: 15px;
+    background: #1a2023;
+}
+.meta-deck-table thead th[aria-sort='descending'] {
+    color: var(--accent);
+}
+.meta-deck-table tbody tr:nth-child(even) {
+    background: #ffffff03;
+}
+.meta-deck-table tbody tr:hover {
+    background: color-mix(in srgb, var(--accent) 4%, var(--panel));
+}
+.meta-row-number {
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 19px;
+    color: var(--muted);
+    opacity: 0.65;
+}
+.meta-deck-table .meta-share-bar {
+    background: #ffffff08;
+    height: 4px;
+}
+.meta-share-bar i {
+    border-radius: 4px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 75%, white), var(--accent));
+}
+.meta-methodology {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0 16px;
+    background: #ffffff03;
+}
+@media (max-width: 780px) {
+    .meta-controls .meta-format-heading {
+        padding: 18px;
+        gap: 16px;
+    }
+    .meta-controls .meta-filters {
+        padding: 0 18px 18px;
+    }
+    .metagame-view .analysis-tabs {
+        display: flex;
+    }
+    .metagame-view .analysis-tabs button {
+        flex: 1;
+        justify-content: center;
+        padding: 9px 8px;
+        gap: 6px;
+        font-size: 12px;
+    }
+    .meta-deck-table {
+        min-width: 770px;
+    }
+    .meta-deck-table .meta-row-number {
+        display: none;
+    }
+    .meta-deck-table .meta-col-deck {
+        width: 28%;
+    }
+}
+.meta-format-heading h2 {
+    margin: 8px 0 0;
+    font-size: 24px;
+}
+.meta-format-heading summary,
+.meta-methodology summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 12px 0;
+}
+.meta-format-heading > .ds-select {
+    min-width: 260px;
+    width: 340px;
+    max-width: 100%;
+}
+.meta-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.meta-coverage {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted);
+    margin: 16px 0 24px;
+}
+.meta-table-tools {
+    display: flex;
+    align-items: end;
+    gap: 16px;
+    margin: 22px 0;
+}
+.meta-table-tools label {
+    display: grid;
+    gap: 8px;
+    flex: 1;
+    font-size: 12px;
+    color: var(--muted);
+}
+.meta-table-tools input {
+    height: 44px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text);
+    width: 100%;
+    font: inherit;
+}
+.meta-table-tools .ds-select {
+    min-width: 200px;
+}
+.meta-table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+}
+.meta-results-table {
+    border-collapse: collapse;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+}
+.meta-results-table th,
+.meta-results-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--line);
+}
+.meta-results-table thead {
+    color: var(--muted);
+    font-size: 12px;
+    background: #ffffff03;
+}
+.meta-results-table tbody tr:last-child > * {
+    border-bottom: 0;
+}
+.meta-results-table td > span {
+    display: block;
+    font-size: 11px;
+    margin-top: 5px;
+    color: var(--muted);
+}
+.meta-results-table td {
+    white-space: nowrap;
+}
+.meta-deck-button,
+.meta-text-button {
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    padding: 0;
+}
+.meta-deck-button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 180px;
+}
+.meta-deck-button .art {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+}
+.meta-share-bar {
+    height: 3px;
+    width: 100px;
+    background: #ffffff08;
+    margin-top: 9px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.meta-share-bar i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+.meta-deck-table {
+    table-layout: fixed;
+    min-width: 820px;
+    font-variant-numeric: tabular-nums;
+}
+.meta-col-deck {
+    width: 34%;
+}
+.meta-col-share {
+    width: 20%;
+}
+.meta-deck-table th:not(:first-child),
+.meta-deck-table td:not(:first-child) {
+    text-align: center;
+}
+.meta-deck-table tbody :is(th, td) {
+    padding-top: 13px;
+    padding-bottom: 13px;
+}
+.meta-deck-table .meta-share-bar {
+    width: 140px;
+    max-width: 100%;
+    margin: 7px auto 0;
+    height: 4px;
+}
+.meta-deck-table .meta-deck-button {
+    width: 100%;
+    min-width: 0;
+}
+.meta-deck-table .meta-deck-button span:last-child {
+    overflow-wrap: anywhere;
+}
+.meta-deck-table .meta-deck-button:hover {
+    color: var(--accent);
+}
+.meta-sort-button {
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 4px 0;
+}
+.meta-sort-button:hover {
+    color: var(--text);
+}
+.meta-deck-table thead th {
+    font-weight: 600;
+}
+.meta-deck-table thead small {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    margin-top: 4px;
+    color: var(--muted);
+}
+.meta-results-table td > .meta-title-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+}
+.meta-results-table .meta-title-count.has-titles {
+    background: #e8bb5a12;
+    color: #e8bb5a;
+}
+.meta-small-sample {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 5px;
+}
+.meta-deck-table td > strong {
+    font-size: 16px;
+}
+.meta-months {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    background: var(--panel);
+}
+.meta-months h2,
+.meta-months h3 {
+    margin: 0 0 16px;
+    font-size: 18px;
+}
+.meta-months > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+}
+.meta-months span {
+    color: var(--muted);
+}
+.meta-list-cards,
+.meta-detail-results {
+    display: grid;
+    gap: 10px;
+}
+.meta-list-cards > button,
+.meta-detail-results > button {
+    display: grid;
+    gap: 8px;
+    padding: 18px;
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+}
+.meta-list-cards span,
+.meta-detail-results span {
+    font-size: 12px;
+    color: var(--muted);
+}
+.meta-methodology {
+    margin-top: 24px;
+    border-top: 1px solid var(--line);
+}
+.meta-methodology p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+.meta-empty {
+    padding: 30px;
+    text-align: center;
+    color: var(--muted);
+}
+.metagame-view .analysis-tabs button[aria-pressed='true'] {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 7.06%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 33.33%, transparent);
+}
+@media (max-width: 780px) {
+    .meta-format-heading {
+        align-items: start;
+        flex-direction: column;
+        padding: 18px;
+    }
+    .meta-format-heading h2 {
+        font-size: 20px;
+    }
+    .meta-filters {
+        grid-template-columns: 1fr;
+    }
+    .meta-table-tools {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .meta-months > div {
+        flex-direction: column;
+        gap: 6px;
+    }
+    .metagame-view {
+        min-width: 0;
+    }
+    .meta-format-heading details {
+        max-width: 100%;
+    }
+    .meta-format-heading > .ds-select {
+        min-width: 0;
+        width: 100%;
+    }
+    .meta-results-table th,
+    .meta-results-table td {
+        padding: 12px;
+    }
+    .metagame-view .metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .metagame-view .metric {
+        padding: 14px 10px;
+        min-width: 0;
+    }
+    .metagame-view .metric::before {
+        left: 10px;
+    }
+    .metagame-view .metric-label {
+        font-size: 10px;
+        letter-spacing: 0;
+        line-height: 1.5;
+    }
+    .metagame-view .metric strong {
+        font-size: 26px;
+    }
+    .metagame-view .metric small {
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+    .meta-record-coverage {
+        align-items: flex-start;
+        line-height: 1.6;
+    }
+    .meta-controls .meta-format-heading h2 {
+        font-size: 20px;
+        line-height: 1.3;
+    }
+    .meta-deck-table th:first-child,
+    .meta-deck-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: var(--panel);
+        box-shadow: 1px 0 var(--line);
+        min-width: 190px;
+        max-width: 210px;
+    }
+    .meta-deck-table .meta-deck-button {
+        white-space: normal;
+        line-height: 1.4;
+    }
+}

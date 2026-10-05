@@ -1,0 +1,193 @@
+:root.v2-tools #v2Tools #createModal .modal-content {
+    width: min(960px, calc(100% - 32px)) !important;
+    max-width: 960px !important;
+}
+:root.v2-tools #v2Tools #createTournamentForm {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+:root.v2-tools #v2Tools :is(#createTournamentForm, #editTournamentForm) {
+    display: block !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+}
+:root.v2-tools #v2Tools :is(#createModal, #editModal) .modal-content {
+    overflow-y: auto !important;
+    display: block !important;
+}
+:root.v2-tools #v2Tools :is(#createModal, #editModal) .modal-header {
+    position: sticky !important;
+    top: 0;
+    z-index: 5;
+    background: var(--ds-panel) !important;
+    padding: 12px 0;
+}
+:root.v2-tools #v2Tools :is(#createTournamentForm, #editTournamentForm) .tournament-general-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas: none !important;
+    gap: 16px !important;
+    padding: 0 0 20px !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(#createTournamentForm, #editTournamentForm)
+    .tournament-general-grid
+    .form-group {
+    grid-area: auto !important;
+    margin: 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    display: block !important;
+}
+:root.v2-tools #v2Tools .tournament-section-title {
+    grid-area: auto !important;
+    grid-column: 1/-1;
+    margin: 0 !important;
+    font-size: 18px;
+}
+:root.v2-tools #v2Tools :is(.tournament-ocr-section, .tournament-instagram-details) {
+    margin: 16px 0 !important;
+    padding: 16px !important;
+    background: var(--ds-raised) !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 10px;
+}
+:root.v2-tools #v2Tools .tournament-ocr-section summary {
+    cursor: pointer;
+}
+:root.v2-tools #v2Tools .tournament-results-section {
+    margin: 24px 0 !important;
+}
+:root.v2-tools #v2Tools .tournament-player-count {
+    background: var(--ds-raised) !important;
+    color: var(--ds-muted) !important;
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools #v2Tools #createTournamentForm .modal-actions .btn-cancel {
+    display: inline-flex !important;
+}
+:root.v2-tools #v2Tools #createTournamentForm > .form-group {
+    margin: 0 !important;
+    min-width: 0;
+}
+:root.v2-tools
+    #v2Tools
+    #createTournamentForm
+    > :is(.tournament-import, .modal-actions, .tournament-classification) {
+    grid-column: 1/-1;
+}
+:root.v2-tools #v2Tools .tournament-import {
+    padding: 16px;
+    border: 1px solid var(--ds-line);
+    border-radius: 10px;
+    background: var(--ds-raised);
+}
+:root.v2-tools #v2Tools .tournament-import summary {
+    cursor: pointer;
+    color: var(--ds-text);
+    font-size: 15px;
+    min-height: 32px;
+}
+:root.v2-tools #v2Tools .tournament-import[open] summary {
+    margin-bottom: 16px;
+}
+:root.v2-tools #v2Tools :is(.create-digilab-import, .create-import-divider, .result-row) {
+    background: transparent !important;
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools #v2Tools .create-digilab-import-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+:root.v2-tools #v2Tools .create-digilab-import-row input {
+    flex: 1;
+    min-width: 180px;
+}
+:root.v2-tools #v2Tools #createResultsRows .result-row {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) 72px 44px !important;
+    gap: 12px !important;
+    align-items: end;
+    padding: 16px 0 !important;
+    border-bottom: 1px solid var(--ds-line);
+}
+:root.v2-tools #v2Tools .result-row .form-group {
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+:root.v2-tools #v2Tools #createTournamentForm #createResultsRows .result-row > .form-group {
+    grid-area: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    display: block !important;
+}
+:root.v2-tools #v2Tools .result-placement-badge {
+    background: var(--ds-raised) !important;
+    border: 1px solid var(--ds-line) !important;
+    color: var(--ds-text) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools #createTournamentForm .modal-actions {
+    border-top: 1px solid var(--ds-line);
+    padding-top: 20px;
+    justify-content: flex-end;
+}
+@media (max-width: 600px) {
+    :root.v2-tools
+        #v2Tools
+        :is(#createTournamentForm, #editTournamentForm)
+        .tournament-general-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    :root.v2-tools #v2Tools #createTournamentForm {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+    :root.v2-tools #v2Tools #createResultsRows .result-row {
+        grid-template-columns: 44px minmax(0, 1fr) 44px !important;
+    }
+    :root.v2-tools
+        #v2Tools
+        #createTournamentForm
+        #createResultsRows
+        .result-row
+        > .form-group:nth-child(1) {
+        grid-area: 1 / 1 !important;
+    }
+    :root.v2-tools
+        #v2Tools
+        #createTournamentForm
+        #createResultsRows
+        .result-row
+        > .form-group:nth-child(2) {
+        grid-area: 1 / 2 / auto / 4 !important;
+    }
+    :root.v2-tools
+        #v2Tools
+        #createTournamentForm
+        #createResultsRows
+        .result-row
+        > .form-group:nth-child(3) {
+        grid-area: 2 / 2 / auto / 4 !important;
+    }
+    :root.v2-tools
+        #v2Tools
+        #createTournamentForm
+        #createResultsRows
+        .result-row
+        > .form-group:nth-child(4) {
+        grid-area: 3 / 2 !important;
+    }
+    :root.v2-tools #v2Tools #createTournamentForm #createResultsRows .btn-remove-result {
+        grid-area: 3 / 3 !important;
+    }
+    :root.v2-tools #v2Tools .create-digilab-import-row input {
+        min-width: 0;
+        width: 100%;
+        flex-basis: 100%;
+    }
+}

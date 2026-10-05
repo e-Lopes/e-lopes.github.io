@@ -11,6 +11,7 @@ const headers = window.createSupabaseHeaders
 let currentStore = '';
 let currentDate = '';
 let tournamentDataForCanvas = null;
+let firstPlaceDecklistAvailable = null;
 let selectedBackgroundPath = '';
 const BLANK_MIDDLE_DECKLIST_CACHE = new Map();
 
@@ -38,6 +39,8 @@ const POST_PREVIEW_ZOOM_STORAGE_KEY = 'digistats.post-preview.zoom.v1';
 const POST_TYPE_OPTIONS = ['top4', 'distribution_results', 'blank_middle'];
 const FORMAT_BG_BUCKET = 'post-backgrounds';
 let formatBackgroundMapPromise = null;
+let formatBackgroundMapLoadedAt = 0;
+const FORMAT_BACKGROUND_CACHE_TTL_MS = 60 * 1000;
 const storeLogoMap = new Map(); // normalized name → bucket URL
 let selectedPostType = loadSelectedPostType();
 let postPreviewZoom = loadPostPreviewZoom();
@@ -163,7 +166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupPostPreviewZoomControl();
     setupCollapsibleSidebarSections();
     setupDistributionPieControls();
-    setupDistributionResultsColumnLimitControl();
+
     await bootTemplateEditorPageIfNeeded();
     await bootPostPreviewPageIfNeeded();
 });
@@ -179,6 +182,9 @@ function setupEventListeners() {
         .filter(Boolean);
 
     initializeBackgroundSelector();
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') initializeBackgroundSelector();
+    });
 
     storeFilter.addEventListener('change', async (e) => {
         currentStore = e.target.value;
@@ -220,7 +226,7 @@ function isTopFourPostType() {
 }
 
 function getPostTypeLabel(typeValue) {
-    if (typeValue === 'distribution_results') return 'Deck Distribution + Full Results';
+    if (typeValue === 'distribution_results') return 'Deck Distribution';
     if (typeValue === 'blank_middle') return 'Decklist';
     return 'Top 4';
 }
@@ -239,26 +245,25 @@ function updateTemplateControlsVisibility() {
     const pieControls = ['templatePieSlicePicker', 'templatePieAdjustRow', 'btnPieEditorToggle']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
-    const distributionOnlyControls = ['templateResultsColumnLimitWrap']
-        .map((id) => document.getElementById(id))
-        .filter(Boolean);
     const showPieControls = selectedPostType === 'distribution_results';
     pieControls.forEach((el) => {
-        el.classList.toggle('u-hidden', !showPieControls);
-    });
-    distributionOnlyControls.forEach((el) => {
         el.classList.toggle('u-hidden', !showPieControls);
     });
     if (!showPieControls) {
         setPieEditorActive(false);
     }
-    syncDistributionResultsColumnLimitControl();
+
     refreshDistributionPieControls();
 }
 
 function syncPostTypeSelector() {
     const select = document.getElementById('postTypeSelect');
     if (!select) return;
+    const decklistOption = select.querySelector('option[value="blank_middle"]');
+    if (decklistOption) {
+        decklistOption.hidden = firstPlaceDecklistAvailable !== true;
+        decklistOption.disabled = firstPlaceDecklistAvailable !== true;
+    }
     if (POST_TYPE_OPTIONS.includes(selectedPostType)) {
         select.value = selectedPostType;
     } else {
@@ -274,6 +279,8 @@ function setupPostTypeControls() {
     updatePostPreviewMeta();
     select.addEventListener('change', () => {
         selectedPostType = POST_TYPE_OPTIONS.includes(select.value) ? select.value : 'top4';
+        if (selectedPostType === 'blank_middle' && firstPlaceDecklistAvailable !== true) selectedPostType = 'top4';
+        syncPostTypeSelector();
         saveSelectedPostType();
         updateTemplateControlsVisibility();
         updatePostPreviewMeta();
@@ -397,8 +404,8 @@ function refreshDistributionPieControls() {
     const y = Number(state.y);
     const zoom = Number(state.zoom);
     xInput.value = String(Number.isFinite(x) ? Math.round(x) : 50);
-    yInput.value = String(Number.isFinite(y) ? Math.round(y) : 13);
-    zoomInput.value = String(Number.isFinite(zoom) ? Math.round(zoom) : 120);
+    yInput.value = String(Number.isFinite(y) ? Math.round(y) : 32);
+    zoomInput.value = String(Number.isFinite(zoom) ? Math.round(zoom) : 160);
 
     const disabled = !activeDistributionPieDeck || selectedPostType !== 'distribution_results';
     xInput.disabled = disabled;
@@ -465,8 +472,8 @@ function nudgeActiveDistributionPieSlice(dx, dy) {
     if (!activeDistributionPieDeck) return;
     const currentState = getCombinedDistributionPieState(tournamentDataForCanvas)[activeDistributionPieDeck] || {
         x: 50,
-        y: 13,
-        zoom: 120
+        y: 32,
+        zoom: 160
     };
     const nextX = Math.max(-300, Math.min(300, (Number(currentState.x) || 0) + dx));
     const nextY = Math.max(-300, Math.min(300, (Number(currentState.y) || 0) + dy));
@@ -478,31 +485,6 @@ function nudgeActiveDistributionPieSlice(dx, dy) {
     saveDistributionPieStateForPost(tournamentDataForCanvas);
     refreshDistributionPieControls();
     drawPostCanvas();
-}
-
-function syncDistributionResultsColumnLimitControl() {
-    const input = document.getElementById('templateResultsColumnLimitInput');
-    if (!input) return;
-    const current = Number(postLayout?.distribution?.results?.columnSize);
-    const safeValue = Number.isFinite(current) ? Math.max(4, Math.min(30, Math.round(current))) : 12;
-    input.value = String(safeValue);
-    input.disabled = selectedPostType !== 'distribution_results';
-}
-
-function setupDistributionResultsColumnLimitControl() {
-    const input = document.getElementById('templateResultsColumnLimitInput');
-    if (!input) return;
-    input.addEventListener('input', () => {
-        const value = Number(input.value);
-        if (!Number.isFinite(value)) return;
-        const safeValue = Math.max(4, Math.min(30, Math.round(value)));
-        postLayout.distribution ||= {};
-        postLayout.distribution.results ||= {};
-        postLayout.distribution.results.columnSize = safeValue;
-        savePostLayout();
-        drawPostCanvas();
-    });
-    syncDistributionResultsColumnLimitControl();
 }
 
 function setPieEditorActive(active) {
@@ -565,15 +547,15 @@ function onDistributionPiePointerDown(event) {
     refreshDistributionPieControls();
     const base = getCombinedDistributionPieState(tournamentDataForCanvas)[deck] || {
         x: 50,
-        y: 13,
-        zoom: 120
+        y: 32,
+        zoom: 160
     };
     distributionPieDragState = {
         deck,
         startClientX: event.clientX,
         startClientY: event.clientY,
         baseX: Number(base.x) || 50,
-        baseY: Number(base.y) || 13
+        baseY: Number(base.y) || 32
     };
     const canvas = document.getElementById('postCanvas');
     if (canvas) canvas.style.cursor = 'grabbing';
@@ -622,15 +604,15 @@ function onDistributionPieWheel(event) {
     activeDistributionPieDeck = deck;
     const currentState = getCombinedDistributionPieState(tournamentDataForCanvas)[deck] || {
         x: 50,
-        y: 13,
-        zoom: 120
+        y: 32,
+        zoom: 160
     };
     let zoom = Number(currentState.zoom) || 120;
     zoom += event.deltaY < 0 ? 8 : -8;
     zoom = Math.max(120, Math.min(420, zoom));
     distributionPieStateOverride[deck] = {
         x: Number(currentState.x) || 50,
-        y: Number(currentState.y) || 13,
+        y: Number(currentState.y) || 32,
         zoom
     };
     saveDistributionPieStateForPost(tournamentDataForCanvas);
@@ -658,13 +640,19 @@ function saveCustomBackgrounds(list) {
 }
 
 async function initializeBackgroundSelector(selectedValue) {
-    const custom = getCustomBackgrounds();
-    const formatMap = await loadFormatBackgroundMap();
-    const options = [...DEFAULT_BACKGROUND_OPTIONS, ...(formatMap.options || []), ...custom];
-
     const selects = ['postBackgroundSelect', 'templateBackgroundSelect']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
+    selects.forEach((select) => {
+        select.disabled = true;
+        select.setAttribute('aria-busy', 'true');
+        if (!formatBackgroundMapPromise) {
+            select.innerHTML = '<option value="">Loading backgrounds...</option>';
+        }
+    });
+    const custom = getCustomBackgrounds();
+    const formatMap = await loadFormatBackgroundMap();
+    const options = [...DEFAULT_BACKGROUND_OPTIONS, ...(formatMap.options || []), ...custom];
 
     selects.forEach((select) => {
         select.innerHTML = '';
@@ -674,6 +662,8 @@ async function initializeBackgroundSelector(selectedValue) {
             option.textContent = opt.label;
             select.appendChild(option);
         });
+        select.disabled = false;
+        select.removeAttribute('aria-busy');
     });
 
     const nextValue =
@@ -842,8 +832,12 @@ function resolveFormatBackgroundUrl(formatCode, formatBackgroundState) {
 }
 
 async function loadFormatBackgroundMap() {
+    if (formatBackgroundMapPromise && Date.now() - formatBackgroundMapLoadedAt >= FORMAT_BACKGROUND_CACHE_TTL_MS) {
+        formatBackgroundMapPromise = null;
+    }
     if (formatBackgroundMapPromise) return formatBackgroundMapPromise;
 
+    formatBackgroundMapLoadedAt = Date.now();
     formatBackgroundMapPromise = (async () => {
         try {
             const query =
@@ -852,10 +846,10 @@ async function loadFormatBackgroundMap() {
                 ? await window.supabaseApi.get(query)
                 : await fetch(`${SUPABASE_URL}${query}`, { headers });
 
-            if (!res.ok) return { byCode: {}, defaultUrl: '' };
+            if (!res.ok) throw new Error(`Failed to load backgrounds (${res.status})`);
 
             const rows = await res.json();
-            if (!Array.isArray(rows)) return { byCode: {}, defaultUrl: '' };
+            if (!Array.isArray(rows)) throw new Error('Invalid background response');
 
             const byCode = {};
             const options = [];
@@ -882,6 +876,7 @@ async function loadFormatBackgroundMap() {
             options.sort((a, b) => a.label.localeCompare(b.label));
             return { byCode, defaultUrl, options };
         } catch (_) {
+            formatBackgroundMapPromise = null;
             return { byCode: {}, defaultUrl: '', options: [] };
         }
     })();
@@ -1459,7 +1454,7 @@ function syncTemplateObjectSelect() {
 function getAvailableTemplateObjectKeys() {
     const shared = ['logo', 'title', 'store', 'handle'];
     if (selectedPostType === 'distribution_results') {
-        return [...shared, 'distDeckCard', 'distResultsCard', 'distPie'];
+        return [...shared, 'distDeckCard', 'distPie'];
     }
     if (selectedPostType === 'blank_middle') {
         return shared;
@@ -1779,6 +1774,8 @@ function adjustPodiumGap(delta) {
 
 function setTournamentDataForCanvas(data) {
     tournamentDataForCanvas = data || null;
+    firstPlaceDecklistAvailable = null;
+    void refreshDecklistPostAvailability(tournamentDataForCanvas);
     distributionPieStateOverride = {};
     activeDistributionPieDeck = '';
     setPieEditorActive(false);
@@ -1878,7 +1875,13 @@ async function drawPostCanvas() {
         ctx.fillRect(0, 0, width, height);
     }
 
-    drawRoundedRect(ctx, 56, 72, width - 112, height - 120, 36, 'rgba(255,255,255,0.88)');
+    ctx.save();
+    ctx.shadowColor = 'rgba(9, 23, 51, 0.24)';
+    ctx.shadowBlur = 36;
+    ctx.shadowOffsetY = 12;
+    drawRoundedRect(ctx, 56, 72, width - 112, height - 120, 36, 'rgba(248,250,255,0.94)');
+    ctx.restore();
+    ctx.textBaseline = 'alphabetic';
 
     const logo = await loadFirstAvailableImage(TOP_LEFT_LOGO_CANDIDATES);
     if (logo) {
@@ -1919,18 +1922,17 @@ async function drawPostCanvas() {
     ctx.strokeText(tournamentTitle, titleCenterX, titleY);
     ctx.fillText(tournamentTitle, titleCenterX, titleY);
 
-    ctx.fillStyle = '#ff3959';
+    ctx.fillStyle = '#425678';
     const dateLabel = tournamentDataForCanvas.dateStr || '--/--/--';
     let dateFontSize = postLayout.typography.dateSize;
-    ctx.font = `italic 900 ${dateFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    ctx.font = `700 ${dateFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     while (ctx.measureText(dateLabel).width > layout.title.dateMaxWidth && dateFontSize > 58) {
         dateFontSize -= 2;
-        ctx.font = `italic 900 ${dateFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+        ctx.font = `700 ${dateFontSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     }
     ctx.lineWidth = 4;
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
     const dateY = titleBoxY + layout.title.dateOffsetY;
-    ctx.strokeText(dateLabel, titleCenterX, dateY);
     ctx.fillText(dateLabel, titleCenterX, dateY);
 
     if (selectedPostType === 'distribution_results') {
@@ -1975,11 +1977,12 @@ async function drawPostCanvas() {
         }
     }
 
+    ctx.textBaseline = 'alphabetic';
     const storeBoxX = layout.store.x;
     const storeBoxY = layout.store.y;
     const storeBoxW = layout.store.w;
     const storeBoxH = layout.store.h;
-    drawStoreBadge(ctx, storeBoxX, storeBoxY, storeBoxW, storeBoxH, '#0a2f6d');
+    drawStoreBadge(ctx, storeBoxX, storeBoxY, storeBoxW, storeBoxH, '#102d58');
     const storeIconPath = resolveStoreIconPath(tournamentDataForCanvas.storeName || '');
     const storeIcon = await loadImage(storeIconPath);
     if (storeIcon) {
@@ -1995,13 +1998,9 @@ async function drawPostCanvas() {
         );
     }
 
-    ctx.fillStyle = '#184fae';
+    ctx.fillStyle = '#102d58';
     ctx.font = `bold ${postLayout.typography.handleSize}px Segoe UI`;
     ctx.textAlign = 'right';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.strokeText('@digimoncwb', layout.handle.x, layout.handle.y);
     ctx.fillText('@digimoncwb', layout.handle.x, layout.handle.y);
 
     if (isPostTemplateEditorActive) {
@@ -2035,9 +2034,13 @@ async function drawPlacementRow(
         borderRowX + borderRowW,
         borderY + borderRowHeight
     );
-    borderGradient.addColorStop(0, '#ffffff');
+    borderGradient.addColorStop(0, style.medal);
     borderGradient.addColorStop(0.45, style.border);
     borderGradient.addColorStop(1, style.dark || style.border);
+    ctx.save();
+    ctx.shadowColor = placement === 1 ? 'rgba(153,110,28,0.16)' : 'rgba(18,40,72,0.09)';
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetY = 6;
     drawRoundedRect(
         ctx,
         borderRowX,
@@ -2045,10 +2048,11 @@ async function drawPlacementRow(
         borderRowW,
         borderRowHeight,
         26,
-        '#f3f3f6',
+        placement === 1 ? '#fffcf3' : '#ffffff',
         borderGradient,
-        6
+        3
     );
+    ctx.restore();
 
     const rowX = rowLayout.x;
     const rowW = rowLayout.w;
@@ -2063,28 +2067,24 @@ async function drawPlacementRow(
         rowElements
     );
 
-    ctx.fillStyle = '#1e4f95';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#43516b';
     ctx.textAlign = 'center';
-    ctx.font = `italic 700 ${postLayout.typography.playerSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
-    const playerText = (entry?.player || 'PLAYER').toUpperCase().slice(0, 18);
+    const playerText = String(entry?.player || 'PLAYER').toUpperCase();
     const avatarX = rowX + rowW - rowElements.avatar.xFromRight;
     const textAreaLeft = rowX + rowElements.text.leftPadding;
     const textAreaRight = avatarX - rowElements.text.rightPadding;
     const textCenterX = textAreaLeft + (textAreaRight - textAreaLeft) / 2;
-    ctx.lineWidth = 7;
-    ctx.strokeStyle = '#ffffff';
-    ctx.strokeText(playerText, textCenterX, textYBase + rowElements.text.playerY);
-    ctx.fillText(playerText, textCenterX, textYBase + rowElements.text.playerY);
+    const textMaxWidth = Math.max(40, textAreaRight - textAreaLeft - 16);
+    fitPostText(ctx, playerText, postLayout.typography.playerSize, textMaxWidth, '700');
+    ctx.fillText(playerText, textCenterX, textYBase + rowElements.text.playerY, textMaxWidth);
 
-    const deckText = (entry?.deck || 'DECK').toUpperCase().slice(0, 14);
+    const deckText = String(entry?.deck || 'DECK').toUpperCase();
     const deckCenterX = textCenterX;
-    ctx.font = `700 ${postLayout.typography.deckSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    fitPostText(ctx, deckText, postLayout.typography.deckSize, textMaxWidth, '800');
     ctx.textAlign = 'center';
-    ctx.lineWidth = 7;
-    ctx.strokeStyle = '#1e4f95';
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeText(deckText, deckCenterX, textYBase + rowElements.text.deckY);
-    ctx.fillText(deckText, deckCenterX, textYBase + rowElements.text.deckY);
+    ctx.fillStyle = '#123b78';
+    ctx.fillText(deckText, deckCenterX, textYBase + rowElements.text.deckY, textMaxWidth);
 
     const avatarY = avatarYBase + rowHeight / 2 + rowElements.avatar.yOffset;
     const avatarOuterRadius = rowElements.avatar.outerRadius;
@@ -2119,6 +2119,20 @@ async function drawPlacementRow(
     ctx.beginPath();
     ctx.arc(avatarX, avatarY, avatarOuterRadius - 2, 0, Math.PI * 2);
     ctx.stroke();
+}
+
+function fitPostText(ctx, text, preferredSize, maxWidth, weight, minimum = 28) {
+    let size = preferredSize;
+    const minimumSize = Math.min(preferredSize, minimum);
+    const setFont = () => {
+        ctx.font = `${weight} ${size}px "Barlow Condensed", "Segoe UI", sans-serif`;
+    };
+    setFont();
+    while (ctx.measureText(text).width > maxWidth && size > minimumSize) {
+        size = Math.max(minimumSize, size - 2);
+        setFont();
+    }
+    return size;
 }
 
 async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAsset, rowElements) {
@@ -2180,12 +2194,20 @@ async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAs
         ctx.fillStyle = textGradient;
         ctx.font = `700 ${numberSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.lineWidth = 6;
-        ctx.strokeStyle = '#111111';
+        ctx.textBaseline = 'alphabetic';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
         const placementLabel = formatPlacementLabel(placement);
-        ctx.strokeText(placementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
-        ctx.fillText(placementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
+        // The circle is centered at y=632 in the asset's 1012.5-high viewBox.
+        // Treat saved offsets as adjustments relative to the legacy default.
+        const medalCenterY = centerY + trophyH * (632 / 1012.5 - 0.5);
+        const metrics = ctx.measureText(placementLabel);
+        const textCenterOffset = ((metrics.actualBoundingBoxAscent ?? numberSize * 0.75) -
+            (metrics.actualBoundingBoxDescent ?? numberSize * 0.15)) / 2;
+        const labelY = medalCenterY + numberOffsetY - DEFAULT_POST_LAYOUT.rowElements.podiumNumber.offsetY + textCenterOffset;
+        ctx.strokeText(placementLabel, centerX + numberOffsetX, labelY);
+        ctx.fillStyle = style.dark || '#102d58';
+        ctx.fillText(placementLabel, centerX + numberOffsetX, labelY);
         return;
     }
 
@@ -2202,10 +2224,11 @@ async function drawTrophyBadge(ctx, centerX, centerY, placement, color, trophyAs
     ctx.font = `700 ${numberSize}px "Barlow Condensed", "Segoe UI", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffffff';
     const fallbackPlacementLabel = formatPlacementLabel(placement);
     ctx.strokeText(fallbackPlacementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
+    ctx.fillStyle = style.dark || '#102d58';
     ctx.fillText(fallbackPlacementLabel, centerX + numberOffsetX, centerY + numberOffsetY);
 }
 
@@ -2554,11 +2577,9 @@ function buildDeckPieDataForCanvas(results) {
         const isLast = index === entries.length - 1;
         const end = isLast ? fullEnd : currentAngle + sliceAngle;
         currentAngle = end;
-        const mid = (start + end) / 2;
-
-        const zoomPct = 120;
-        const xPct = Math.max(34, Math.min(66, 50 - Math.cos(mid) * 12));
-        const yPct = Math.max(4, Math.min(24, 13 - Math.sin(mid) * 4));
+        const zoomPct = 160;
+        const xPct = 50;
+        const yPct = 32;
 
         return {
             deck: entry.deck,
@@ -2633,77 +2654,6 @@ function loadSavedPieStateForPost(data) {
     return {};
 }
 
-function getResultRowStyle(placement) {
-    if (placement === 1) {
-        return {
-            rowStart: '#fff8d4',
-            rowEnd: '#ffe58a',
-            rowStroke: 'rgba(198, 141, 0, 0.45)',
-            badgeStart: '#fff8cc',
-            badgeMid: '#ffd447',
-            badgeEnd: '#c68d00',
-            badgeStroke: 'rgba(144, 102, 0, 0.5)',
-            deckColor: '#161b26',
-            playerColor: '#1f2430',
-            badgeColor: '#4a3900'
-        };
-    }
-    if (placement === 2) {
-        return {
-            rowStart: '#f8fafc',
-            rowEnd: '#d4dbe6',
-            rowStroke: 'rgba(141, 153, 171, 0.45)',
-            badgeStart: '#f6f8fb',
-            badgeMid: '#c6cdd8',
-            badgeEnd: '#8d99ab',
-            badgeStroke: 'rgba(84, 90, 102, 0.45)',
-            deckColor: '#161b26',
-            playerColor: '#1f2430',
-            badgeColor: '#2f333a'
-        };
-    }
-    if (placement === 3) {
-        return {
-            rowStart: '#f7d9c2',
-            rowEnd: '#d29a72',
-            rowStroke: 'rgba(134, 71, 31, 0.48)',
-            badgeStart: '#f3ccb0',
-            badgeMid: '#c7814d',
-            badgeEnd: '#86471f',
-            badgeStroke: 'rgba(97, 52, 21, 0.55)',
-            deckColor: '#161b26',
-            playerColor: '#1f2430',
-            badgeColor: '#161b26'
-        };
-    }
-    if (placement === 4) {
-        return {
-            rowStart: '#d7f3ee',
-            rowEnd: '#8ad2c4',
-            rowStroke: 'rgba(27, 107, 95, 0.45)',
-            badgeStart: '#bfeee6',
-            badgeMid: '#3da996',
-            badgeEnd: '#1b6b5f',
-            badgeStroke: 'rgba(18, 82, 72, 0.55)',
-            deckColor: '#161b26',
-            playerColor: '#1f2430',
-            badgeColor: '#161b26'
-        };
-    }
-    return {
-        rowStart: '#f8f9fd',
-        rowEnd: '#edf1fb',
-        rowStroke: 'rgba(114, 127, 173, 0.35)',
-        badgeStart: '#f1f4ff',
-        badgeMid: '#c5d1ff',
-        badgeEnd: '#8ca4f2',
-        badgeStroke: 'rgba(77, 96, 168, 0.45)',
-        deckColor: '#161b26',
-        playerColor: '#1f2430',
-        badgeColor: '#132157'
-    };
-}
-
 function getMiddlePanelRect(layout, width, height) {
     const rowBaseY = Number(layout?.rows?.startY) || 280;
     const rowBaseH = Number(layout?.rows?.rowHeight) || 178;
@@ -2729,108 +2679,74 @@ function getMiddlePanelRect(layout, width, height) {
 
 function getDistributionGeometry(layout, width, height) {
     const panelRect = getMiddlePanelRect(layout, width, height);
-    const dist = layout?.distribution || {};
-    const inset = Math.max(8, Number(dist?.panel?.inset) || 16);
-    const gutter = Math.max(8, Number(dist?.cards?.gutter) || 14);
-    const leftRatio = Math.max(0.38, Math.min(0.68, Number(dist?.cards?.leftRatio) || 0.54));
-
-    const cardX = panelRect.x + inset;
-    const cardY = panelRect.y + inset;
-    const cardW = panelRect.w - inset * 2;
-    const cardH = panelRect.h - inset * 2;
-
-    const leftCardW = Math.round(cardW * leftRatio);
-    const rightCardW = cardW - leftCardW - gutter;
-    const leftCardX = cardX + Math.round(Number(dist?.deckCard?.x) || 0);
-    const leftCardY = cardY + Math.round(Number(dist?.deckCard?.y) || 0);
-    const rightCardX = leftCardX + leftCardW + gutter + Math.round(Number(dist?.resultsCard?.x) || 0);
-    const rightCardY = cardY + Math.round(Number(dist?.resultsCard?.y) || 0);
-
-    const defaultPieX = leftCardX + leftCardW / 2;
-    const defaultPieY = leftCardY + Math.round(cardH * 0.35);
-    const defaultPieRadius = Math.round(Math.min(leftCardW, cardH) * 0.24);
-    const pieX = Math.round(defaultPieX + (Number(dist?.pie?.x) || 0));
-    const pieY = Math.round(defaultPieY + (Number(dist?.pie?.y) || 0));
-    const pieRadius = Math.max(64, Math.round(Number(dist?.pie?.radius) || defaultPieRadius));
-
-    const resultsOffsetX = Math.round(Number(dist?.results?.x) || 0);
-    const resultsOffsetY = Math.round(Number(dist?.results?.y) || 0);
-    const resultsWidthDelta = Math.round(Number(dist?.results?.width) || 0);
-
-    return {
-        panelRect,
-        leftCard: { x: leftCardX, y: leftCardY, w: leftCardW, h: cardH },
-        rightCard: { x: rightCardX, y: rightCardY, w: rightCardW, h: cardH },
-        pie: { x: pieX, y: pieY, radius: pieRadius },
-        results: { x: resultsOffsetX, y: resultsOffsetY, width: resultsWidthDelta }
+    const dist = layout.distribution || {};
+    const inset = Math.max(8, Number(dist.panel?.inset) || 16);
+    const card = {
+        x: panelRect.x + inset + (Number(dist.deckCard?.x) || 0),
+        y: panelRect.y + inset + (Number(dist.deckCard?.y) || 0),
+        w: panelRect.w - inset * 2,
+        h: panelRect.h - inset * 2
     };
+    const defaultRadius = Math.round(Math.min(card.w * 0.35, card.h * 0.3));
+    return {
+        panelRect, leftCard: card, rightCard: card,
+        pie: {
+            x: card.x + card.w / 2 + (Number(dist.pie?.x) || 0),
+            y: card.y + 82 + defaultRadius + (Number(dist.pie?.y) || 0),
+            radius: Math.max(64, Number(dist.pie?.radius) || defaultRadius)
+        }
+    };
+}
+
+function drawPieSliceImage(ctx, image, centerX, centerY, radius, row) {
+    // Cover this sector's bounds, rather than cropping every image around the whole pie.
+    const angles = [row.start, row.end];
+    for (let angle = Math.ceil(row.start / (Math.PI / 2)) * (Math.PI / 2); angle < row.end; angle += Math.PI / 2) angles.push(angle);
+    const xs = [centerX, ...angles.map((angle) => centerX + Math.cos(angle) * radius)];
+    const ys = [centerY, ...angles.map((angle) => centerY + Math.sin(angle) * radius)];
+    const x = Math.min(...xs), y = Math.min(...ys);
+    const w = Math.max(1, Math.max(...xs) - x), h = Math.max(1, Math.max(...ys) - y);
+    const scale = Math.max(w / image.width, h / image.height) * Math.max(1, row.zoomPct / 100);
+    const drawW = image.width * scale, drawH = image.height * scale;
+    ctx.drawImage(image, x + (w - drawW) * row.xPct / 100, y + (h - drawH) * row.yPct / 100, drawW, drawH);
 }
 
 async function drawDistributionAndResultsContent(ctx, width, height, data, layout) {
     const geometry = getDistributionGeometry(layout, width, height);
-    const panelRect = geometry.panelRect;
-    const panelX = panelRect.x;
-    const panelY = panelRect.y;
-    const panelW = panelRect.w;
-    const panelH = panelRect.h;
-    // Keep distribution mode visually clean: no extra white panel behind content.
-
-    const allResults = (data?.allResults || [])
-        .map((item) => ({
-            placement: Number(item?.placement) || 0,
-            deck: String(item?.deck || 'Unknown'),
-            player: String(item?.player || '-'),
-            image_url: String(item?.image_url || '').trim()
-        }))
-        .sort((a, b) => a.placement - b.placement);
-
-    const leftCardX = geometry.leftCard.x;
-    const leftCardY = geometry.leftCard.y;
-    const leftCardW = geometry.leftCard.w;
-    const leftCardH = geometry.leftCard.h;
-    const rightCardX = geometry.rightCard.x;
-    const rightCardY = geometry.rightCard.y;
-    const rightCardW = geometry.rightCard.w;
-    const rightCardH = geometry.rightCard.h;
-
-    // No card boxes/separators: only pie and result rows.
-
+    const card = geometry.leftCard;
+    const results = Array.isArray(data?.allResults) ? data.allResults : [];
     const savedPieState = getCombinedDistributionPieState(data);
-    const pieRows = buildDeckPieDataForCanvas(allResults).map((row) => {
-            const saved = savedPieState?.[row.deck];
-            if (!saved) return row;
-            const savedX = Number(saved.x);
-            const savedY = Number(saved.y);
-            const savedZoom = Number(saved.zoom);
-            return {
-                ...row,
-                xPct: Number.isFinite(savedX) ? Math.max(-300, Math.min(300, savedX)) : row.xPct,
-                yPct: Number.isFinite(savedY) ? Math.max(-300, Math.min(300, savedY)) : row.yPct,
-                zoomPct: Number.isFinite(savedZoom) ? Math.max(120, Math.min(420, savedZoom)) : row.zoomPct
-            };
-        });
-    const centerX = geometry.pie.x;
-    const centerY = geometry.pie.y;
-    const radius = geometry.pie.radius;
+    const pieRows = buildDeckPieDataForCanvas(results).map((row) => {
+        const saved = savedPieState[row.deck];
+        return saved ? {
+            ...row,
+            xPct: Number.isFinite(Number(saved.x)) ? Math.max(-300, Math.min(300, Number(saved.x))) : row.xPct,
+            yPct: Number.isFinite(Number(saved.y)) ? Math.max(-300, Math.min(300, Number(saved.y))) : row.yPct,
+            zoomPct: Number.isFinite(Number(saved.zoom)) ? Math.max(120, Math.min(420, Number(saved.zoom))) : row.zoomPct
+        } : row;
+    });
+    const { x: centerX, y: centerY, radius } = geometry.pie;
+    drawRoundedRect(ctx, card.x, card.y, card.w, card.h, 24, 'rgba(255,255,255,0.92)');
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#102d58';
+    ctx.font = '800 40px "Barlow Condensed", sans-serif';
+    ctx.fillText('DISTRIBUIÇÃO DE DECKS', card.x + card.w / 2, card.y + 42);
+    ctx.fillStyle = '#53647d';
+    ctx.font = '500 23px "Segoe UI", sans-serif';
+    ctx.fillText(results.length + ' participações · ' + pieRows.length + ' decks', card.x + card.w / 2, card.y + 72);
     lastDistributionPieRenderState = {
-        centerX,
-        centerY,
-        radius,
+        centerX, centerY, radius,
         slices: pieRows.map((row) => ({ deck: row.deck, start: row.start, end: row.end }))
     };
-    const fallbackImage = (deckName) =>
-        `https://via.placeholder.com/420x420/5f75b9/ffffff?text=${encodeURIComponent(String(deckName || 'Deck').slice(0, 10))}`;
-    const pieImages = await Promise.all(
-        pieRows.map(async (row) => {
-            const code = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i)?.[1]?.toUpperCase();
-            if (code) {
-                const img = await loadDeckCardImage(code);
-                if (img) return img;
-            }
-            return row.image_url ? loadImage(row.image_url) : loadImage(fallbackImage(row.deck));
-        })
-    );
-
+    const images = await Promise.all(pieRows.map(async (row) => {
+        const code = String(row.image_url || '').match(/([A-Z]{1,3}\d{0,2}-\d{1,3})\.(?:webp|jpg|png)/i)?.[1]?.toUpperCase();
+        if (code) {
+            const image = await loadDeckCardImage(code);
+            if (image) return image;
+        }
+        return row.image_url ? loadImage(row.image_url) : null;
+    }));
     pieRows.forEach((row, index) => {
         ctx.save();
         ctx.beginPath();
@@ -2838,142 +2754,49 @@ async function drawDistributionAndResultsContent(ctx, width, height, data, layou
         ctx.arc(centerX, centerY, radius, row.start, row.end);
         ctx.closePath();
         ctx.clip();
-
-        const image = pieImages[index];
-        if (image) {
-            drawImageCoverInCircleWithPosition(
-                ctx,
-                image,
-                centerX,
-                centerY,
-                radius,
-                row.zoomPct,
-                row.xPct,
-                row.yPct
-            );
-        } else {
-            ctx.fillStyle = row.color;
-            ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-        }
+        ctx.fillStyle = row.color;
+        ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+        if (images[index]) drawPieSliceImage(ctx, images[index], centerX, centerY, radius, row);
         ctx.restore();
-
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - 5, row.start, row.end);
+        ctx.strokeStyle = row.color;
+        ctx.lineWidth = 10;
+        ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, radius, row.start, row.end);
         ctx.closePath();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
         ctx.stroke();
     });
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius + 4, 0, Math.PI * 2);
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#ffffff';
+    ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = '#dbe3ee';
+    ctx.lineWidth = 3;
     ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius + 1, 0, Math.PI * 2);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#d3d8e5';
-    ctx.stroke();
-
-    const configuredColumnSize = Number(postLayout?.distribution?.results?.columnSize);
-    const columnSize = Number.isFinite(configuredColumnSize)
-        ? Math.max(4, Math.min(30, Math.round(configuredColumnSize)))
-        : 12;
-    const columns = [];
-    for (let i = 0; i < allResults.length; i += columnSize) {
-        columns.push(allResults.slice(i, i + columnSize));
-    }
-    if (!columns.length) columns.push([]);
-
-    const totalRows = Math.max(1, Math.max(...columns.map((col) => col.length)));
-    const listTopOffset = 40;
-    const listBottomPadding = 10;
-    const availableListHeight = Math.max(140, rightCardH - listTopOffset - listBottomPadding);
-    const rowGap = totalRows >= 16 ? 3 : totalRows >= 13 ? 4 : totalRows >= 10 ? 6 : 8;
-    const pitch = Math.floor((availableListHeight + rowGap) / totalRows);
-    const rowHeight = Math.max(30, pitch - rowGap);
-    const listDeckFontSize = Math.max(13, Math.min(22, Math.round(rowHeight * 0.48)));
-    const rowStartY = rightCardY + listTopOffset + geometry.results.y;
-    const baseRowX = rightCardX + 10 + geometry.results.x;
-    const baseRowW = Math.max(180, rightCardW - 20 + geometry.results.width);
-    const columnCount = Math.max(1, columns.length);
-    const columnGap = columnCount >= 3 ? 6 : 8;
-    const rowW = Math.max(
-        102,
-        Math.floor((baseRowW - columnGap * Math.max(0, columnCount - 1)) / columnCount)
-    );
-    const maxRows = Math.max(
-        1,
-        Math.floor((rightCardH - (listTopOffset + listBottomPadding) + rowGap) / (rowHeight + rowGap))
-    );
-    columns.forEach((columnRows, columnIndex) => {
-        const rowX = baseRowX + columnIndex * (rowW + columnGap);
-        columnRows.slice(0, maxRows).forEach((row, rowIndex) => {
-            const rowY = rowStartY + rowIndex * (rowHeight + rowGap);
-            if (rowY + rowHeight > rightCardY + rightCardH - 10) return;
-
-            const rowStyle = getResultRowStyle(row.placement);
-            const rowGradient = ctx.createLinearGradient(rowX, rowY, rowX + rowW, rowY + rowHeight);
-            rowGradient.addColorStop(0, rowStyle.rowStart);
-            rowGradient.addColorStop(1, rowStyle.rowEnd);
-            drawRoundedRect(
-                ctx,
-                rowX,
-                rowY,
-                rowW,
-                rowHeight,
-                8,
-                rowGradient,
-                rowStyle.rowStroke,
-                1.2
-            );
-
-            const badgeW = Math.max(24, Math.round(rowHeight * 0.78));
-            const badgeH = Math.max(18, rowHeight - 8);
-            const badgeX = rowX + 5;
-            const badgeY = rowY + Math.max(3, Math.round((rowHeight - badgeH) / 2));
-            const badgeGradient = ctx.createLinearGradient(
-                badgeX,
-                badgeY,
-                badgeX + badgeW,
-                badgeY + badgeH
-            );
-            badgeGradient.addColorStop(0, rowStyle.badgeStart);
-            badgeGradient.addColorStop(0.46, rowStyle.badgeMid);
-            badgeGradient.addColorStop(1, rowStyle.badgeEnd);
-            drawRoundedRect(
-                ctx,
-                badgeX,
-                badgeY,
-                badgeW,
-                badgeH,
-                Math.max(10, Math.round(badgeH / 2)),
-                badgeGradient,
-                rowStyle.badgeStroke,
-                1
-            );
-            ctx.textAlign = 'center';
-            ctx.fillStyle = rowStyle.badgeColor;
-            ctx.font = `700 ${Math.max(10, Math.round(rowHeight * 0.29))}px "Barlow Condensed", "Segoe UI", sans-serif`;
-            ctx.fillText(
-                formatPlacementLabel(row.placement || rowIndex + 1),
-                badgeX + badgeW / 2,
-                badgeY + badgeH / 2 + Math.max(3, Math.round(rowHeight * 0.1))
-            );
-
-            const textX = badgeX + badgeW + 8;
-            const charLimit = Math.max(10, Math.floor((rowW - (badgeW + 16)) / 6.3));
-            ctx.textAlign = 'left';
-            ctx.fillStyle = rowStyle.deckColor;
-            ctx.font = `700 ${listDeckFontSize}px "Segoe UI", Arial, sans-serif`;
-            ctx.fillText(
-                String(row.deck || 'Unknown').slice(0, charLimit),
-                textX,
-                rowY + Math.round(rowHeight * 0.62)
-            );
-        });
+    const legendY = centerY + radius + 42;
+    const pitch = 46;
+    const columns = card.w >= 620 ? 2 : 1;
+    const rowsAvailable = Math.max(1, Math.floor((card.y + card.h - 24 - legendY) / pitch) + 1);
+    const capacity = rowsAvailable * columns;
+    const visible = pieRows.length <= capacity ? pieRows : pieRows.slice(0, Math.max(0, capacity - 1));
+    const remainder = pieRows.slice(visible.length);
+    const legend = remainder.length ? [...visible, { deck: 'Outros (' + remainder.length + ' decks)', count: remainder.reduce((sum, row) => sum + row.count, 0), color: '#64748b' }] : visible;
+    const columnW = (card.w - 48) / columns;
+    legend.forEach((row, index) => {
+        const column = Math.floor(index / rowsAvailable);
+        const x = card.x + 24 + column * columnW;
+        const y = legendY + index % rowsAvailable * pitch;
+        drawRoundedRect(ctx, x, y - 20, 10, 24, 4, row.color);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#243750';
+        fitPostText(ctx, row.deck, 30, columnW - 126, '700', 18);
+        ctx.fillText(row.deck, x + 22, y, columnW - 126);
+        ctx.textAlign = 'right';
+        ctx.font = '700 26px "Barlow Condensed", sans-serif';
+        ctx.fillText(row.count + ' · ' + Math.round(row.count / Math.max(1, results.length) * 100) + '%', x + columnW - 14, y);
     });
 }
 
@@ -3074,10 +2897,28 @@ function getBlankMiddleDecklistRect(layout, width = 1080, height = 1350) {
     return { x, y, w, h, padding, baseX, baseY };
 }
 
+async function refreshDecklistPostAvailability(data) {
+    if (!data) return;
+    const entries = await getFirstPlaceDecklistEntries();
+    if (tournamentDataForCanvas !== data) return;
+    firstPlaceDecklistAvailable = entries.length > 0;
+    if (!firstPlaceDecklistAvailable && selectedPostType === 'blank_middle') {
+        selectedPostType = 'top4';
+        saveSelectedPostType();
+        updateTemplateControlsVisibility();
+        updatePostPreviewMeta();
+        updateTemplateEditorButtons();
+        void drawPostCanvas();
+    }
+    syncPostTypeSelector();
+}
+
 async function getFirstPlaceDecklistEntries() {
     const topFour = Array.isArray(tournamentDataForCanvas?.topFour) ? tournamentDataForCanvas.topFour : [];
-    const firstPlace = topFour.find((row) => Number(row?.placement) === 1) || topFour[0] || null;
-    const resultId = String(firstPlace?.result_id || '').trim();
+    const firstPlace = topFour.find((row) => Number(row?.placement) === 1) || null;
+    const inlineEntries = parseDecklistEntriesForBlankMiddle(firstPlace?.decklist);
+    if (inlineEntries.length) return inlineEntries;
+    const resultId = String(firstPlace?.result_id || firstPlace?.id || '').trim();
     if (!resultId) return [];
 
     if (BLANK_MIDDLE_DECKLIST_CACHE.has(resultId)) {
@@ -3086,7 +2927,7 @@ async function getFirstPlaceDecklistEntries() {
 
     const decklistText = await fetchDecklistTextByResultId(resultId);
     const parsed = parseDecklistEntriesForBlankMiddle(decklistText);
-    BLANK_MIDDLE_DECKLIST_CACHE.set(resultId, parsed);
+    if (parsed.length) BLANK_MIDDLE_DECKLIST_CACHE.set(resultId, parsed);
     return parsed;
 }
 
@@ -3281,14 +3122,6 @@ function getTemplateEditorHandles() {
                 y: geometry.leftCard.y,
                 w: geometry.leftCard.w,
                 h: geometry.leftCard.h
-            },
-            {
-                key: 'distResultsCard',
-                label: 'Full Results Card',
-                x: geometry.rightCard.x,
-                y: geometry.rightCard.y,
-                w: geometry.rightCard.w,
-                h: geometry.rightCard.h
             },
             {
                 key: 'distPie',

@@ -1,0 +1,309 @@
+/* Scoped to the v2 workspace. Standalone original pages retain their styles. */
+.v2-tools {
+    color-scheme: dark;
+    --v2-bg: var(--ds-bg);
+    --v2-panel: var(--ds-panel);
+    --v2-line: var(--ds-line);
+    --v2-text: var(--ds-text);
+    --v2-muted: var(--ds-muted);
+    --v2-accent: var(--ds-red);
+}
+:root.v2-tools #v2Tools {
+    --color-primary: var(--v2-accent);
+    --color-border: var(--v2-line);
+    --color-text-muted: var(--v2-muted);
+    --color-table-header: #1c2226;
+    --color-row-hover: color-mix(in srgb, var(--accent) 9%, #0b0e0f);
+    --mobile-bg: var(--v2-bg);
+    --mobile-surface: var(--v2-panel);
+    --mobile-surface-raised: #1c2226;
+    --mobile-border: var(--v2-line);
+    --mobile-border-strong: #754249;
+    --mobile-text: var(--v2-text);
+    --mobile-muted: var(--v2-muted);
+    --mobile-purple: var(--v2-accent);
+    --mobile-purple-soft: #c64f57;
+}
+:root.v2-tools #v2Tools {
+    margin: 0 !important;
+    padding: 16px !important;
+    background: var(--v2-bg) !important;
+    color: var(--v2-text) !important;
+    min-height: 0;
+    font-size: 16px;
+}
+:root.v2-tools #v2Tools * {
+    font-family: Arial, Helvetica, sans-serif;
+}
+:root.v2-tools #v2Tools .container,
+:root.v2-tools #v2Tools > .container {
+    display: block !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    animation: none !important;
+}
+:root.v2-tools #v2Tools .dashboard-home-header,
+:root.v2-tools #v2Tools #mobileMoreMenu,
+:root.v2-tools #v2Tools .mobile-section-heading,
+:root.v2-tools #v2Tools #mobileTournamentPageHeader,
+:root.v2-tools #v2Tools .footer {
+    display: none !important;
+}
+
+:root.v2-tools #v2Tools .dashboard-home-header {
+    display: none !important;
+}
+:root.v2-tools #v2Tools #decksList .deck-row {
+    background: var(--v2-panel) !important;
+    border-color: var(--v2-line) !important;
+}
+:root.v2-tools #v2Tools #decksList:not(.view-grid) .deck-row {
+    display: grid !important;
+    grid-template-columns: 72px minmax(0, 1fr) auto !important;
+    gap: 16px !important;
+    align-items: center;
+}
+:root.v2-tools #v2Tools :is(.deck-name, .player-name, .decks-total) {
+    color: var(--v2-text) !important;
+}
+:root.v2-tools #v2Tools #decksList .deck-name-toggle {
+    background: transparent !important;
+    border: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools #decksList .deck-name {
+    font-size: 16px !important;
+    line-height: 1.4;
+}
+:root.v2-tools #v2Tools :is(.page-size-select, .decks-search-input, .players-search-input) {
+    background: #0b0f10 !important;
+    border-color: var(--v2-line) !important;
+    color: var(--v2-text) !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .players-table,
+        .players-table-row td,
+        .players-details-row td,
+        .players-inactive-filter,
+        .admin-auth-card,
+        .tournament-ocr-section,
+        .tournament-form-section,
+        .tournament-form-nav,
+        .tournament-form-actions
+    ) {
+    background: var(--v2-panel) !important;
+    color: var(--v2-text) !important;
+    border-color: var(--v2-line) !important;
+}
+:root.v2-tools #v2Tools :is(.player-modal-box, .player-modal-header, .player-modal-actions) {
+    background: var(--v2-panel) !important;
+    border-color: var(--v2-line) !important;
+    color: var(--v2-text) !important;
+}
+:root.v2-tools #v2Tools .players-table-row td {
+    font-size: 16px !important;
+}
+:root.v2-tools #v2Tools :is(.admin-container, .admin-container .page-header) {
+    background: transparent !important;
+    border-color: var(--v2-line) !important;
+}
+:root.v2-tools #v2Tools :is(.player-main-toggle, .player-action-btn, .btn-add-result) {
+    background: #1c2226 !important;
+    border-color: var(--v2-line) !important;
+    color: var(--v2-text) !important;
+}
+:root.v2-tools #v2Tools :is(.tournament-form-nav button, .view-toggle-option).is-active {
+    background: var(--ds-red-soft) !important;
+    color: var(--v2-accent) !important;
+    border-color: #754249 !important;
+}
+:root.v2-tools #v2Tools :is(p, label, small) {
+    color: var(--v2-muted) !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .decks-container,
+        .players-container-embedded,
+        .statistics-container-embedded,
+        .admin-container
+    ) {
+    margin-top: 0 !important;
+}
+:root.v2-tools #v2Tools :is(h1, h2, h3, h4, strong, .deck-name, .player-name) {
+    color: var(--v2-text);
+}
+:root.v2-tools #v2Tools :is(p, label, small, .subtitle) {
+    color: var(--v2-muted);
+}
+:root.v2-tools #v2Tools :is(input, select, textarea) {
+    background: #0b0f10 !important;
+    color: var(--v2-text) !important;
+    border-color: var(--v2-line) !important;
+    border-radius: 7px;
+    font-size: 16px !important;
+}
+:root.v2-tools #v2Tools :is(input:not([type='checkbox']):not([type='radio']), select, button) {
+    min-height: 44px;
+}
+:root.v2-tools #v2Tools :is(button, .btn) {
+    font-size: 14px;
+}
+:root.v2-tools
+    #v2Tools
+    :is(.btn-primary, .btn-create, .btn-save, .admin-digilab-action.is-primary, .btn-add) {
+    background: var(--v2-accent) !important;
+    color: #190c0e !important;
+    border-color: var(--v2-accent) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .btn-secondary,
+        .btn-view-toggle,
+        .btn-cancel,
+        .admin-digilab-action.is-secondary,
+        .admin-digilab-action.is-ghost
+    ) {
+    background: #1c2226 !important;
+    color: var(--v2-text) !important;
+    border-color: var(--v2-line) !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .deck-item,
+        .deck-card,
+        .modal-content,
+        .modal-header,
+        .modal-footer,
+        .admin-panel,
+        .admin-auth-panel,
+        .admin-digilab-hero,
+        .admin-digilab-catalog-card,
+        .admin-digilab-history,
+        .admin-summary-card,
+        .statistics-card,
+        .statistics-panel,
+        .form-card,
+        .players-table-row td,
+        .table-row td,
+        .tournament-card,
+        .calendar-day,
+        .calendar-header,
+        .filters-row,
+        .statistics-toolbar
+    ) {
+    background: var(--v2-panel) !important;
+    color: var(--v2-text) !important;
+    border-color: var(--v2-line) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools :is(table, thead, tbody, tr, td, th) {
+    color: var(--v2-text) !important;
+    border-color: var(--v2-line) !important;
+}
+:root.v2-tools #v2Tools :is(th, thead) {
+    background: #1c2226 !important;
+    font-size: 13px !important;
+}
+:root.v2-tools #v2Tools :is(td, .deck-item, .admin-table) {
+    font-size: 14px;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .admin-tab-btn,
+        .statistics-view-btn,
+        .view-toggle-option,
+        .tournament-form-nav-btn
+    ).is-active {
+    background: var(--ds-red-soft) !important;
+    color: var(--v2-accent) !important;
+    border-color: #754249 !important;
+}
+:root.v2-tools #v2Tools a,
+:root.v2-tools #v2Tools :is(.deck-expand-link, .admin-digilab-eyebrow) {
+    color: var(--v2-accent);
+}
+:root.v2-tools #v2Tools .deck-thumb-wrapper {
+    width: 72px !important;
+    height: 72px !important;
+    flex: 0 0 72px !important;
+    border-radius: 50%;
+    overflow: hidden;
+}
+:root.v2-tools #v2Tools .deck-thumb-image {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: cover !important;
+    transform: scale(2.3) !important;
+    transform-origin: center 20% !important;
+}
+:root.v2-tools #v2Tools :is(.store-logo, .store-logo-img, .table-store-logo) {
+    width: 80px;
+    height: 48px;
+    object-fit: contain;
+}
+:root.v2-tools
+    #v2Tools
+    :is(.admin-table-wrapper, .table-wrapper, .statistics-table-wrapper, .players-table-wrapper) {
+    max-width: 100%;
+    overflow-x: auto;
+}
+:root.v2-tools #v2Tools :is(.decks-grid, .filters-row, .admin-tabs, .statistics-view-buttons) {
+    min-width: 0;
+}
+:root.v2-tools #v2Tools :is(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--v2-accent);
+    outline-offset: 3px;
+}
+@media (max-width: 600px) {
+    :root.v2-tools #v2Tools,
+    :root.v2-tools #v2Tools {
+        padding: 10px !important;
+    }
+    :root.v2-tools #v2Tools .deck-thumb-wrapper {
+        width: 56px !important;
+        height: 56px !important;
+        flex-basis: 56px !important;
+    }
+    :root.v2-tools #v2Tools #decksList:not(.view-grid) .deck-row {
+        grid-template-columns: 56px minmax(0, 1fr) auto !important;
+        gap: 12px !important;
+    }
+    :root.v2-tools #v2Tools .decks-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    :root.v2-tools #v2Tools .modal-content {
+        width: calc(100% - 16px) !important;
+        max-height: calc(100dvh - 24px) !important;
+        padding: 16px !important;
+    }
+    :root.v2-tools #v2Tools .admin-tabs {
+        display: flex;
+        flex-wrap: wrap;
+    }
+    :root.v2-tools
+        #v2Tools
+        :is(.admin-digilab-toolbar, .admin-digilab-toolbar-actions, .admin-digilab-lookup) {
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+    :root.v2-tools #v2Tools :is(.admin-digilab-lookup input, .search-input) {
+        min-width: 0 !important;
+        width: 100%;
+    }
+}

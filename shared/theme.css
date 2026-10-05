@@ -1,0 +1,65 @@
+/* Canonical visual tokens for the v2 and its shared tools. */
+:root {
+    --ds-bg: #080a0b;
+    --ds-panel: #111517;
+    --ds-raised: #1c2226;
+    --ds-line: #2c3437;
+    --ds-text: #f1f4f2;
+    --ds-muted: #a0aaa5;
+    --ds-accent: #ef646b;
+    --ds-red: var(--ds-accent);
+    --ds-red-soft: color-mix(in srgb, var(--ds-accent) 15%, #0b0e0f);
+    --ds-blue: #66a7f5;
+    --ds-green: #4edb9b;
+    --ds-yellow: #f1cc5b;
+    --ds-radius: 10px;
+    --ds-font: Arial, Helvetica, sans-serif;
+}
+:root[data-accent='blue'] {
+    --ds-accent: #66a7f5;
+}
+:root[data-accent='green'] {
+    --ds-accent: #4edb9b;
+}
+:root[data-accent='yellow'] {
+    --ds-accent: #f1cc5b;
+}
+/* Loading indicators alone rotate; branding and post watermarks stay upright. */
+:is(.spinner, .stats-loading-spinner, .admin-digilab-button-spinner, .loading-spinner, .v2-loader) {
+    display: inline-block;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: url('../icons/digimon-cwb-mark.svg') center / contain no-repeat !important;
+    -webkit-mask: none;
+    mask: none;
+    filter: drop-shadow(0 0 5px rgba(215, 54, 72, 0.35));
+    animation: digital-hazard-spin 1.5s linear infinite !important;
+    vertical-align: middle;
+}
+.v2-loader[hidden] {
+    display: none !important;
+}
+:is(.stats-loading-spinner, .admin-digilab-button-spinner) {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px;
+}
+@keyframes digital-hazard-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    :is(
+        .spinner,
+        .stats-loading-spinner,
+        .admin-digilab-button-spinner,
+        .loading-spinner,
+        .v2-loader
+    ) {
+        animation: none !important;
+    }
+}

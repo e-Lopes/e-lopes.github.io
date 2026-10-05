@@ -48,6 +48,10 @@ This creates timestamped migration files under `supabase/migrations/`.
 3. Review diffs in `database/` and `supabase/migrations/`.
 4. Commit all generated SQL files together with app code changes.
 
+## Format release dates
+
+`database/migrations/20261005000000_correct_format_release_dates.sql` corrects `formats.created_at` and product names for the 14 cataloged formats, plus EX09 if present, using official English release dates. It updates existing rows only and preserves the default, activation and tournament links. The researched dates, Bandai sources, timezone convention and verification query are documented in [format-release-dates.md](../docs/data/format-release-dates.md).
+
 ## DigiLab synchronization
 
 The integration state is defined by:

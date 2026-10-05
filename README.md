@@ -1,166 +1,42 @@
-# DigiStats Dashboard
+![DIGIMON CWB — Digimon Card Game Community](icons/digimon-cwb-banner-readme.png)
 
-Dashboard web para gestao de torneios de Digimon TCG, com frontend em HTML/CSS/JS e backend no Supabase.
+# Acompanhe o Digimon TCG em Curitiba
 
-## Objetivo
+O **DIGIMON CWB** reúne os torneios, jogadores e decks da comunidade em um só lugar. Consulte resultados, descubra o que está sendo jogado e compartilhe os destaques dos eventos.
 
-Centralizar operacoes de:
+**[Abrir o site](https://e-lopes.github.io/)** · [Instagram](https://www.instagram.com/digimoncwb/) · [X](https://x.com/digimon_cwb)
 
-- cadastro e listagem de torneios
-- gestao de jogadores
-- gestao de decks
-- visualizacoes de podio e calendario
+## Tudo sobre os torneios da comunidade
 
-## Stack
+- **Visão geral:** acompanhe os últimos torneios e os decks em destaque nas últimas quatro semanas, por participações, títulos e conversão em Top 4.
+- **Torneios:** encontre eventos na lista ou no calendário e confira participantes, classificação e decklists disponíveis.
+- **Metagame:** explore os decks do formato atual e filtre por mês, loja e tipo de evento. Os formatos anteriores continuam disponíveis para consulta.
+- **Decks e jogadores:** conheça os cadastros da comunidade e acompanhe o histórico de resultados.
+- **Criação de conteúdo:** gere posts de pódio e resumo semanal, confira a prévia e baixe a imagem para compartilhar.
+- **Deckbuilder:** monte e edite decklists no computador, com busca de cartas, filtros, importação e exportação.
 
-- HTML, CSS e JavaScript (vanilla)
-- Supabase (Postgres + REST)
-- Service Worker + Manifest (PWA)
-- Node.js (lint, testes e automacoes)
+## Comece pelo que interessa a você
 
-## Estrutura do Projeto
+**Vai jogar um torneio?** Abra **Torneios** para consultar os eventos e resultados das lojas.
 
-- `index.html`: dashboard principal
-- `torneios/list-tournaments/script.js`: logica principal da dashboard (tabela + calendario + modais)
-- `styles.css`: estilos globais
-- `styles/`: estilos por componentes e paginas
-- `config/`: configuracoes e utilitarios compartilhados
-- `players/`: modulo de jogadores
-- `decks/`: modulo de decks
-- `torneios/`: fluxo principal de torneios (criar, listar, editar, decklist)
-- `tournaments/`: aliases em ingles (redirects) para rotas de `torneios/` (compatibilidade de URL)
-- `post-preview/`: editor de post e preview
-- `database/`: schema, migracoes e snapshots SQL
-- `supabase/functions/`: Edge Functions e integracoes server-side
-- `docs/`: guias de estrutura, nomenclatura e seguranca
-- `tests/`: testes automatizados
+**Quer conhecer o cenário local?** Visite **Metagame**. O formato atual tem prioridade, e cada estatística mostra a amostra disponível para ajudar na leitura dos resultados.
 
-## Rotas Ativas (Frontend)
+**Quer acompanhar um deck ou jogador?** Abra seu cadastro para ver o histórico e as decklists registradas.
 
-- `/` -> `index.html` (carrega modulo de torneios com scripts de `torneios/list-tournaments/`)
-- `/torneios/list-tournaments/` -> pagina de listagem/calendario de torneios
-- `/torneios/create-tournament/` -> fluxo antigo de criacao (mantido por compatibilidade)
-- `/players/` e `/decks/` -> modulos dedicados
-- `/post-preview/` -> editor/preview de posts
-- `/tournaments/*` -> redirects para `/torneios/*`
+**Organiza eventos?** Use os cadastros de torneios, jogadores e decks. Os resultados podem ser preenchidos manualmente ou importados pelos fluxos disponíveis, com revisão antes de salvar. As ferramentas administrativas exigem acesso autorizado.
 
-## OCR (Bandai TCG+)
+## Do seu jeito, no celular ou no computador
 
-- O modal **Novo torneio** aceita um ou mais prints da Bandai TCG+ para OCR.
-- No desktop, vários arquivos podem ser selecionados ou arrastados juntos para **Carregar print(s) e preencher**.
-- Os resultados de cada imagem são combinados no formulário para revisão antes do salvamento.
-- Jogadores existentes, inclusive inativos ou ainda sem `bandai_id`, são reutilizados; quando o print fornece o Bandai ID ausente, o cadastro local é atualizado em vez de duplicado.
-- Endpoint esperado no momento: `POST https://e-lopes-digimon-ocr-api.hf.space/process` com `multipart/form-data` (`file`).
-- Retorno utilizado pelo frontend:
-    - `players[]` para autopreencher resultados
-    - `store_name` para tentar match de loja no select
-    - `tournament_date` (ou `tournament_datetime`) para preencher a data do torneio
+A navegação se adapta à tela. Em **Aparência**, escolha entre vermelho, azul, verde e amarelo, confira a prévia e toque em **Aplicar**. A preferência fica salva no navegador.
 
-## Setup Local
+O deckbuilder é exclusivo para computador. As demais áreas podem ser acessadas pelo celular. Em navegadores compatíveis, o site também pode ser adicionado à tela inicial.
 
-### 1. Pre-requisitos
+## Ajude a melhorar
 
-- Node.js 20+
-- npm
-- Docker Desktop (necessario para `db:snapshot`)
+Use **Enviar sugestão** ou **Reportar bug**, no final do menu, para compartilhar ideias ou avisar sobre problemas. A **Política de privacidade** e os links da comunidade ficam no mesmo lugar.
 
-### 2. Instalar dependencias
+## Documentação
 
-```bash
-npm install
-```
+[Guia para organizadores e administradores](docs/guides/guia-administradores-digistats.md) · [Documentação geral](docs/README.md)
 
-### 3. Rodar checks de qualidade
-
-```bash
-npm run lint
-npm run test
-```
-
-## Scripts
-
-- `npm run lint`: valida JavaScript com ESLint
-- `npm run test`: executa testes Node (`node --test`)
-- `npm run format`: formata arquivos com Prettier
-- `npm run db:snapshot`: exporta snapshot de schema/roles do Supabase
-- `node scripts/generate-admin-guide-pdf.js`: atualiza o HTML e o PDF distribuível do guia de administradores a partir do Markdown
-
-## Banco de Dados (Supabase)
-
-Defina a conexao antes de gerar snapshots:
-
-```powershell
-$env:SUPABASE_DB_URL = "postgresql://postgres:<password>@<host>:5432/postgres"
-```
-
-Execute:
-
-```bash
-npm run db:snapshot
-```
-
-Saidas esperadas:
-
-- `database/snapshots/schema-YYYYMMDD-HHMMSS.sql`
-- `database/snapshots/roles-YYYYMMDD-HHMMSS.sql`
-- `database/schema.latest.sql`
-- `database/roles.latest.sql`
-
-Detalhes adicionais em `database/README.md`.
-
-## Integração DigiLab
-
-- O frontend gera standings para publicação manual no DigiLab.
-- Qualquer usuário pode colar a URL completa ou o ID de um torneio DigiLab no modal **Novo torneio** para carregar loja, data, formato, jogadores, decks e pontos antes de salvar.
-- A chave da API fica em `DIGILAB_API_KEY`, nos secrets das Edge Functions.
-- `digilab-health` valida secret e conectividade sem expor credenciais ou dados de torneios.
-- A aba **Admin → DigiLab**, aberta por padrão no Admin, usa Supabase Auth, lista e pré-visualiza torneios de Curitiba, confirma vínculos em `tournament_digilab_sync` e cria ou sincroniza torneios pela função `import-digilab-tournament`.
-- A rotina `sync-new-digilab-tournaments` é executada a cada 15 minutos: percorre o histórico gradualmente, revisa torneios recentes e cadastra jogadores/decks ausentes na mesma transação do torneio. O Admin mostra o histórico das execuções e permite tentar novamente uma pendência. Casos ambíguos ficam para revisão.
-- No desktop, a barra lateral mostra a contagem regressiva para a próxima busca DigiLab. Após o ciclo, a lista de torneios é recarregada automaticamente.
-- A allowlist administrativa fica em `admin_users`; secrets nunca são enviados ao navegador.
-
-Configuração, operação e estado da implementação: `docs/features/digilab-integration.md`.
-
-## Estado Atual do Frontend
-
-Backlog imediato em `TODO.md`:
-
-- criar telas para as views:
-- `v_deck_representation`
-- `v_deck_stats`
-- `v_meta_by_month`
-- `v_montly_ranking`
-- `v_player_ranking`
-- `v_store_champions`
-
-## Fluxo de Trabalho
-
-1. Rodar `npm run lint`
-2. Rodar `npm run test`
-3. Se houver mudanca de banco, rodar `npm run db:snapshot`
-4. Revisar `git diff`
-5. Commit com mensagem clara
-
-Exemplo:
-
-```bash
-git commit -m "feat(players): improve pagination layout"
-```
-
-## Documentacao Complementar
-
-- `TODO.md`
-- `docs/codebase-audit-2026-02-27.md`
-- `docs/structure-plan.md`
-- `docs/naming-and-language.md`
-- `docs/security-rls.md`
-- `docs/features/digilab-integration.md`
-- `docs/features/ocr-import.md`
-- `docs/guides/guia-administradores-digistats.md`
-- `post-preview/README.md`
-
-## Seguranca
-
-- nao commitar segredos (`.env`, connection strings, chaves privadas)
-- rotacionar credenciais se forem expostas
-- revisar permissoes e politicas de RLS no Supabase
+Para contribuir com o projeto, consulte o [guia de desenvolvimento](docs/development.md). Ele reúne instalação, comandos, arquitetura e informações técnicas.

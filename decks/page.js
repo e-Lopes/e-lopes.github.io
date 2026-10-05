@@ -849,7 +849,7 @@ function normalizeDeckRankFormat(value) {
 function formatDeckRankFormatLabel(formatKey) {
     const text = String(formatKey || '').trim();
     if (!text) return 'All formats';
-    return text.replace(/\b\w/g, (char) => char.toUpperCase());
+    return liveData.formatLabel(text, tournamentFormatCatalog);
 }
 
 function populateDeckRankMonthSelect() {
@@ -879,7 +879,9 @@ function populateDeckRankFormatSelect() {
         const format = getDeckFormatTag(deck);
         if (format) formatSet.add(format);
     });
-    const formatOptions = Array.from(formatSet).sort((a, b) => a.localeCompare(b));
+    const formatOptions = Array.from(formatSet).sort((a, b) =>
+        liveData.compareFormatCodes(a, b, tournamentFormatCatalog)
+    );
 
     select.innerHTML =
         '<option value="">All formats</option>' +

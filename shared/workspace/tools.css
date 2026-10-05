@@ -1,0 +1,10 @@
+/* Shared v2 theme: foundation, controls and responsive tournament cards. */
+@import url('../theme.css');
+@import url('base.css');
+@import url('components.css');
+@import url('tournaments.css');
+@import url('details.css');
+@import url('decks.css');
+@import url('players.css');
+@import url('admin.css');
+@import url('forms.css');

@@ -303,7 +303,7 @@ function toggleAdminPassword(button) {
 }
 
 function switchAdminTab(tab) {
-    if (!adminAuthSession) return;
+    if (!adminAuthSession || !adminAuthProfile) return;
     adminActiveTab = tab;
     const container = document.getElementById('adminContainer');
     if (!container) return;
@@ -515,7 +515,7 @@ async function loadAdminProfile() {
         }
     });
     const rows = await response.json().catch(() => []);
-    if (!response.ok || !Array.isArray(rows) || rows.length !== 1) {
+    if (!response.ok || !Array.isArray(rows) || rows.length !== 1 || rows[0].user_id !== userId) {
         throw new Error('Este usuário não está autorizado como administrador.');
     }
     return rows[0];
@@ -539,6 +539,11 @@ async function refreshAdminSessionIfNeeded() {
 }
 
 function setAdminAuthView(authenticated) {
+    authenticated = Boolean(
+        authenticated &&
+        adminAuthSession?.access_token &&
+        adminAuthProfile?.user_id === adminAuthSession?.user?.id
+    );
     const container = document.getElementById('adminContainer');
     if (!container) return;
     document.getElementById('adminAuthGate')?.classList.toggle('is-hidden', authenticated);
@@ -597,7 +602,8 @@ function getAdminConfig() {
 
 function createAuthenticatedAdminHeaders(extraHeaders = {}) {
     const config = getAdminConfig();
-    if (!adminAuthSession?.access_token) throw new Error('Sessão administrativa ausente.');
+    if (!adminAuthSession?.access_token || adminAuthProfile?.user_id !== adminAuthSession?.user?.id)
+        throw new Error('Sessão administrativa ausente.');
     return {
         apikey: config.SUPABASE_ANON_KEY,
         Authorization: `Bearer ${adminAuthSession.access_token}`,
@@ -737,6 +743,17 @@ async function loadDigilabSyncHistory() {
 }
 
 function renderDigilabSyncHistory(host, history) {
+    const duration = (run) => {
+        const start = Date.parse(run.started_at);
+        const end = run.finished_at
+            ? Date.parse(run.finished_at)
+            : run.status === 'running'
+              ? Date.now()
+              : NaN;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '—';
+        const seconds = Math.round((end - start) / 1000);
+        return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}min ${seconds % 60}s`;
+    };
     const date = (value) =>
         value ? escapeAdminHtml(new Date(value).toLocaleString('pt-BR')) : '—';
     const labels = {
@@ -757,20 +774,20 @@ function renderDigilabSyncHistory(host, history) {
     host.innerHTML = `
         <h4>Execuções recentes</h4>
         <div class="admin-table-wrapper"><table class="admin-table">
-            <thead><tr><th>Início / fim</th><th>Origem</th><th>Status</th><th>Importados / atualizados</th><th>Jogadores / decks criados</th><th>Pendências / falhas</th></tr></thead>
+            <thead><tr><th>Início / fim</th><th>Duração</th><th>Origem</th><th>Status</th><th>Importados / atualizados</th><th>Jogadores / decks criados</th><th>Pendências / falhas</th></tr></thead>
             <tbody>${
                 runs.length
                     ? runs
                           .map((run) => {
                               const counts = run.summary || {};
-                              return `<tr><td>${date(run.started_at)}<br>${date(run.finished_at)}</td><td>${run.source === 'admin' ? 'Admin' : 'Agendada'}</td>
+                              return `<tr><td>${date(run.started_at)}<br>${date(run.finished_at)}</td><td>${duration(run)}${run.status === 'running' ? ' (em andamento)' : ''}</td><td>${run.source === 'admin' ? 'Admin' : 'Agendada'}</td>
                     <td>${escapeAdminHtml(labels[run.status] || run.status)}${run.error ? `<br>${escapeAdminHtml(run.error)}` : ''}</td>
                     <td>${Number(counts.imported) || 0} / ${Number(counts.updated) || 0}</td>
                     <td>${Number(counts.players_created) || 0} / ${Number(counts.decks_created) || 0}</td>
                     <td>${Number(counts.needs_review) || 0} / ${Number(counts.failed) || 0}</td></tr>`;
                           })
                           .join('')
-                    : '<tr><td colspan="6">Nenhuma execução registrada.</td></tr>'
+                    : '<tr><td colspan="7">Nenhuma execução registrada.</td></tr>'
             }</tbody>
         </table></div>
         <h4>Pendências</h4>
@@ -2209,7 +2226,7 @@ async function loadAdminFormats() {
 
     try {
         const res = await fetch(
-            `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?select=*&order=id.asc`,
+            `${window.APP_CONFIG.SUPABASE_URL}/rest/v1/formats?select=*&order=created_at.desc,id.desc`,
             { headers: window.createSupabaseHeaders() }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2294,6 +2311,32 @@ function closeFormatModal() {
     if (modal) modal.classList.remove('active');
 }
 
+function beginAdminFormSave(formId) {
+    const form = document.getElementById(formId);
+    if (!form || form.dataset.saving === 'true') return null;
+    form.dataset.saving = 'true';
+    const previousBusy = form.getAttribute('aria-busy');
+    form.setAttribute('aria-busy', 'true');
+    const buttons = [...form.querySelectorAll('[type="submit"]')].map((button) => ({
+        button,
+        disabled: button.disabled,
+        text: button.textContent
+    }));
+    buttons.forEach(({ button }) => {
+        button.disabled = true;
+        button.textContent = 'Salvando…';
+    });
+    return () => {
+        delete form.dataset.saving;
+        if (previousBusy === null) form.removeAttribute('aria-busy');
+        else form.setAttribute('aria-busy', previousBusy);
+        buttons.forEach(({ button, disabled, text }) => {
+            button.disabled = disabled;
+            button.textContent = text;
+        });
+    };
+}
+
 async function saveFormat(e) {
     e.preventDefault();
     const modal = document.getElementById('adminFormatModal');
@@ -2313,7 +2356,9 @@ async function saveFormat(e) {
         return;
     }
 
-    statusEl.textContent = 'Saving…';
+    const finishSave = beginAdminFormSave('adminFormatForm');
+    if (!finishSave) return;
+    statusEl.textContent = 'Salvando…';
 
     try {
         const payload = { code, name: name || null, is_active: isActive, is_default: isDefault };
@@ -2356,6 +2401,8 @@ async function saveFormat(e) {
         await loadAdminFormats();
     } catch (err) {
         statusEl.textContent = `Erro: ${err.message}`;
+    } finally {
+        finishSave();
     }
 }
 
@@ -2636,7 +2683,9 @@ async function saveBanEntry(e) {
         return;
     }
 
-    statusEl.textContent = 'Saving…';
+    const finishSave = beginAdminFormSave('adminBanForm');
+    if (!finishSave) return;
+    statusEl.textContent = 'Salvando…';
 
     try {
         const headers = {
@@ -2685,6 +2734,8 @@ async function saveBanEntry(e) {
         await loadAdminBanList();
     } catch (err) {
         statusEl.textContent = `Erro: ${err.message}`;
+    } finally {
+        finishSave();
     }
 }
 
@@ -4548,8 +4599,9 @@ async function saveStore(e) {
     }
 
     const payload = { name, bandai_nick, logo_url, is_active };
-    const submitBtn = document.querySelector('#adminStoreForm [type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
+    const finishSave = beginAdminFormSave('adminStoreForm');
+    if (!finishSave) return;
+    if (statusEl) statusEl.textContent = 'Salvando…';
 
     try {
         await refreshAdminSessionIfNeeded();
@@ -4590,7 +4642,7 @@ async function saveStore(e) {
     } catch (err) {
         if (statusEl) statusEl.textContent = `Erro: ${err.message}`;
     } finally {
-        if (submitBtn) submitBtn.disabled = false;
+        finishSave();
     }
 }
 

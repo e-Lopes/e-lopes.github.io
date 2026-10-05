@@ -1,4 +1,9 @@
 node_modules
+.tmp
 dist
 build
 *.min.js
+demo-v2/mfe
+demo-v2/app-shell
+frontend/apps/workspace/DomainForms.tsx
+frontend/apps/builder/DomainForms.tsx

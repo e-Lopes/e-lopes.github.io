@@ -1,0 +1,174 @@
+:root.v2-tools #v2Tools .players-container-embedded {
+    display: grid;
+    gap: 20px;
+}
+:root.v2-tools #v2Tools .players-row {
+    margin: 0 !important;
+}
+:root.v2-tools #v2Tools .players-row-search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+}
+:root.v2-tools #v2Tools .players-inactive-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+:root.v2-tools #v2Tools .players-row-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+:root.v2-tools #v2Tools #playersList {
+    display: grid;
+    gap: 12px;
+    background: transparent !important;
+}
+:root.v2-tools #v2Tools .player-profile {
+    background: var(--ds-panel);
+    border: 1px solid var(--ds-line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+:root.v2-tools #v2Tools .player-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+}
+:root.v2-tools #v2Tools .player-initials {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    border: 1px solid #754249;
+    background: var(--ds-red-soft);
+    color: var(--ds-red);
+    border-radius: 50%;
+    font-weight: 700;
+}
+:root.v2-tools #v2Tools .player-profile-identity {
+    flex: 1;
+    min-width: 0;
+}
+:root.v2-tools #v2Tools .player-profile h2 {
+    font-size: 18px;
+    margin: 0 0 8px !important;
+    overflow-wrap: anywhere;
+}
+:root.v2-tools #v2Tools .player-aliases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    font-size: 14px;
+    color: var(--ds-muted);
+}
+:root.v2-tools #v2Tools .player-aliases small {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 8px;
+}
+:root.v2-tools #v2Tools .player-history-toggle {
+    width: 100%;
+    padding: 12px 20px !important;
+    border: 0 !important;
+    border-top: 1px solid var(--ds-line) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--ds-muted) !important;
+    display: flex;
+    justify-content: space-between;
+    min-height: 44px;
+}
+:root.v2-tools #v2Tools .player-history-toggle:hover {
+    color: var(--ds-red) !important;
+    background: var(--ds-raised) !important;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .player-history,
+        .player-history-entry,
+        .player-history-item,
+        .player-history-decklist-panel
+    ) {
+    background: transparent !important;
+    border-color: var(--ds-line) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools .player-history:not([hidden]) {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+}
+:root.v2-tools #v2Tools .player-history-item {
+    display: grid !important;
+    grid-template-columns: 72px 34px minmax(0, 1fr) !important;
+    gap: 12px !important;
+    align-items: center;
+    padding: 12px !important;
+    background: var(--ds-raised) !important;
+    border: 1px solid var(--ds-line) !important;
+    min-height: 76px;
+}
+:root.v2-tools #v2Tools .player-history-main strong {
+    font-size: 15px;
+}
+:root.v2-tools #v2Tools .player-history-main span {
+    font-size: 13px;
+    color: var(--ds-muted) !important;
+}
+:root.v2-tools #v2Tools .player-history-store-logo {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    width: 72px !important;
+    height: 44px !important;
+    object-fit: contain;
+}
+:root.v2-tools #v2Tools .player-history-item .results-mini-rank {
+    position: static !important;
+    transform: none !important;
+    width: 34px !important;
+    height: 34px !important;
+}
+@media (max-width: 600px) {
+    :root.v2-tools #v2Tools .players-row-search {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :root.v2-tools #v2Tools .player-profile-header {
+        padding: 16px;
+        gap: 12px;
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+    }
+    :root.v2-tools #v2Tools .player-profile .player-actions {
+        grid-column: 2;
+        margin: 0 !important;
+        position: static !important;
+        justify-content: flex-start;
+    }
+    :root.v2-tools #v2Tools .player-profile h2 {
+        font-size: 16px;
+    }
+    :root.v2-tools #v2Tools .player-aliases {
+        display: grid;
+        gap: 4px;
+        font-size: 13px;
+    }
+    :root.v2-tools #v2Tools .player-history-item {
+        display: grid !important;
+        grid-template-columns: 48px 32px minmax(0, 1fr) !important;
+        gap: 8px !important;
+    }
+    :root.v2-tools #v2Tools .player-history-store-logo {
+        width: 48px !important;
+    }
+}

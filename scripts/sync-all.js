@@ -204,7 +204,7 @@ async function fetchMetadata(codes) {
                     const rows = await res.json();
                     if (Array.isArray(rows)) rows.forEach(r => pushRow(r, result, found));
                 }
-            } catch (_) {}
+            } catch {}
             await sleep(SLEEP_RETRY_MS);
         }
         const stillMissed = codes.filter(c => !found.has(c));

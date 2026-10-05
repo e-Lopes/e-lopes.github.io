@@ -19,7 +19,7 @@
         const notice = document.createElement('button');
         notice.id = id;
         notice.type = 'button';
-        notice.textContent = 'New version available. Updating...';
+        notice.textContent = 'Nova versão disponível. Atualizando…';
         notice.style.cssText = [
             'position:fixed',
             'left:50%',
@@ -28,8 +28,8 @@
             'z-index:10000',
             'font:600 12px/1.2 Segoe UI, sans-serif',
             'color:#fff',
-            'background:#2f3a7a',
-            'border:1px solid #667eea',
+            'background:#352124',
+            'border:1px solid #ef646b',
             'padding:10px 14px',
             'border-radius:10px',
             'box-shadow:0 8px 24px rgba(0,0,0,.3)',
@@ -70,7 +70,7 @@
         });
     }
 
-    window.addEventListener('load', async () => {
+    async function register() {
         const swUrl = await findSwUrl();
         if (!swUrl) return;
 
@@ -84,6 +84,8 @@
         } catch (error) {
             console.log('Service Worker registration failed:', error);
         }
-    });
+    }
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register, { once: true });
 })();
 

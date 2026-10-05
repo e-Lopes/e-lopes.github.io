@@ -6,10 +6,10 @@
     const LEGACY_IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
     const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
     const DIGIMON_ALL_CARDS_API = 'https://digimoncard.io/api-public/getAllCards';
-    const DIGISTATS_LOGO_URL = '../../icons/logo.png';
+    const DIGISTATS_LOGO_URL = window.DIGISTATS_MICRO_FRONTENDS ? 'icons/logo.png' : '../../icons/logo.png';
     const BLANK_MIDDLE_FALLBACK_BG = window.APP_CONFIG?.SUPABASE_URL
         ? `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/public/post-backgrounds/AD01.png`
-        : '../../icons/AD01.png';
+        : window.DIGISTATS_MICRO_FRONTENDS ? 'icons/AD01.png' : '../../icons/AD01.png';
     const TEMPLATE_EDITOR_STATE_KEY = 'digistats.template-editor.state.v1';
 
     const CATALOG_BUCKET_URL = window.APP_CONFIG?.SUPABASE_URL
@@ -120,7 +120,7 @@
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    async function initializeDeckbuilder() {
         bindActions();
         render([]);
         renderCardSearchResults();
@@ -132,7 +132,11 @@
         await Promise.all([loadBanListFromDb(), loadCatalog()]);
         await applyContextFromQuery();
         populateSetFilterDropdown();
-    });
+    }
+    window.initializeDeckbuilder = initializeDeckbuilder;
+    window.refreshDeckbuilderContext = applyContextFromQuery;
+    if (!window.DIGISTATS_MICRO_FRONTENDS)
+        document.addEventListener('DOMContentLoaded', initializeDeckbuilder);
 
     function scheduleCardSearchResultsLayout() {
         if (cardSearchLayoutTimer) { clearTimeout(cardSearchLayoutTimer); cardSearchLayoutTimer = null; }
@@ -266,7 +270,7 @@
         if (backLink) {
             const params = new URLSearchParams(window.location.search);
             const returnView = params.get('returnView');
-            const dashboardUrl = new URL('../../index.html', window.location.href);
+            const dashboardUrl = window.DIGISTATS_MICRO_FRONTENDS ? new URL('demo-v2/tools.html', document.baseURI) : new URL('../../index.html', window.location.href);
             if (returnView === 'tournaments' || returnView === 'decks' || returnView === 'players' || returnView === 'statistics') {
                 dashboardUrl.searchParams.set('view', returnView);
             }
@@ -383,6 +387,7 @@
         }
 
         document.addEventListener('keydown', (e) => {
+            if (window.DIGISTATS_MICRO_FRONTENDS && !document.getElementById('v2Tools')?.querySelector('[data-builder-root]')) return;
             if (e.key === 'Escape') { closeImportModal(); closeClearModal(); closeCardZoomModal(); }
         });
 
@@ -922,7 +927,7 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url; link.download = filename;
-            document.body.appendChild(link);
+            (window.digiStatsComponentRoot ? window.digiStatsComponentRoot() : document.body).appendChild(link);
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
@@ -2682,7 +2687,7 @@
         if (cardSearchResults.length) renderCardSearchResults();
 
         if (!entries.length) {
-            board.innerHTML = '<div class="decklist-builder-empty">No cards yet.</div>';
+            board.innerHTML = '<div class="decklist-builder-empty">Nenhuma carta adicionada.</div>';
             return;
         }
 

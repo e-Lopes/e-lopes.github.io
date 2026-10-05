@@ -131,7 +131,8 @@ const STATISTICS_COLUMN_HELP_PTBR = {
         monthly_rank: 'Posição da carta no mês com base na presença em decklists Top 4.',
         card_name: 'Nome da carta.',
         total: 'Total de decklists Top 4 (1º ao 4º lugar) que contêm esta carta.',
-        champion: 'Decklists campeãs (1º lugar) que contêm esta carta. Não é o número de títulos da carta.',
+        champion:
+            'Decklists campeãs (1º lugar) que contêm esta carta. Não é o número de títulos da carta.',
         top2: 'Decklists que finalizaram em 2º lugar contendo esta carta.',
         top3: 'Decklists que finalizaram em 3º lugar contendo esta carta.',
         top4: 'Decklists que finalizaram em 4º lugar contendo esta carta.'
@@ -325,6 +326,7 @@ const FALLBACK_FORMAT_OPTIONS = [
     { id: 3, code: 'EX11', isDefault: true }
 ];
 let tournamentFormats = [];
+let tournamentFormatCatalog = [];
 let tournamentFormatsLoaded = false;
 
 window.addEventListener('digistats:tournaments-changed', () => {
@@ -381,8 +383,15 @@ function saveViewMode() {
 }
 
 function getSavedDashboardView() {
+    if (window.DIGISTATS_WORKSPACE_VIEW) return window.DIGISTATS_WORKSPACE_VIEW;
     const requested = new URLSearchParams(window.location.search).get('view');
-    if (requested === 'tournaments' || requested === 'decks' || requested === 'players' || requested === 'statistics') {
+    if (
+        requested === 'tournaments' ||
+        requested === 'decks' ||
+        requested === 'players' ||
+        requested === 'statistics' ||
+        requested === 'admin'
+    ) {
         return requested;
     }
     const saved = localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
@@ -546,8 +555,8 @@ function normalizeFormatCode(value) {
         .trim()
         .toUpperCase();
     if (!raw) return '';
-    const explicitCode = raw.match(/[A-Z]{1,4}\d{1,3}/);
-    if (explicitCode?.[0]) return explicitCode[0];
+    const explicitCode = raw.match(/[A-Z]{1,4}-?\d{1,3}(?:\.\d+)?/);
+    if (explicitCode?.[0]) return explicitCode[0].replace('-', '');
     return raw.replace(/[^A-Z0-9]/g, '');
 }
 
@@ -580,7 +589,7 @@ async function loadTournamentFormats() {
 
     try {
         const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/formats?select=id,code,name,is_active,is_default&is_active=eq.true&order=is_default.desc,code.asc`,
+            `${SUPABASE_URL}/rest/v1/formats?select=id,code,name,is_active,is_default,created_at&order=created_at.desc,id.desc`,
             { headers }
         );
 
@@ -598,7 +607,9 @@ async function loadTournamentFormats() {
             return tournamentFormats;
         }
 
+        tournamentFormatCatalog = rows;
         tournamentFormats = rows
+            .filter((row) => row.is_active !== false)
             .map((row) => {
                 const code = normalizeFormatCode(row?.code);
                 if (!code) return null;
@@ -607,7 +618,9 @@ async function loadTournamentFormats() {
                 return {
                     id: Number.isFinite(Number(row?.id)) ? Number(row.id) : null,
                     code,
-                    label: name && normalizedName !== code ? `${code} - ${name}` : code,
+                    created_at: row.created_at,
+                    name,
+                    label: name && normalizedName !== code ? `${name} - ${code}` : code,
                     isDefault: row?.is_default === true
                 };
             })
@@ -641,6 +654,7 @@ function populateTournamentFormatSelect(selectId, options = {}) {
         optionItems.push({
             id: Number.isFinite(Number(format.id)) ? Number(format.id) : null,
             code: format.code,
+            created_at: format.created_at,
             label: format.label || format.code
         });
     });
@@ -661,7 +675,10 @@ function populateTournamentFormatSelect(selectId, options = {}) {
         select.appendChild(blankOption);
     }
 
-    const sortedItems = optionItems.sort((a, b) => b.code.localeCompare(a.code));
+    const sortedItems = optionItems.sort((a, b) =>
+        String(b.created_at || '').localeCompare(String(a.created_at || '')) ||
+        b.code.localeCompare(a.code)
+    );
     sortedItems.forEach((item) => {
         const option = document.createElement('option');
         option.value = item.id ? String(item.id) : `code:${item.code}`;
@@ -748,7 +765,9 @@ async function loadStoreLogos() {
             if (s.logo_url) storeLogoMap.set(normalizeStoreName(s.name), s.logo_url);
         });
         window.__storeLogoMap = storeLogoMap;
-    } catch { /* silent — falls back to local icons */ }
+    } catch {
+        /* silent — falls back to local icons */
+    }
 }
 
 function setTournamentFormDirty(mode, isDirty) {
@@ -769,21 +788,33 @@ function enhanceTournamentFormLayout(mode) {
     if (!form || form.dataset.layoutEnhanced === 'true') return;
     const ids = isCreate
         ? {
-              store: 'createStoreSelect', date: 'createTournamentDate',
-              name: 'createTournamentName', format: 'createTournamentFormat',
-              total: 'createTotalPlayers', instagram: 'createInstagramLink',
-              rows: 'createResultsRows', add: 'btnAddResultRow', ocr: 'createOcrFilesInput'
+              store: 'createStoreSelect',
+              date: 'createTournamentDate',
+              name: 'createTournamentName',
+              format: 'createTournamentFormat',
+              total: 'createTotalPlayers',
+              instagram: 'createInstagramLink',
+              rows: 'createResultsRows',
+              add: 'btnAddResultRow',
+              ocr: 'createOcrFilesInput'
           }
         : {
-              store: 'editStoreSelect', date: 'editTournamentDate',
-              name: 'editTournamentName', format: 'editTournamentFormat',
-              total: 'editTotalPlayers', instagram: 'editInstagramLink',
-              rows: 'editResultsRows', add: 'btnAddEditResultRow', ocr: 'editOcrFilesInput'
+              store: 'editStoreSelect',
+              date: 'editTournamentDate',
+              name: 'editTournamentName',
+              format: 'editTournamentFormat',
+              total: 'editTotalPlayers',
+              instagram: 'editInstagramLink',
+              rows: 'editResultsRows',
+              add: 'btnAddEditResultRow',
+              ocr: 'editOcrFilesInput'
           };
     const groupFor = (id) => document.getElementById(id)?.closest('.form-group');
     const generalGroups = [
-        ['store', groupFor(ids.store)], ['date', groupFor(ids.date)],
-        ['name', groupFor(ids.name)], ['format', groupFor(ids.format)]
+        ['store', groupFor(ids.store)],
+        ['date', groupFor(ids.date)],
+        ['name', groupFor(ids.name)],
+        ['format', groupFor(ids.format)]
     ].filter(([, group]) => group);
     const totalGroup = groupFor(ids.total);
     const instagramGroup = groupFor(ids.instagram);
@@ -838,7 +869,8 @@ function enhanceTournamentFormLayout(mode) {
     }
     const columns = document.createElement('div');
     columns.className = 'tournament-results-columns';
-    columns.innerHTML = '<span>#</span><span>Jogador</span><span>Deck</span><span>Pontos</span><span>Acoes</span>';
+    columns.innerHTML =
+        '<span>#</span><span>Jogador</span><span>Deck</span><span>Pontos</span><span>Acoes</span>';
     resultsGroup.insertBefore(resultsHeader, rows);
     resultsGroup.insertBefore(columns, rows);
     if (totalGroup) {
@@ -868,10 +900,17 @@ function enhanceTournamentFormLayout(mode) {
     ocrGroup.querySelector(':scope > label')?.remove();
     ocrDetails.append(summary, ocrGroup);
 
-    form.insertBefore(nav, actions);
-    form.insertBefore(ocrDetails, actions);
-    form.insertBefore(resultsGroup, actions);
-    form.insertBefore(general, actions);
+    if (window.DIGISTATS_NATIVE_V2) {
+        ocrDetails.open = false;
+        form.insertBefore(general, actions);
+        form.insertBefore(ocrDetails, actions);
+        form.insertBefore(resultsGroup, actions);
+    } else {
+        form.insertBefore(nav, actions);
+        form.insertBefore(ocrDetails, actions);
+        form.insertBefore(resultsGroup, actions);
+        form.insertBefore(general, actions);
+    }
     form.insertBefore(instagramDetails, actions);
     const cancel = actions.querySelector('.btn-cancel');
     const save = actions.querySelector('.btn-save');
@@ -909,7 +948,8 @@ function enhanceTournamentFormLayout(mode) {
             const sectionId = button.dataset.tournamentJump || '';
             setActiveSection(sectionId);
             document.getElementById(sectionId)?.scrollIntoView({
-                behavior: 'smooth', block: 'start'
+                behavior: 'smooth',
+                block: 'start'
             });
         });
     });
@@ -925,7 +965,7 @@ function setupTournamentModalLayouts() {
     enhanceTournamentFormLayout('edit');
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initializeTournamentTools() {
     setupTournamentModalLayouts();
     setupDigilabSyncCountdown();
     setupPerPageSelector();
@@ -992,7 +1032,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     document
         .getElementById('editTournamentForm')
         .addEventListener('submit', editTournamentFormSubmit);
-});
+    window.digistatsToolsReady = true;
+    window.dispatchEvent(new CustomEvent('digistats:tools-ready'));
+}
+window.initializeTournamentTools = initializeTournamentTools;
+if (!window.DIGISTATS_MICRO_FRONTENDS)
+    document.addEventListener('DOMContentLoaded', initializeTournamentTools);
 
 function waitForMobileShellFirstPaint() {
     if (!window.matchMedia?.('(max-width: 768px)').matches) {
@@ -1009,11 +1054,16 @@ function waitForMobileShellFirstPaint() {
 
 async function restoreDashboardReturnContext() {
     const params = new URLSearchParams(window.location.search);
-    const requestedView = params.get('view');
+    const requestedView = params.get('view') || (window.DIGISTATS_MICRO_FRONTENDS && params.has('returnTournamentId') ? 'tournaments' : null);
     const tournamentId = String(params.get('returnTournamentId') || '').trim();
     const requestedMode = params.get('returnMode');
 
-    if (requestedView === 'tournaments' || requestedView === 'decks' || requestedView === 'players' || requestedView === 'statistics') {
+    if (
+        requestedView === 'tournaments' ||
+        requestedView === 'decks' ||
+        requestedView === 'players' ||
+        requestedView === 'statistics'
+    ) {
         await switchDashboardView(requestedView);
     }
 
@@ -1036,11 +1086,15 @@ async function restoreDashboardReturnContext() {
     }
 
     if (requestedView || tournamentId || requestedMode) {
-        params.delete('view');
+        if (!window.DIGISTATS_NATIVE_V2) params.delete('view');
         params.delete('returnTournamentId');
         params.delete('returnMode');
         const query = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+        window.history.replaceState(
+            {},
+            '',
+            `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+        );
     }
 }
 
@@ -1292,8 +1346,8 @@ function setupFilters() {
     const filtersRow = document.querySelector('.filters-row');
 
     const getActiveFilterCount = () =>
-        [filterStore, filterTournamentName, filterInstagram, filterMonthYear].filter(
-            (input) => Boolean(input?.value)
+        [filterStore, filterTournamentName, filterInstagram, filterMonthYear].filter((input) =>
+            Boolean(input?.value)
         ).length;
     const updateFilterToggle = () => {
         const count = getActiveFilterCount();
@@ -1323,7 +1377,8 @@ function setupFilters() {
     };
 
     if (filterStore) filterStore.addEventListener('change', applyAndUpdateFilters);
-    if (filterTournamentName) filterTournamentName.addEventListener('change', applyAndUpdateFilters);
+    if (filterTournamentName)
+        filterTournamentName.addEventListener('change', applyAndUpdateFilters);
     if (filterInstagram) filterInstagram.addEventListener('change', applyAndUpdateFilters);
     if (filterMonthYear) {
         filterMonthYear.addEventListener('change', () => {
@@ -1428,6 +1483,10 @@ function formatMonthYearLabel(monthKey) {
 }
 
 function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) {
+    if (window.DIGISTATS_MICRO_FRONTENDS) {
+        window.digistatsNavigate('posts', { tournament: String(tournament.id) });
+        return;
+    }
     const formatCode = getTournamentFormatCode(tournament);
     const tournamentDataForCanvas = {
         topFour: (results || []).slice(0, 4).map((item) => ({
@@ -1441,7 +1500,8 @@ function openPostGeneratorWithTournamentData(tournament, results, totalPlayers) 
         storeId: String(tournament.store_id || ''),
         tournamentDate: String(tournament.tournament_date || ''),
         pieStateKey: String(
-            tournament.id || `${String(tournament.store_id || '')}-${String(tournament.tournament_date || '')}`
+            tournament.id ||
+                `${String(tournament.store_id || '')}-${String(tournament.tournament_date || '')}`
         ),
         storeName: tournament.store?.name || 'Loja',
         tournamentName: tournament.tournament_name || 'Torneio',
@@ -1733,7 +1793,12 @@ function setupDashboardViewSwitching() {
     const btnShowStatisticsNav = document.getElementById('btnShowStatisticsNav');
     const btnAdminNav = document.getElementById('btnAdminNav');
 
-    if (!btnShowTournamentsNav && !btnManageDecksNav && !btnManagePlayersNav && !btnShowStatisticsNav)
+    if (
+        !btnShowTournamentsNav &&
+        !btnManageDecksNav &&
+        !btnManagePlayersNav &&
+        !btnShowStatisticsNav
+    )
         return;
 
     if (btnShowTournamentsNav) {
@@ -1768,13 +1833,19 @@ function setupDashboardViewSwitching() {
 
     updateDashboardViewUi();
     const savedDashboardView = getSavedDashboardView();
-    if (savedDashboardView !== currentDashboardView) {
+    if (!window.DIGISTATS_MICRO_FRONTENDS && savedDashboardView !== currentDashboardView) {
         switchDashboardView(savedDashboardView);
     }
 }
 
 async function switchDashboardView(view) {
-    if (view !== 'tournaments' && view !== 'decks' && view !== 'players' && view !== 'statistics' && view !== 'admin')
+    if (
+        view !== 'tournaments' &&
+        view !== 'decks' &&
+        view !== 'players' &&
+        view !== 'statistics' &&
+        view !== 'admin'
+    )
         return;
     if (currentDashboardView === view) return;
 
@@ -1868,13 +1939,16 @@ function updateDashboardViewUi() {
     const mobileTournamentPageHeader = document.getElementById('mobileTournamentPageHeader');
     const mobileTournamentToolbar = document.querySelector('.mobile-tournament-toolbar');
 
-    if (filtersRow) filtersRow.classList.toggle('is-hidden', isDecks || isPlayers || isStatistics || isAdmin);
+    if (filtersRow)
+        filtersRow.classList.toggle('is-hidden', isDecks || isPlayers || isStatistics || isAdmin);
     if (decksContainer) decksContainer.classList.toggle('is-hidden', !isDecks);
     if (playersContainer) playersContainer.classList.toggle('is-hidden', !isPlayers);
     if (statisticsContainer) statisticsContainer.classList.toggle('is-hidden', !isStatistics);
     if (adminContainer) adminContainer.classList.toggle('is-hidden', !isAdmin);
-    if (mobileTournamentPageHeader) mobileTournamentPageHeader.classList.toggle('is-hidden', !isTournaments);
-    if (mobileTournamentToolbar) mobileTournamentToolbar.classList.toggle('is-hidden', !isTournaments);
+    if (mobileTournamentPageHeader)
+        mobileTournamentPageHeader.classList.toggle('is-hidden', !isTournaments);
+    if (mobileTournamentToolbar)
+        mobileTournamentToolbar.classList.toggle('is-hidden', !isTournaments);
 
     if (btnShowTournamentsNav) {
         btnShowTournamentsNav.classList.toggle('is-active', isTournaments);
@@ -2003,7 +2077,10 @@ function loadScriptOnce(src) {
         script.src = src;
         script.onload = () => resolve();
         script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-        document.body.appendChild(script);
+        (window.digiStatsComponentRoot
+            ? window.digiStatsComponentRoot()
+            : document.body
+        ).appendChild(script);
     });
 }
 
@@ -2118,8 +2195,9 @@ async function mountStatisticsContainer() {
     }
 
     if (viewTabs) {
-        viewTabs.innerHTML = STATISTICS_VIEWS.map((view) =>
-            `<button type="button" class="statistics-view-btn" data-view="${view.value}">${view.label}</button>`
+        viewTabs.innerHTML = STATISTICS_VIEWS.map(
+            (view) =>
+                `<button type="button" class="statistics-view-btn" data-view="${view.value}">${view.label}</button>`
         ).join('');
 
         const buttons = viewTabs.querySelectorAll('.statistics-view-btn');
@@ -2309,7 +2387,9 @@ async function loadAdminAssets() {
     if (adminScriptsPromise) return adminScriptsPromise;
 
     const prefix = getAssetPrefix();
-    adminScriptsPromise = loadScriptOnce(`${prefix}admin/script.js?v=${window.APP_VERSION || 'dev'}`);
+    adminScriptsPromise = loadScriptOnce(
+        `${prefix}admin/script.js?v=${window.APP_VERSION || 'dev'}`
+    );
     return adminScriptsPromise;
 }
 
@@ -2356,7 +2436,12 @@ async function loadAndRenderStatistics(viewName) {
                 { isMonthly: false }
             );
             const playerAllTimeMap = new Map(
-                statisticsViewData.map((row) => [String(row?.player || '').trim().toLowerCase(), row])
+                statisticsViewData.map((row) => [
+                    String(row?.player || '')
+                        .trim()
+                        .toLowerCase(),
+                    row
+                ])
             );
             statisticsMonthlyRankingData = normalizePlayerRankingRows(
                 Array.isArray(monthlyRows) ? monthlyRows : [],
@@ -2414,14 +2499,16 @@ async function loadAndRenderStatistics(viewName) {
                     ? window.supabaseApi.get(imgEndpoint)
                     : fetch(`${SUPABASE_URL}${imgEndpoint}`, { headers })
             ]);
-        if (!metaResponse.ok) throw new Error(`Failed to load meta data (${metaResponse.status})`);
-        if (!colorResponse.ok) throw new Error(`Failed to load color data (${colorResponse.status})`);
-        const [metaRows, colorRows, imgRows] = await Promise.all([
-            metaResponse.json(),
-            colorResponse.json(),
-            imgResponse.ok ? imgResponse.json() : Promise.resolve([])
-        ]);
-        await ensureStatisticsDeckColorMap();
+            if (!metaResponse.ok)
+                throw new Error(`Failed to load meta data (${metaResponse.status})`);
+            if (!colorResponse.ok)
+                throw new Error(`Failed to load color data (${colorResponse.status})`);
+            const [metaRows, colorRows, imgRows] = await Promise.all([
+                metaResponse.json(),
+                colorResponse.json(),
+                imgResponse.ok ? imgResponse.json() : Promise.resolve([])
+            ]);
+            await ensureStatisticsDeckColorMap();
             statisticsViewData = Array.isArray(metaRows) ? metaRows : [];
             statisticsColorData = Array.isArray(colorRows) ? colorRows : [];
             statisticsDeckImageMap = new Map();
@@ -2434,8 +2521,7 @@ async function loadAndRenderStatistics(viewName) {
             });
             statisticsMonthlyRankingData = [];
         } else {
-            const isDeckView =
-                viewName === 'v_deck_stats' || viewName === 'v_deck_representation';
+            const isDeckView = viewName === 'v_deck_stats' || viewName === 'v_deck_representation';
 
             const endpoint = `/rest/v1/${viewName}?select=*&limit=1000`;
             const sparklineEndpoint =
@@ -2699,7 +2785,9 @@ async function loadDeckColorStatisticsRows() {
         .sort((a, b) => {
             const monthDiff = String(b.month || '').localeCompare(String(a.month || ''));
             if (monthDiff !== 0) return monthDiff;
-            const formatDiff = String(a.format_code || '').localeCompare(String(b.format_code || ''));
+            const formatDiff = String(a.format_code || '').localeCompare(
+                String(b.format_code || '')
+            );
             if (formatDiff !== 0) return formatDiff;
             const usageDiff = Number(b.usage_percent || 0) - Number(a.usage_percent || 0);
             if (usageDiff !== 0) return usageDiff;
@@ -2715,7 +2803,9 @@ function buildDeckColorOverallRowsFromSource(sourceRows, filters = {}) {
     const list = Array.isArray(sourceRows) ? sourceRows : [];
     if (!list.length) return [];
     const monthFilter = String(filters?.monthKey || '').trim();
-    const formatFilter = String(filters?.formatCode || '').trim().toUpperCase();
+    const formatFilter = String(filters?.formatCode || '')
+        .trim()
+        .toUpperCase();
 
     const scopedRows = list.filter((row) => {
         const placement = Number(row?.placement);
@@ -2762,7 +2852,12 @@ function buildDeckColorOverallRowsFromSource(sourceRows, filters = {}) {
 
             if (!colorDeckAgg.has(colorCode)) colorDeckAgg.set(colorCode, new Map());
             const deckMap = colorDeckAgg.get(colorCode);
-            const deckStats = deckMap.get(deckName) || { deck: deckName, titles: 0, top4_total: 0, usage_count: 0 };
+            const deckStats = deckMap.get(deckName) || {
+                deck: deckName,
+                titles: 0,
+                top4_total: 0,
+                usage_count: 0
+            };
             deckStats.usage_count += 1;
             if (placement === 1) deckStats.titles += 1;
             if (placement <= 4) deckStats.top4_total += 1;
@@ -2832,9 +2927,11 @@ async function enrichTopCardsWithCardName(rows) {
 
     const missingCodes = Array.from(
         new Set(
-            list.map((row) => normalizeCardCodeForLookup(row?.card_code)).filter(
-                (code) => code && !byCode.has(code) && !topCardsNameLookupAttempted.has(code)
-            )
+            list
+                .map((row) => normalizeCardCodeForLookup(row?.card_code))
+                .filter(
+                    (code) => code && !byCode.has(code) && !topCardsNameLookupAttempted.has(code)
+                )
         )
     );
     if (missingCodes.length && ENABLE_TOP_CARDS_API_LOOKUP) {
@@ -2862,10 +2959,7 @@ async function enrichTopCardsWithCardName(rows) {
             normalizeCardCodeForLookup(inlineName) === code;
         return {
             ...row,
-            card_name:
-                byCode.get(code) ||
-                (!inlineNameIsCode ? inlineName : '') ||
-                '-'
+            card_name: byCode.get(code) || (!inlineNameIsCode ? inlineName : '') || '-'
         };
     });
 }
@@ -2911,7 +3005,10 @@ async function fetchCardsFromDigimonApi(codes) {
 
     for (const chunk of chunkArray(codes, 20)) {
         try {
-            const query = new URLSearchParams({ card: chunk.join(','), limit: String(chunk.length * 2) });
+            const query = new URLSearchParams({
+                card: chunk.join(','),
+                limit: String(chunk.length * 2)
+            });
             const response = await fetch(`${DIGIMON_CARD_API_URL}?${query}`);
             if (response.ok) {
                 const rows = await response.json();
@@ -3082,7 +3179,8 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const dateFilterSelect = host.querySelector('#statisticsFilterDate');
     const stapleFilterSelect = host.querySelector('#statisticsFilterStaple');
     const deckFilterInput = host.querySelector('#statisticsFilterDeck');
-    const deckDatalist = host.querySelector('#statisticsDeckDatalist') ||
+    const deckDatalist =
+        host.querySelector('#statisticsDeckDatalist') ||
         document.getElementById('statisticsDeckDatalist');
     const playerSearchInput = host.querySelector('#statisticsPlayerSearch');
     const previousBoard = host.querySelector('.store-champions-board');
@@ -3190,18 +3288,17 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         : sourceColumns.includes('format')
           ? 'format'
           : '';
-    const monthColumn =
-        sourceColumns.includes('month')
-            ? 'month'
-            : viewName === 'v_player_ranking' && playerMonthlyColumns.includes('month')
-              ? 'month'
-              : '';
+    const monthColumn = sourceColumns.includes('month')
+        ? 'month'
+        : viewName === 'v_player_ranking' && playerMonthlyColumns.includes('month')
+          ? 'month'
+          : '';
     const dateColumn =
         viewName === 'v_player_ranking'
             ? ''
             : sourceColumns.includes('tournament_date')
-        ? 'tournament_date'
-        : sourceColumns.find((column) => /(^|_)date$/i.test(column)) || '';
+              ? 'tournament_date'
+              : sourceColumns.find((column) => /(^|_)date$/i.test(column)) || '';
 
     if (storeFilterSelect && storeColumn) {
         storeFilterSelect.classList.remove('is-hidden');
@@ -3351,10 +3448,20 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             const value = String(row?.is_staple || '')
                 .trim()
                 .toLowerCase();
-            return value === 'true' || value === 't' || value === '1' || value === 'yes' || value === 'sim';
+            return (
+                value === 'true' ||
+                value === 't' ||
+                value === '1' ||
+                value === 'yes' ||
+                value === 'sim'
+            );
         });
     }
-    if (viewName === 'v_top_cards_by_month' && !currentStatisticsMonthFilter && !currentStatisticsDeckFilter) {
+    if (
+        viewName === 'v_top_cards_by_month' &&
+        !currentStatisticsMonthFilter &&
+        !currentStatisticsDeckFilter
+    ) {
         filteredRows = aggregateTopCardsRows(filteredRows);
     }
     if (viewName === 'v_meta_by_month' && !currentStatisticsFormatFilter) {
@@ -3367,7 +3474,10 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             }
             return true;
         });
-        if (!hasManualMetaPeriodSelection && (!currentMetaOverviewPeriod || currentMetaOverviewPeriod === 'all')) {
+        if (
+            !hasManualMetaPeriodSelection &&
+            (!currentMetaOverviewPeriod || currentMetaOverviewPeriod === 'all')
+        ) {
             const latestMonth = getLatestStatisticsMonth(
                 filteredRows,
                 monthColumn,
@@ -3406,18 +3516,28 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             : aggregateMetaByDeckRows(periodRows);
         // Color data: apply same period + format filter
         const filteredColor = applyMetaPeriodFilter(
-            statisticsColorData.filter((r) =>
-                !currentStatisticsFormatFilter ||
-                String(r?.format_code || '').trim() === currentStatisticsFormatFilter
+            statisticsColorData.filter(
+                (r) =>
+                    !currentStatisticsFormatFilter ||
+                    String(r?.format_code || '').trim() === currentStatisticsFormatFilter
             ),
             currentMetaOverviewPeriod
         );
         if (tableWrapper) tableWrapper.classList.add('is-hidden');
         if (dataCard) dataCard.classList.add('is-hidden');
         const chartArea = host.querySelector('#statisticsChartArea');
-        if (chartArea) { chartArea.classList.add('is-hidden'); chartArea.innerHTML = ''; }
+        if (chartArea) {
+            chartArea.classList.add('is-hidden');
+            chartArea.innerHTML = '';
+        }
         host.querySelector('.meta-overview-panel')?.remove();
-        renderMetaOverview(host, aggregatedMeta, filteredColor, isStatisticsMobileViewport(), rawMetaRows);
+        renderMetaOverview(
+            host,
+            aggregatedMeta,
+            filteredColor,
+            isStatisticsMobileViewport(),
+            rawMetaRows
+        );
         if (status) status.textContent = '';
         return;
     }
@@ -3443,10 +3563,7 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         const sortedRows = [...filteredRows].sort(compareTopCardsRows);
         isTopCardsPaginated = true;
         topCardsTotalRows = sortedRows.length;
-        topCardsTotalPages = Math.max(
-            1,
-            Math.ceil(topCardsTotalRows / TOP_CARDS_PER_PAGE)
-        );
+        topCardsTotalPages = Math.max(1, Math.ceil(topCardsTotalRows / TOP_CARDS_PER_PAGE));
         if (currentTopCardsPage > topCardsTotalPages) {
             currentTopCardsPage = topCardsTotalPages;
         }
@@ -3463,7 +3580,11 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         if (primaryControls) {
             primaryControls.classList.add('is-store-champions-layout');
         }
-        if (secondaryControls && storeFilterSelect && storeFilterSelect.parentElement !== secondaryControls) {
+        if (
+            secondaryControls &&
+            storeFilterSelect &&
+            storeFilterSelect.parentElement !== secondaryControls
+        ) {
             secondaryControls.prepend(storeFilterSelect);
         }
         if (secondaryControls) {
@@ -3473,7 +3594,10 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
             playerSearchInput.classList.remove('is-hidden');
             playerSearchInput.value = currentStoreChampionsPlayerQuery;
         }
-        filteredRows = filterStoreChampionsRowsByPlayer(filteredRows, currentStoreChampionsPlayerQuery);
+        filteredRows = filterStoreChampionsRowsByPlayer(
+            filteredRows,
+            currentStoreChampionsPlayerQuery
+        );
     }
 
     if (secondaryControls) {
@@ -3499,7 +3623,10 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
                 status.textContent = 'Sem dados para o mes selecionado.';
             } else if (dateColumn && currentStatisticsDateFilter) {
                 status.textContent = 'Sem dados para a data selecionada.';
-            } else if (viewName === 'v_top_cards_by_month' && currentStatisticsStapleFilter === 'true') {
+            } else if (
+                viewName === 'v_top_cards_by_month' &&
+                currentStatisticsStapleFilter === 'true'
+            ) {
                 status.textContent = 'Sem dados para cartas staple.';
             } else if (viewName === 'v_top_cards_by_month') {
                 status.textContent =
@@ -3568,7 +3695,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
     const headerRow = document.createElement('tr');
     columns.forEach((column, columnIndex) => {
         const th = document.createElement('th');
-        const normalizedColumn = String(column || '').trim().toLowerCase();
+        const normalizedColumn = String(column || '')
+            .trim()
+            .toLowerCase();
         if (
             normalizedColumn === 'monthly_rank' ||
             normalizedColumn === 'overall_rank' ||
@@ -3660,7 +3789,9 @@ function renderStatisticsTable(rows, viewName, errorMessage = '') {
         const tr = document.createElement('tr');
         columns.forEach((column) => {
             const td = document.createElement('td');
-            const normalizedColumn = String(column || '').trim().toLowerCase();
+            const normalizedColumn = String(column || '')
+                .trim()
+                .toLowerCase();
             if (
                 normalizedColumn === 'monthly_rank' ||
                 normalizedColumn === 'overall_rank' ||
@@ -3815,13 +3946,17 @@ function bindStatisticsCardPreview(root) {
 }
 
 function getStatisticsCardPreviewImageCandidates(code) {
-    const encodedCode = encodeURIComponent(String(code || '').trim().toUpperCase());
+    const encodedCode = encodeURIComponent(
+        String(code || '')
+            .trim()
+            .toUpperCase()
+    );
     if (!encodedCode) return [];
 
     return [
         `https://images.digimoncard.io/images/cards/${encodedCode}.webp`,
         `https://images.digimoncard.io/images/cards/${encodedCode}.jpg`,
-        `${IMAGE_BASE_URL}${encodedCode}.webp`,
+        `${IMAGE_BASE_URL}${encodedCode}.webp`
     ];
 }
 
@@ -3831,10 +3966,23 @@ function normalizeStatisticsStapleState(value) {
     const normalized = String(value ?? '')
         .trim()
         .toLowerCase();
-    if (normalized === 'true' || normalized === 't' || normalized === '1' || normalized === 'yes' || normalized === 'sim') {
+    if (
+        normalized === 'true' ||
+        normalized === 't' ||
+        normalized === '1' ||
+        normalized === 'yes' ||
+        normalized === 'sim'
+    ) {
         return 'true';
     }
-    if (normalized === 'false' || normalized === 'f' || normalized === '0' || normalized === 'no' || normalized === 'nao' || normalized === 'não') {
+    if (
+        normalized === 'false' ||
+        normalized === 'f' ||
+        normalized === '0' ||
+        normalized === 'no' ||
+        normalized === 'nao' ||
+        normalized === 'não'
+    ) {
         return 'false';
     }
     return 'null';
@@ -3857,7 +4005,12 @@ function renderStatisticsStapleToggle(row, value) {
     if (!code) return '-';
     const state = normalizeStatisticsStapleState(value);
     const nextState = getNextStatisticsStapleState(state);
-    const stateLabel = state === 'true' ? 'Staple: Sim' : state === 'false' ? 'Staple: Não' : 'Staple: Não definido';
+    const stateLabel =
+        state === 'true'
+            ? 'Staple: Sim'
+            : state === 'false'
+              ? 'Staple: Não'
+              : 'Staple: Não definido';
     const nextLabel = nextState === 'true' ? 'Sim' : nextState === 'false' ? 'Não' : 'Não definido';
     const icon = state === 'true' ? '?' : state === 'false' ? '?' : '';
     return `
@@ -3876,13 +4029,17 @@ function renderStatisticsStapleToggle(row, value) {
 
 function bindStatisticsStapleToggle(root, viewName) {
     if (!root || viewName !== 'v_top_cards_by_month') return;
-    const buttons = root.querySelectorAll('button[data-stats-staple-code][data-stats-staple-state]');
+    const buttons = root.querySelectorAll(
+        'button[data-stats-staple-code][data-stats-staple-state]'
+    );
     if (!buttons.length) return;
 
     buttons.forEach((button) => {
         button.addEventListener('click', async () => {
             const code = normalizeCardCodeForLookup(button.dataset.statsStapleCode || '');
-            const currentState = normalizeStatisticsStapleState(button.dataset.statsStapleState || '');
+            const currentState = normalizeStatisticsStapleState(
+                button.dataset.statsStapleState || ''
+            );
             if (!code || stapleTogglePendingCodes.has(code)) return;
             const nextState = getNextStatisticsStapleState(currentState);
 
@@ -3939,7 +4096,9 @@ function ensureStatisticsCardPreviewPopover() {
     popover.id = 'statisticsCardPreviewPopover';
     popover.className = 'stats-card-preview-popover';
     popover.innerHTML = '<img alt="Card preview" />';
-    document.body.appendChild(popover);
+    (window.digiStatsComponentRoot ? window.digiStatsComponentRoot() : document.body).appendChild(
+        popover
+    );
     return popover;
 }
 
@@ -3982,7 +4141,20 @@ let _metaTop4RateChart = null;
 let _metaPlayerPointsChart = null;
 let _metaScatterChart = null;
 
-const PT_MONTHS_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const PT_MONTHS_ABBR = [
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez'
+];
 const fmtMonthKey = (m) => {
     const [y, mo] = String(m).split('-').map(Number);
     return `${PT_MONTHS_ABBR[mo - 1]}/${String(y).slice(2)}`;
@@ -4001,7 +4173,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         if (values.length < n) return values[values.length - 1] || 0;
         return values[n - 1] || 0;
     };
-    const MIN_TOP4_RATE_APPEARANCES_MONTH = Math.max(2, getTopNAppearancesCutoff(topDecks, 10) || 2);
+    const MIN_TOP4_RATE_APPEARANCES_MONTH = Math.max(
+        2,
+        getTopNAppearancesCutoff(topDecks, 10) || 2
+    );
     const ellipsis = (text, max = 16) => {
         const clean = String(text || '').trim();
         if (clean.length <= max) return clean;
@@ -4015,9 +4190,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
 
     // Aggregate per (deck, month): composite score (for bar charts) + appearances (for meta share %)
     const allMonths = new Set();
-    const monthTotals = new Map();          // month → total appearances
-    const deckMonthScore = new Map();       // deck → Map<month, composite score>
-    const deckMonthAppear = new Map();      // deck → Map<month, appearances>
+    const monthTotals = new Map(); // month → total appearances
+    const deckMonthScore = new Map(); // deck → Map<month, composite score>
+    const deckMonthAppear = new Map(); // deck → Map<month, appearances>
     rawRows.forEach((r) => {
         const month = normalizeStatisticsMonthKey(r?.month);
         const deck = String(r?.deck || '').trim();
@@ -4037,7 +4212,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
     const minTop4AppearancesAll = Math.max(2, allMonths.size || 0);
     if (months.length === 0) return '';
 
-    if (_metaEvolutionChart) { _metaEvolutionChart.destroy(); _metaEvolutionChart = null; }
+    if (_metaEvolutionChart) {
+        _metaEvolutionChart.destroy();
+        _metaEvolutionChart = null;
+    }
 
     const canvasId = `meta-evol-canvas-${Date.now()}`;
     const tooltipDefaults = {
@@ -4046,11 +4224,11 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         borderWidth: 1,
         titleColor: '#c8d4e8',
         bodyColor: '#8fa4c8',
-        padding: 10,
+        padding: 10
     };
     const scaleDefaults = {
         grid: { color: '#243450', drawTicks: false },
-        border: { color: '#2e4268' },
+        border: { color: '#2e4268' }
     };
 
     // ── Single month → horizontal bar chart ranked by score ────────────────
@@ -4063,7 +4241,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 score: deckCompositeScore(r),
                 titles: Number(r?.titles) || 0,
                 top4_total: Number(r?.top4_total) || 0,
-                appearances: Number(r?.appearances) || 0,
+                appearances: Number(r?.appearances) || 0
             }))
             .filter((d) => d.deck && d.score > 0)
             .sort((a, b) => {
@@ -4091,16 +4269,15 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 };
             })
             .filter((d) => d.deck && d.rate > 0 && d.appearances >= 2);
-        const top4RateTop = [...top4RateBase]
-            .sort((a, b) => b.rate - a.rate)
-            .slice(0, 10);
-        const top4RateData = top4RateTop
-            .filter((d) => d.deck && d.rate > 0);
+        const top4RateTop = [...top4RateBase].sort((a, b) => b.rate - a.rate).slice(0, 10);
+        const top4RateData = top4RateTop.filter((d) => d.deck && d.rate > 0);
         const top4MinAppearances = top4RateData.length
             ? Math.min(...top4RateData.map((d) => d.appearances))
             : 0;
         const top4LabelsFull = top4RateData.map((d) => String(d.deck || '').trim());
-        const top4LabelsShort = top4RateData.map((d) => ellipsis(String(d.deck || '').trim(), isMobile ? 10 : 16));
+        const top4LabelsShort = top4RateData.map((d) =>
+            ellipsis(String(d.deck || '').trim(), isMobile ? 10 : 16)
+        );
         const top4MaxLabelLen = top4LabelsFull.reduce((m, v) => Math.max(m, v.length), 0);
         const top4LabelWidth = Math.min(260, Math.max(140, Math.round(top4MaxLabelLen * 6.6)));
         const sharedLabelWidth = Math.max(barLabelWidth, top4LabelWidth);
@@ -4115,15 +4292,18 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 type: 'bar',
                 data: {
                     labels: barLabelsShort,
-                    datasets: [{
-                        data: barData.map((d) => d.score),
-                        backgroundColor: (ctx) => SOFT_PALETTE[ctx.dataIndex % SOFT_PALETTE.length],
-                        borderColor: (ctx) => SOFT_PALETTE[ctx.dataIndex % SOFT_PALETTE.length],
-                        borderWidth: 1.5,
-                        borderRadius: 4,
-                        barThickness: 10,
-                        maxBarThickness: 12,
-                    }]
+                    datasets: [
+                        {
+                            data: barData.map((d) => d.score),
+                            backgroundColor: (ctx) =>
+                                SOFT_PALETTE[ctx.dataIndex % SOFT_PALETTE.length],
+                            borderColor: (ctx) => SOFT_PALETTE[ctx.dataIndex % SOFT_PALETTE.length],
+                            borderWidth: 1.5,
+                            borderRadius: 4,
+                            barThickness: 10,
+                            maxBarThickness: 12
+                        }
+                    ]
                 },
                 options: {
                     indexAxis: 'y',
@@ -4136,7 +4316,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             ...tooltipDefaults,
                             callbacks: {
                                 title: (items) => barLabelsFull[items[0]?.dataIndex] || '',
-                                label: (ctx) => ` ${ctx.parsed.x} pts`,
+                                label: (ctx) => ` ${ctx.parsed.x} pts`
                             }
                         }
                     },
@@ -4145,22 +4325,33 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                             border: { color: '#263554' },
-                            ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
-                            beginAtZero: true,
+                            ticks: {
+                                color: '#6a7d9f',
+                                font: { size: 11 },
+                                callback: (v) => v + ' pts'
+                            },
+                            beginAtZero: true
                         },
                         y: {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
                             border: { color: '#263554' },
                             ticks: { color: '#c8d4e8', font: { size: 11 } },
-                            afterFit: (scale) => { scale.width = sharedLabelWidth; }
+                            afterFit: (scale) => {
+                                scale.width = sharedLabelWidth;
+                            }
                         }
                     }
                 },
                 plugins: [
-                    createValueLabelPlugin(barData.map((d) => d.score), (v) => `${v} pts`),
+                    createValueLabelPlugin(
+                        barData.map((d) => d.score),
+                        (v) => `${v} pts`
+                    ),
                     createAverageLinePlugin(
-                        barData.length ? barData.reduce((s, d) => s + d.score, 0) / barData.length : 0,
+                        barData.length
+                            ? barData.reduce((s, d) => s + d.score, 0) / barData.length
+                            : 0,
                         'média',
                         (v) => `${Math.round(v)} pts`
                     )
@@ -4168,20 +4359,27 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             });
             const top4Canvas = document.getElementById(top4CanvasId);
             if (top4Canvas && window.Chart) {
-                if (_metaTop4RateChart) { _metaTop4RateChart.destroy(); _metaTop4RateChart = null; }
+                if (_metaTop4RateChart) {
+                    _metaTop4RateChart.destroy();
+                    _metaTop4RateChart = null;
+                }
                 _metaTop4RateChart = new window.Chart(top4Canvas, {
                     type: 'bar',
                     data: {
                         labels: top4LabelsShort,
-                    datasets: [{
-                        data: top4RateData.map((d) => Number(d.rate.toFixed(1))),
-                        backgroundColor: (ctx) => getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
-                        borderColor: (ctx) => getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
-                        borderWidth: 1.5,
-                            borderRadius: 4,
-                            barThickness: 10,
-                            maxBarThickness: 12,
-                        }]
+                        datasets: [
+                            {
+                                data: top4RateData.map((d) => Number(d.rate.toFixed(1))),
+                                backgroundColor: (ctx) =>
+                                    getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
+                                borderColor: (ctx) =>
+                                    getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
+                                borderWidth: 1.5,
+                                borderRadius: 4,
+                                barThickness: 10,
+                                maxBarThickness: 12
+                            }
+                        ]
                     },
                     options: {
                         indexAxis: 'y',
@@ -4206,23 +4404,34 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                 ...scaleDefaults,
                                 grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                                 border: { color: '#263554' },
-                                ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + '%' },
+                                ticks: {
+                                    color: '#6a7d9f',
+                                    font: { size: 11 },
+                                    callback: (v) => v + '%'
+                                },
                                 beginAtZero: true,
-                                max: 100,
+                                max: 100
                             },
                             y: {
                                 ...scaleDefaults,
                                 grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
                                 border: { color: '#263554' },
                                 ticks: { color: '#c8d4e8', font: { size: 11 } },
-                                afterFit: (scale) => { scale.width = sharedLabelWidth; }
+                                afterFit: (scale) => {
+                                    scale.width = sharedLabelWidth;
+                                }
                             }
                         }
                     },
                     plugins: [
-                        createValueLabelPlugin(top4RateData.map((d) => Number(d.rate.toFixed(1))), (v) => `${v}%`),
+                        createValueLabelPlugin(
+                            top4RateData.map((d) => Number(d.rate.toFixed(1))),
+                            (v) => `${v}%`
+                        ),
                         createAverageLinePlugin(
-                            top4RateData.length ? top4RateData.reduce((s, d) => s + d.rate, 0) / top4RateData.length : 0,
+                            top4RateData.length
+                                ? top4RateData.reduce((s, d) => s + d.rate, 0) / top4RateData.length
+                                : 0,
                             'média',
                             (v) => `${v.toFixed(1)}%`
                         )
@@ -4231,7 +4440,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             }
             const scatterCanvas = document.getElementById(scatterCanvasId);
             if (scatterCanvas && window.Chart) {
-                if (_metaScatterChart) { _metaScatterChart.destroy(); _metaScatterChart = null; }
+                if (_metaScatterChart) {
+                    _metaScatterChart.destroy();
+                    _metaScatterChart = null;
+                }
                 const scatterPoints = (Array.isArray(topDecks) ? topDecks : [])
                     .map((r) => {
                         const deck = String(r?.deck || '').trim();
@@ -4240,7 +4452,14 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                         const top4 = Number(r?.top4_total) || 0;
                         const rate = appearances > 0 ? (top4 / appearances) * 100 : 0;
                         if (!deck || score <= 0) return null;
-                        return { x: score, y: Number(rate.toFixed(1)), origScore: score, origRate: Number(rate.toFixed(1)), deck, appearances };
+                        return {
+                            x: score,
+                            y: Number(rate.toFixed(1)),
+                            origScore: score,
+                            origRate: Number(rate.toFixed(1)),
+                            deck,
+                            appearances
+                        };
                     })
                     .filter(Boolean)
                     .slice(0, isMobile ? 12 : Infinity);
@@ -4255,12 +4474,22 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                     if (idxs.length < 2) return;
                     idxs.forEach((idx, j) => {
                         const angle = (2 * Math.PI * j) / idxs.length - Math.PI / 2;
-                        scatterPoints[idx].x = +(scatterPoints[idx].x + 2 * Math.cos(angle)).toFixed(1);
-                        scatterPoints[idx].y = +(scatterPoints[idx].y + 2 * Math.sin(angle)).toFixed(1);
+                        scatterPoints[idx].x = +(
+                            scatterPoints[idx].x +
+                            2 * Math.cos(angle)
+                        ).toFixed(1);
+                        scatterPoints[idx].y = +(
+                            scatterPoints[idx].y +
+                            2 * Math.sin(angle)
+                        ).toFixed(1);
                     });
                 });
-                const avgX = scatterPoints.length ? scatterPoints.reduce((s, p) => s + p.origScore, 0) / scatterPoints.length : 0;
-                const avgY = scatterPoints.length ? scatterPoints.reduce((s, p) => s + p.origRate, 0) / scatterPoints.length : 0;
+                const avgX = scatterPoints.length
+                    ? scatterPoints.reduce((s, p) => s + p.origScore, 0) / scatterPoints.length
+                    : 0;
+                const avgY = scatterPoints.length
+                    ? scatterPoints.reduce((s, p) => s + p.origRate, 0) / scatterPoints.length
+                    : 0;
                 const maxApp = Math.max(...scatterPoints.map((p) => p.appearances), 1);
                 const minApp = Math.min(...scatterPoints.map((p) => p.appearances), 1);
                 const scaleRadius = (n) => {
@@ -4277,7 +4506,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                 data: [{ x: pt.x, y: pt.y }],
                                 backgroundColor: hexToRgba(getSoftDeckColor(pt.deck, 0), 0.85),
                                 pointRadius: r,
-                                pointHoverRadius: r + 2,
+                                pointHoverRadius: r + 2
                             };
                         })
                     },
@@ -4303,19 +4532,40 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                 ...scaleDefaults,
                                 grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                                 border: { color: '#263554' },
-                                ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
-                                title: { display: true, text: 'Pontuação', color: '#6a7d9f', font: { size: 10 } },
-                                suggestedMin: Math.max(0, Math.min(...scatterPoints.map((p) => p.x)) - 5),
-                                suggestedMax: Math.max(...scatterPoints.map((p) => p.x)) + 5,
+                                ticks: {
+                                    color: '#6a7d9f',
+                                    font: { size: 11 },
+                                    callback: (v) => v + ' pts'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Pontuação',
+                                    color: '#6a7d9f',
+                                    font: { size: 10 }
+                                },
+                                suggestedMin: Math.max(
+                                    0,
+                                    Math.min(...scatterPoints.map((p) => p.x)) - 5
+                                ),
+                                suggestedMax: Math.max(...scatterPoints.map((p) => p.x)) + 5
                             },
                             y: {
                                 ...scaleDefaults,
                                 grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                                 border: { color: '#263554' },
-                                ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v > 100 ? '' : v + '%' },
-                                title: { display: true, text: 'Taxa Top4', color: '#6a7d9f', font: { size: 10 } },
+                                ticks: {
+                                    color: '#6a7d9f',
+                                    font: { size: 11 },
+                                    callback: (v) => (v > 100 ? '' : v + '%')
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Taxa Top4',
+                                    color: '#6a7d9f',
+                                    font: { size: 10 }
+                                },
                                 beginAtZero: true,
-                                suggestedMax: 108,
+                                suggestedMax: 108
                             }
                         }
                     },
@@ -4323,50 +4573,76 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                         {
                             id: 'scatterQuadrants',
                             beforeDatasetsDraw(chart) {
-                                const { ctx, chartArea: { top, bottom, left, right } } = chart;
+                                const {
+                                    ctx,
+                                    chartArea: { top, bottom, left, right }
+                                } = chart;
                                 const px = chart.scales.x.getPixelForValue(avgX);
                                 const py = chart.scales.y.getPixelForValue(avgY);
                                 ctx.save();
                                 // quadrant background fills
-                                ctx.fillStyle = 'rgba(59,166,93,0.04)';  // top-right: dominantes
+                                ctx.fillStyle = 'rgba(59,166,93,0.04)'; // top-right: dominantes
                                 ctx.fillRect(px, top, right - px, py - top);
                                 ctx.fillStyle = 'rgba(47,115,217,0.04)'; // top-left: alta taxa
                                 ctx.fillRect(left, top, px - left, py - top);
-                                ctx.fillStyle = 'rgba(217,74,74,0.04)';  // bottom-left: baixo desempenho
+                                ctx.fillStyle = 'rgba(217,74,74,0.04)'; // bottom-left: baixo desempenho
                                 ctx.fillRect(left, py, px - left, bottom - py);
                                 ctx.fillStyle = 'rgba(226,190,47,0.04)'; // bottom-right: alta pont baixa taxa
                                 ctx.fillRect(px, py, right - px, bottom - py);
                                 ctx.restore();
                             },
                             afterDatasetsDraw(chart) {
-                                const { ctx, chartArea: { top, bottom, left, right } } = chart;
+                                const {
+                                    ctx,
+                                    chartArea: { top, bottom, left, right }
+                                } = chart;
                                 const px = chart.scales.x.getPixelForValue(avgX);
                                 const py = chart.scales.y.getPixelForValue(avgY);
                                 ctx.save();
                                 ctx.setLineDash([4, 4]);
                                 ctx.lineWidth = 1;
                                 ctx.strokeStyle = 'rgba(200,212,232,0.25)';
-                                ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
-                                ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
+                                ctx.beginPath();
+                                ctx.moveTo(px, top);
+                                ctx.lineTo(px, bottom);
+                                ctx.stroke();
+                                ctx.beginPath();
+                                ctx.moveTo(left, py);
+                                ctx.lineTo(right, py);
+                                ctx.stroke();
                                 ctx.setLineDash([]);
                                 const isMobile = chart.width < 480;
                                 ctx.font = `600 ${isMobile ? '9' : '10'}px sans-serif`;
                                 // top-right
                                 ctx.fillStyle = 'rgba(59,166,93,0.5)';
-                                ctx.textBaseline = 'top'; ctx.textAlign = 'right';
+                                ctx.textBaseline = 'top';
+                                ctx.textAlign = 'right';
                                 ctx.fillText(isMobile ? 'Dom.' : 'Dominantes', right - 8, top + 6);
                                 // top-left
                                 ctx.fillStyle = 'rgba(47,115,217,0.4)';
                                 ctx.textAlign = 'left';
-                                ctx.fillText(isMobile ? 'Alta taxa' : 'Alta taxa, baixa pont.', left + 8, top + 6);
+                                ctx.fillText(
+                                    isMobile ? 'Alta taxa' : 'Alta taxa, baixa pont.',
+                                    left + 8,
+                                    top + 6
+                                );
                                 // bottom-right
                                 ctx.fillStyle = 'rgba(226,190,47,0.4)';
-                                ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
-                                ctx.fillText(isMobile ? 'Alta pont.' : 'Alta pont., baixa taxa', right - 8, bottom - 6);
+                                ctx.textBaseline = 'bottom';
+                                ctx.textAlign = 'right';
+                                ctx.fillText(
+                                    isMobile ? 'Alta pont.' : 'Alta pont., baixa taxa',
+                                    right - 8,
+                                    bottom - 6
+                                );
                                 // bottom-left
                                 ctx.fillStyle = 'rgba(217,74,74,0.4)';
                                 ctx.textAlign = 'left';
-                                ctx.fillText(isMobile ? 'Baixo' : 'Baixo desempenho', left + 8, bottom - 6);
+                                ctx.fillText(
+                                    isMobile ? 'Baixo' : 'Baixo desempenho',
+                                    left + 8,
+                                    bottom - 6
+                                );
                                 ctx.restore();
                             }
                         },
@@ -4374,7 +4650,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             id: 'scatterDeckLabels',
                             afterDatasetsDraw(chart) {
                                 if (isMobile) return;
-                                const { ctx, chartArea: { left, right, top, bottom } } = chart;
+                                const {
+                                    ctx,
+                                    chartArea: { left, right, top, bottom }
+                                } = chart;
                                 ctx.save();
                                 const isMobileChart = chart.width < 480;
                                 ctx.font = `${isMobileChart ? '10' : '11'}px sans-serif`;
@@ -4392,20 +4671,31 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                     const textW = ctx.measureText(text).width;
                                     const isRight = props.x > midX;
                                     labels.push({
-                                        text, textW, isRight, r,
-                                        anchorX: props.x, anchorY: props.y,
-                                        x: props.x + (isRight ? -(r + 4) : (r + 4)),
-                                        y: props.y - r - 2,
+                                        text,
+                                        textW,
+                                        isRight,
+                                        r,
+                                        anchorX: props.x,
+                                        anchorY: props.y,
+                                        x: props.x + (isRight ? -(r + 4) : r + 4),
+                                        y: props.y - r - 2
                                     });
                                 });
                                 const getBBox = (l) => ({
                                     x1: l.isRight ? l.x - l.textW : l.x,
                                     x2: l.isRight ? l.x : l.x + l.textW,
-                                    y1: l.y - FONT_H, y2: l.y,
+                                    y1: l.y - FONT_H,
+                                    y2: l.y
                                 });
                                 const overlaps = (a, b) => {
-                                    const ba = getBBox(a), bb = getBBox(b);
-                                    return ba.x1 < bb.x2 && ba.x2 > bb.x1 && ba.y1 < bb.y2 && ba.y2 > bb.y1;
+                                    const ba = getBBox(a),
+                                        bb = getBBox(b);
+                                    return (
+                                        ba.x1 < bb.x2 &&
+                                        ba.x2 > bb.x1 &&
+                                        ba.y1 < bb.y2 &&
+                                        ba.y2 > bb.y1
+                                    );
                                 };
                                 const pushVert = (iters) => {
                                     for (let iter = 0; iter < iters; iter++) {
@@ -4414,8 +4704,13 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                             for (let j = i + 1; j < labels.length; j++) {
                                                 if (!overlaps(labels[i], labels[j])) continue;
                                                 const push = FONT_H / 2 + 1;
-                                                if (labels[i].y <= labels[j].y) { labels[i].y -= push; labels[j].y += push; }
-                                                else { labels[i].y += push; labels[j].y -= push; }
+                                                if (labels[i].y <= labels[j].y) {
+                                                    labels[i].y -= push;
+                                                    labels[j].y += push;
+                                                } else {
+                                                    labels[i].y += push;
+                                                    labels[j].y -= push;
+                                                }
                                                 moved = true;
                                             }
                                         }
@@ -4432,7 +4727,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                         const distJ = Math.abs(labels[j].anchorX - midX);
                                         const fl = distI < distJ ? labels[i] : labels[j];
                                         fl.isRight = !fl.isRight;
-                                        fl.x = fl.anchorX + (fl.isRight ? -(fl.r + 4) : (fl.r + 4));
+                                        fl.x = fl.anchorX + (fl.isRight ? -(fl.r + 4) : fl.r + 4);
                                         fl.y = fl.anchorY - fl.r - 2;
                                     }
                                 }
@@ -4457,71 +4752,97 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             }
             const playerCanvas = document.getElementById(playerCanvasId);
             if (playerCanvas && window.Chart) {
-                fetchPlayerPointsByMonth(month, currentStatisticsFormatFilter).then((playerRows) => {
-                    if (!playerRows.length) return;
-                    if (_metaPlayerPointsChart) { _metaPlayerPointsChart.destroy(); _metaPlayerPointsChart = null; }
-                    const playerWrap = playerCanvas.closest('.meta-evol-canvas-wrap');
-                    if (playerWrap) {
-                        const calcH = Math.max(240, playerRows.length * 22 + 60);
-                        playerWrap.style.height = `${calcH}px`;
-                    }
-                    const labelsFull = playerRows.map((r) => String(r.player || '').trim());
-                    const maxLabelLen = labelsFull.reduce((m, v) => Math.max(m, v.length), 0);
-                    const labelWidth = Math.min(260, Math.max(140, Math.round(maxLabelLen * 6.6)));
-                    const playerPoints = playerRows.map((r) => r.points);
-                    const playerAvg = playerPoints.length ? playerPoints.reduce((s, v) => s + v, 0) / playerPoints.length : 0;
-                    _metaPlayerPointsChart = new window.Chart(playerCanvas, {
-                        type: 'bar',
-                        data: {
-                            labels: labelsFull,
-                            datasets: [{
-                                data: playerPoints,
-                                backgroundColor: playerRows.map((_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]),
-                                borderColor:     playerRows.map((_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]),
-                                borderWidth: 1.5,
-                                borderRadius: 4,
-                                barThickness: 10,
-                                maxBarThickness: 12,
-                            }]
-                        },
-                        options: {
-                            indexAxis: 'y',
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            layout: { padding: { right: 55, top: 20 } },
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    ...tooltipDefaults,
-                                    callbacks: {
-                                        title: (items) => labelsFull[items[0]?.dataIndex] || '',
-                                        label: (ctx) => ` ${ctx.parsed.x} pts`
+                fetchPlayerPointsByMonth(month, currentStatisticsFormatFilter).then(
+                    (playerRows) => {
+                        if (!playerRows.length) return;
+                        if (_metaPlayerPointsChart) {
+                            _metaPlayerPointsChart.destroy();
+                            _metaPlayerPointsChart = null;
+                        }
+                        const playerWrap = playerCanvas.closest('.meta-evol-canvas-wrap');
+                        if (playerWrap) {
+                            const calcH = Math.max(240, playerRows.length * 22 + 60);
+                            playerWrap.style.height = `${calcH}px`;
+                        }
+                        const labelsFull = playerRows.map((r) => String(r.player || '').trim());
+                        const maxLabelLen = labelsFull.reduce((m, v) => Math.max(m, v.length), 0);
+                        const labelWidth = Math.min(
+                            260,
+                            Math.max(140, Math.round(maxLabelLen * 6.6))
+                        );
+                        const playerPoints = playerRows.map((r) => r.points);
+                        const playerAvg = playerPoints.length
+                            ? playerPoints.reduce((s, v) => s + v, 0) / playerPoints.length
+                            : 0;
+                        _metaPlayerPointsChart = new window.Chart(playerCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: labelsFull,
+                                datasets: [
+                                    {
+                                        data: playerPoints,
+                                        backgroundColor: playerRows.map(
+                                            (_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]
+                                        ),
+                                        borderColor: playerRows.map(
+                                            (_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]
+                                        ),
+                                        borderWidth: 1.5,
+                                        borderRadius: 4,
+                                        barThickness: 10,
+                                        maxBarThickness: 12
+                                    }
+                                ]
+                            },
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                layout: { padding: { right: 55, top: 20 } },
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        ...tooltipDefaults,
+                                        callbacks: {
+                                            title: (items) => labelsFull[items[0]?.dataIndex] || '',
+                                            label: (ctx) => ` ${ctx.parsed.x} pts`
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        ...scaleDefaults,
+                                        grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
+                                        border: { color: '#263554' },
+                                        ticks: {
+                                            color: '#6a7d9f',
+                                            font: { size: 11 },
+                                            callback: (v) => v + ' pts'
+                                        },
+                                        beginAtZero: true
+                                    },
+                                    y: {
+                                        ...scaleDefaults,
+                                        grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
+                                        border: { color: '#263554' },
+                                        ticks: { color: '#c8d4e8', font: { size: 11 } },
+                                        afterFit: (scale) => {
+                                            scale.width = labelWidth;
+                                        }
                                     }
                                 }
                             },
-                            scales: {
-                                x: {
-                                    ...scaleDefaults,
-                                    grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
-                                    border: { color: '#263554' },
-                                    ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
-                                    beginAtZero: true,
-                                },
-                                y: {
-                                    ...scaleDefaults,
-                                    grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
-                                    border: { color: '#263554' },
-                                    ticks: { color: '#c8d4e8', font: { size: 11 } },
-                                    afterFit: (scale) => { scale.width = labelWidth; }
-                                }
-                            }
-                        },
-                        plugins: [
-                            createValueLabelPlugin(playerPoints, (v) => `${v} pts`),
-                            createAverageLinePlugin(playerAvg, 'média', (v) => `${Math.round(v)} pts`)
-                        ]
-                    });
-                });
+                            plugins: [
+                                createValueLabelPlugin(playerPoints, (v) => `${v} pts`),
+                                createAverageLinePlugin(
+                                    playerAvg,
+                                    'média',
+                                    (v) => `${Math.round(v)} pts`
+                                )
+                            ]
+                        });
+                    }
+                );
             }
         }, 0);
 
@@ -4534,7 +4855,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 btn.addEventListener('click', () => {
                     const target = btn.dataset.evolTab;
                     btns.forEach((b) => b.classList.toggle('is-active', b === btn));
-                    panels.forEach((p) => p.classList.toggle('is-hidden', p.dataset.evolPanel !== target));
+                    panels.forEach((p) =>
+                        p.classList.toggle('is-hidden', p.dataset.evolPanel !== target)
+                    );
                     if (target === 'players' && _metaPlayerPointsChart) {
                         _metaPlayerPointsChart.resize();
                     }
@@ -4624,7 +4947,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 .map((deck) => {
                     const byAppear = deckMonthAppear.get(deck) || new Map();
                     const total = monthTotals.get(month) || 1;
-                    return { deck, share: (byAppear.get(month) || 0) / total * 100 };
+                    return { deck, share: ((byAppear.get(month) || 0) / total) * 100 };
                 })
                 .filter((d) => d.share > 0)
                 .sort((a, b) => b.share - a.share);
@@ -4653,10 +4976,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             pointHoverRadius: 8,
             borderWidth: 2.5,
             tension: 0.3,
-            spanGaps: false,
+            spanGaps: false
         };
     });
-
 
     const legendId = `meta-evol-legend-${canvasId}`;
     const monthPillsId = `meta-evol-months-${canvasId}`;
@@ -4668,7 +4990,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             score: deckCompositeScore(r),
             titles: Number(r?.titles) || 0,
             top4_total: Number(r?.top4_total) || 0,
-            appearances: Number(r?.appearances) || 0,
+            appearances: Number(r?.appearances) || 0
         }))
         .filter((d) => d.deck && d.score > 0)
         .sort((a, b) => {
@@ -4701,16 +5023,15 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             };
         })
         .filter((d) => d.deck && d.rate > 0 && d.appearances >= minTop4AppearancesAll);
-    const top4RateTop = [...top4RateBase]
-        .sort((a, b) => b.rate - a.rate)
-        .slice(0, 10);
-    const top4RateData = top4RateTop
-        .filter((d) => d.deck && d.rate > 0);
+    const top4RateTop = [...top4RateBase].sort((a, b) => b.rate - a.rate).slice(0, 10);
+    const top4RateData = top4RateTop.filter((d) => d.deck && d.rate > 0);
     const top4MinAppearancesAll = top4RateData.length
         ? Math.min(...top4RateData.map((d) => d.appearances))
         : 0;
     const top4LabelsFull = top4RateData.map((d) => String(d.deck || '').trim());
-    const top4LabelsShort = top4RateData.map((d) => ellipsis(String(d.deck || '').trim(), isMobile ? 10 : 16));
+    const top4LabelsShort = top4RateData.map((d) =>
+        ellipsis(String(d.deck || '').trim(), isMobile ? 10 : 16)
+    );
     const top4MaxLabelLenAll = top4LabelsFull.reduce((m, v) => Math.max(m, v.length), 0);
     const top4LabelWidthAllRaw = Math.min(260, Math.max(140, Math.round(top4MaxLabelLenAll * 6.6)));
     const sharedLabelWidthAll = Math.max(barLabelWidthAllRaw, top4LabelWidthAllRaw);
@@ -4719,241 +5040,313 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
 
     setTimeout(() => {
         if (!isMobile) {
-        const canvas = document.getElementById(canvasId);
-        if (canvas && window.Chart) {
-        _metaEvolutionChart = new window.Chart(canvas, {
-            type: 'line',
-            data: { labels, datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'nearest', intersect: false, axis: 'x' },
-                layout: { padding: { right: 170, left: 150, top: 10 } },
-                onClick: (event, elements, chart) => {
-                    const precise = chart.getElementsAtEventForMode(event.native, 'nearest', { intersect: true }, false);
-                    const clickedIdx = precise.length ? precise[0].datasetIndex : -1;
-                    const alreadySelected = chart._bumpSelectedIdx === clickedIdx && clickedIdx !== -1;
-                    chart._bumpSelectedIdx = alreadySelected ? -1 : clickedIdx;
-                    const sel = chart._bumpSelectedIdx;
-                    chart.data.datasets.forEach((ds, i) => {
-                        const base = bumpColors[i];
-                        const active = sel === -1 || i === sel;
-                        ds.borderColor = active ? base : hexToRgba(base, 0.1);
-                        ds.pointBackgroundColor = active ? base : hexToRgba(base, 0.1);
-                        ds.borderWidth = active ? 2.5 : 1.5;
-                    });
-                    chart.update('none');
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        ...tooltipDefaults,
-                        callbacks: {
-                            title: (items) => items[0]?.dataset?.label || '',
-                            label: (ctx) => {
-                                const rank = ctx.parsed.y;
-                                const deck = ctx.dataset.label;
-                                const monthIdx = ctx.dataIndex;
-                                const month = months[monthIdx];
-                                const byAppear = deckMonthAppear.get(deck) || new Map();
-                                const total = monthTotals.get(month) || 1;
-                                const share = ((byAppear.get(month) || 0) / total * 100).toFixed(1);
-                                return ` ${rank}º lugar · ${share}% meta share`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { ...scaleDefaults, ticks: { color: '#6a7d9f', font: { size: 11 }, padding: 16 } },
-                    y: {
-                        ...scaleDefaults,
-                        reverse: true,
-                        min: 0.5,
-                        max: bumpMaxRank + 0.5,
-                        ticks: {
-                            color: '#6a7d9f',
-                            font: { size: 11 },
-                            padding: 16,
-                            stepSize: 1,
-                            callback: (v) => Number.isInteger(v) ? `${v}º` : '',
+            const canvas = document.getElementById(canvasId);
+            if (canvas && window.Chart) {
+                _metaEvolutionChart = new window.Chart(canvas, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+                        layout: { padding: { right: 170, left: 150, top: 10 } },
+                        onClick: (event, elements, chart) => {
+                            const precise = chart.getElementsAtEventForMode(
+                                event.native,
+                                'nearest',
+                                { intersect: true },
+                                false
+                            );
+                            const clickedIdx = precise.length ? precise[0].datasetIndex : -1;
+                            const alreadySelected =
+                                chart._bumpSelectedIdx === clickedIdx && clickedIdx !== -1;
+                            chart._bumpSelectedIdx = alreadySelected ? -1 : clickedIdx;
+                            const sel = chart._bumpSelectedIdx;
+                            chart.data.datasets.forEach((ds, i) => {
+                                const base = bumpColors[i];
+                                const active = sel === -1 || i === sel;
+                                ds.borderColor = active ? base : hexToRgba(base, 0.1);
+                                ds.pointBackgroundColor = active ? base : hexToRgba(base, 0.1);
+                                ds.borderWidth = active ? 2.5 : 1.5;
+                            });
+                            chart.update('none');
                         },
-                    }
-                }
-            },
-            plugins: [
-                {
-                    id: 'bumpEndLabels',
-                    afterDatasetsDraw(chart) {
-                        const { ctx, chartArea: { left, right, top, bottom } } = chart;
-                        ctx.save();
-                        const FONT_H = 14;
-
-                        const resolveLabels = (getPoint, getAnchorX, textAlign) => {
-                            const items = [];
-                            chart.data.datasets.forEach((ds, di) => {
-                                const meta = chart.getDatasetMeta(di);
-                                if (!meta?.data?.length) return;
-                                const pt = getPoint(ds, meta);
-                                if (!pt) return;
-                                const props = pt.getProps(['x', 'y'], true);
-                                items.push({ y: props.y, anchorX: getAnchorX(props.x), color: bumpColors[di], label: ellipsis(ds.label, 18), rank: pt._rank });
-                            });
-                            items.sort((a, b) => a.y - b.y);
-                            for (let i = 1; i < items.length; i++) {
-                                if (items[i].y - items[i - 1].y < FONT_H) items[i].y = items[i - 1].y + FONT_H;
-                            }
-                            items.forEach((l) => { l.y = Math.max(top + FONT_H, Math.min(bottom, l.y)); });
-                            items.forEach(({ y, anchorX, color, label, rank }) => {
-                                ctx.font = '11px sans-serif';
-                                ctx.fillStyle = color;
-                                ctx.textBaseline = 'middle';
-                                ctx.textAlign = textAlign;
-                                ctx.fillText(`${rank}º ${label}`, anchorX, y);
-                            });
-                        };
-
-                        // Right-side labels: last non-null point + rise/fall indicator
-                        const rightItems = [];
-                        chart.data.datasets.forEach((ds, di) => {
-                            const meta = chart.getDatasetMeta(di);
-                            if (!meta?.data?.length) return;
-                            let lastPt = null, lastRank = null, lastIdx = -1;
-                            let firstRank = null;
-                            for (let i = 0; i < ds.data.length; i++) {
-                                if (ds.data[i] !== null && ds.data[i] !== undefined && firstRank === null) firstRank = ds.data[i];
-                            }
-                            for (let i = meta.data.length - 1; i >= 0; i--) {
-                                if (ds.data[i] !== null && ds.data[i] !== undefined) {
-                                    lastPt = meta.data[i]; lastRank = ds.data[i]; lastIdx = i; break;
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                ...tooltipDefaults,
+                                callbacks: {
+                                    title: (items) => items[0]?.dataset?.label || '',
+                                    label: (ctx) => {
+                                        const rank = ctx.parsed.y;
+                                        const deck = ctx.dataset.label;
+                                        const monthIdx = ctx.dataIndex;
+                                        const month = months[monthIdx];
+                                        const byAppear = deckMonthAppear.get(deck) || new Map();
+                                        const total = monthTotals.get(month) || 1;
+                                        const share = (
+                                            ((byAppear.get(month) || 0) / total) *
+                                            100
+                                        ).toFixed(1);
+                                        return ` ${rank}º lugar · ${share}% meta share`;
+                                    }
                                 }
                             }
-                            if (!lastPt) return;
-                            const props = lastPt.getProps(['x', 'y'], true);
-                            const delta = firstRank !== null && lastRank !== null ? firstRank - lastRank : 0;
-                            const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
-                            const arrowColor = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#6a7d9f';
-                            rightItems.push({ y: props.y, color: bumpColors[di], arrowColor, arrow, label: ellipsis(ds.label, 18), rank: lastRank });
-                        });
-                        rightItems.sort((a, b) => a.y - b.y);
-                        for (let i = 1; i < rightItems.length; i++) {
-                            if (rightItems[i].y - rightItems[i - 1].y < FONT_H) rightItems[i].y = rightItems[i - 1].y + FONT_H;
-                        }
-                        rightItems.forEach((l) => { l.y = Math.max(top + FONT_H, Math.min(bottom, l.y)); });
-                        rightItems.forEach(({ y, color, arrowColor, arrow, label, rank }) => {
-                            ctx.textBaseline = 'middle';
-                            ctx.textAlign = 'left';
-                            // rank + deck name
-                            ctx.font = '11px sans-serif';
-                            ctx.fillStyle = color;
-                            const rankText = `${rank}º ${label} `;
-                            ctx.fillText(rankText, right + 10, y);
-                            // arrow indicator
-                            ctx.font = 'bold 11px sans-serif';
-                            ctx.fillStyle = arrowColor;
-                            ctx.fillText(arrow, right + 10 + ctx.measureText(rankText).width, y);
-                        });
-
-                        // Left-side labels: first non-null point
-                        const leftItems = [];
-                        chart.data.datasets.forEach((ds, di) => {
-                            const meta = chart.getDatasetMeta(di);
-                            if (!meta?.data?.length) return;
-                            let firstPt = null, firstRank = null;
-                            for (let i = 0; i < meta.data.length; i++) {
-                                if (ds.data[i] !== null && ds.data[i] !== undefined) {
-                                    firstPt = meta.data[i]; firstRank = ds.data[i]; break;
+                        },
+                        scales: {
+                            x: {
+                                ...scaleDefaults,
+                                ticks: { color: '#6a7d9f', font: { size: 11 }, padding: 16 }
+                            },
+                            y: {
+                                ...scaleDefaults,
+                                reverse: true,
+                                min: 0.5,
+                                max: bumpMaxRank + 0.5,
+                                ticks: {
+                                    color: '#6a7d9f',
+                                    font: { size: 11 },
+                                    padding: 16,
+                                    stepSize: 1,
+                                    callback: (v) => (Number.isInteger(v) ? `${v}º` : '')
                                 }
                             }
-                            if (!firstPt) return;
-                            const props = firstPt.getProps(['x', 'y'], true);
-                            leftItems.push({ y: props.y, color: bumpColors[di], label: ellipsis(ds.label, 18), rank: firstRank });
-                        });
-                        leftItems.sort((a, b) => a.y - b.y);
-                        for (let i = 1; i < leftItems.length; i++) {
-                            if (leftItems[i].y - leftItems[i - 1].y < FONT_H) leftItems[i].y = leftItems[i - 1].y + FONT_H;
                         }
-                        leftItems.forEach((l) => { l.y = Math.max(top + FONT_H, Math.min(bottom, l.y)); });
-                        leftItems.forEach(({ y, color, label, rank }) => {
-                            ctx.font = '11px sans-serif';
-                            ctx.fillStyle = color;
-                            ctx.textBaseline = 'middle';
-                            ctx.textAlign = 'right';
-                            ctx.fillText(`${rank}º ${label}`, left - 10, y);
-                        });
+                    },
+                    plugins: [
+                        {
+                            id: 'bumpEndLabels',
+                            afterDatasetsDraw(chart) {
+                                const {
+                                    ctx,
+                                    chartArea: { left, right, top, bottom }
+                                } = chart;
+                                ctx.save();
+                                const FONT_H = 14;
 
-                        ctx.restore();
-                    }
-                }
-            ]
-        });
+                                const resolveLabels = (getPoint, getAnchorX, textAlign) => {
+                                    const items = [];
+                                    chart.data.datasets.forEach((ds, di) => {
+                                        const meta = chart.getDatasetMeta(di);
+                                        if (!meta?.data?.length) return;
+                                        const pt = getPoint(ds, meta);
+                                        if (!pt) return;
+                                        const props = pt.getProps(['x', 'y'], true);
+                                        items.push({
+                                            y: props.y,
+                                            anchorX: getAnchorX(props.x),
+                                            color: bumpColors[di],
+                                            label: ellipsis(ds.label, 18),
+                                            rank: pt._rank
+                                        });
+                                    });
+                                    items.sort((a, b) => a.y - b.y);
+                                    for (let i = 1; i < items.length; i++) {
+                                        if (items[i].y - items[i - 1].y < FONT_H)
+                                            items[i].y = items[i - 1].y + FONT_H;
+                                    }
+                                    items.forEach((l) => {
+                                        l.y = Math.max(top + FONT_H, Math.min(bottom, l.y));
+                                    });
+                                    items.forEach(({ y, anchorX, color, label, rank }) => {
+                                        ctx.font = '11px sans-serif';
+                                        ctx.fillStyle = color;
+                                        ctx.textBaseline = 'middle';
+                                        ctx.textAlign = textAlign;
+                                        ctx.fillText(`${rank}º ${label}`, anchorX, y);
+                                    });
+                                };
 
-        // Wire up legend toggle clicks
-        const legendEl = document.getElementById(legendId);
-        if (legendEl) {
-            legendEl.querySelectorAll('.meta-evol-legend-item').forEach((item) => {
-                item.addEventListener('click', () => {
-                    const idx = Number(item.dataset.datasetIndex);
-                    const chart = _metaEvolutionChart;
-                    if (!chart) return;
-                    const meta = chart.getDatasetMeta(idx);
-                    meta.hidden = !meta.hidden;
-                    item.classList.toggle('is-muted', meta.hidden);
-                    chart.update();
+                                // Right-side labels: last non-null point + rise/fall indicator
+                                const rightItems = [];
+                                chart.data.datasets.forEach((ds, di) => {
+                                    const meta = chart.getDatasetMeta(di);
+                                    if (!meta?.data?.length) return;
+                                    let lastPt = null,
+                                        lastRank = null,
+                                        lastIdx = -1;
+                                    let firstRank = null;
+                                    for (let i = 0; i < ds.data.length; i++) {
+                                        if (
+                                            ds.data[i] !== null &&
+                                            ds.data[i] !== undefined &&
+                                            firstRank === null
+                                        )
+                                            firstRank = ds.data[i];
+                                    }
+                                    for (let i = meta.data.length - 1; i >= 0; i--) {
+                                        if (ds.data[i] !== null && ds.data[i] !== undefined) {
+                                            lastPt = meta.data[i];
+                                            lastRank = ds.data[i];
+                                            lastIdx = i;
+                                            break;
+                                        }
+                                    }
+                                    if (!lastPt) return;
+                                    const props = lastPt.getProps(['x', 'y'], true);
+                                    const delta =
+                                        firstRank !== null && lastRank !== null
+                                            ? firstRank - lastRank
+                                            : 0;
+                                    const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+                                    const arrowColor =
+                                        delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#6a7d9f';
+                                    rightItems.push({
+                                        y: props.y,
+                                        color: bumpColors[di],
+                                        arrowColor,
+                                        arrow,
+                                        label: ellipsis(ds.label, 18),
+                                        rank: lastRank
+                                    });
+                                });
+                                rightItems.sort((a, b) => a.y - b.y);
+                                for (let i = 1; i < rightItems.length; i++) {
+                                    if (rightItems[i].y - rightItems[i - 1].y < FONT_H)
+                                        rightItems[i].y = rightItems[i - 1].y + FONT_H;
+                                }
+                                rightItems.forEach((l) => {
+                                    l.y = Math.max(top + FONT_H, Math.min(bottom, l.y));
+                                });
+                                rightItems.forEach(
+                                    ({ y, color, arrowColor, arrow, label, rank }) => {
+                                        ctx.textBaseline = 'middle';
+                                        ctx.textAlign = 'left';
+                                        // rank + deck name
+                                        ctx.font = '11px sans-serif';
+                                        ctx.fillStyle = color;
+                                        const rankText = `${rank}º ${label} `;
+                                        ctx.fillText(rankText, right + 10, y);
+                                        // arrow indicator
+                                        ctx.font = 'bold 11px sans-serif';
+                                        ctx.fillStyle = arrowColor;
+                                        ctx.fillText(
+                                            arrow,
+                                            right + 10 + ctx.measureText(rankText).width,
+                                            y
+                                        );
+                                    }
+                                );
+
+                                // Left-side labels: first non-null point
+                                const leftItems = [];
+                                chart.data.datasets.forEach((ds, di) => {
+                                    const meta = chart.getDatasetMeta(di);
+                                    if (!meta?.data?.length) return;
+                                    let firstPt = null,
+                                        firstRank = null;
+                                    for (let i = 0; i < meta.data.length; i++) {
+                                        if (ds.data[i] !== null && ds.data[i] !== undefined) {
+                                            firstPt = meta.data[i];
+                                            firstRank = ds.data[i];
+                                            break;
+                                        }
+                                    }
+                                    if (!firstPt) return;
+                                    const props = firstPt.getProps(['x', 'y'], true);
+                                    leftItems.push({
+                                        y: props.y,
+                                        color: bumpColors[di],
+                                        label: ellipsis(ds.label, 18),
+                                        rank: firstRank
+                                    });
+                                });
+                                leftItems.sort((a, b) => a.y - b.y);
+                                for (let i = 1; i < leftItems.length; i++) {
+                                    if (leftItems[i].y - leftItems[i - 1].y < FONT_H)
+                                        leftItems[i].y = leftItems[i - 1].y + FONT_H;
+                                }
+                                leftItems.forEach((l) => {
+                                    l.y = Math.max(top + FONT_H, Math.min(bottom, l.y));
+                                });
+                                leftItems.forEach(({ y, color, label, rank }) => {
+                                    ctx.font = '11px sans-serif';
+                                    ctx.fillStyle = color;
+                                    ctx.textBaseline = 'middle';
+                                    ctx.textAlign = 'right';
+                                    ctx.fillText(`${rank}º ${label}`, left - 10, y);
+                                });
+
+                                ctx.restore();
+                            }
+                        }
+                    ]
                 });
-            });
-        }
 
-        // Wire up month pill toggles
-        const monthPillsEl = document.getElementById(monthPillsId);
-        const activeMonths = new Set(months);
-        if (monthPillsEl) {
-            monthPillsEl.querySelectorAll('.meta-evol-month-pill').forEach((pill) => {
-                pill.addEventListener('click', () => {
-                    const m = pill.dataset.month;
-                    if (activeMonths.has(m)) {
-                        if (activeMonths.size <= 1) return; // keep at least 1 month
-                        activeMonths.delete(m);
-                        pill.classList.remove('is-active');
-                    } else {
-                        activeMonths.add(m);
-                        pill.classList.add('is-active');
-                    }
-                    const chart = _metaEvolutionChart;
-                    if (!chart) return;
-                    const activeSorted = months.filter((mo) => activeMonths.has(mo));
-                    const newRanks = computeBumpRanks(activeSorted);
-                    chart.data.labels = activeSorted.map(fmtMonthKey);
-                    chart.data.datasets.forEach((ds, di) => {
-                        const deck = bumpTopNames[di];
-                        const rankMap = newRanks.get(deck) || new Map();
-                        ds.data = activeSorted.map((mo) => rankMap.get(mo) ?? null);
+                // Wire up legend toggle clicks
+                const legendEl = document.getElementById(legendId);
+                if (legendEl) {
+                    legendEl.querySelectorAll('.meta-evol-legend-item').forEach((item) => {
+                        item.addEventListener('click', () => {
+                            const idx = Number(item.dataset.datasetIndex);
+                            const chart = _metaEvolutionChart;
+                            if (!chart) return;
+                            const meta = chart.getDatasetMeta(idx);
+                            meta.hidden = !meta.hidden;
+                            item.classList.toggle('is-muted', meta.hidden);
+                            chart.update();
+                        });
                     });
-                    chart.update();
-                });
-            });
-        }
-        } // end if (canvas && window.Chart)
+                }
+
+                // Wire up month pill toggles
+                const monthPillsEl = document.getElementById(monthPillsId);
+                const activeMonths = new Set(months);
+                if (monthPillsEl) {
+                    monthPillsEl.querySelectorAll('.meta-evol-month-pill').forEach((pill) => {
+                        pill.addEventListener('click', () => {
+                            const m = pill.dataset.month;
+                            if (activeMonths.has(m)) {
+                                if (activeMonths.size <= 1) return; // keep at least 1 month
+                                activeMonths.delete(m);
+                                pill.classList.remove('is-active');
+                            } else {
+                                activeMonths.add(m);
+                                pill.classList.add('is-active');
+                            }
+                            const chart = _metaEvolutionChart;
+                            if (!chart) return;
+                            const activeSorted = months.filter((mo) => activeMonths.has(mo));
+                            const newRanks = computeBumpRanks(activeSorted);
+                            chart.data.labels = activeSorted.map(fmtMonthKey);
+                            chart.data.datasets.forEach((ds, di) => {
+                                const deck = bumpTopNames[di];
+                                const rankMap = newRanks.get(deck) || new Map();
+                                ds.data = activeSorted.map((mo) => rankMap.get(mo) ?? null);
+                            });
+                            chart.update();
+                        });
+                    });
+                }
+            } // end if (canvas && window.Chart)
         } // end if (!isMobile)
 
         if (!window.Chart) return;
 
         // Bar chart — total score across all months
-        if (_metaBarChart) { _metaBarChart.destroy(); _metaBarChart = null; }
+        if (_metaBarChart) {
+            _metaBarChart.destroy();
+            _metaBarChart = null;
+        }
         const barCanvas = document.getElementById(barCanvasId);
         if (barCanvas && window.Chart) {
             _metaBarChart = new window.Chart(barCanvas, {
                 type: 'bar',
                 data: {
                     labels: barLabelsShortAll,
-                    datasets: [{
-                        data: barData.map((d) => d.score),
-                        backgroundColor: (ctx) => getSoftDeckColor(barData[ctx.dataIndex]?.deck, ctx.dataIndex),
-                        borderColor: (ctx) => getSoftDeckColor(barData[ctx.dataIndex]?.deck, ctx.dataIndex),
-                        borderWidth: 1.5,
-                        borderRadius: 4,
-                        barThickness: 10,
-                        maxBarThickness: 12,
-                    }]
+                    datasets: [
+                        {
+                            data: barData.map((d) => d.score),
+                            backgroundColor: (ctx) =>
+                                getSoftDeckColor(barData[ctx.dataIndex]?.deck, ctx.dataIndex),
+                            borderColor: (ctx) =>
+                                getSoftDeckColor(barData[ctx.dataIndex]?.deck, ctx.dataIndex),
+                            borderWidth: 1.5,
+                            borderRadius: 4,
+                            barThickness: 10,
+                            maxBarThickness: 12
+                        }
+                    ]
                 },
                 options: {
                     indexAxis: 'y',
@@ -4975,22 +5368,33 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                             border: { color: '#263554' },
-                            ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
-                            beginAtZero: true,
+                            ticks: {
+                                color: '#6a7d9f',
+                                font: { size: 11 },
+                                callback: (v) => v + ' pts'
+                            },
+                            beginAtZero: true
                         },
                         y: {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
                             border: { color: '#263554' },
                             ticks: { color: '#c8d4e8', font: { size: 11 } },
-                            afterFit: (scale) => { scale.width = barLabelWidthAll; }
+                            afterFit: (scale) => {
+                                scale.width = barLabelWidthAll;
+                            }
                         }
                     }
                 },
                 plugins: [
-                    createValueLabelPlugin(barData.map((d) => d.score), (v) => `${v} pts`),
+                    createValueLabelPlugin(
+                        barData.map((d) => d.score),
+                        (v) => `${v} pts`
+                    ),
                     createAverageLinePlugin(
-                        barData.length ? barData.reduce((s, d) => s + d.score, 0) / barData.length : 0,
+                        barData.length
+                            ? barData.reduce((s, d) => s + d.score, 0) / barData.length
+                            : 0,
                         'média',
                         (v) => `${Math.round(v)} pts`
                     )
@@ -5001,20 +5405,27 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         // Bar chart — Top 4 rate (top 12 decks)
         const top4Canvas = document.getElementById(top4CanvasId);
         if (top4Canvas && window.Chart) {
-            if (_metaTop4RateChart) { _metaTop4RateChart.destroy(); _metaTop4RateChart = null; }
+            if (_metaTop4RateChart) {
+                _metaTop4RateChart.destroy();
+                _metaTop4RateChart = null;
+            }
             _metaTop4RateChart = new window.Chart(top4Canvas, {
                 type: 'bar',
                 data: {
                     labels: top4LabelsShort,
-                    datasets: [{
-                        data: top4RateData.map((d) => Number(d.rate.toFixed(1))),
-                        backgroundColor: (ctx) => getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
-                        borderColor: (ctx) => getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
-                        borderWidth: 1.5,
-                        borderRadius: 4,
-                        barThickness: 10,
-                        maxBarThickness: 12,
-                    }]
+                    datasets: [
+                        {
+                            data: top4RateData.map((d) => Number(d.rate.toFixed(1))),
+                            backgroundColor: (ctx) =>
+                                getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
+                            borderColor: (ctx) =>
+                                getSoftDeckColor(top4LabelsFull[ctx.dataIndex], ctx.dataIndex),
+                            borderWidth: 1.5,
+                            borderRadius: 4,
+                            barThickness: 10,
+                            maxBarThickness: 12
+                        }
+                    ]
                 },
                 options: {
                     indexAxis: 'y',
@@ -5039,23 +5450,34 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                             border: { color: '#263554' },
-                            ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + '%' },
+                            ticks: {
+                                color: '#6a7d9f',
+                                font: { size: 11 },
+                                callback: (v) => v + '%'
+                            },
                             beginAtZero: true,
-                            max: 100,
+                            max: 100
                         },
                         y: {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
                             border: { color: '#263554' },
                             ticks: { color: '#c8d4e8', font: { size: 11 } },
-                            afterFit: (scale) => { scale.width = top4LabelWidthAll; }
+                            afterFit: (scale) => {
+                                scale.width = top4LabelWidthAll;
+                            }
                         }
                     }
                 },
                 plugins: [
-                    createValueLabelPlugin(top4RateData.map((d) => Number(d.rate.toFixed(1))), (v) => `${v}%`),
+                    createValueLabelPlugin(
+                        top4RateData.map((d) => Number(d.rate.toFixed(1))),
+                        (v) => `${v}%`
+                    ),
                     createAverageLinePlugin(
-                        top4RateData.length ? top4RateData.reduce((s, d) => s + d.rate, 0) / top4RateData.length : 0,
+                        top4RateData.length
+                            ? top4RateData.reduce((s, d) => s + d.rate, 0) / top4RateData.length
+                            : 0,
                         'média',
                         (v) => `${v.toFixed(1)}%`
                     )
@@ -5066,7 +5488,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         // Scatter chart — Score vs Top4 rate
         const scatterCanvas = document.getElementById(scatterCanvasId);
         if (scatterCanvas && window.Chart) {
-            if (_metaScatterChart) { _metaScatterChart.destroy(); _metaScatterChart = null; }
+            if (_metaScatterChart) {
+                _metaScatterChart.destroy();
+                _metaScatterChart = null;
+            }
             const scatterPoints = (Array.isArray(topDecks) ? topDecks : [])
                 .map((r) => {
                     const deck = String(r?.deck || '').trim();
@@ -5075,7 +5500,14 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                     const top4 = Number(r?.top4_total) || 0;
                     const rate = appearances > 0 ? (top4 / appearances) * 100 : 0;
                     if (!deck || score <= 0) return null;
-                    return { x: score, y: Number(rate.toFixed(1)), origScore: score, origRate: Number(rate.toFixed(1)), deck, appearances };
+                    return {
+                        x: score,
+                        y: Number(rate.toFixed(1)),
+                        origScore: score,
+                        origRate: Number(rate.toFixed(1)),
+                        deck,
+                        appearances
+                    };
                 })
                 .filter(Boolean)
                 .slice(0, isMobile ? 12 : Infinity);
@@ -5094,8 +5526,12 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                     scatterPoints[idx].y = +(scatterPoints[idx].y + 2 * Math.sin(angle)).toFixed(1);
                 });
             });
-            const avgX = scatterPoints.length ? scatterPoints.reduce((s, p) => s + p.origScore, 0) / scatterPoints.length : 0;
-            const avgY = scatterPoints.length ? scatterPoints.reduce((s, p) => s + p.origRate, 0) / scatterPoints.length : 0;
+            const avgX = scatterPoints.length
+                ? scatterPoints.reduce((s, p) => s + p.origScore, 0) / scatterPoints.length
+                : 0;
+            const avgY = scatterPoints.length
+                ? scatterPoints.reduce((s, p) => s + p.origRate, 0) / scatterPoints.length
+                : 0;
             const maxApp = Math.max(...scatterPoints.map((p) => p.appearances), 1);
             const minApp = Math.min(...scatterPoints.map((p) => p.appearances), 1);
             const scaleRadius = (n) => {
@@ -5111,9 +5547,12 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                         return {
                             label: pt.deck,
                             data: [{ x: pt.x, y: pt.y }],
-                            backgroundColor: hexToRgba(getSoftDeckColor(pt.deck, 0), prominent ? 0.85 : 0.3),
+                            backgroundColor: hexToRgba(
+                                getSoftDeckColor(pt.deck, 0),
+                                prominent ? 0.85 : 0.3
+                            ),
                             pointRadius: r,
-                            pointHoverRadius: r + 2,
+                            pointHoverRadius: r + 2
                         };
                     })
                 },
@@ -5139,19 +5578,40 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                             border: { color: '#263554' },
-                            ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
-                            title: { display: true, text: 'Pontuação', color: '#6a7d9f', font: { size: 10 } },
-                            suggestedMin: Math.max(0, Math.min(...scatterPoints.map((p) => p.x)) - 5),
-                            suggestedMax: Math.max(...scatterPoints.map((p) => p.x)) + 5,
+                            ticks: {
+                                color: '#6a7d9f',
+                                font: { size: 11 },
+                                callback: (v) => v + ' pts'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Pontuação',
+                                color: '#6a7d9f',
+                                font: { size: 10 }
+                            },
+                            suggestedMin: Math.max(
+                                0,
+                                Math.min(...scatterPoints.map((p) => p.x)) - 5
+                            ),
+                            suggestedMax: Math.max(...scatterPoints.map((p) => p.x)) + 5
                         },
                         y: {
                             ...scaleDefaults,
                             grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                             border: { color: '#263554' },
-                            ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v > 100 ? '' : v + '%' },
-                            title: { display: true, text: 'Taxa Top4', color: '#6a7d9f', font: { size: 10 } },
+                            ticks: {
+                                color: '#6a7d9f',
+                                font: { size: 11 },
+                                callback: (v) => (v > 100 ? '' : v + '%')
+                            },
+                            title: {
+                                display: true,
+                                text: 'Taxa Top4',
+                                color: '#6a7d9f',
+                                font: { size: 10 }
+                            },
                             beginAtZero: true,
-                            suggestedMax: 108,
+                            suggestedMax: 108
                         }
                     }
                 },
@@ -5159,7 +5619,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                     {
                         id: 'scatterQuadrants',
                         beforeDatasetsDraw(chart) {
-                            const { ctx, chartArea: { top, bottom, left, right } } = chart;
+                            const {
+                                ctx,
+                                chartArea: { top, bottom, left, right }
+                            } = chart;
                             const px = chart.scales.x.getPixelForValue(avgX);
                             const py = chart.scales.y.getPixelForValue(avgY);
                             ctx.save();
@@ -5174,35 +5637,60 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                             ctx.restore();
                         },
                         afterDatasetsDraw(chart) {
-                            const { ctx, chartArea: { top, bottom, left, right } } = chart;
+                            const {
+                                ctx,
+                                chartArea: { top, bottom, left, right }
+                            } = chart;
                             const px = chart.scales.x.getPixelForValue(avgX);
                             const py = chart.scales.y.getPixelForValue(avgY);
                             ctx.save();
                             ctx.setLineDash([4, 4]);
                             ctx.lineWidth = 1;
                             ctx.strokeStyle = 'rgba(200,212,232,0.25)';
-                            ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
-                            ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
+                            ctx.beginPath();
+                            ctx.moveTo(px, top);
+                            ctx.lineTo(px, bottom);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.moveTo(left, py);
+                            ctx.lineTo(right, py);
+                            ctx.stroke();
                             ctx.setLineDash([]);
                             const isMobile = chart.width < 480;
                             ctx.font = `600 ${isMobile ? '9' : '10'}px sans-serif`;
                             ctx.fillStyle = 'rgba(59,166,93,0.5)';
-                            ctx.textBaseline = 'top'; ctx.textAlign = 'right';
+                            ctx.textBaseline = 'top';
+                            ctx.textAlign = 'right';
                             ctx.fillText(isMobile ? 'Dom.' : 'Dominantes', right - 8, top + 6);
                             ctx.fillStyle = 'rgba(47,115,217,0.4)';
                             ctx.textAlign = 'left';
-                            ctx.fillText(isMobile ? 'Alta taxa' : 'Alta taxa, baixa pont.', left + 8, top + 6);
+                            ctx.fillText(
+                                isMobile ? 'Alta taxa' : 'Alta taxa, baixa pont.',
+                                left + 8,
+                                top + 6
+                            );
                             ctx.fillStyle = 'rgba(226,190,47,0.4)';
-                            ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
-                            ctx.fillText(isMobile ? 'Alta pont.' : 'Alta pont., baixa taxa', right - 8, bottom - 6);
+                            ctx.textBaseline = 'bottom';
+                            ctx.textAlign = 'right';
+                            ctx.fillText(
+                                isMobile ? 'Alta pont.' : 'Alta pont., baixa taxa',
+                                right - 8,
+                                bottom - 6
+                            );
                             ctx.fillStyle = 'rgba(217,74,74,0.4)';
                             ctx.textAlign = 'left';
-                            ctx.fillText(isMobile ? 'Baixo' : 'Baixo desempenho', left + 8, bottom - 6);
+                            ctx.fillText(
+                                isMobile ? 'Baixo' : 'Baixo desempenho',
+                                left + 8,
+                                bottom - 6
+                            );
                             ctx.fillStyle = 'rgba(200,212,232,0.5)';
                             ctx.font = '10px sans-serif';
-                            ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.textAlign = 'center';
                             ctx.fillText(`média: ${Math.round(avgX)} pts`, px, top - 3);
-                            ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+                            ctx.textBaseline = 'middle';
+                            ctx.textAlign = 'right';
                             ctx.fillText(`média: ${avgY.toFixed(1)}%`, right - 6, py);
                             ctx.restore();
                         }
@@ -5211,7 +5699,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                         id: 'scatterDeckLabels',
                         afterDatasetsDraw(chart) {
                             if (isMobile) return;
-                            const { ctx, chartArea: { left, right, top, bottom } } = chart;
+                            const {
+                                ctx,
+                                chartArea: { left, right, top, bottom }
+                            } = chart;
                             ctx.save();
                             const isMobileChart = chart.width < 480;
                             ctx.font = `${isMobileChart ? '10' : '11'}px sans-serif`;
@@ -5230,20 +5721,28 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                 const textW = ctx.measureText(text).width;
                                 const isRight = props.x > midX;
                                 labels.push({
-                                    text, textW, isRight, r,
-                                    anchorX: props.x, anchorY: props.y,
-                                    x: props.x + (isRight ? -(r + 4) : (r + 4)),
-                                    y: props.y - r - 2,
+                                    text,
+                                    textW,
+                                    isRight,
+                                    r,
+                                    anchorX: props.x,
+                                    anchorY: props.y,
+                                    x: props.x + (isRight ? -(r + 4) : r + 4),
+                                    y: props.y - r - 2
                                 });
                             });
                             const getBBox = (l) => ({
                                 x1: l.isRight ? l.x - l.textW : l.x,
                                 x2: l.isRight ? l.x : l.x + l.textW,
-                                y1: l.y - FONT_H, y2: l.y,
+                                y1: l.y - FONT_H,
+                                y2: l.y
                             });
                             const overlaps = (a, b) => {
-                                const ba = getBBox(a), bb = getBBox(b);
-                                return ba.x1 < bb.x2 && ba.x2 > bb.x1 && ba.y1 < bb.y2 && ba.y2 > bb.y1;
+                                const ba = getBBox(a),
+                                    bb = getBBox(b);
+                                return (
+                                    ba.x1 < bb.x2 && ba.x2 > bb.x1 && ba.y1 < bb.y2 && ba.y2 > bb.y1
+                                );
                             };
                             const pushVert = (iters) => {
                                 for (let iter = 0; iter < iters; iter++) {
@@ -5252,8 +5751,13 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                         for (let j = i + 1; j < labels.length; j++) {
                                             if (!overlaps(labels[i], labels[j])) continue;
                                             const push = FONT_H / 2 + 1;
-                                            if (labels[i].y <= labels[j].y) { labels[i].y -= push; labels[j].y += push; }
-                                            else { labels[i].y += push; labels[j].y -= push; }
+                                            if (labels[i].y <= labels[j].y) {
+                                                labels[i].y -= push;
+                                                labels[j].y += push;
+                                            } else {
+                                                labels[i].y += push;
+                                                labels[j].y -= push;
+                                            }
                                             moved = true;
                                         }
                                     }
@@ -5268,7 +5772,7 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                     const distJ = Math.abs(labels[j].anchorX - midX);
                                     const fl = distI < distJ ? labels[i] : labels[j];
                                     fl.isRight = !fl.isRight;
-                                    fl.x = fl.anchorX + (fl.isRight ? -(fl.r + 4) : (fl.r + 4));
+                                    fl.x = fl.anchorX + (fl.isRight ? -(fl.r + 4) : fl.r + 4);
                                     fl.y = fl.anchorY - fl.r - 2;
                                 }
                             }
@@ -5294,7 +5798,10 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         if (playerCanvas && window.Chart) {
             fetchPlayerPointsAll(currentStatisticsFormatFilter).then((playerRows) => {
                 if (!playerRows.length) return;
-                if (_metaPlayerPointsChart) { _metaPlayerPointsChart.destroy(); _metaPlayerPointsChart = null; }
+                if (_metaPlayerPointsChart) {
+                    _metaPlayerPointsChart.destroy();
+                    _metaPlayerPointsChart = null;
+                }
                 const playerWrap = playerCanvas.closest('.meta-evol-canvas-wrap');
                 if (playerWrap) {
                     const calcH = Math.max(240, playerRows.length * 22 + 60);
@@ -5304,20 +5811,28 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 const maxLabelLen = labelsFull.reduce((m, v) => Math.max(m, v.length), 0);
                 const labelWidth = Math.min(260, Math.max(140, Math.round(maxLabelLen * 6.6)));
                 const playerPoints = playerRows.map((r) => r.points);
-                const playerAvg = playerPoints.length ? playerPoints.reduce((s, v) => s + v, 0) / playerPoints.length : 0;
+                const playerAvg = playerPoints.length
+                    ? playerPoints.reduce((s, v) => s + v, 0) / playerPoints.length
+                    : 0;
                 _metaPlayerPointsChart = new window.Chart(playerCanvas, {
                     type: 'bar',
                     data: {
                         labels: labelsFull,
-                        datasets: [{
-                            data: playerPoints,
-                            backgroundColor: playerRows.map((_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]),
-                            borderColor:     playerRows.map((_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]),
-                            borderWidth: 1.5,
-                            borderRadius: 4,
-                            barThickness: 10,
-                            maxBarThickness: 12,
-                        }]
+                        datasets: [
+                            {
+                                data: playerPoints,
+                                backgroundColor: playerRows.map(
+                                    (_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]
+                                ),
+                                borderColor: playerRows.map(
+                                    (_, i) => SOFT_PALETTE[i % SOFT_PALETTE.length]
+                                ),
+                                borderWidth: 1.5,
+                                borderRadius: 4,
+                                barThickness: 10,
+                                maxBarThickness: 12
+                            }
+                        ]
                     },
                     options: {
                         indexAxis: 'y',
@@ -5339,15 +5854,21 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                                 ...scaleDefaults,
                                 grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
                                 border: { color: '#263554' },
-                                ticks: { color: '#6a7d9f', font: { size: 11 }, callback: (v) => v + ' pts' },
-                                beginAtZero: true,
+                                ticks: {
+                                    color: '#6a7d9f',
+                                    font: { size: 11 },
+                                    callback: (v) => v + ' pts'
+                                },
+                                beginAtZero: true
                             },
                             y: {
                                 ...scaleDefaults,
                                 grid: { color: 'rgba(255,255,255,0.04)', drawTicks: false },
                                 border: { color: '#263554' },
                                 ticks: { color: '#c8d4e8', font: { size: 11 } },
-                                afterFit: (scale) => { scale.width = labelWidth; }
+                                afterFit: (scale) => {
+                                    scale.width = labelWidth;
+                                }
                             }
                         }
                     },
@@ -5367,7 +5888,9 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
                 btn.addEventListener('click', () => {
                     const target = btn.dataset.evolTab;
                     btns.forEach((b) => b.classList.toggle('is-active', b === btn));
-                    panels.forEach((p) => p.classList.toggle('is-hidden', p.dataset.evolPanel !== target));
+                    panels.forEach((p) =>
+                        p.classList.toggle('is-hidden', p.dataset.evolPanel !== target)
+                    );
                     if (target === 'players' && _metaPlayerPointsChart) {
                         _metaPlayerPointsChart.resize();
                     }
@@ -5420,16 +5943,22 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         }
     }, 0);
 
-    const legendItemsHtml = datasets.map((ds, i) =>
-        `<span class="meta-evol-legend-item" data-dataset-index="${i}" title="${escapeHtml(ds.label)}">
+    const legendItemsHtml = datasets
+        .map(
+            (ds, i) =>
+                `<span class="meta-evol-legend-item" data-dataset-index="${i}" title="${escapeHtml(ds.label)}">
             <span class="meta-evol-dot" style="background:${ds.borderColor}"></span>
             <span>${escapeHtml(ds.label)}</span>
         </span>`
-    ).join('');
+        )
+        .join('');
 
-    const monthPillsHtml = months.map((m) =>
-        `<button type="button" class="meta-evol-month-pill is-active" data-month="${m}">${fmtMonthKey(m)}</button>`
-    ).join('');
+    const monthPillsHtml = months
+        .map(
+            (m) =>
+                `<button type="button" class="meta-evol-month-pill is-active" data-month="${m}">${fmtMonthKey(m)}</button>`
+        )
+        .join('');
 
     // Mobile evolution table: last 5 months, all decks that ranked in any shown month
     const mobileEvolMonths = months.slice(-5);
@@ -5440,19 +5969,32 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
             const rankMap = bumpRankByMonth.get(deck) || new Map();
             return mobileEvolMonths.some((m) => rankMap.has(m));
         });
-        const rows = visibleDecks.map((deck, di) => {
-            const color = bumpColors[bumpTopNames.indexOf(deck)];
-            const rankMap = bumpRankByMonth.get(deck) || new Map();
-            const cells = mobileEvolMonths.map((m) => {
-                const rank = rankMap.get(m);
-                const cls = rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : rank ? 'r4' : '';
-                return `<td class="meta-evol-rank${cls ? ' ' + cls : ''}">${rank ? rank + 'º' : '–'}</td>`;
-            }).join('');
-            return `<tr>
+        const rows = visibleDecks
+            .map((deck, di) => {
+                const color = bumpColors[bumpTopNames.indexOf(deck)];
+                const rankMap = bumpRankByMonth.get(deck) || new Map();
+                const cells = mobileEvolMonths
+                    .map((m) => {
+                        const rank = rankMap.get(m);
+                        const cls =
+                            rank === 1
+                                ? 'r1'
+                                : rank === 2
+                                  ? 'r2'
+                                  : rank === 3
+                                    ? 'r3'
+                                    : rank
+                                      ? 'r4'
+                                      : '';
+                        return `<td class="meta-evol-rank${cls ? ' ' + cls : ''}">${rank ? rank + 'º' : '–'}</td>`;
+                    })
+                    .join('');
+                return `<tr>
                 <td class="meta-evol-table-name"><span class="meta-evol-dot" style="background:${color}"></span>${escapeHtml(ellipsis(deck, 12))}</td>
                 ${cells}
             </tr>`;
-        }).join('');
+            })
+            .join('');
         return `<table class="meta-evol-table">
             <thead><tr><th class="deck-col">Deck</th>${headers}</tr></thead>
             <tbody>${rows}</tbody>
@@ -5492,10 +6034,13 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         </div>
         </div>
         <div class="meta-evol-panel is-hidden" data-evol-panel="evolucao">
-        ${isMobile ? `
+        ${
+            isMobile
+                ? `
         <div class="meta-evol-header"><span class="meta-evol-title">Evolução do Meta</span><span class="meta-evol-sort-hint">Toque no mês para ordenar</span></div>
         <div class="meta-evol-table-wrap">${mobileEvolTableHtml}</div>
-        ` : `
+        `
+                : `
         <div class="meta-evol-header is-split">
             <span class="meta-evol-title">Evolução do Meta</span>
             <div class="meta-evol-legend" id="${legendId}">${legendItemsHtml}</div>
@@ -5504,7 +6049,8 @@ function buildMetaEvolutionChartHtml(rawRows, topDecks, isMobile = false) {
         <div class="meta-evol-canvas-wrap meta-evol-canvas-evol">
             <canvas id="${canvasId}"></canvas>
         </div>
-        `}
+        `
+        }
         </div>
         <div class="meta-evol-panel is-hidden" data-evol-panel="players">
             <div class="meta-evol-header" style="margin-top:20px">
@@ -5609,7 +6155,12 @@ function createBlackStripePlugin(stripeIndices = []) {
                 const right = Math.max(x, base);
                 const top = y - height / 2;
                 const h = height;
-                if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(top) || !Number.isFinite(h)) {
+                if (
+                    !Number.isFinite(left) ||
+                    !Number.isFinite(right) ||
+                    !Number.isFinite(top) ||
+                    !Number.isFinite(h)
+                ) {
                     return;
                 }
                 ctx.save();
@@ -5684,10 +6235,10 @@ function createAverageLinePlugin(avg, label, formatter) {
 }
 
 function deckCompositeScore(r) {
-    const top4   = Number(r?.top4_total)  || 0;
-    const top3   = r?.top3_total != null ? Number(r.top3_total) : top4;
-    const top2   = r?.top2_total != null ? Number(r.top2_total) : top3;
-    const titles = Number(r?.titles)      || 0;
+    const top4 = Number(r?.top4_total) || 0;
+    const top3 = r?.top3_total != null ? Number(r.top3_total) : top4;
+    const top2 = r?.top2_total != null ? Number(r.top2_total) : top3;
+    const titles = Number(r?.titles) || 0;
     return titles * 15 + (top2 - titles) * 10 + (top3 - top2) * 7 + (top4 - top3) * 5;
 }
 
@@ -5700,7 +6251,9 @@ function placementPoints(placement) {
 }
 
 function getMonthRangeKeys(monthKey) {
-    const [year, month] = String(monthKey || '').split('-').map(Number);
+    const [year, month] = String(monthKey || '')
+        .split('-')
+        .map(Number);
     if (!year || !month) return null;
     const start = new Date(Date.UTC(year, month - 1, 1));
     const end = new Date(Date.UTC(year, month, 1));
@@ -5779,8 +6332,7 @@ async function fetchPlayerPointsByMonth(monthKey, formatCode) {
                 .map(([player, points]) => ({ player, points }))
                 .sort((a, b) => b.points - a.points);
         }
-        return list
-            .sort((a, b) => b.points - a.points);
+        return list.sort((a, b) => b.points - a.points);
     }
 
     // Fallback: compute from v_podium_full
@@ -5812,10 +6364,7 @@ async function fetchPlayerPointsByMonth(monthKey, formatCode) {
 
 async function fetchPlayerPointsAll(formatCode) {
     // Try view v_player_points_by_month (preferred)
-    const viewParams = [
-        'select=player,points,month,format_code',
-        'limit=5000'
-    ];
+    const viewParams = ['select=player,points,month,format_code', 'limit=5000'];
     if (formatCode) viewParams.push(`format_code=eq.${encodeURIComponent(formatCode)}`);
     const viewEndpoint = `/rest/v1/v_player_points_by_month?${viewParams.join('&')}`;
     const viewRes = window.supabaseApi
@@ -5841,10 +6390,7 @@ async function fetchPlayerPointsAll(formatCode) {
     }
 
     // Fallback: compute from v_podium_full (all months)
-    const params = [
-        'select=player,placement,tournament_date,format_code',
-        'limit=5000'
-    ];
+    const params = ['select=player,placement,tournament_date,format_code', 'limit=5000'];
     if (formatCode) params.push(`format_code=eq.${encodeURIComponent(formatCode)}`);
     const endpoint = `/rest/v1/v_podium_full?${params.join('&')}`;
     const res = window.supabaseApi
@@ -5871,46 +6417,50 @@ async function fetchPlayerPointsAll(formatCode) {
 
 async function updateTopDeckDailySparklines(panel, deckNames, monthKey, formatCode) {
     if (!panel || !deckNames?.length) return;
-    await Promise.all(deckNames.map(async (deckName) => {
-        const trend = await fetchDeckDailyPointsTrend(deckName, monthKey, formatCode);
-        const sparkline = buildSparklineSvg(trend);
-        const trendColor = getSparklineTrendColor(trend);
-        const card = panel.querySelector(`.meta-top-deck-card[data-deck="${CSS.escape(deckName)}"]`);
-        const sparklineWrap = card?.querySelector('.meta-top-deck-sparkline');
-        const trendLabelEl = card?.querySelector('.meta-top-deck-trend-value');
-        if (sparklineWrap) sparklineWrap.innerHTML = sparkline;
-        if (trendLabelEl) {
-            if (trend.length >= 2) {
-                const start = Number(trend[0].pct);
-                const end = Number(trend[trend.length - 1].pct);
-                const formatPlacementFromPoints = (value) => {
-                    const pts = Number(value);
-                    if (!Number.isFinite(pts)) return '—';
-                    const tiers = [
-                        { pts: 15, label: '1º' },
-                        { pts: 10, label: '2º' },
-                        { pts: 7, label: '3º' },
-                        { pts: 5, label: '4º' },
-                    ];
-                    let closest = tiers[0];
-                    let bestDiff = Math.abs(pts - closest.pts);
-                    for (let i = 1; i < tiers.length; i += 1) {
-                        const diff = Math.abs(pts - tiers[i].pts);
-                        if (diff < bestDiff) {
-                            bestDiff = diff;
-                            closest = tiers[i];
+    await Promise.all(
+        deckNames.map(async (deckName) => {
+            const trend = await fetchDeckDailyPointsTrend(deckName, monthKey, formatCode);
+            const sparkline = buildSparklineSvg(trend);
+            const trendColor = getSparklineTrendColor(trend);
+            const card = panel.querySelector(
+                `.meta-top-deck-card[data-deck="${CSS.escape(deckName)}"]`
+            );
+            const sparklineWrap = card?.querySelector('.meta-top-deck-sparkline');
+            const trendLabelEl = card?.querySelector('.meta-top-deck-trend-value');
+            if (sparklineWrap) sparklineWrap.innerHTML = sparkline;
+            if (trendLabelEl) {
+                if (trend.length >= 2) {
+                    const start = Number(trend[0].pct);
+                    const end = Number(trend[trend.length - 1].pct);
+                    const formatPlacementFromPoints = (value) => {
+                        const pts = Number(value);
+                        if (!Number.isFinite(pts)) return '—';
+                        const tiers = [
+                            { pts: 15, label: '1º' },
+                            { pts: 10, label: '2º' },
+                            { pts: 7, label: '3º' },
+                            { pts: 5, label: '4º' }
+                        ];
+                        let closest = tiers[0];
+                        let bestDiff = Math.abs(pts - closest.pts);
+                        for (let i = 1; i < tiers.length; i += 1) {
+                            const diff = Math.abs(pts - tiers[i].pts);
+                            if (diff < bestDiff) {
+                                bestDiff = diff;
+                                closest = tiers[i];
+                            }
                         }
-                    }
-                    return closest.label;
-                };
-                trendLabelEl.textContent = `${formatPlacementFromPoints(start)} → ${formatPlacementFromPoints(end)}`;
-                trendLabelEl.style.color = trendColor;
-            } else {
-                trendLabelEl.textContent = '—';
-                trendLabelEl.style.color = '#8fa8d4';
+                        return closest.label;
+                    };
+                    trendLabelEl.textContent = `${formatPlacementFromPoints(start)} → ${formatPlacementFromPoints(end)}`;
+                    trendLabelEl.style.color = trendColor;
+                } else {
+                    trendLabelEl.textContent = '—';
+                    trendLabelEl.style.color = '#8fa8d4';
+                }
             }
-        }
-    }));
+        })
+    );
 }
 
 function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
@@ -5920,12 +6470,13 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
 
     // ── KPI strip ──────────────────────────────────────────────────────────
     const allTournaments = Array.isArray(tournaments) ? tournaments : [];
-    const totalTournaments = currentMetaOverviewPeriod === 'all' || !currentMetaOverviewPeriod
-        ? allTournaments.length
-        : allTournaments.filter((t) => {
-            const d = String(t?.tournament_date || '');
-            return d.startsWith(currentMetaOverviewPeriod);
-        }).length;
+    const totalTournaments =
+        currentMetaOverviewPeriod === 'all' || !currentMetaOverviewPeriod
+            ? allTournaments.length
+            : allTournaments.filter((t) => {
+                  const d = String(t?.tournament_date || '');
+                  return d.startsWith(currentMetaOverviewPeriod);
+              }).length;
     const uniqueDecks = metaRows.length;
     const topByScore = [...metaRows].sort((a, b) => {
         const sd = deckCompositeScore(b) - deckCompositeScore(a);
@@ -5939,10 +6490,13 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
         return br - ar;
     });
     const topDeckName = topByScore[0]?.deck ? escapeHtml(String(topByScore[0].deck)) : '—';
-    const allDataMonths = [...new Set(
-        (Array.isArray(statisticsViewData) ? statisticsViewData : [])
-            .map((r) => normalizeStatisticsMonthKey(r?.month)).filter(Boolean)
-    )];
+    const allDataMonths = [
+        ...new Set(
+            (Array.isArray(statisticsViewData) ? statisticsViewData : [])
+                .map((r) => normalizeStatisticsMonthKey(r?.month))
+                .filter(Boolean)
+        )
+    ];
     const mesesDados = allDataMonths.length;
     const kpiHtml = `<div class="meta-kpi-strip">
         <div class="meta-kpi-card">
@@ -5964,19 +6518,41 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
     </div>`;
 
     // ── Period filter buttons — one per month + Tudo ───────────────────────
-    const availableMonths = [...new Set(
-        (Array.isArray(statisticsViewData) ? statisticsViewData : [])
-            .map((r) => normalizeStatisticsMonthKey(r?.month)).filter(Boolean)
-    )].sort();
+    const availableMonths = [
+        ...new Set(
+            (Array.isArray(statisticsViewData) ? statisticsViewData : [])
+                .map((r) => normalizeStatisticsMonthKey(r?.month))
+                .filter(Boolean)
+        )
+    ].sort();
     const monthBtnLabels = availableMonths.map((m) => {
         const [year, month] = m.split('-');
-        const names = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const names = [
+            'Jan',
+            'Fev',
+            'Mar',
+            'Abr',
+            'Mai',
+            'Jun',
+            'Jul',
+            'Ago',
+            'Set',
+            'Out',
+            'Nov',
+            'Dez'
+        ];
         return { value: m, label: `${names[Number(month) - 1]}/${String(year).slice(2)}` };
     });
     const allPeriods = [...monthBtnLabels, { value: 'all', label: 'Tudo' }];
     const periodHtml = `<div class="meta-period-bar">
-        ${allPeriods.map((p) => `<button type="button" class="meta-period-btn${currentMetaOverviewPeriod === p.value ? ' is-active' : ''}"
-            data-period="${p.value}">${p.label}</button>`).join('')}
+        ${allPeriods
+            .map(
+                (
+                    p
+                ) => `<button type="button" class="meta-period-btn${currentMetaOverviewPeriod === p.value ? ' is-active' : ''}"
+            data-period="${p.value}">${p.label}</button>`
+            )
+            .join('')}
     </div>`;
 
     // ── Charts ─────────────────────────────────────────────────────────────
@@ -5986,8 +6562,9 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
         const [py, pm] = currentMetaOverviewPeriod.split('-').map(Number);
         const prevDate = new Date(py, pm - 2, 1); // month - 2 because month is 1-based
         const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-        prevColorRows = (Array.isArray(statisticsColorData) ? statisticsColorData : [])
-            .filter((r) => normalizeStatisticsMonthKey(r?.month) === prevKey);
+        prevColorRows = (Array.isArray(statisticsColorData) ? statisticsColorData : []).filter(
+            (r) => normalizeStatisticsMonthKey(r?.month) === prevKey
+        );
     }
 
     const donutHtml = metaRows.length
@@ -6033,35 +6610,40 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
     const total = sorted.reduce((s, r) => s + (Number(r?.appearances) || 0), 0);
     const top3 = sorted.slice(0, 3);
     const medals = ['🥇', '🥈', '🥉'];
-    const deckCardsHtml = top3.map((r, i) => {
-        const deckName = String(r?.deck || '-');
-        const appearances = Number(r?.appearances) || 0;
-        const peakShare = peakShareByDeck.get(deckName) || 0;
-        const color = CHART_PALETTE[i % CHART_PALETTE.length];
-        const trendArr = trendByDeck.get(deckName) || [];
-        const trendPcts = trendArr.map((t) => Number(t.pct)).filter((v) => Number.isFinite(v));
-        const avgShare = trendPcts.length ? (trendPcts.reduce((s, v) => s + v, 0) / trendPcts.length) : 0;
-        const deltaShare = trendPcts.length >= 2 ? (trendPcts[trendPcts.length - 1] - trendPcts[0]) : 0;
-        const sparkline = buildSparklineSvg(trendArr);
-        const trendColor = getSparklineTrendColor(trendArr);
-        const trendTitle = isAllPeriod ? 'Meta share' : 'Posição média torneio';
-        const trendLabel = isAllPeriod
-            ? (trendArr.length >= 2
-                ? `${Number(trendArr[0].pct).toFixed(1)}% → ${Number(trendArr[trendArr.length - 1].pct).toFixed(1)}%`
-                : '—')
-            : '—';
-        const titles = Number(r?.titles) || 0;
-        const top4 = Number(r?.top4_total) || 0;
-        const score = deckCompositeScore(r).toFixed(0);
-        const top4Rate = appearances > 0 ? (top4 / appearances * 100).toFixed(0) : null;
-        const fmt = (v, suffix = '') => (v === null || v === '0' || v === 0) ? '—' : `${v}${suffix}`;
-        const isAll = currentMetaOverviewPeriod === 'all' || !currentMetaOverviewPeriod;
-        const peakLabel = isAll ? 'média do período' : 'meta do mês';
-        const imgUrl = statisticsDeckImageMap.get(deckName) || '';
-        const imgHtml = imgUrl
-            ? `<img class="meta-top-deck-img" src="${escapeHtml(imgUrl)}" alt="${escapeHtml(deckName)}" onerror="this.style.display='none'">`
-            : '';
-        return `<div class="meta-top-deck-card" data-deck="${escapeHtml(deckName)}" role="button" tabindex="0" style="cursor:pointer">
+    const deckCardsHtml = top3
+        .map((r, i) => {
+            const deckName = String(r?.deck || '-');
+            const appearances = Number(r?.appearances) || 0;
+            const peakShare = peakShareByDeck.get(deckName) || 0;
+            const color = CHART_PALETTE[i % CHART_PALETTE.length];
+            const trendArr = trendByDeck.get(deckName) || [];
+            const trendPcts = trendArr.map((t) => Number(t.pct)).filter((v) => Number.isFinite(v));
+            const avgShare = trendPcts.length
+                ? trendPcts.reduce((s, v) => s + v, 0) / trendPcts.length
+                : 0;
+            const deltaShare =
+                trendPcts.length >= 2 ? trendPcts[trendPcts.length - 1] - trendPcts[0] : 0;
+            const sparkline = buildSparklineSvg(trendArr);
+            const trendColor = getSparklineTrendColor(trendArr);
+            const trendTitle = isAllPeriod ? 'Meta share' : 'Posição média torneio';
+            const trendLabel = isAllPeriod
+                ? trendArr.length >= 2
+                    ? `${Number(trendArr[0].pct).toFixed(1)}% → ${Number(trendArr[trendArr.length - 1].pct).toFixed(1)}%`
+                    : '—'
+                : '—';
+            const titles = Number(r?.titles) || 0;
+            const top4 = Number(r?.top4_total) || 0;
+            const score = deckCompositeScore(r).toFixed(0);
+            const top4Rate = appearances > 0 ? ((top4 / appearances) * 100).toFixed(0) : null;
+            const fmt = (v, suffix = '') =>
+                v === null || v === '0' || v === 0 ? '—' : `${v}${suffix}`;
+            const isAll = currentMetaOverviewPeriod === 'all' || !currentMetaOverviewPeriod;
+            const peakLabel = isAll ? 'média do período' : 'meta do mês';
+            const imgUrl = statisticsDeckImageMap.get(deckName) || '';
+            const imgHtml = imgUrl
+                ? `<img class="meta-top-deck-img" src="${escapeHtml(imgUrl)}" alt="${escapeHtml(deckName)}" onerror="this.style.display='none'">`
+                : '';
+            return `<div class="meta-top-deck-card" data-deck="${escapeHtml(deckName)}" role="button" tabindex="0" style="cursor:pointer">
             <div class="meta-top-deck-header">
                 <span class="meta-top-deck-medal">${medals[i]}</span>
                 <span class="meta-top-deck-name">${escapeHtml(deckName)}</span>
@@ -6096,16 +6678,17 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 </div>
             </div>
         </div>`;
-    }).join('');
-      const topDecksLabel = isAllPeriod
-          ? 'Top decks por pontos — Todos os meses'
-          : `Top decks por pontos — ${formatStatisticsMonthLabel(currentMetaOverviewPeriod)}`;
-      const topDecksSection = top3.length
-          ? `<div class="meta-top-decks">
+        })
+        .join('');
+    const topDecksLabel = isAllPeriod
+        ? 'Top decks por pontos — Todos os meses'
+        : `Top decks por pontos — ${formatStatisticsMonthLabel(currentMetaOverviewPeriod)}`;
+    const topDecksSection = top3.length
+        ? `<div class="meta-top-decks">
                  <span class="meta-top-decks-label">${topDecksLabel}</span>
                  <div class="meta-top-decks-cards">${deckCardsHtml}</div>
              </div>`
-          : '';
+        : '';
 
     // ── Meta Evolution chart ───────────────────────────────────────────────
     const evolutionHtml = buildMetaEvolutionChartHtml(rawMetaRows, sorted, isMobile);
@@ -6170,7 +6753,12 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
 
     if (!isAllPeriod && top3.length) {
         const deckNames = top3.map((r) => String(r?.deck || '').trim()).filter(Boolean);
-        updateTopDeckDailySparklines(panel, deckNames, currentMetaOverviewPeriod, currentStatisticsFormatFilter);
+        updateTopDeckDailySparklines(
+            panel,
+            deckNames,
+            currentMetaOverviewPeriod,
+            currentStatisticsFormatFilter
+        );
     }
 
     // ── Deck detail modal ──────────────────────────────────────────────────
@@ -6186,29 +6774,48 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
 
     const hideDeckModal = () => {
         backdrop?.classList.add('is-hidden');
-        panel.querySelectorAll('.meta-top-deck-card').forEach((c) => c.classList.remove('is-active'));
-        if (_metaDeckDetailChart) { _metaDeckDetailChart.destroy(); _metaDeckDetailChart = null; }
-        if (_metaDeckPlacementChart) { _metaDeckPlacementChart.destroy(); _metaDeckPlacementChart = null; }
+        panel
+            .querySelectorAll('.meta-top-deck-card')
+            .forEach((c) => c.classList.remove('is-active'));
+        if (_metaDeckDetailChart) {
+            _metaDeckDetailChart.destroy();
+            _metaDeckDetailChart = null;
+        }
+        if (_metaDeckPlacementChart) {
+            _metaDeckPlacementChart.destroy();
+            _metaDeckPlacementChart = null;
+        }
     };
 
     const showDeckModal = async (deckName, deckRow, color, imgUrl) => {
         if (!backdrop) return;
-        panel.querySelectorAll('.meta-top-deck-card').forEach((c) => c.classList.remove('is-active'));
+        panel
+            .querySelectorAll('.meta-top-deck-card')
+            .forEach((c) => c.classList.remove('is-active'));
         backdrop.classList.remove('is-hidden');
 
         // Header
         if (modalNameEl) modalNameEl.textContent = deckName;
         if (modalImgEl) {
-            if (imgUrl) { modalImgEl.src = imgUrl; modalImgEl.style.display = ''; }
-            else { modalImgEl.style.display = 'none'; }
+            if (imgUrl) {
+                modalImgEl.src = imgUrl;
+                modalImgEl.style.display = '';
+            } else {
+                modalImgEl.style.display = 'none';
+            }
         }
 
         // Month rows (needed for stats + charts)
-        const allMonths = [...new Set(
-            (Array.isArray(rawMetaRows) ? rawMetaRows : []).map((r) => String(r?.month || '').trim()).filter(Boolean)
-        )].sort();
-        const deckMonthRows = (Array.isArray(rawMetaRows) ? rawMetaRows : [])
-            .filter((r) => String(r?.deck || '').trim() === deckName);
+        const allMonths = [
+            ...new Set(
+                (Array.isArray(rawMetaRows) ? rawMetaRows : [])
+                    .map((r) => String(r?.month || '').trim())
+                    .filter(Boolean)
+            )
+        ].sort();
+        const deckMonthRows = (Array.isArray(rawMetaRows) ? rawMetaRows : []).filter(
+            (r) => String(r?.deck || '').trim() === deckName
+        );
 
         // Stats bar
         const appearances = Number(deckRow?.appearances) || 0;
@@ -6217,23 +6824,28 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
         const top3 = Number(deckRow?.top3_total) || 0;
         const top4 = Number(deckRow?.top4_total) || 0;
         const peakShare = peakShareByDeck.get(deckName) || 0;
-        const top4Rate = appearances > 0 ? (top4 / appearances * 100).toFixed(0) : '—';
+        const top4Rate = appearances > 0 ? ((top4 / appearances) * 100).toFixed(0) : '—';
         const score = deckCompositeScore(deckRow).toFixed(0);
 
         // Last event — prefer exact date from last_tournament_date, fall back to month label
         const lastDateExact = deckMonthRows.length
             ? deckMonthRows
-                .map((r) => String(r?.last_tournament_date || ''))
-                .filter(Boolean)
-                .sort()
-                .at(-1)
+                  .map((r) => String(r?.last_tournament_date || ''))
+                  .filter(Boolean)
+                  .sort()
+                  .at(-1)
             : null;
         const lastMonthRaw = deckMonthRows.length
-            ? deckMonthRows.map((r) => String(r?.month || '')).sort().at(-1)
+            ? deckMonthRows
+                  .map((r) => String(r?.month || ''))
+                  .sort()
+                  .at(-1)
             : null;
         const lastEventLabel = lastDateExact
             ? formatDate(lastDateExact).slice(0, 5)
-            : lastMonthRaw ? fmtMonthKey(lastMonthRaw) : '—';
+            : lastMonthRaw
+              ? fmtMonthKey(lastMonthRaw)
+              : '—';
 
         if (modalStatsEl) {
             modalStatsEl.innerHTML = [
@@ -6242,8 +6854,13 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 { label: 'Aparições', value: appearances },
                 { label: 'Títulos 🏆', value: titles || '—' },
                 { label: 'Taxa Top4', value: top4Rate + (appearances > 0 ? '%' : '') },
-                { label: 'Last Event', value: lastEventLabel },
-            ].map((s) => `<div class="meta-deck-modal-stat"><span class="meta-deck-modal-stat-val">${s.value}</span><span class="meta-deck-modal-stat-label">${s.label}</span></div>`).join('');
+                { label: 'Last Event', value: lastEventLabel }
+            ]
+                .map(
+                    (s) =>
+                        `<div class="meta-deck-modal-stat"><span class="meta-deck-modal-stat-val">${s.value}</span><span class="meta-deck-modal-stat-label">${s.label}</span></div>`
+                )
+                .join('');
         }
 
         // Score breakdown
@@ -6257,7 +6874,7 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 p1 > 0 ? `${p1}×1º` : null,
                 p2 > 0 ? `${p2}×2º` : null,
                 p3 > 0 ? `${p3}×3º` : null,
-                p4 > 0 ? `${p4}×4º` : null,
+                p4 > 0 ? `${p4}×4º` : null
             ].filter(Boolean);
             breakdownEl.textContent = parts.length ? `${parts.join(' + ')} = ${score} pts` : '';
         }
@@ -6266,14 +6883,18 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
         const badgesEl = backdrop?.querySelector('.meta-deck-color-badges');
         if (badgesEl) {
             const codes = getDeckColorCodes(deckName);
-            badgesEl.innerHTML = codes.map((c) => {
-                const col = COLOR_CODE_PALETTE[c] || '#888';
-                return `<span class="meta-deck-color-badge" style="background:${col}" title="${c.toUpperCase()}"></span>`;
-            }).join('');
+            badgesEl.innerHTML = codes
+                .map((c) => {
+                    const col = COLOR_CODE_PALETTE[c] || '#888';
+                    return `<span class="meta-deck-color-badge" style="background:${col}" title="${c.toUpperCase()}"></span>`;
+                })
+                .join('');
         }
 
         // Pilots table loading
-        if (modalTbody) modalTbody.innerHTML = '<tr><td colspan="4" class="meta-pilots-loading">Carregando...</td></tr>';
+        if (modalTbody)
+            modalTbody.innerHTML =
+                '<tr><td colspan="4" class="meta-pilots-loading">Carregando...</td></tr>';
 
         // Chart: placement breakdown (single month) or meta share evolution (all months)
         const barLabelPlugin = {
@@ -6290,9 +6911,12 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                         ctx.font = 'bold 11px sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'bottom';
-                        const labelText = Array.isArray(ds._labelMap) && ds._labelMap[i]
-                            ? ds._labelMap[i]
-                            : (ds._labelSuffix ? value.toFixed(1) + ds._labelSuffix : value);
+                        const labelText =
+                            Array.isArray(ds._labelMap) && ds._labelMap[i]
+                                ? ds._labelMap[i]
+                                : ds._labelSuffix
+                                  ? value.toFixed(1) + ds._labelSuffix
+                                  : value;
                         ctx.fillText(labelText, bar.x, bar.y - 4);
                         ctx.restore();
                     });
@@ -6300,10 +6924,19 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
             }
         };
 
-        if (_metaDeckDetailChart) { _metaDeckDetailChart.destroy(); _metaDeckDetailChart = null; }
-        if (_metaDeckPlacementChart) { _metaDeckPlacementChart.destroy(); _metaDeckPlacementChart = null; }
+        if (_metaDeckDetailChart) {
+            _metaDeckDetailChart.destroy();
+            _metaDeckDetailChart = null;
+        }
+        if (_metaDeckPlacementChart) {
+            _metaDeckPlacementChart.destroy();
+            _metaDeckPlacementChart = null;
+        }
 
-        const scaleDefaults = { grid: { color: '#1a2840' }, ticks: { color: '#6a7d9f', font: { size: 11 }, padding: 8 } };
+        const scaleDefaults = {
+            grid: { color: '#1a2840' },
+            ticks: { color: '#6a7d9f', font: { size: 11 }, padding: 8 }
+        };
         const chartSideLabel = backdrop.querySelector('.meta-deck-chart-label-evol');
 
         // Single month: no meta share chart, reuse the first label for placements
@@ -6319,19 +6952,36 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 const row = deckMonthRows.find((r) => String(r?.month || '').trim() === m);
                 return row ? Number(row.meta_share_percent) || 0 : 0;
             });
-            const ds = { label: 'Meta Share %', data: shares, backgroundColor: color + '99', borderColor: color, borderWidth: 1, borderRadius: 6 };
+            const ds = {
+                label: 'Meta Share %',
+                data: shares,
+                backgroundColor: color + '99',
+                borderColor: color,
+                borderWidth: 1,
+                borderRadius: 6
+            };
             ds._labelSuffix = '%';
             _metaDeckDetailChart = new Chart(detailCanvas, {
                 type: 'bar',
                 plugins: [barLabelPlugin],
                 data: { labels: allMonths.map(fmtMonthKey), datasets: [ds] },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    responsive: true,
+                    maintainAspectRatio: false,
                     layout: { padding: { top: 22 } },
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y?.toFixed(1) ?? '—'}%` } } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: (ctx) => `${ctx.parsed.y?.toFixed(1) ?? '—'}%` }
+                        }
+                    },
                     scales: {
                         x: { ...scaleDefaults },
-                        y: { ...scaleDefaults, beginAtZero: true, ticks: { ...scaleDefaults.ticks, callback: (v) => v + '%' } }
+                        y: {
+                            ...scaleDefaults,
+                            beginAtZero: true,
+                            ticks: { ...scaleDefaults.ticks, callback: (v) => v + '%' }
+                        }
                     }
                 }
             });
@@ -6352,19 +7002,30 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
         try {
             const activeMonthSet = new Set(allMonths.map((m) => String(m).slice(0, 7)));
             const fmtParam = currentStatisticsFormatFilter
-                ? `&format_code=eq.${encodeURIComponent(currentStatisticsFormatFilter)}` : '';
+                ? `&format_code=eq.${encodeURIComponent(currentStatisticsFormatFilter)}`
+                : '';
 
             const [pilotsRes, placRes] = await Promise.all([
-                (window.supabaseApi
-                    ? window.supabaseApi.get(`/rest/v1/v_deck_pilot_stats?select=player,times_played,titles,points,month&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=500`)
-                    : fetch(`${SUPABASE_URL}/rest/v1/v_deck_pilot_stats?select=player,times_played,titles,points,month&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=500`, { headers })),
-                (window.supabaseApi
-                    ? window.supabaseApi.get(`/rest/v1/v_podium_full?select=player,placement,tournament_date&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=1000`)
-                    : fetch(`${SUPABASE_URL}/rest/v1/v_podium_full?select=player,placement,tournament_date&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=1000`, { headers }))
+                window.supabaseApi
+                    ? window.supabaseApi.get(
+                          `/rest/v1/v_deck_pilot_stats?select=player,times_played,titles,points,month&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=500`
+                      )
+                    : fetch(
+                          `${SUPABASE_URL}/rest/v1/v_deck_pilot_stats?select=player,times_played,titles,points,month&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=500`,
+                          { headers }
+                      ),
+                window.supabaseApi
+                    ? window.supabaseApi.get(
+                          `/rest/v1/v_podium_full?select=player,placement,tournament_date&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=1000`
+                      )
+                    : fetch(
+                          `${SUPABASE_URL}/rest/v1/v_podium_full?select=player,placement,tournament_date&deck=eq.${encodeURIComponent(deckName)}${fmtParam}&limit=1000`,
+                          { headers }
+                      )
             ]);
 
             const pilotsRows = pilotsRes.ok ? await pilotsRes.json() : [];
-            const placRows  = placRes.ok  ? await placRes.json()  : [];
+            const placRows = placRes.ok ? await placRes.json() : [];
 
             // ── Pilots table ───────────────────────────────────────────────
             const playerMap = new Map();
@@ -6372,9 +7033,10 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 const monthKey = String(r?.month || '').slice(0, 7);
                 if (activeMonthSet.size && !activeMonthSet.has(monthKey)) return;
                 const player = String(r?.player || '').trim() || '—';
-                if (!playerMap.has(player)) playerMap.set(player, { times: 0, titles: 0, points: 0 });
+                if (!playerMap.has(player))
+                    playerMap.set(player, { times: 0, titles: 0, points: 0 });
                 const p = playerMap.get(player);
-                p.times  += Number(r?.times_played) || 0;
+                p.times += Number(r?.times_played) || 0;
                 p.titles += Number(r?.titles) || 0;
                 p.points += Number(r?.points) || 0;
             });
@@ -6384,10 +7046,13 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
 
             if (modalTbody) {
                 if (pilotRows.length === 0) {
-                    modalTbody.innerHTML = '<tr><td colspan="4" class="meta-pilots-loading">Sem dados.</td></tr>';
+                    modalTbody.innerHTML =
+                        '<tr><td colspan="4" class="meta-pilots-loading">Sem dados.</td></tr>';
                 } else {
-                    const rankBadge = ['🥇','🥈','🥉'];
-                    modalTbody.innerHTML = pilotRows.map((p, i) => `
+                    const rankBadge = ['🥇', '🥈', '🥉'];
+                    modalTbody.innerHTML = pilotRows
+                        .map(
+                            (p, i) => `
                         <tr class="meta-pilots-row${i === 0 ? ' meta-pilots-top' : ''}">
                             <td class="meta-pilots-td meta-pilots-player">
                                 <span class="meta-pilots-rank">${rankBadge[i] || `${i + 1}.`}</span>
@@ -6396,14 +7061,28 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                             <td class="meta-pilots-td meta-pilots-num">${p.times}</td>
                             <td class="meta-pilots-td meta-pilots-num">${p.titles || '—'}</td>
                             <td class="meta-pilots-td meta-pilots-num meta-pilots-pts">${p.points} <span class="meta-pilots-pts-label">pts</span></td>
-                        </tr>`).join('');
+                        </tr>`
+                        )
+                        .join('');
                 }
             }
 
             // ── Placement distribution chart (color per placement, filtered by player pills) ──
             if (placementCanvas && placRows.length > 0) {
-                const PLAC_COLORS = ['#ffd700cc', '#c0c0c0cc', '#cd7f32cc', '#268d7ccc', '#3a507888'];
-                const PLAC_LABELS = ['1° · 15pts', '2° · 10pts', '3° · 7pts', '4° · 5pts', 'Outros'];
+                const PLAC_COLORS = [
+                    '#ffd700cc',
+                    '#c0c0c0cc',
+                    '#cd7f32cc',
+                    '#268d7ccc',
+                    '#3a507888'
+                ];
+                const PLAC_LABELS = [
+                    '1° · 15pts',
+                    '2° · 10pts',
+                    '3° · 7pts',
+                    '4° · 5pts',
+                    'Outros'
+                ];
 
                 // Per-player per-placement counts
                 const playerPlacMap = new Map();
@@ -6422,11 +7101,10 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 });
 
                 // Sort by points desc (same order as pilot table)
-                const sortedPlayers = [...playerPlacMap.entries()]
-                    .sort((a, b) => {
-                        const pts = (c) => c[0]*15 + c[1]*10 + c[2]*7 + c[3]*5;
-                        return pts(b[1]) - pts(a[1]);
-                    });
+                const sortedPlayers = [...playerPlacMap.entries()].sort((a, b) => {
+                    const pts = (c) => c[0] * 15 + c[1] * 10 + c[2] * 7 + c[3] * 5;
+                    return pts(b[1]) - pts(a[1]);
+                });
 
                 // Active player set (all active by default)
                 const activePlayers = new Set(sortedPlayers.map(([n]) => n));
@@ -6435,7 +7113,9 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                     const totals = [0, 0, 0, 0, 0];
                     sortedPlayers.forEach(([name, counts]) => {
                         if (!activePlayers.has(name)) return;
-                        counts.forEach((v, i) => { totals[i] += v; });
+                        counts.forEach((v, i) => {
+                            totals[i] += v;
+                        });
                     });
                     return totals;
                 };
@@ -6443,9 +7123,12 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                 // Build player pills
                 const pillsWrap = backdrop.querySelector('.meta-deck-placement-pills');
                 if (pillsWrap) {
-                    pillsWrap.innerHTML = sortedPlayers.map(([name], i) =>
-                        `<button class="meta-plac-pill is-active" data-player="${escapeHtml(name)}" style="--pill-color:${CHART_PALETTE[i % CHART_PALETTE.length]}">${escapeHtml(name)}</button>`
-                    ).join('');
+                    pillsWrap.innerHTML = sortedPlayers
+                        .map(
+                            ([name], i) =>
+                                `<button class="meta-plac-pill is-active" data-player="${escapeHtml(name)}" style="--pill-color:${CHART_PALETTE[i % CHART_PALETTE.length]}">${escapeHtml(name)}</button>`
+                        )
+                        .join('');
                     pillsWrap.querySelectorAll('.meta-plac-pill').forEach((btn) => {
                         btn.addEventListener('click', () => {
                             const player = btn.dataset.player;
@@ -6460,46 +7143,67 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
                                 const totals = computeTotals();
                                 const ds = _metaDeckPlacementChart.data.datasets[0];
                                 ds.data = totals;
-                                ds._labelMap = totals.map((v, i) => i === 4 ? `Outros (${v})` : String(v));
+                                ds._labelMap = totals.map((v, i) =>
+                                    i === 4 ? `Outros (${v})` : String(v)
+                                );
                                 _metaDeckPlacementChart.update();
                             }
                         });
                     });
                 }
 
-                if (_metaDeckPlacementChart) { _metaDeckPlacementChart.destroy(); _metaDeckPlacementChart = null; }
+                if (_metaDeckPlacementChart) {
+                    _metaDeckPlacementChart.destroy();
+                    _metaDeckPlacementChart = null;
+                }
                 const initialTotals = computeTotals();
                 _metaDeckPlacementChart = new Chart(placementCanvas, {
                     type: 'bar',
                     plugins: [barLabelPlugin],
                     data: {
                         labels: PLAC_LABELS,
-                        datasets: [{
-                            label: 'Colocações',
-                            data: initialTotals,
-                            backgroundColor: PLAC_COLORS,
-                            borderRadius: 5,
-                            borderWidth: 0,
-                            _labelSuffix: null,
-                            _labelMap: initialTotals.map((v, i) => i === 4 ? `Outros (${v})` : String(v))
-                        }],
+                        datasets: [
+                            {
+                                label: 'Colocações',
+                                data: initialTotals,
+                                backgroundColor: PLAC_COLORS,
+                                borderRadius: 5,
+                                borderWidth: 0,
+                                _labelSuffix: null,
+                                _labelMap: initialTotals.map((v, i) =>
+                                    i === 4 ? `Outros (${v})` : String(v)
+                                )
+                            }
+                        ]
                     },
                     options: {
-                        responsive: true, maintainAspectRatio: false,
+                        responsive: true,
+                        maintainAspectRatio: false,
                         layout: { padding: { top: 22 } },
                         plugins: {
                             legend: { display: false },
-                            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y} vez${ctx.parsed.y !== 1 ? 'es' : ''}` } }
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) =>
+                                        `${ctx.parsed.y} vez${ctx.parsed.y !== 1 ? 'es' : ''}`
+                                }
+                            }
                         },
                         scales: {
                             x: { ...scaleDefaults },
-                            y: { ...scaleDefaults, beginAtZero: true, ticks: { ...scaleDefaults.ticks, stepSize: 1 } }
+                            y: {
+                                ...scaleDefaults,
+                                beginAtZero: true,
+                                ticks: { ...scaleDefaults.ticks, stepSize: 1 }
+                            }
                         }
                     }
                 });
             }
         } catch (_) {
-            if (modalTbody) modalTbody.innerHTML = '<tr><td colspan="4" class="meta-pilots-loading">Erro ao carregar.</td></tr>';
+            if (modalTbody)
+                modalTbody.innerHTML =
+                    '<tr><td colspan="4" class="meta-pilots-loading">Erro ao carregar.</td></tr>';
         }
     };
 
@@ -6508,20 +7212,29 @@ function renderMetaOverview(host, metaRows, colorRows, isMobile, rawMetaRows) {
             card.classList.add('is-active');
             const dn = card.dataset.deck;
             const row = top3.find((r) => String(r?.deck || '').trim() === dn) || {};
-            showDeckModal(dn, row, CHART_PALETTE[i % CHART_PALETTE.length], statisticsDeckImageMap.get(dn) || '');
+            showDeckModal(
+                dn,
+                row,
+                CHART_PALETTE[i % CHART_PALETTE.length],
+                statisticsDeckImageMap.get(dn) || ''
+            );
         });
     });
     backdrop?.querySelector('.meta-deck-modal-close')?.addEventListener('click', hideDeckModal);
-    backdrop?.addEventListener('click', (e) => { if (e.target === backdrop) hideDeckModal(); });
+    backdrop?.addEventListener('click', (e) => {
+        if (e.target === backdrop) hideDeckModal();
+    });
 
     // Tab switching (mobile)
     panel.querySelectorAll('.meta-tab-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             const target = btn.dataset.metaTab;
-            panel.querySelectorAll('.meta-tab-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
-            panel.querySelectorAll('.meta-tab-panel').forEach((p) =>
-                p.classList.toggle('is-hidden', p.dataset.metaPanel !== target)
-            );
+            panel
+                .querySelectorAll('.meta-tab-btn')
+                .forEach((b) => b.classList.toggle('is-active', b === btn));
+            panel
+                .querySelectorAll('.meta-tab-panel')
+                .forEach((p) => p.classList.toggle('is-hidden', p.dataset.metaPanel !== target));
         });
     });
 
@@ -6541,10 +7254,12 @@ function buildAttendanceSparkline(entries) {
     const max = Math.max(...values);
     const min = Math.min(...values);
     const range = max - min || 1;
-    const W = 80, H = 28, PAD = 2;
+    const W = 80,
+        H = 28,
+        PAD = 2;
     const coords = values.map((v, i) => {
         const x = PAD + (i / (values.length - 1)) * (W - 2 * PAD);
-        const y = (H - PAD) - ((v - min) / range) * (H - 2 * PAD);
+        const y = H - PAD - ((v - min) / range) * (H - 2 * PAD);
         return [x.toFixed(1), y.toFixed(1)];
     });
     const polyline = coords.map((c) => c.join(',')).join(' ');
@@ -6567,7 +7282,8 @@ function buildAttendanceSparkline(entries) {
 }
 
 function renderStoreChampionsBoard(host, rows, options = {}) {
-    const storeAttendance = options.storeAttendance instanceof Map ? options.storeAttendance : new Map();
+    const storeAttendance =
+        options.storeAttendance instanceof Map ? options.storeAttendance : new Map();
     const grouped = new Map();
     rows.forEach((row) => {
         const store = String(row?.store || '').trim() || 'Unknown Store';
@@ -6642,11 +7358,12 @@ function renderStoreChampionsBoard(host, rows, options = {}) {
         });
 
     host.appendChild(board);
-
 }
 
 function prettifyStatisticsColumn(column, viewName = '') {
-    const normalized = String(column || '').trim().toLowerCase();
+    const normalized = String(column || '')
+        .trim()
+        .toLowerCase();
     if (viewName === 'v_player_ranking') {
         const playerRankingLabels = {
             player: 'Jogador',
@@ -6704,7 +7421,9 @@ function prettifyStatisticsColumn(column, viewName = '') {
 }
 
 function getStatisticsHeaderLabel(viewName, column) {
-    const normalized = String(column || '').trim().toLowerCase();
+    const normalized = String(column || '')
+        .trim()
+        .toLowerCase();
     if (viewName === 'v_deck_color_stats') {
         const colorHeaders = {
             month: 'Month',
@@ -6751,9 +7470,7 @@ function getStatisticsDisplayColumns(viewName, columns) {
     } else if (viewName === 'v_deck_color_stats') {
         list = list.filter(
             (column) =>
-                column !== 'color_code' &&
-                column !== 'top_deck_titles' &&
-                column !== 'usage_count'
+                column !== 'color_code' && column !== 'top_deck_titles' && column !== 'usage_count'
         );
     } else if (viewName === 'v_top_cards_by_month') {
         list = list.filter(
@@ -6803,7 +7520,9 @@ function normalizePlayerRankingRows(rows, options = {}) {
         const normalized = {
             ...source,
             player: String(source.player || '').trim(),
-            overall_rank: normalizeStatNumber(source.overall_rank ?? source.monthly_rank ?? source.rank),
+            overall_rank: normalizeStatNumber(
+                source.overall_rank ?? source.monthly_rank ?? source.rank
+            ),
             titles: titlesValue,
             top4_total: normalizeStatNumber(source.top4_total ?? source.top4),
             entries: entriesValue,
@@ -6830,7 +7549,7 @@ function renderStatisticsColorCell(row, value) {
     const colorCode = String(row?.color_code || '')
         .trim()
         .toLowerCase();
-    const colorName = String(value || '').trim() || (DECK_COLOR_LABELS[colorCode] || '');
+    const colorName = String(value || '').trim() || DECK_COLOR_LABELS[colorCode] || '';
     if (!colorCode || !DECK_COLOR_ORDER.includes(colorCode)) {
         return escapeHtml(colorName || '-');
     }
@@ -6857,10 +7576,12 @@ function buildSparklineSvg(points) {
     const max = Math.max(...values);
     const min = Math.min(...values);
     const range = max - min || 1;
-    const W = 72, H = 24, PAD = 2;
+    const W = 72,
+        H = 24,
+        PAD = 2;
     const coords = values.map((v, i) => {
         const x = PAD + (i / (values.length - 1)) * (W - 2 * PAD);
-        const y = (H - PAD) - ((v - min) / range) * (H - 2 * PAD);
+        const y = H - PAD - ((v - min) / range) * (H - 2 * PAD);
         return [x.toFixed(1), y.toFixed(1)];
     });
     const polyline = coords.map((c) => c.join(',')).join(' ');
@@ -6953,7 +7674,13 @@ function formatStatisticsCellValue(value, column = '', row = null) {
 }
 
 function renderStatisticsHighlights(host, viewName, rows, columns, options = {}) {
-    if (!host || !Array.isArray(rows) || !rows.length || !Array.isArray(columns) || !columns.length) {
+    if (
+        !host ||
+        !Array.isArray(rows) ||
+        !rows.length ||
+        !Array.isArray(columns) ||
+        !columns.length
+    ) {
         return;
     }
     const tableWrapper = host.querySelector('.statistics-table-wrapper');
@@ -7033,7 +7760,6 @@ function buildStatisticsHighlights(viewName, rows, columns) {
 
     if (viewName === 'v_deck_representation') {
         if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
-        
     } else if (viewName === 'v_deck_stats') {
         if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
         if (hasColumn('titles')) {
@@ -7055,22 +7781,26 @@ function buildStatisticsHighlights(viewName, rows, columns) {
         }
     } else if (viewName === 'v_top_cards_by_month') {
         if (hasColumn('month')) list.push({ label: 'Meses', value: String(countUnique('month')) });
-        if (hasColumn('card_code')) list.push({ label: 'Cartas', value: String(countUnique('card_code')) });
+        if (hasColumn('card_code'))
+            list.push({ label: 'Cartas', value: String(countUnique('card_code')) });
         if (hasColumn('total')) {
             list.push({ label: 'Total', value: sumNumeric('total').toLocaleString('pt-BR') });
         }
     } else if (viewName === 'v_player_ranking') {
-        if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
+        if (hasColumn('player'))
+            list.push({ label: 'Players', value: String(countUnique('player')) });
         if (hasColumn('titles')) {
             list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
         }
     } else if (viewName === 'v_store_champions') {
-        if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
+        if (hasColumn('player'))
+            list.push({ label: 'Players', value: String(countUnique('player')) });
         if (hasColumn('titles')) {
             list.push({ label: 'Torneios', value: sumNumeric('titles').toLocaleString('pt-BR') });
         }
     } else {
-        if (hasColumn('player')) list.push({ label: 'Players', value: String(countUnique('player')) });
+        if (hasColumn('player'))
+            list.push({ label: 'Players', value: String(countUnique('player')) });
         if (hasColumn('deck')) list.push({ label: 'Decks', value: String(countUnique('deck')) });
         if (hasColumn('store')) list.push({ label: 'Lojas', value: String(countUnique('store')) });
         if (hasColumn('month')) list.push({ label: 'Meses', value: String(countUnique('month')) });
@@ -7096,7 +7826,9 @@ function getStatisticsColumnDescription(viewName, column) {
 }
 
 function isInternalStatisticsColumn(column, viewName = '') {
-    const normalized = String(column || '').trim().toLowerCase();
+    const normalized = String(column || '')
+        .trim()
+        .toLowerCase();
     if (!normalized) return true;
     if (normalized.startsWith('_')) return true;
     if (STATISTICS_HIDDEN_COLUMNS.has(normalized)) return true;
@@ -7115,7 +7847,8 @@ function isInternalStatisticsColumn(column, viewName = '') {
 
 function toggleStatisticsSort(column) {
     if (currentStatisticsSort.column === column) {
-        currentStatisticsSort.direction = currentStatisticsSort.direction === 'asc' ? 'desc' : 'asc';
+        currentStatisticsSort.direction =
+            currentStatisticsSort.direction === 'asc' ? 'desc' : 'asc';
         return;
     }
     currentStatisticsSort.column = column;
@@ -7181,7 +7914,10 @@ function populateStatisticsMonthSelect(select, values, selectedValue) {
     select.innerHTML =
         '<option value="">Todos os meses</option>' +
         monthKeys
-            .map((monthKey) => `<option value="${monthKey}">${formatStatisticsMonthLabel(monthKey)}</option>`)
+            .map(
+                (monthKey) =>
+                    `<option value="${monthKey}">${formatStatisticsMonthLabel(monthKey)}</option>`
+            )
             .join('');
 
     if (selectedValue && monthKeys.includes(selectedValue)) {
@@ -7244,21 +7980,30 @@ function filterStoreChampionsRowsByPlayer(rows, query) {
         .toLowerCase();
     if (!text) return rows;
 
-    return rows.filter((row) => String(row?.player || '').toLowerCase().includes(text));
+    return rows.filter((row) =>
+        String(row?.player || '')
+            .toLowerCase()
+            .includes(text)
+    );
 }
 
 function populateStatisticsValueSelect(select, values, selectedValue, defaultLabel) {
     const options = Array.from(
-        new Set(
-            values
-                .map((value) => String(value || '').trim())
-                .filter(Boolean)
-        )
-    ).sort((a, b) => a.localeCompare(b));
+        new Set(values.map((value) => String(value || '').trim()).filter(Boolean))
+    ).sort((a, b) =>
+        select.id === 'statisticsFilterFormat'
+            ? liveData.compareFormatCodes(a, b, tournamentFormatCatalog)
+            : a.localeCompare(b)
+    );
 
     select.innerHTML =
         `<option value="">${escapeHtml(defaultLabel || 'Todos')}</option>` +
-        options.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+        options
+            .map(
+                (value) =>
+                    `<option value="${escapeHtml(value)}">${escapeHtml(select.id === 'statisticsFilterFormat' ? liveData.formatLabel(value, tournamentFormatCatalog) : value)}</option>`
+            )
+            .join('');
 
     if (selectedValue && options.includes(selectedValue)) {
         select.value = selectedValue;
@@ -7339,9 +8084,7 @@ function populateStatisticsDateSelect(select, values, selectedValue) {
 
     select.innerHTML =
         '<option value="">Todas as datas</option>' +
-        dateKeys
-            .map((key) => `<option value="${key}">${formatDate(key)}</option>`)
-            .join('');
+        dateKeys.map((key) => `<option value="${key}">${formatDate(key)}</option>`).join('');
 
     if (selectedValue && dateKeys.includes(selectedValue)) {
         select.value = selectedValue;
@@ -7398,8 +8141,16 @@ function getStatisticsFormulaHintHtml(viewName, allRows) {
 // ─── Inline SVG Charts ────────────────────────────────────────────────────────
 
 const CHART_PALETTE = [
-    '#667eea', '#f7b731', '#fc5c65', '#26de81', '#fd9644',
-    '#45aaf2', '#a55eea', '#20bf6b', '#eb3b5a', '#2bcbba'
+    '#667eea',
+    '#f7b731',
+    '#fc5c65',
+    '#26de81',
+    '#fd9644',
+    '#45aaf2',
+    '#a55eea',
+    '#20bf6b',
+    '#eb3b5a',
+    '#2bcbba'
 ];
 
 const COLOR_CODE_PALETTE = {
@@ -7420,7 +8171,7 @@ const SOFT_COLOR_MAP = {
     g: pastelizeColor(COLOR_CODE_PALETTE.g),
     y: pastelizeColor(COLOR_CODE_PALETTE.y),
     b: pastelizeColor(COLOR_CODE_PALETTE.b),
-    w: '#7a8fa8', // muted blue-grey — white pastel blends into the background
+    w: '#7a8fa8' // muted blue-grey — white pastel blends into the background
 };
 const SOFT_PALETTE = Object.values(SOFT_COLOR_MAP); // array fallback for player charts
 
@@ -7440,7 +8191,10 @@ function renderStatisticsCharts(host, viewName, filteredRows) {
         filteredRows.length > 0;
 
     chartArea.classList.toggle('is-hidden', !showChart);
-    if (!showChart) { chartArea.innerHTML = ''; return; }
+    if (!showChart) {
+        chartArea.innerHTML = '';
+        return;
+    }
 
     if (viewName === 'v_meta_by_month') {
         chartArea.innerHTML = buildMetaDonutChartHtml(filteredRows);
@@ -7450,7 +8204,9 @@ function renderStatisticsCharts(host, viewName, filteredRows) {
 }
 
 function buildMetaDonutChartHtml(rows) {
-    const sorted = [...rows].sort((a, b) => Number(b?.appearances || 0) - Number(a?.appearances || 0));
+    const sorted = [...rows].sort(
+        (a, b) => Number(b?.appearances || 0) - Number(a?.appearances || 0)
+    );
     const total = sorted.reduce((sum, r) => sum + Number(r?.appearances || 0), 0);
     if (!total) return '';
 
@@ -7464,11 +8220,19 @@ function buildMetaDonutChartHtml(rows) {
         value: Number(r?.appearances || 0),
         color: CHART_PALETTE[i % CHART_PALETTE.length]
     }));
-    if (othersCount > 0) segments.push({ label: `Outros (${othersDecks} decks)`, value: othersCount, color: '#cbd5e1' });
+    if (othersCount > 0)
+        segments.push({
+            label: `Outros (${othersDecks} decks)`,
+            value: othersCount,
+            color: '#cbd5e1'
+        });
 
     const donutCanvasId = `meta-donut-canvas-${Date.now()}`;
 
-    if (_metaDonutChart) { _metaDonutChart.destroy(); _metaDonutChart = null; }
+    if (_metaDonutChart) {
+        _metaDonutChart.destroy();
+        _metaDonutChart = null;
+    }
 
     setTimeout(() => {
         const canvas = document.getElementById(donutCanvasId);
@@ -7477,13 +8241,15 @@ function buildMetaDonutChartHtml(rows) {
             type: 'doughnut',
             data: {
                 labels: segments.map((s) => s.label),
-                datasets: [{
-                    data: segments.map((s) => s.value),
-                    backgroundColor: segments.map((s) => s.color),
-                    borderColor: '#131e2e',
-                    borderWidth: 2,
-                    hoverOffset: 6,
-                }]
+                datasets: [
+                    {
+                        data: segments.map((s) => s.value),
+                        backgroundColor: segments.map((s) => s.color),
+                        borderColor: '#131e2e',
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -7515,14 +8281,16 @@ function buildMetaDonutChartHtml(rows) {
     const legendSegments = segments
         .filter((seg) => !seg.label.startsWith('Outros'))
         .slice(0, LEGEND_MAX);
-    const legendItems = legendSegments.map((seg) => {
-        const pct = ((seg.value / total) * 100).toFixed(1);
-        return `<span class="chart-legend-item">
+    const legendItems = legendSegments
+        .map((seg) => {
+            const pct = ((seg.value / total) * 100).toFixed(1);
+            return `<span class="chart-legend-item">
             <span class="chart-legend-dot" style="background:${seg.color}"></span>
             <span class="chart-legend-label">${seg.label}</span>
             <span class="chart-legend-pct">${pct}%</span>
         </span>`;
-    }).join('');
+        })
+        .join('');
 
     // Herfindahl-Hirschman Index — uses all rows (not just top 7)
     const hhi = sorted.reduce((sum, r) => {
@@ -7534,48 +8302,60 @@ function buildMetaDonutChartHtml(rows) {
 
     // Diversity levels — bar goes left=green (diverse) to right=red (concentrated)
     // Cap display at 25% HHI; calibrated for Digimon TCG diverse meta
-    const HHI_DISPLAY_MAX = 0.20;
+    const HHI_DISPLAY_MAX = 0.2;
     const indicatorPct = Math.min(hhi / HHI_DISPLAY_MAX, 1) * 100;
 
-    const diversityLabel = hhi < 0.04 ? 'Muito diverso'
-        : hhi < 0.10 ? 'Diverso'
-        : hhi < 0.15 ? 'Moderado'
-        : 'Concentrado';
-    const diversityColor = hhi < 0.04 ? '#22c55e'
-        : hhi < 0.10 ? '#84cc16'
-        : hhi < 0.15 ? '#f59e0b'
-        : '#ef4444';
-    const diversityDesc = hhi < 0.04 ? 'muitos decks competitivos diferentes'
-        : hhi < 0.10 ? 'boa variedade de decks no meta'
-        : hhi < 0.15 ? 'alguns decks dominam o meta'
-        : 'um ou poucos decks dominam o meta';
+    const diversityLabel =
+        hhi < 0.04
+            ? 'Muito diverso'
+            : hhi < 0.1
+              ? 'Diverso'
+              : hhi < 0.15
+                ? 'Moderado'
+                : 'Concentrado';
+    const diversityColor =
+        hhi < 0.04 ? '#22c55e' : hhi < 0.1 ? '#84cc16' : hhi < 0.15 ? '#f59e0b' : '#ef4444';
+    const diversityDesc =
+        hhi < 0.04
+            ? 'muitos decks competitivos diferentes'
+            : hhi < 0.1
+              ? 'boa variedade de decks no meta'
+              : hhi < 0.15
+                ? 'alguns decks dominam o meta'
+                : 'um ou poucos decks dominam o meta';
 
     // Threshold ticks — vertical marks above the bar
-    const t1 = 0.05 / HHI_DISPLAY_MAX * 100;
-    const t2 = 0.10 / HHI_DISPLAY_MAX * 100;
-    const t3 = 0.15 / HHI_DISPLAY_MAX * 100;
+    const t1 = (0.05 / HHI_DISPLAY_MAX) * 100;
+    const t2 = (0.1 / HHI_DISPLAY_MAX) * 100;
+    const t3 = (0.15 / HHI_DISPLAY_MAX) * 100;
     const ticks = [
         { pct: t1, label: '5%' },
         { pct: t2, label: '10%' },
-        { pct: t3, label: '15%' },
+        { pct: t3, label: '15%' }
     ];
-    const ticksHtml = ticks.map((t) =>
-        `<div class="meta-gauge-tick" style="left:${t.pct.toFixed(1)}%">
+    const ticksHtml = ticks
+        .map(
+            (t) =>
+                `<div class="meta-gauge-tick" style="left:${t.pct.toFixed(1)}%">
             <div class="meta-gauge-tick-line"></div>
             <span class="meta-gauge-tick-label">${t.label}</span>
         </div>`
-    ).join('');
+        )
+        .join('');
 
     // Region labels centered between each pair of thresholds, overlaid on the bar
     const regions = [
         { label: 'Muito diverso', center: t1 / 2 },
-        { label: 'Diverso',       center: (t1 + t2) / 2 },
-        { label: 'Moderado',      center: (t2 + t3) / 2 },
-        { label: 'Concentrado',   center: (t3 + 100) / 2 },
+        { label: 'Diverso', center: (t1 + t2) / 2 },
+        { label: 'Moderado', center: (t2 + t3) / 2 },
+        { label: 'Concentrado', center: (t3 + 100) / 2 }
     ]; // thresholds: 5% / 10% / 15% (HHI, calibrated for Digimon TCG)
-    const regionsHtml = regions.map((rg) =>
-        `<span class="meta-gauge-region-label" style="left:${rg.center.toFixed(1)}%">${rg.label}</span>`
-    ).join('');
+    const regionsHtml = regions
+        .map(
+            (rg) =>
+                `<span class="meta-gauge-region-label" style="left:${rg.center.toFixed(1)}%">${rg.label}</span>`
+        )
+        .join('');
 
     return `<div class="stats-chart-wrap stats-donut-wrap">
         <div class="meta-donut-top-row">
@@ -7616,7 +8396,12 @@ function buildColorBarChartHtml(rows, prevRows = []) {
         rowList.forEach((r) => {
             const code = String(r?.color_code || '').toLowerCase();
             if (!code) return;
-            const e = map.get(code) || { color_code: code, color: String(r?.color || code.toUpperCase()), sum: 0, count: 0 };
+            const e = map.get(code) || {
+                color_code: code,
+                color: String(r?.color || code.toUpperCase()),
+                sum: 0,
+                count: 0
+            };
             e.sum += Number(r?.usage_percent || 0);
             e.count += 1;
             map.set(code, e);
@@ -7635,33 +8420,34 @@ function buildColorBarChartHtml(rows, prevRows = []) {
     const maxPct = Math.max(...sorted.map((r) => r.usage_percent), 1);
     const hasPrev = prevByCode.size > 0;
 
-    const bars = sorted.map((r) => {
-        const pct = r.usage_percent;
-        const barW = Math.max(2, (pct / maxPct) * 100);
-        const fill = COLOR_CODE_PALETTE[r.color_code] || CHART_PALETTE[0];
+    const bars = sorted
+        .map((r) => {
+            const pct = r.usage_percent;
+            const barW = Math.max(2, (pct / maxPct) * 100);
+            const fill = COLOR_CODE_PALETTE[r.color_code] || CHART_PALETTE[0];
 
-        let trendHtml = '';
-        if (hasPrev) {
-            const prev = prevByCode.get(r.color_code);
-            const prevPct = prev ? prev.sum / prev.count : null;
-            if (prevPct !== null) {
-                const diff = pct - prevPct;
-                const diffLabel = `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`;
-                const arrowUp = `<svg class="color-bar-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4l-5 6h3v6h4v-6h3z" fill="currentColor"/></svg>`;
-                const arrowDown = `<svg class="color-bar-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16l5-6h-3V4H8v6H5z" fill="currentColor"/></svg>`;
-                const arrowFlat = `<svg class="color-bar-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
-                if (Math.abs(diff) < 0.5) {
-                    trendHtml = `<span class="color-bar-trend neutral" title="Estável vs mês anterior">${arrowFlat}<span class="color-bar-diff">(${diffLabel})</span></span>`;
-                } else if (diff > 0) {
-                    trendHtml = `<span class="color-bar-trend up" title="${diffLabel} vs mês anterior">${arrowUp}<span class="color-bar-diff">(${diffLabel})</span></span>`;
-                } else {
-                    trendHtml = `<span class="color-bar-trend down" title="${diffLabel} vs mês anterior">${arrowDown}<span class="color-bar-diff">(${diffLabel})</span></span>`;
+            let trendHtml = '';
+            if (hasPrev) {
+                const prev = prevByCode.get(r.color_code);
+                const prevPct = prev ? prev.sum / prev.count : null;
+                if (prevPct !== null) {
+                    const diff = pct - prevPct;
+                    const diffLabel = `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`;
+                    const arrowUp = `<svg class="color-bar-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4l-5 6h3v6h4v-6h3z" fill="currentColor"/></svg>`;
+                    const arrowDown = `<svg class="color-bar-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16l5-6h-3V4H8v6H5z" fill="currentColor"/></svg>`;
+                    const arrowFlat = `<svg class="color-bar-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+                    if (Math.abs(diff) < 0.5) {
+                        trendHtml = `<span class="color-bar-trend neutral" title="Estável vs mês anterior">${arrowFlat}<span class="color-bar-diff">(${diffLabel})</span></span>`;
+                    } else if (diff > 0) {
+                        trendHtml = `<span class="color-bar-trend up" title="${diffLabel} vs mês anterior">${arrowUp}<span class="color-bar-diff">(${diffLabel})</span></span>`;
+                    } else {
+                        trendHtml = `<span class="color-bar-trend down" title="${diffLabel} vs mês anterior">${arrowDown}<span class="color-bar-diff">(${diffLabel})</span></span>`;
+                    }
                 }
             }
-        }
 
-        const colorLabel = String(r.color || '').trim();
-        return `<div class="color-bar-row">
+            const colorLabel = String(r.color || '').trim();
+            return `<div class="color-bar-row">
             <span class="color-bar-label" title="${escapeHtml(colorLabel)}">${escapeHtml(colorLabel)}</span>
             <div class="color-bar-track">
                 <div class="color-bar-fill" style="width:${barW.toFixed(1)}%;background:${fill}"></div>
@@ -7669,7 +8455,8 @@ function buildColorBarChartHtml(rows, prevRows = []) {
             <span class="color-bar-pct">${pct.toFixed(1)}%</span>
             ${trendHtml}
         </div>`;
-    }).join('');
+        })
+        .join('');
 
     return `<div class="stats-chart-wrap stats-color-bars-wrap">
         <div class="color-bar-header">
@@ -7746,7 +8533,8 @@ function renderMobileCalendarDayEvents(dateString, entries) {
     entries.forEach((entry) => {
         const detailsHost = document.createElement('article');
         detailsHost.className = 'mobile-calendar-expanded-item';
-        detailsHost.innerHTML = '<div class="details-block">Carregando detalhes...</div>';
+        detailsHost.innerHTML =
+            '<div class="details-block"><span class="spinner" aria-hidden="true"></span> Carregando detalhes...</div>';
         list?.appendChild(detailsHost);
         renderTournamentDetails(resolveCalendarTournament(entry), detailsHost);
     });
@@ -7775,7 +8563,7 @@ function openCalendarTournamentDetails(eventData) {
     if (!container || !eventData) return;
 
     container.classList.remove('is-hidden');
-    container.innerHTML = `<div class="details-block">Carregando detalhes...</div>`;
+    container.innerHTML = `<div class="details-block"><span class="spinner" aria-hidden="true"></span> Carregando detalhes...</div>`;
 
     renderTournamentDetails(resolveCalendarTournament(eventData), container);
 }
@@ -7865,7 +8653,9 @@ function updateSortIndicators() {
 // RENDER TABLE
 // ============================================================
 function getCompactTournamentDate(dateString) {
-    const [year, month, day] = String(dateString || '').split('-').map(Number);
+    const [year, month, day] = String(dateString || '')
+        .split('-')
+        .map(Number);
     if (!year || !month || !day) return { day: '--', month: '---' };
     const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC' })
         .format(new Date(Date.UTC(year, month - 1, day)))
@@ -7927,7 +8717,10 @@ function renderTable() {
         const td3 = document.createElement('td');
         td3.setAttribute('data-label', 'Tipo:');
         td3.classList.add('table-name-cell');
-        const tournamentName = t.tournament_name || '-';
+        const tournamentName =
+            String(t.tournament_name || '').toLowerCase() === 'release_event'
+                ? 'Release Event'
+                : t.tournament_name || '-';
         const tournamentNameText = document.createElement('span');
         tournamentNameText.className = 'table-tournament-name';
         tournamentNameText.textContent = tournamentName;
@@ -7940,7 +8733,9 @@ function renderTable() {
         const td4 = document.createElement('td');
         td4.setAttribute('data-label', 'Jogadores:');
         td4.classList.add('table-players-cell');
-        const playersValue = Number.isFinite(Number(t.total_players)) ? String(t.total_players) : '-';
+        const playersValue = Number.isFinite(Number(t.total_players))
+            ? String(t.total_players)
+            : '-';
         const playersValueText = document.createElement('span');
         playersValueText.className = 'table-players-value';
         playersValueText.textContent = playersValue;
@@ -7983,7 +8778,9 @@ function renderTable() {
             champion?.deck
                 ? `<span class="mobile-champion-badge is-deck" title="Deck campeão">${escapeHtml(champion.deck)}</span>`
                 : ''
-        ].filter(Boolean).join('');
+        ]
+            .filter(Boolean)
+            .join('');
         const mobileCard = document.createElement('div');
         mobileCard.className = 'mobile-tournament-card';
         mobileCard.innerHTML = `
@@ -8026,10 +8823,12 @@ function renderTable() {
             event.stopPropagation();
             editTournament(t.id);
         });
-        mobileCard.querySelector('[data-mobile-generate-post]')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            generateTournamentPostFromCard(t);
-        });
+        mobileCard
+            .querySelector('[data-mobile-generate-post]')
+            ?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                generateTournamentPostFromCard(t);
+            });
         mobileCard.querySelector('.mobile-card-menu a')?.addEventListener('click', (event) => {
             event.stopPropagation();
         });
@@ -8062,7 +8861,7 @@ function renderTable() {
             detailsTd.className = 'details-row-cell';
             detailsTd.innerHTML = `
                 <div class="tournament-inline-details-content" data-details-content-for="${String(t.id)}">
-                    <div class="details-block">Carregando detalhes...</div>
+                    <div class="details-block"><span class="spinner" aria-hidden="true"></span> Carregando detalhes...</div>
                 </div>
             `;
 
@@ -8179,11 +8978,9 @@ function renderPagination() {
 async function openCreateTournamentModal(defaultDate = '') {
     // Reset form
     document.getElementById('createStoreSelect').value = '';
-    const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(defaultDate)
-        ? defaultDate
-        : getTodayInSaoPaulo();
+    const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(defaultDate) ? defaultDate : getTodayInSaoPaulo();
     document.getElementById('createTournamentDate').value = safeDate;
-    document.getElementById('createTournamentName').value = 'Semanal';
+    document.getElementById('createTournamentName').value = document.querySelector('#createTournamentName option[value="Locals"]') ? 'Locals' : 'Semanal';
     document.getElementById('createTotalPlayers').value = '';
     document.getElementById('createInstagramLink').value = '';
 
@@ -8216,7 +9013,12 @@ async function openCreateTournamentModal(defaultDate = '') {
 }
 
 function closeCreateModal() {
-    if (createOcrImportInProgress || createDigilabImportInProgress || createTournamentSaveInProgress) return;
+    if (
+        createOcrImportInProgress ||
+        createDigilabImportInProgress ||
+        createTournamentSaveInProgress
+    )
+        return;
     document.getElementById('createModal').classList.remove('active');
     createResults = [];
     resetCreateOcrImportUi();
@@ -8275,7 +9077,8 @@ function mapDigilabEventTypeToTournamentName(eventType) {
         .trim()
         .toLowerCase()
         .replace(/[\s-]+/g, '_');
-    return normalized === 'evo_cup' ? 'Evo Cup' : 'Semanal';
+    const names = { locals: 'Locals', online: 'Online', evo_cup: 'Evo Cup', store_championship: 'Store Championship', regulation_battle: 'Regulation Battle', release_event: 'release_event' };
+    return names[normalized] || (document.querySelector('#createTournamentName option[value="Locals"]') ? 'Locals' : 'Semanal');
 }
 
 function applyDigilabPreviewToCreateForm(preview) {
@@ -8317,13 +9120,13 @@ function applyDigilabPreviewToCreateForm(preview) {
     const storeId = preview?.import_resolution?.store?.store_id;
     const storeByName = resolveStoreFromOcrName(tournament.store?.name || '');
     document.getElementById('createStoreSelect').value = String(storeId || storeByName?.id || '');
-    document.getElementById('createTournamentName').value =
-        mapDigilabEventTypeToTournamentName(tournament.event_type);
+    document.getElementById('createTournamentName').value = mapDigilabEventTypeToTournamentName(
+        tournament.event_type
+    );
 
     populateTournamentFormatSelect('createTournamentFormat', {
         selectedId: preview?.import_resolution?.format?.format_id,
-        selectedValue:
-            preview?.import_resolution?.format?.format_code || tournament.format || ''
+        selectedValue: preview?.import_resolution?.format?.format_code || tournament.format || ''
     });
 
     createResults = [...standings]
@@ -8343,9 +9146,7 @@ function applyDigilabPreviewToCreateForm(preview) {
     setTournamentFormDirty('create', true);
 
     const unresolvedPlayers = createResults.filter((row) => !row.player_id).length;
-    const unresolvedDecks = createResults.filter(
-        (row) => row.deck_name && !row.deck_id
-    ).length;
+    const unresolvedDecks = createResults.filter((row) => row.deck_name && !row.deck_id).length;
     const warnings = [];
     if (unresolvedPlayers) warnings.push(`${unresolvedPlayers} jogador(es) novo(s)`);
     if (unresolvedDecks) warnings.push(`${unresolvedDecks} deck(s) novo(s)`);
@@ -8382,7 +9183,9 @@ async function importCreateTournamentFromDigilab() {
         });
         const preview = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(preview.error || `Não foi possível consultar o DigiLab (${response.status}).`);
+            throw new Error(
+                preview.error || `Não foi possível consultar o DigiLab (${response.status}).`
+            );
         }
 
         const warnings = applyDigilabPreviewToCreateForm(preview);
@@ -8636,7 +9439,11 @@ function extractOcrStoreAndDate(payload) {
         payload?.store_name || payload?.store || payload?.shop || payload?.venue || ''
     ).trim();
     const dateRaw = String(
-        payload?.tournament_date || payload?.event_date || payload?.tournament_datetime || payload?.date || ''
+        payload?.tournament_date ||
+            payload?.event_date ||
+            payload?.tournament_datetime ||
+            payload?.date ||
+            ''
     ).trim();
     return {
         storeName,
@@ -8718,7 +9525,12 @@ function resolveStoreFromOcrName(storeName) {
 
 function isSupportedOcrImageFile(file) {
     if (!(file instanceof File)) return false;
-    if (String(file.type || '').toLowerCase().startsWith('image/')) return true;
+    if (
+        String(file.type || '')
+            .toLowerCase()
+            .startsWith('image/')
+    )
+        return true;
     return /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.name || '');
 }
 
@@ -8876,9 +9688,7 @@ async function processCreateOcrFiles() {
         if (selectedDate) {
             document.getElementById('createTournamentDate').value = selectedDate;
         }
-        const matchedStore = selectedStoreName
-            ? resolveStoreFromOcrName(selectedStoreName)
-            : null;
+        const matchedStore = selectedStoreName ? resolveStoreFromOcrName(selectedStoreName) : null;
         if (matchedStore?.id) {
             document.getElementById('createStoreSelect').value = String(matchedStore.id);
         } else if (selectedDate) {
@@ -9231,7 +10041,9 @@ async function copyTextToClipboard(content) {
     textarea.setAttribute('readonly', '');
     textarea.style.position = 'fixed';
     textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
+    (window.digiStatsComponentRoot ? window.digiStatsComponentRoot() : document.body).appendChild(
+        textarea
+    );
     textarea.focus();
     textarea.select();
     const copied = document.execCommand('copy');
@@ -9291,7 +10103,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
     const tournamentId = String(tournament.id);
     let content = targetContainer || getDetailsContainer(tournamentId);
     if (!content) return;
-        content.innerHTML = `<div class="details-block">Carregando detalhes...</div>`;
+    content.innerHTML = `<div class="details-block"><span class="spinner" aria-hidden="true"></span> Carregando detalhes...</div>`;
 
     try {
         const ocrFilesPromise = window.tournamentOcrFiles?.loadFiles
@@ -9322,7 +10134,9 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
         if (!Array.isArray(results)) results = [];
 
         if (!results.length) {
-            const fallbackSelect = encodeURIComponent('id,placement,total_players,match_points,player:players(name),deck:decks(name)');
+            const fallbackSelect = encodeURIComponent(
+                'id,placement,total_players,match_points,player:players(name),deck:decks(name)'
+            );
             const fallbackRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/tournament_results?store_id=eq.${encodeURIComponent(tournament.store_id)}&tournament_date=eq.${tournament.tournament_date}&select=${fallbackSelect}&order=placement.asc`,
                 { headers }
@@ -9396,7 +10210,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                             <circle cx="9" cy="10" r="1.7"></circle>
                             <path d="M4 17l5-4 3.2 2.6 3.8-3.6 4 5"></path>
                             </svg>
-                            <span>Generate Post</span>
+                            <span>Criar post</span>
                         </button>
                     </div>
                 </div>      
@@ -9483,24 +10297,23 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
 
         const resultsHtml = (results || []).length
             ? results
-                .map(
-                    (item) => {
-                        const playerName = String(item.player || '-').trim() || '-';
-                        const deckName = String(item.deck || '').trim();
-                        const hasDeck = Boolean(deckName);
-                        const payload = encodeURIComponent(
-                            JSON.stringify({
-                                resultId: item.id || '',
-                                deck: String(item.deck || '').trim(),
-                                player: playerName,
-                                code: extractDeckCodeFromImageUrl(item.image_url || ''),
-                                store: tournament.store?.name || '',
-                                date: tournament.tournament_date || '',
-                                format: getTournamentFormatCode(tournament) || '',
-                                tournamentName: tournament.tournament_name || ''
-                            })
-                        );
-                        return `
+                  .map((item) => {
+                      const playerName = String(item.player || '-').trim() || '-';
+                      const deckName = String(item.deck || '').trim();
+                      const hasDeck = Boolean(deckName);
+                      const payload = encodeURIComponent(
+                          JSON.stringify({
+                              resultId: item.id || '',
+                              deck: String(item.deck || '').trim(),
+                              player: playerName,
+                              code: extractDeckCodeFromImageUrl(item.image_url || ''),
+                              store: tournament.store?.name || '',
+                              date: tournament.tournament_date || '',
+                              format: getTournamentFormatCode(tournament) || '',
+                              tournamentName: tournament.tournament_name || ''
+                          })
+                      );
+                      return `
                 <div
                     class="results-mini-item ${hasDeck ? 'with-action' : ''} ${fullResultsPlacementClass(Number(item.placement))}"
                     ${hasDeck ? 'data-action="open-decklist-builder"' : ''}
@@ -9525,8 +10338,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                     </div>
                 </div>
             `;
-                    }
-                  )
+                  })
                   .join('')
             : `<div class="details-empty-state">Nenhum resultado registrado para este torneio.</div>`;
 
@@ -9538,7 +10350,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                             <path d="M21.21 15.89A10 10 0 1 1 12 2v10z" />
                             <path d="M12 2a10 0 0 1 10 10h-10z" />
                         </svg>
-                        <span>Deck Distribution</span>
+                        <span>Distribuição de decks</span>
                     </h3>
                     <div class="details-pie-panel">
                         <div class="details-pie-container">${pieHtml}</div>
@@ -9577,7 +10389,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                             <path d="M13 21V6h3v15" />
                             <path d="M3 21V14h3v7" />
                         </svg>
-                        <span>Podium</span>
+                        <span>Pódio</span>
                     </h3>
                     <div class="details-podium">${podiumHtml}</div>
                 </div>
@@ -9587,7 +10399,7 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                             <circle cx="11" cy="11" r="7" />
                             <path d="M21 21l-4.35-4.35" />
                         </svg>
-                        <span>Full Results</span>
+                        <span>Resultados completos</span>
                         ${bandaiPrintStatusHtml}
                     </h3>
                     <div class="results-mini">${resultsHtml}</div>
@@ -9611,40 +10423,47 @@ async function renderTournamentDetails(tournament, targetContainer = null) {
                 copyTournamentDataForDigilab(tournament, btnExportDigilab);
             });
         }
-        content.querySelectorAll('.results-mini-item.with-action[data-action="open-decklist-builder"]').forEach((row) => {
-            const openDecklistBuilder = () => {
-                const rawPayload = row.getAttribute('data-decklist-payload') || '';
-                let payload;
-                try {
-                    payload = JSON.parse(decodeURIComponent(rawPayload));
-                } catch {
-                    return;
-                }
+        content
+            .querySelectorAll('.results-mini-item.with-action[data-action="open-decklist-builder"]')
+            .forEach((row) => {
+                const openDecklistBuilder = () => {
+                    const rawPayload = row.getAttribute('data-decklist-payload') || '';
+                    let payload;
+                    try {
+                        payload = JSON.parse(decodeURIComponent(rawPayload));
+                    } catch {
+                        return;
+                    }
 
-                const params = new URLSearchParams();
-                if (payload.deck) params.set('deck', payload.deck);
-                if (payload.player) params.set('player', payload.player);
-                if (payload.code) params.set('code', payload.code);
-                if (payload.store) params.set('store', payload.store);
-                if (payload.date) params.set('date', payload.date);
-                if (payload.format) params.set('format', payload.format);
-                if (payload.tournamentName) params.set('tournamentName', payload.tournamentName);
-                if (payload.resultId) params.set('resultId', payload.resultId);
-                params.set('returnView', 'tournaments');
-                params.set('returnTournamentId', String(tournament.id));
-                params.set('returnMode', currentViewMode);
+                    const params = new URLSearchParams();
+                    if (payload.deck) params.set('deck', payload.deck);
+                    if (payload.player) params.set('player', payload.player);
+                    if (payload.code) params.set('code', payload.code);
+                    if (payload.store) params.set('store', payload.store);
+                    if (payload.date) params.set('date', payload.date);
+                    if (payload.format) params.set('format', payload.format);
+                    if (payload.tournamentName)
+                        params.set('tournamentName', payload.tournamentName);
+                    if (payload.resultId) params.set('resultId', payload.resultId);
+                    params.set('returnView', 'tournaments');
+                    params.set('returnTournamentId', String(tournament.id));
+                    params.set('returnMode', currentViewMode);
 
-                window.location.href = `${getAssetPrefix()}torneios/decklist-builder/index.html?${params.toString()}`;
-            };
+                    if (window.DIGISTATS_MICRO_FRONTENDS) {
+                        window.digistatsNavigate('builder', Object.fromEntries(params));
+                    } else {
+                        window.location.href = `${getAssetPrefix()}${window.DIGISTATS_NATIVE_V2 ? 'demo-v2/deckbuilder.html' : 'torneios/decklist-builder/index.html'}?${params.toString()}`;
+                    }
+                };
 
-            row.addEventListener('click', openDecklistBuilder);
-            row.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    openDecklistBuilder();
-                }
+                row.addEventListener('click', openDecklistBuilder);
+                row.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openDecklistBuilder();
+                    }
+                });
             });
-        });
     } catch (err) {
         console.error(err);
         if (!targetContainer) {
@@ -9764,7 +10583,10 @@ function showFriendlyErrorModal(title, message) {
                 </div>
             </div>
         `;
-        document.body.appendChild(host.firstElementChild);
+        (window.digiStatsComponentRoot
+            ? window.digiStatsComponentRoot()
+            : document.body
+        ).appendChild(host.firstElementChild);
         modal = document.getElementById('friendlyErrorModal');
     }
 
@@ -9859,7 +10681,10 @@ function openRegisterPlayersModal(playerNames) {
                 </div>
             </div>
         `;
-        document.body.appendChild(host.firstElementChild);
+        (window.digiStatsComponentRoot
+            ? window.digiStatsComponentRoot()
+            : document.body
+        ).appendChild(host.firstElementChild);
         modal = document.getElementById('registerPlayersModal');
     }
 
@@ -9867,7 +10692,9 @@ function openRegisterPlayersModal(playerNames) {
     const btnConfirm = document.getElementById('btnRegisterPlayersConfirm');
     const btnCancel = document.getElementById('btnRegisterPlayersCancel');
     if (!modal || !list || !btnConfirm || !btnCancel) {
-        return Promise.reject(new Error('Nao foi possivel abrir o modal de confirmacao de players.'));
+        return Promise.reject(
+            new Error('Nao foi possivel abrir o modal de confirmacao de players.')
+        );
     }
 
     list.innerHTML = playerNames.map((name) => `<li>${escapeHtml(name)}</li>`).join('');
@@ -9947,7 +10774,10 @@ async function syncSelectedOcrPlayers() {
 
 async function ensurePlayersRegisteredForCreate() {
     await syncSelectedOcrPlayers();
-    const { missingRows, pendingNames } = getPendingPlayerRegistrations(createResults, createPlayers);
+    const { missingRows, pendingNames } = getPendingPlayerRegistrations(
+        createResults,
+        createPlayers
+    );
     if (missingRows.length) {
         throw new Error('Informe o player nas colocacoes: ' + missingRows.join(', '));
     }
@@ -9978,7 +10808,9 @@ async function ensurePlayersRegisteredForCreate() {
         });
         if (!insertRes.ok) {
             const errorText = await insertRes.text();
-            throw new Error(`Erro ao cadastrar player "${playerName}" (${insertRes.status}): ${errorText}`);
+            throw new Error(
+                `Erro ao cadastrar player "${playerName}" (${insertRes.status}): ${errorText}`
+            );
         }
 
         const insertedPlayer = (await insertRes.json())[0];
@@ -10027,7 +10859,9 @@ function getPendingDeckNames(results, decks) {
     const seen = new Set();
     results.forEach((row) => {
         if (row.deck_id) return;
-        const name = String(row.deck_name || '').replace(/\s+/g, ' ').trim();
+        const name = String(row.deck_name || '')
+            .replace(/\s+/g, ' ')
+            .trim();
         if (!name) return;
         const key = normalizeLookupName(name);
         if (!seen.has(key)) {
@@ -10161,7 +10995,11 @@ function bindCreateResultsAutocomplete() {
             updateCreateResultField(rowIndex, `${type}_name`, input.value.trim());
             if (type === 'player') {
                 updateCreateResultField(rowIndex, 'ocr_member_id', '');
-                updateCreateResultField(rowIndex, 'ocr_player_unmatched', Boolean(input.value.trim()));
+                updateCreateResultField(
+                    rowIndex,
+                    'ocr_player_unmatched',
+                    Boolean(input.value.trim())
+                );
             }
             renderOptions(input.value);
         });
@@ -10292,7 +11130,12 @@ async function createTournamentFormSubmit(e) {
     submitBtn.textContent = 'Criando...';
     createTournamentSaveInProgress = true;
     document.getElementById('createTournamentForm')?.setAttribute('aria-busy', 'true');
-    ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints', 'btnImportCreateDigilab'].forEach((id) => {
+    [
+        'btnCreateCancel',
+        'btnCreateModalCloseX',
+        'btnSelectOcrPrints',
+        'btnImportCreateDigilab'
+    ].forEach((id) => {
         const button = document.getElementById(id);
         if (button) button.disabled = true;
     });
@@ -10420,7 +11263,12 @@ async function createTournamentFormSubmit(e) {
     } finally {
         createTournamentSaveInProgress = false;
         document.getElementById('createTournamentForm')?.removeAttribute('aria-busy');
-        ['btnCreateCancel', 'btnCreateModalCloseX', 'btnSelectOcrPrints', 'btnImportCreateDigilab'].forEach((id) => {
+        [
+            'btnCreateCancel',
+            'btnCreateModalCloseX',
+            'btnSelectOcrPrints',
+            'btnImportCreateDigilab'
+        ].forEach((id) => {
             const button = document.getElementById(id);
             if (button) button.disabled = false;
         });
@@ -10428,5 +11276,3 @@ async function createTournamentFormSubmit(e) {
         submitBtn.textContent = originalText;
     }
 }
-
-

@@ -1,0 +1,540 @@
+/* Shared presentation for the shell, React pages and existing workspace forms. */
+:root {
+    --ds-card-gradient: linear-gradient(145deg, #191d20, #111517 68%);
+    --ds-control-bg: #121619;
+    --ds-control-line: #36363c;
+    --ds-card-radius: 16px;
+    --ds-control-radius: 9px;
+    --ds-accent-line: color-mix(in srgb, var(--accent) 18.82%, transparent);
+}
+.page-heading {
+    margin: 26px 0 22px;
+}
+.page-heading h1 {
+    margin: 0;
+    font-size: clamp(24px, 2.3vw, 30px);
+    line-height: 1.25;
+    letter-spacing: -0.6px;
+}
+.page-heading > p:last-child {
+    max-width: 720px;
+    margin: 9px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+.button {
+    border-radius: var(--ds-control-radius);
+    min-height: 44px;
+    gap: 10px;
+    padding: 10px 15px;
+}
+.button.secondary {
+    background: #191e23;
+    border-color: #36363c;
+}
+.button.secondary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 6.27%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent);
+    color: color-mix(in srgb, var(--accent) 70%, white);
+    filter: none;
+}
+.button.primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 85%, white);
+    filter: none;
+}
+.native-back-link {
+    margin-bottom: 20px;
+}
+.data-toolbar {
+    gap: 14px;
+    margin: 0 0 16px;
+    padding: 16px 18px;
+    border: 1px solid var(--ds-line);
+    border-radius: 12px;
+    background: #111517;
+}
+.filter-toolbar {
+    padding: 18px;
+    gap: 14px;
+    margin: 16px 0 20px;
+    border: 1px solid var(--ds-line);
+    border-radius: 12px;
+    background: var(--ds-card-gradient);
+}
+.filter-toolbar .ds-select {
+    flex: 1;
+    width: auto;
+    min-width: 160px;
+    max-width: 440px;
+}
+.ds-select {
+    z-index: auto;
+}
+.ds-select:has([aria-expanded='true']) {
+    z-index: 20;
+}
+.studio-controls .ds-select {
+    width: 100%;
+    margin-bottom: 16px;
+}
+.filter-toolbar label,
+.studio-controls label {
+    font-size: 11px;
+    font-weight: 600;
+}
+.view :is(input:not([type='checkbox'], [type='radio'], [type='color']), select, textarea) {
+    background-color: var(--ds-control-bg);
+    border-color: var(--ds-control-line);
+    border-radius: var(--ds-control-radius);
+    color: var(--ds-text);
+    min-height: 44px;
+    font-size: 14px;
+}
+.view :is(input, textarea):hover {
+    border-color: color-mix(in srgb, var(--accent) 25%, var(--line));
+}
+.view :is(input, textarea):focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+    outline: 2px solid color-mix(in srgb, var(--accent) 31.37%, transparent);
+    outline-offset: 2px;
+}
+:is(.surface, .meta-panel, .metric, .studio-controls, .post-preview, #allTournaments .event-card) {
+    border-color: var(--ds-line);
+    border-radius: var(--ds-card-radius);
+    background: var(--ds-card-gradient);
+    box-shadow: inset 0 1px 0 #ffffff05;
+}
+.metric {
+    padding: 20px;
+}
+.metric-label,
+.preview-caption {
+    color: color-mix(in srgb, var(--accent) 75%, white);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+}
+.metric strong {
+    font-size: 28px;
+    margin: 9px 0 6px;
+}
+.analysis-tabs {
+    gap: 6px;
+}
+.analysis-tabs button {
+    min-height: 44px;
+    border-radius: 9px;
+    font-weight: 600;
+    background: #121619;
+}
+.analysis-tabs button:hover {
+    background: color-mix(in srgb, var(--accent) 4.71%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 25%, var(--line));
+}
+.analysis-tabs button[aria-selected='true'] {
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent);
+    background: color-mix(in srgb, var(--accent) 7.84%, transparent);
+    color: color-mix(in srgb, var(--accent) 70%, white);
+}
+.analysis-table thead th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.analysis-table tbody tr:hover {
+    background: color-mix(in srgb, var(--accent) 2.35%, transparent);
+}
+.analysis-table-scroll {
+    border: 1px solid #ffffff0b;
+    border-radius: 10px;
+}
+.studio-controls {
+    padding: 22px;
+}
+.studio-controls h2 {
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #ffffff0b;
+    font-size: 20px;
+}
+.preview-caption {
+    padding: 14px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 12.55%, transparent);
+}
+.post-preview {
+    overflow: hidden;
+}
+.studio {
+    grid-template-columns: minmax(300px, 360px) minmax(0, 620px);
+    gap: 24px;
+}
+.studio-controls h2 {
+    font-size: 18px;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+}
+.studio-group {
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+.studio-group + .studio-group {
+    margin-top: 18px;
+}
+.studio-group legend,
+.studio-export h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+    margin: 0 0 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #dde0e3;
+}
+.studio-group legend > span,
+.studio-export h3 > span {
+    display: grid;
+    place-items: center;
+    width: 23px;
+    height: 23px;
+    border: 1px solid color-mix(in srgb, var(--accent) 14.51%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent) 3.92%, transparent);
+    color: color-mix(in srgb, var(--accent) 75%, white);
+    font-size: 10px;
+}
+.studio-group .ds-select,
+.studio-group label {
+    margin-bottom: 14px;
+}
+.studio-group > :last-child {
+    margin-bottom: 0;
+}
+.studio-controls .format-select-trigger {
+    font-size: 13px;
+}
+.studio-brand-note {
+    margin: 9px 0 0;
+    font-size: 11px;
+    color: var(--ds-muted);
+    line-height: 1.5;
+}
+.studio-export {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid #ffffff0b;
+}
+.studio-export-specs {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 7px 12px;
+    margin-bottom: 18px;
+    padding: 12px;
+    border: 1px solid #ffffff08;
+    border-radius: 9px;
+    background: #ffffff03;
+    font-size: 11px;
+    color: var(--ds-muted);
+}
+.studio-export-specs strong {
+    color: #d9dde1;
+    font-size: 11px;
+}
+.studio-export .muted {
+    margin: 10px 0 0;
+    font-size: 11px;
+}
+.studio .post-preview {
+    padding: 0;
+}
+.studio .preview-caption {
+    padding: 16px 18px;
+    font-size: 10px;
+}
+.studio canvas {
+    aspect-ratio: 4 / 5;
+    object-fit: contain;
+}
+/* Fit the full export preview on desktop without changing its pixel dimensions. */
+.studio-view .studio {
+    grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
+    max-width: 1020px;
+    gap: 22px;
+}
+.studio-view {
+    display: grid;
+    grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
+    column-gap: 22px;
+    align-items: start;
+    max-width: 1120px;
+    padding-top: 24px;
+}
+.studio-view > .page-heading {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0 0 20px;
+}
+.studio-view > .studio {
+    display: contents;
+}
+.studio-view .studio-controls {
+    grid-column: 1;
+    grid-row: 2;
+}
+.studio-view .post-preview {
+    grid-column: 2;
+    grid-row: 1 / 3;
+}
+.studio-view .studio-controls {
+    position: static;
+    padding: 18px;
+}
+.studio-view .studio-controls h2 {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+}
+.studio-view .studio-group legend,
+.studio-view .studio-export h3 {
+    margin-bottom: 10px;
+}
+.studio-view .studio-group .ds-select {
+    margin-bottom: 10px;
+}
+.studio-view .studio-group + .studio-group {
+    margin-top: 12px;
+}
+.studio-view .studio-brand-note {
+    display: none;
+}
+.studio-view .studio-export {
+    margin-top: 14px;
+    padding-top: 12px;
+}
+.studio-view .studio-export-specs {
+    padding: 10px;
+    gap: 4px 12px;
+    margin-bottom: 12px;
+}
+.studio-view .post-preview {
+    justify-self: stretch;
+    background: #242629;
+}
+.studio-view .preview-caption {
+    padding: 12px 16px;
+    background: var(--panel);
+}
+.studio-view .studio canvas {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: max(320px, calc(100dvh - 174px));
+    margin-inline: auto;
+    border-radius: 0;
+}
+@media (max-width: 1000px) {
+    .studio-view {
+        display: block;
+        padding-top: 0;
+    }
+    .studio-view > .page-heading {
+        margin: 26px 0 22px;
+    }
+    .studio-view > .studio {
+        display: grid;
+    }
+    .studio-view .post-preview,
+    .studio-view .studio-controls {
+        grid-column: auto;
+        grid-row: auto;
+    }
+    .studio-view .studio {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .studio {
+        grid-template-columns: 1fr;
+    }
+    .studio-controls {
+        position: static;
+    }
+    .studio .post-preview {
+        max-width: 620px;
+    }
+}
+
+/* Higher specificity is required by the existing scoped domain styles. */
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        input:not([type='checkbox'], [type='radio'], [type='color'], [type='range'], [type='file']),
+        select,
+        textarea
+    ) {
+    background-color: var(--ds-control-bg) !important;
+    border: 1px solid var(--ds-control-line) !important;
+    border-radius: var(--ds-control-radius) !important;
+    color: var(--ds-text) !important;
+    font-size: 14px !important;
+    min-height: 44px;
+}
+:root.v2-tools body.native-v2 #v2Tools select:not([multiple]) {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='m6 9 6 6 6-6' stroke='%23a0aaa5' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    padding-right: 36px !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(input, select, textarea):focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 37.65%, transparent) !important;
+    outline-offset: 2px;
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--line)) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(label, .form-group > label) {
+    font-size: 12px !important;
+    font-weight: 600;
+    color: var(--ds-muted);
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .deck-row,
+        .player-profile,
+        .statistics-highlight-card,
+        .statistics-card,
+        .statistics-panel,
+        .admin-auth-card,
+        .admin-weekly-schedule,
+        .admin-repair-section,
+        .admin-sync-section,
+        .decklist-builder-panel,
+        .decklist-builder-side,
+        .decklist-builder-context,
+        .decklist-search-panel,
+        .tournament-form-section,
+        .tournament-ocr-section
+    ) {
+    background: var(--ds-card-gradient) !important;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: var(--ds-card-radius) !important;
+    box-shadow: inset 0 1px 0 #ffffff05 !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.decks-list-controls, .statistics-controls, #tournamentFilters) {
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 12px !important;
+    background: #111517 !important;
+    padding: 18px !important;
+    gap: 14px;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.btn-primary, .btn-save, .btn-add, .btn-modal-save, .btn-create-filter) {
+    border-radius: var(--ds-control-radius) !important;
+    font-weight: 700;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .btn-secondary,
+        .btn-edit,
+        .btn-action,
+        .btn-toggle-view,
+        .btn-clear-filters,
+        .btn-reset-filters,
+        .btn-modal-cancel,
+        .statistics-view-btn,
+        .admin-tab-btn,
+        .calendar-nav-btn,
+        .btn-view-toggle
+    ) {
+    background: #191e23 !important;
+    border: 1px solid #36363c !important;
+    border-radius: var(--ds-control-radius) !important;
+    font-weight: 600;
+    color: var(--ds-text) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .btn-secondary,
+        .btn-edit,
+        .btn-action,
+        .btn-toggle-view,
+        .btn-clear-filters,
+        .btn-reset-filters,
+        .btn-modal-cancel,
+        .statistics-view-btn,
+        .admin-tab-btn,
+        .calendar-nav-btn,
+        .btn-view-toggle
+    ):hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 6.27%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.statistics-view-btn, .admin-tab-btn, .btn-view-toggle).is-active {
+    background: color-mix(in srgb, var(--accent) 7.84%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 31.37%, transparent) !important;
+    color: color-mix(in srgb, var(--accent) 70%, white) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table {
+    border-radius: 12px !important;
+    font-size: 14px !important;
+}
+:root.v2-tools body.native-v2 #v2Tools table th {
+    background: #191d20 !important;
+    color: var(--ds-muted) !important;
+    font-size: 11px !important;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+:root.v2-tools body.native-v2 #v2Tools table tbody tr:hover > td {
+    background-color: color-mix(in srgb, var(--accent) 3.14%, transparent) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(.modal-content, .player-modal-box, .decklist-import-dialog) {
+    border-color: color-mix(in srgb, var(--accent) 25%, var(--line)) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 24px 90px #000a !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.modal-header, .player-modal-header) {
+    background: linear-gradient(135deg, #21191f, #161b1e 70%) !important;
+    border-color: #ffffff0c !important;
+}
+:root.v2-tools body.native-v2 #v2Tools :is(.modal-header h2, .player-modal-title) {
+    font-size: 22px !important;
+}
+@media (max-width: 600px) {
+    .filter-toolbar {
+        padding: 14px;
+    }
+    .filter-toolbar .ds-select {
+        min-width: 100%;
+        max-width: none;
+    }
+    .data-toolbar .ds-select {
+        width: 100%;
+    }
+    .page-heading {
+        margin: 22px 0 18px;
+    }
+    .studio-controls {
+        padding: 18px;
+    }
+}

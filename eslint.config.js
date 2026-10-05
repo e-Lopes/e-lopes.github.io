@@ -1,6 +1,6 @@
 module.exports = [
     {
-        ignores: ['node_modules/**', 'backup/**']
+        ignores: ['node_modules/**', 'backup/**', '.tmp/**', 'demo-v2/mfe/**', 'demo-v2/app-shell/**']
     },
     {
         files: ['eslint.config.js', 'tests/**/*.js', 'scripts/**/*.js'],
@@ -15,7 +15,10 @@ module.exports = [
                 URL: 'readonly',
                 URLSearchParams: 'readonly',
                 fetch: 'readonly',
-                setTimeout: 'readonly'
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly',
+                AbortController: 'readonly',
+                Event: 'readonly'
             }
         },
         rules: {
@@ -24,12 +27,17 @@ module.exports = [
         }
     },
     {
-        files: ['db.js'],
+        files: ['db.js', 'shared/posts/**/*.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'module',
             globals: {
-                console: 'readonly'
+                console: 'readonly',
+                document: 'readonly',
+                Image: 'readonly',
+                Path2D: 'readonly',
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly'
             }
         },
         rules: {
@@ -59,7 +67,7 @@ module.exports = [
     },
     {
         files: ['**/*.js'],
-        ignores: ['eslint.config.js', 'tests/**/*.js', 'scripts/**/*.js', 'db.js', 'sw.js'],
+        ignores: ['eslint.config.js', 'tests/**/*.js', 'scripts/**/*.js', 'db.js', 'sw.js', 'shared/posts/**/*.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',

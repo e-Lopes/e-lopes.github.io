@@ -1,0 +1,133 @@
+import { useEffect, useId, useRef, useState } from 'react';
+
+export function Select({
+    label,
+    options,
+    value,
+    onChange,
+    disabled = false
+}: {
+    label: string;
+    options: { value: string; label: string }[];
+    value: string;
+    onChange(value: string): void;
+    disabled?: boolean;
+}) {
+    const id = useId();
+    const [open, setOpen] = useState(false);
+    const root = useRef<HTMLDivElement>(null);
+    const trigger = useRef<HTMLButtonElement>(null);
+    const list = useRef<HTMLDivElement>(null);
+    const selected = Math.max(
+        0,
+        options.findIndex((option) => option.value === value)
+    );
+    useEffect(() => {
+        if (!open) return;
+        list.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[selected]?.focus();
+        const outside = (event: PointerEvent) => {
+            if (!root.current?.contains(event.target as Node)) setOpen(false);
+        };
+        document.addEventListener('pointerdown', outside);
+        return () => document.removeEventListener('pointerdown', outside);
+    }, [open, selected]);
+    function close() {
+        setOpen(false);
+        trigger.current?.focus();
+    }
+    return (
+        <div
+            className="format-select ds-select"
+            ref={root}
+            onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+            }}
+        >
+            <span id={`${id}-label`} className="format-select-label">
+                {label}
+            </span>
+            <button
+                ref={trigger}
+                className="format-select-trigger"
+                aria-labelledby={`${id}-label ${id}-value`}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                aria-controls={`${id}-options`}
+                disabled={disabled || !options.length}
+                onClick={() => setOpen(!open)}
+                onKeyDown={(event) => {
+                    if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
+                        event.preventDefault();
+                        setOpen(true);
+                    }
+                }}
+            >
+                <span id={`${id}-value`}>{options[selected]?.label || 'Nenhuma opção'}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                        d="m6 9 6 6 6-6"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                </svg>
+            </button>
+            {open && (
+                <div
+                    ref={list}
+                    id={`${id}-options`}
+                    className="format-select-options"
+                    role="listbox"
+                    aria-labelledby={`${id}-label`}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            close();
+                            return;
+                        }
+                        const items = [
+                            ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                                '[role="option"]'
+                            )
+                        ];
+                        const index = items.indexOf(document.activeElement as HTMLButtonElement);
+                        const target =
+                            event.key === 'ArrowDown'
+                                ? (index + 1) % items.length
+                                : event.key === 'ArrowUp'
+                                  ? (index - 1 + items.length) % items.length
+                                  : event.key === 'Home'
+                                    ? 0
+                                    : event.key === 'End'
+                                      ? items.length - 1
+                                      : -1;
+                        if (target >= 0) {
+                            event.preventDefault();
+                            items[target]?.focus();
+                        }
+                    }}
+                >
+                    {options.map((option) => (
+                        <button
+                            key={option.value}
+                            role="option"
+                            aria-selected={option.value === value}
+                            tabIndex={option.value === value ? 0 : -1}
+                            onClick={() => {
+                                onChange(option.value);
+                                close();
+                            }}
+                        >
+                            <span>{option.label}</span>
+                            <span className="format-select-check" aria-hidden="true">
+                                {option.value === value ? '✓' : ''}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}

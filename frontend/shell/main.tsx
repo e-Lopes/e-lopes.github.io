@@ -1,0 +1,356 @@
+import { useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Manifest, MicroModule, MicroHandle, MicroContext, RouteName } from '../contracts';
+import { Loader } from '../shared/runtime';
+import { bootstrap, asset, dataService, loadScript } from './services';
+import { readRoute, subscribeRoute, href, navigate } from './routes';
+import styles from './Shell.module.css';
+import { SiteFooter } from './SiteFooter';
+import { restoreAccent } from './ThemePicker';
+import '../../shared/theme.css';
+import '../../demo-v2/styles.css';
+import '../../shared/presentation.css';
+import '../../shared/workspace/presentation.css';
+import '../../shared/accent.css';
+const sections: {
+    key: string;
+    label: string;
+    links: [string, RouteName, Record<string, string>?][];
+}[] = [
+    { key: 'overview', label: 'Visão geral', links: [['Visão geral', 'overview']] },
+    {
+        key: 'tournaments',
+        label: 'Torneios',
+        links: [
+            ['Lista e calendário', 'tournaments'],
+            ['Cadastrar torneio', 'manage', { create: '1' }]
+        ]
+    },
+    {
+        key: 'meta',
+        label: 'Metagame',
+        links: [['Metagame', 'meta']]
+    },
+    {
+        key: 'decks',
+        label: 'Decks',
+        links: [
+            ['Catálogo de decks', 'decks'],
+            ['Cadastrar deck', 'decks', { action: 'create-deck' }]
+        ]
+    },
+    {
+        key: 'players',
+        label: 'Jogadores',
+        links: [
+            ['Lista de jogadores', 'players'],
+            ['Cadastrar jogador', 'players', { action: 'create-player' }]
+        ]
+    },
+    { key: 'admin', label: 'Admin', links: [['DigiLab e configurações', 'admin']] },
+    { key: 'posts', label: 'Criação de conteúdo', links: [['Criação de conteúdo', 'posts']] }
+];
+const labels: Record<RouteName, string> = {
+    overview: 'Visão geral',
+    tournaments: 'Torneios',
+    meta: 'Metagame',
+    decks: 'Decks',
+    players: 'Jogadores',
+    admin: 'Admin / DigiLab',
+    manage: 'Torneios',
+    statistics: 'Estatísticas',
+    posts: 'Estúdio de posts',
+    builder: 'Deckbuilder'
+};
+const sectionsLabel: Record<RouteName, string> = {
+    overview: 'Painel da comunidade',
+    tournaments: 'Eventos da comunidade',
+    manage: 'Gestão / Eventos',
+    meta: 'Comunidade / Análises',
+    statistics: 'Comunidade / Análises',
+    decks: 'Biblioteca da comunidade',
+    players: 'Comunidade / Cadastros',
+    admin: 'Configurações da comunidade',
+    posts: 'Criação de conteúdo',
+    builder: 'Biblioteca / Decklists'
+};
+function Shell() {
+    const [route, setRoute] = useState(readRoute),
+        [expanded, setExpanded] = useState(''),
+        [mobileOpen, setMobileOpen] = useState(false),
+        [loading, setLoading] = useState(true),
+        [error, setError] = useState(''),
+        [retry, setRetry] = useState(0);
+    const outlet = useRef<HTMLDivElement>(null);
+    const handles = useRef(new Map<string, { element: HTMLElement; handle: MicroHandle }>());
+    const manifest = useRef<Manifest | null>(null);
+    useEffect(() => subscribeRoute(() => setRoute(readRoute())), []);
+    const activeKey =
+        (
+            { manage: 'tournaments', builder: 'tournaments', statistics: 'meta' } as Partial<
+                Record<RouteName, string>
+            >
+        )[route.name] || route.name;
+    useEffect(() => {
+        document.title = `DIGIMON CWB — ${labels[route.name]}`;
+        setExpanded(window.matchMedia('(max-width:780px)').matches ? '' : activeKey);
+        setMobileOpen(false);
+    }, [route.name, activeKey]);
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setError('');
+        const context: MicroContext = {
+            route,
+            active: true,
+            data: dataService,
+            asset,
+            navigate,
+            href,
+            loadScript
+        };
+        (async () => {
+            manifest.current ||= await (
+                await fetch(asset('demo-v2/microfrontends.json'), { cache: 'no-store' })
+            ).json();
+            if (cancelled) return;
+            if (manifest.current?.apiVersion !== 1)
+                throw Error('Versão de interface incompatível. Atualize a página.');
+            const record = Object.entries(manifest.current.modules).find(([, config]) =>
+                config.routes.includes(route.name)
+            );
+            if (!record) throw Error('Tela não encontrada.');
+            const [name, config] = record;
+            for (const [id, item] of handles.current) {
+                item.element.hidden = id !== name;
+                item.element.id = id === name && name === 'builder' ? 'v2Tools' : '';
+                item.handle.update({ ...context, active: id === name });
+            }
+            document.documentElement.classList.toggle(
+                'v2-tools',
+                name === 'workspace' || name === 'builder'
+            );
+            document.body.classList.toggle('native-v2', name === 'workspace' || name === 'builder');
+            document.body.classList.toggle(
+                'dashboard-home',
+                name === 'workspace' || name === 'builder'
+            );
+            document.body.classList.toggle('decklist-builder-page', name === 'builder');
+            if (!handles.current.has(name)) {
+                await Promise.all(
+                    (config.styles || []).map(
+                        (path) =>
+                            new Promise<void>((resolve, reject) => {
+                                if (document.querySelector(`link[data-mfe-style="${path}"]`))
+                                    return resolve();
+                                const link = document.createElement('link');
+                                link.rel = 'stylesheet';
+                                link.href = asset(path);
+                                link.dataset.mfeStyle = path;
+                                link.onload = () => resolve();
+                                link.onerror = () => {
+                                    link.remove();
+                                    reject(Error('Falha ao carregar os estilos.'));
+                                };
+                                document.head.append(link);
+                            })
+                    )
+                );
+                if (cancelled) return;
+                const entry = new URL(asset(config.entry));
+                if (retry) entry.searchParams.set('retry', String(retry));
+                const module = (await import(/* @vite-ignore */ entry.href)) as MicroModule;
+                if (cancelled) return;
+                if (module.apiVersion !== 1) throw Error('Componente incompatível.');
+                const element = document.createElement('div');
+                element.className = styles.module;
+                element.dataset.microfrontend = name;
+                if (name === 'builder') element.id = 'v2Tools';
+                outlet.current!.append(element);
+                try {
+                    handles.current.set(name, { element, handle: module.mount(element, context) });
+                } catch (e) {
+                    element.remove();
+                    throw e;
+                }
+            }
+        })()
+            .catch((e) => {
+                if (!cancelled) setError(e.message);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [route, retry]);
+    useEffect(() => {
+        const onClick = (event: MouseEvent) => {
+            const anchor = (event.target as Element)?.closest<HTMLAnchorElement>('a[href]');
+            if (
+                !anchor ||
+                anchor.target === '_blank' ||
+                event.ctrlKey ||
+                event.metaKey ||
+                event.shiftKey ||
+                event.button !== 0
+            )
+                return;
+            const url = new URL(anchor.href);
+            if (url.origin !== location.origin) return;
+            if (
+                url.pathname.endsWith('/demo-v2/tools.html') ||
+                url.pathname.endsWith('/tools.html') ||
+                url.pathname.endsWith('/demo-v2/deckbuilder.html') ||
+                url.pathname.includes('/torneios/decklist-builder/')
+            ) {
+                event.preventDefault();
+                const view =
+                    url.searchParams.get('view') ||
+                    url.searchParams.get('returnView') ||
+                    'tournaments';
+                const name =
+                    url.pathname.includes('deckbuilder') ||
+                    url.pathname.includes('decklist-builder')
+                        ? 'builder'
+                        : (
+                              {
+                                  tournaments: 'manage',
+                                  decks: 'decks',
+                                  players: 'players',
+                                  admin: 'admin',
+                                  statistics: 'statistics'
+                              } as Record<string, RouteName>
+                          )[view] || 'manage';
+                navigate(name, Object.fromEntries(url.searchParams));
+            }
+        };
+        document.addEventListener('click', onClick);
+        return () => document.removeEventListener('click', onClick);
+    }, []);
+    return (
+        <div className={styles.root}>
+            <aside className="sidebar">
+                <a
+                    className="brand"
+                    href={href('overview')}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        navigate('overview');
+                    }}
+                >
+                    <span className="hazard brand-mark" />
+                    <span>DIGIMON CWB</span>
+                </a>
+                <button
+                    className={styles.mobileToggle}
+                    aria-expanded={mobileOpen}
+                    aria-controls="app-navigation"
+                    onClick={() => setMobileOpen(!mobileOpen)}
+                >
+                    Menu {mobileOpen ? '−' : '+'}
+                </button>
+                <nav
+                    id="app-navigation"
+                    aria-label="Navegação principal"
+                    className={styles.navigation}
+                    hidden={!mobileOpen}
+                >
+                    {sections.map((section) => (
+                        <div
+                            key={section.key}
+                            className={`nav-group${activeKey === section.key ? ' is-active' : ''}`}
+                        >
+                            {section.links.length > 1 ? (
+                                <>
+                                    <button
+                                        className="nav-expand"
+                                        aria-expanded={expanded === section.key}
+                                        aria-controls={`submenu-${section.key}`}
+                                        onClick={() =>
+                                            setExpanded(expanded === section.key ? '' : section.key)
+                                        }
+                                    >
+                                        <span>{section.label}</span>
+                                        <span className="nav-chevron" aria-hidden="true">
+                                            ⌄
+                                        </span>
+                                    </button>
+                                    <div
+                                        id={`submenu-${section.key}`}
+                                        className="nav-submenu"
+                                        hidden={expanded !== section.key}
+                                    >
+                                        {section.links.map(([label, name, params]) => (
+                                            <a
+                                                key={label}
+                                                href={href(name, params)}
+                                                aria-current={
+                                                    route.name === name &&
+                                                    (!params ||
+                                                        Object.entries(params).every(
+                                                            ([key, value]) =>
+                                                                route.params.get(key) === value
+                                                        ))
+                                                        ? 'page'
+                                                        : undefined
+                                                }
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    navigate(name, params);
+                                                }}
+                                            >
+                                                {label}
+                                            </a>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                <a
+                                    href={href(section.links[0][1])}
+                                    aria-current={activeKey === section.key ? 'page' : undefined}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        navigate(section.links[0][1]);
+                                    }}
+                                >
+                                    {section.label}
+                                </a>
+                            )}
+                        </div>
+                    ))}
+                </nav>
+                <div id="sidebar-support" className="sidebar-support" hidden={!mobileOpen} />
+            </aside>
+            <main className={styles.main}>
+                <header className="topbar">
+                    <div className="breadcrumb">
+                        <strong>{sectionsLabel[route.name]}</strong>
+                    </div>
+                </header>
+                {loading && <Loader />}
+                {error && (
+                    <div className={styles.failure} role="alert">
+                        <p>{error}</p>
+                        <button className="button secondary" onClick={() => setRetry(retry + 1)}>
+                            Tentar novamente
+                        </button>
+                    </div>
+                )}
+                <div ref={outlet} className={styles.content} />
+                <SiteFooter />
+            </main>
+        </div>
+    );
+}
+restoreAccent();
+bootstrap()
+    .then(() => {
+        createRoot(document.getElementById('app')!).render(<Shell />);
+        if (import.meta.env.PROD) void loadScript('config/register-sw.js');
+    })
+    .catch((error) => {
+        document.getElementById('app')!.textContent =
+            `Não foi possível iniciar a aplicação: ${error.message}. Recarregue a página.`;
+    });

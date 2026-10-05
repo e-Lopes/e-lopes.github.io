@@ -1,0 +1,51 @@
+{
+  "apiVersion": 1,
+  "version": "muvi79bp",
+  "modules": {
+    "dashboard": {
+      "entry": "demo-v2/mfe/dashboard/remote.js?v=muvi79bp",
+      "routes": [
+        "overview",
+        "meta"
+      ],
+      "styles": [
+        "demo-v2/mfe/dashboard/digimon-dashboard.css"
+      ]
+    },
+    "workspace": {
+      "entry": "demo-v2/mfe/workspace/remote.js?v=muvi79bp",
+      "routes": [
+        "tournaments",
+        "manage",
+        "decks",
+        "players",
+        "admin",
+        "statistics"
+      ],
+      "styles": [
+        "demo-v2/mfe/workspace/legacy-scoped.css",
+        "shared/workspace/tools.css",
+        "shared/workspace/native.css",
+        "demo-v2/mfe/workspace/digimon-dashboard.css"
+      ]
+    },
+    "studio": {
+      "entry": "demo-v2/mfe/studio/remote.js?v=muvi79bp",
+      "routes": [
+        "posts"
+      ],
+      "styles": []
+    },
+    "builder": {
+      "entry": "demo-v2/mfe/builder/remote.js?v=muvi79bp",
+      "routes": [
+        "builder"
+      ],
+      "styles": [
+        "demo-v2/mfe/workspace/legacy-scoped.css",
+        "shared/workspace/tools.css",
+        "shared/workspace/native.css"
+      ]
+    }
+  }
+}

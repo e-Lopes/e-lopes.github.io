@@ -1,9 +1,36 @@
-const CACHE_VERSION = 'v77';
+const CACHE_VERSION = 'v89';
 const CACHE_NAME = `digistats-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
     './',
     './index.html',
+    './tools.html',
+    './config/legacy-entry.js',
+    './shared/workspace/tools.css',
+    './shared/workspace/base.css',
+    './shared/workspace/components.css',
+    './shared/workspace/tournaments.css',
+    './shared/workspace/details.css',
+    './shared/workspace/decks.css',
+    './shared/workspace/players.css',
+    './shared/workspace/admin.css',
+    './shared/workspace/forms.css',
+    './shared/workspace/navigation.js',
+    './shared/theme.css',
+    './shared/data/tournaments.js',
+    './shared/workspace/native.css',
+    './shared/workspace/native.js',
+    './demo-v2/tools.html',
+    './demo-v2/deckbuilder.html',
+    './demo-v2/index.html',
+    './demo-v2/microfrontends.json',
+    './demo-v2/mfe/shared/react.js',
+    './demo-v2/mfe/shared/jsx.js',
+    './demo-v2/mfe/shared/dom.js',
+    './demo-v2/mfe/dashboard/remote.js',
+    './demo-v2/mfe/workspace/remote.js',
+    './demo-v2/mfe/studio/remote.js',
+    './demo-v2/mfe/builder/remote.js',
     './offline.html',
     './styles.css',
     './styles/components/utilities.css',
@@ -22,8 +49,9 @@ const APP_SHELL_ASSETS = [
     './torneios/tournament-ocr-files.js',
     './torneios/list-tournaments/script.js',
     './torneios/edit-tournament/modal.js',
-    './icons/icons-192.png',
-    './icons/icons-512.png',
+    './icons/digimon-cwb-app-180.png',
+    './icons/digimon-cwb-app-192.png',
+    './icons/digimon-cwb-app-512.png',
     './icons/favicon/favicon.png'
 ];
 
@@ -72,7 +100,11 @@ self.addEventListener('fetch', (event) => {
         request.destination === 'font' ||
         request.destination === 'manifest';
 
-    if (isNavigation) {
+    if (
+        isNavigation ||
+        request.destination === 'manifest' ||
+        url.pathname.endsWith('/manifest.json')
+    ) {
         event.respondWith(networkFirst(request, './offline.html'));
         return;
     }

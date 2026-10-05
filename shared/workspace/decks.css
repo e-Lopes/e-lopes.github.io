@@ -1,0 +1,96 @@
+:root.v2-tools
+    #v2Tools
+    :is(
+        .deck-info,
+        .deck-name-toggle,
+        .deck-name-line,
+        .deck-name,
+        .deck-code,
+        .deck-colors-row,
+        .decks-list-controls,
+        .decks-col-name-text,
+        .decks-num-rank-box,
+        .deck-history-panel,
+        .deck-history-panel-compact,
+        .deck-history-list
+    ) {
+    background: transparent !important;
+    border-color: var(--ds-line) !important;
+    color: var(--ds-text) !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools :is(.decks-table-wrapper, .decks-col-thumb-wrapper) {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+    box-shadow: none !important;
+}
+:root.v2-tools #v2Tools #decksList {
+    background: transparent !important;
+}
+:root.v2-tools #v2Tools :is(.deck-thumb-image, .decks-col-thumb-wrapper img) {
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools #v2Tools .deck-row {
+    background: var(--ds-panel) !important;
+    border: 1px solid var(--ds-line);
+    border-radius: 10px;
+    padding: 16px;
+    gap: 16px;
+}
+:root.v2-tools #v2Tools .deck-info {
+    min-width: 0;
+}
+:root.v2-tools #v2Tools .deck-name-toggle {
+    display: block;
+    width: 100%;
+    padding: 0 !important;
+    text-align: left;
+    border: 0 !important;
+}
+:root.v2-tools #v2Tools .deck-name {
+    font-size: 16px;
+    font-weight: 750;
+    text-transform: none;
+    margin: 0;
+}
+:root.v2-tools #v2Tools .deck-name-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+:root.v2-tools #v2Tools :is(.deck-code, .player-main-hint) {
+    color: var(--ds-muted) !important;
+    font-size: 13px;
+}
+:root.v2-tools #v2Tools .deck-name-toggle:focus-visible {
+    outline: 2px solid var(--ds-red);
+    outline-offset: 6px;
+}
+:root.v2-tools #v2Tools :is(.deck-history-panel, .deck-history-panel-compact) {
+    padding: 16px;
+    border: 1px solid var(--ds-line) !important;
+    border-radius: 10px;
+}
+:root.v2-tools
+    #v2Tools
+    :is(
+        .deck-history-panel .player-history-item,
+        .deck-history-panel-compact .player-history-item,
+        .deck-history-entry,
+        .deck-history-item
+    ) {
+    background: var(--ds-raised) !important;
+    color: var(--ds-text) !important;
+    border-color: var(--ds-line) !important;
+}
+@media (max-width: 780px) {
+    :root.v2-tools #v2Tools .deck-row {
+        padding: 12px;
+        gap: 12px;
+    }
+    :root.v2-tools #v2Tools .deck-name {
+        font-size: 15px;
+    }
+}

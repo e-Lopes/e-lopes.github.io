@@ -1,0 +1,125 @@
+.root {
+    min-width: 0;
+}
+.main {
+    min-width: 0;
+}
+.content {
+    min-width: 0;
+    padding-bottom: 16px;
+}
+.mobileToggle {
+    display: none;
+}
+.failure {
+    margin: 32px 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+.module[hidden] {
+    display: none !important;
+}
+@media (max-width: 780px) {
+    .root :global(.sidebar) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0 12px;
+        padding: 14px max(16px, env(safe-area-inset-right)) 14px
+            max(16px, env(safe-area-inset-left));
+    }
+    .root :global(.sidebar .brand) {
+        margin: 0;
+        font-size: 17px;
+        min-height: 44px;
+    }
+    .mobileToggle {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        min-height: 44px;
+        padding: 10px 16px;
+        background: var(--panel);
+        color: var(--text);
+        margin: 0;
+        width: auto;
+        font-size: 13px;
+    }
+    .navigation[hidden] {
+        display: none !important;
+    }
+    .navigation {
+        grid-column: 1 / -1;
+        display: flex !important;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 12px;
+    }
+    .navigation :global(.nav-group) {
+        width: 100%;
+        border: 0;
+        margin: 0;
+        padding: 0;
+    }
+    .root .navigation :global(.nav-group > a),
+    .root .navigation :global(.nav-expand) {
+        justify-content: space-between;
+        text-align: left;
+        padding: 12px 14px;
+        min-height: 46px;
+        font-size: 14px;
+        border: 0;
+        border-radius: 9px;
+        width: 100%;
+    }
+    .navigation :global(.nav-submenu) {
+        position: static;
+        width: auto;
+        margin: 4px 0 8px 14px;
+        padding: 0 0 0 10px;
+        background: transparent;
+        box-shadow: none;
+        border: 0;
+        border-left: 1px solid var(--line);
+    }
+    .navigation :global(.nav-submenu a) {
+        text-align: left;
+        justify-content: flex-start;
+        min-height: 44px;
+        border: 0;
+        padding: 10px 12px;
+    }
+    .root :global(.sidebar-support) {
+        grid-column: 1 / -1;
+        padding-top: 16px;
+    }
+    .root :global(.sidebar-support nav) {
+        grid-template-columns: minmax(0, 1fr);
+        margin: 0;
+    }
+    .root :global(.sidebar-support nav .sidebar-support-action) {
+        min-height: 44px;
+        justify-content: flex-start;
+        text-align: left;
+    }
+    .root :global(.sidebar-social-links a) {
+        min-height: 44px;
+    }
+    .main {
+        padding-right: max(16px, env(safe-area-inset-right));
+        padding-left: max(16px, env(safe-area-inset-left));
+    }
+    .root :global(.topbar) {
+        min-height: 54px;
+    }
+    .root :global(input:not([type='checkbox']):not([type='radio'])),
+    .root :global(textarea),
+    .root :global(select) {
+        font-size: 16px;
+    }
+}
+@media (min-width: 781px) {
+    .navigation[hidden] {
+        display: grid !important;
+    }
+}

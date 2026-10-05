@@ -1,0 +1,201 @@
+/* Full document layout: v2 navigation and tools share the page's scroll. */
+:root.v2-tools #v2Tools .modal-footer {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools #v2Tools [data-builder-root] .decklist-builder-back-nav {
+    display: none;
+}
+html.v2-tools body.native-v2 {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--ds-bg) !important;
+    color: var(--ds-text) !important;
+    min-height: 100dvh;
+}
+body.native-v2 > .theme-toggle-btn {
+    display: none !important;
+}
+body.native-v2 main {
+    margin-left: 248px;
+    padding: 0 40px;
+    width: calc(100% - 248px);
+    min-width: 0;
+    max-width: none;
+}
+body.native-v2 .topbar {
+    text-align: left;
+    margin: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+body.native-v2 #v2Tools .admin-container > .page-header h1 {
+    display: none !important;
+}
+body.native-v2 #v2Tools .admin-container > .page-header {
+    padding: 0;
+    margin: 0;
+    border: 0;
+}
+body.native-v2 #v2Tools .container {
+    overflow: visible;
+}
+:root.v2-tools body.native-v2 #v2Tools #tournamentFilters.is-hidden {
+    display: none !important;
+}
+body.native-v2 :is(h1, .brand, .breadcrumb strong) {
+    color: var(--ds-text) !important;
+}
+body.native-v2 :is(.sidebar, .topbar, .page-heading) * {
+    text-shadow: none !important;
+}
+body.native-v2 .brand small {
+    color: var(--ds-muted) !important;
+}
+body.native-v2 .topbar {
+    border-color: var(--ds-line) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    :is(
+        .statistics-table-wrapper,
+        .admin-table-wrapper,
+        .decks-table-wrapper,
+        .players-table-wrapper
+    ) {
+    overflow-x: auto;
+    overflow-y: visible;
+    max-height: none !important;
+    height: auto;
+    max-width: 100%;
+    min-width: 0;
+}
+body.native-v2
+    #v2Tools
+    :is(
+        .statistics-container-embedded,
+        .statistics-container,
+        .statistics-results,
+        .statistics-table-shell
+    ) {
+    min-width: 0;
+    max-width: 100%;
+}
+body.native-v2 #v2Tools :is(.modal-overlay, .player-modal-overlay) {
+    z-index: 1000;
+}
+body.native-v2 .sidebar nav a {
+    text-transform: none;
+}
+body.native-v2 #v2Tools .decklist-builder-header-left h1 {
+    display: none;
+}
+body.native-v2 #v2Tools .decklist-builder-back-nav {
+    background: var(--ds-raised) !important;
+    color: var(--ds-text) !important;
+    border: 1px solid var(--ds-line);
+    box-shadow: none;
+}
+@media (max-width: 1000px) {
+    body.native-v2 main {
+        margin-left: 224px;
+        padding: 0 28px;
+        width: calc(100% - 224px);
+    }
+}
+@media (max-width: 780px) {
+    body.native-v2 main {
+        margin: 0;
+        padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+        width: 100%;
+    }
+}
+/* Keep the established builder controls while matching the new interface. */
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root][hidden] {
+    display: none !important;
+}
+.builder-desktop-notice {
+    margin: 20px 0;
+    line-height: 1.6;
+}
+.builder-desktop-notice h2 {
+    font-size: 20px;
+    margin: 0 0 12px;
+}
+.builder-desktop-notice p {
+    color: var(--ds-muted);
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    [data-builder-root]
+    :is(.decklist-builder-panel, .decklist-builder-side, .decklist-builder-breakdown-chart) {
+    background: var(--ds-panel) !important;
+    border-color: var(--ds-line) !important;
+    box-shadow: none !important;
+    min-width: 0;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    [data-builder-root]
+    :is(
+        .decklist-builder-meta-pill,
+        .decklist-builder-stats,
+        .decklist-builder-breakdown-bar-label,
+        .decklist-builder-breakdown-bar-value
+    ) {
+    color: var(--ds-text) !important;
+}
+:root.v2-tools
+    body.native-v2
+    #v2Tools
+    [data-builder-root]
+    :is(.decklist-builder-save-status, .decklist-builder-zoom-hint) {
+    color: var(--ds-muted) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .decklist-builder-breakdown-bar-fill {
+    background: linear-gradient(
+        180deg,
+        var(--ds-accent),
+        color-mix(in srgb, var(--ds-accent) 65%, black)
+    ) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .decklist-builder-header-actions {
+    height: auto;
+    overflow: visible;
+    min-width: 0;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .decklist-builder-action-grid {
+    flex-wrap: wrap;
+    width: auto;
+    gap: 8px;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .decklist-builder-header-main {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 12px;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .filter-dot {
+    width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    flex: 0 0 24px;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .filter-color-all.is-active {
+    background: color-mix(in srgb, var(--ds-accent) 12%, var(--ds-panel)) !important;
+    border-color: var(--ds-accent) !important;
+    color: var(--ds-accent) !important;
+}
+:root.v2-tools body.native-v2 #v2Tools [data-builder-root] .decklist-builder-btn-icon {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+}

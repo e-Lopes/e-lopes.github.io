@@ -1,39 +1,39 @@
 {
-    "name": "DigiStats Tournament Dashboard",
-    "short_name": "DigiStats",
+    "name": "Digimon CWB",
+    "short_name": "Digimon CWB",
     "description": "Dashboard de estatisticas, podios e relatorios de torneios Digimon TCG.",
     "id": "./",
     "start_url": "./index.html",
     "scope": "./",
     "display": "standalone",
     "display_override": ["standalone", "minimal-ui", "browser"],
-    "background_color": "#667eea",
-    "theme_color": "#667eea",
+    "background_color": "#080a0b",
+    "theme_color": "#ef646b",
     "orientation": "portrait",
     "lang": "pt-BR",
     "dir": "ltr",
     "categories": ["games", "utilities"],
     "icons": [
         {
-            "src": "icons/icons-192.png",
+            "src": "icons/digimon-cwb-app-192.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "icons/icons-192.png",
+            "src": "icons/digimon-cwb-app-192.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "maskable"
         },
         {
-            "src": "icons/icons-512.png",
+            "src": "icons/digimon-cwb-app-512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "icons/icons-512.png",
+            "src": "icons/digimon-cwb-app-512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
@@ -44,19 +44,19 @@
             "name": "Torneios",
             "short_name": "Torneios",
             "description": "Abrir lista de torneios",
-            "url": "./torneios/list-tournaments/index.html"
+            "url": "./demo-v2/#tournaments"
         },
         {
-            "name": "Players",
-            "short_name": "Players",
-            "description": "Abrir gerenciamento de players",
-            "url": "./players/index.html"
+            "name": "Jogadores",
+            "short_name": "Jogadores",
+            "description": "Abrir lista de jogadores",
+            "url": "./demo-v2/#players"
         },
         {
             "name": "Decks",
             "short_name": "Decks",
             "description": "Abrir gerenciamento de decks",
-            "url": "./decks/index.html"
+            "url": "./demo-v2/#decks"
         }
     ]
 }

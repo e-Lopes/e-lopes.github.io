@@ -259,6 +259,8 @@
         }
     }
 
+    window.digistatsDeckMutations = { ...window.digistatsDeckMutations, update: updateDeck };
+
     window.initEditDeckModal = function initEditDeckModal(config) {
         const { supabaseUrl, headers, onUpdated } = config || {};
         if (!supabaseUrl || !headers) return;

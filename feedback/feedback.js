@@ -9,7 +9,7 @@
         },
         suggestion: {
             title: 'Enviar uma sugestão',
-            description: 'Compartilhe uma ideia para melhorar o DigiStats.',
+            description: 'Compartilhe uma ideia para melhorar o DIGIMON CWB.',
             placeholder: 'Descreva sua sugestão...'
         }
     };

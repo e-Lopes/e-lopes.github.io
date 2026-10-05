@@ -1,168 +1,119 @@
-# DigiStats Roadmap (Project State)
+﻿# DigiStats — Roadmap e avaliação do projeto
 
-## Current Score
+Atualizado em **04/10/2026**, a partir do código local, migrations, documentação e checks. Referência: commit `1b60af7`.
 
-**8.8 / 10**
+## Pontuação atual: 8,5 / 10
 
-Os 4 bugs imediatos da sessão anterior foram fechados: RLS DELETE em `formats` (policy adicionada no Supabase), migration de paths legados executada, OCR migrado para Vercel (`digimon-ocr-api.vercel.app`) e validado, cache de formato default no modal de edição de torneio corrigido e testado. As dívidas técnicas que puxavam a nota para baixo estão eliminadas. O projeto está sólido nos fluxos core com poucos gaps restantes de alta visibilidade.
+O projeto evoluiu para uma ferramenta de operação do cenário local: torneios, OCR de múltiplos prints, decklists, estatísticas, posts, administração autenticada e sincronização DigiLab.
 
----
+A nota avalia funcionalidade, confiabilidade, segurança, UX e manutenção; não é percentual de funcionalidades concluídas. A antiga nota de 8,8 não tinha cálculo reproduzível e convivia com notas baixas de infraestrutura e CSS. A diferença não indica regressão: esta revisão estabelece uma nova base comparável.
 
-## Area Scores & Gaps (Mar 31, 2026)
+### Notas por área
 
-### Deckbuilder — 8 / 10
-**O que funciona bem:** import com normalização de códigos (AA, _P, BT4-104C), filtros de tipo/cor/level/cost/set/texto, layout 2 colunas sem compressão, meta pills com ícones, drag-and-drop, save warning, zoom modal, mobile funcional.
+As avaliações são qualitativas, de 0 a 10. A média ponderada é **8,45**, arredondada para **8,5**. Os pesos priorizam os fluxos centrais.
 
-**O que falta:**
-- API search pública com qualidade inconsistente — às vezes não retorna resultados esperados; investigar parâmetros da digimoncard.io e melhorar matching por nome parcial
-- Abertura do deckbuilder mais direta — hoje requer navegar para a tela de resultados e clicar no player. Falta uma forma de abrir um deck existente diretamente da lista de decklists
-- Mobile em 480px/414px não auditado — breakpoints cobrem 768px e 1180px, mas telas menores têm gaps não críticos mas presentes
-- Card payload fetch da API pública ao salvar: funciona mas sem retry ou feedback de erro detalhado ao usuário
+| Área | Nota | Peso | Evidências e limites |
+| --- | ---: | ---: | --- |
+| Torneios e OCR | 9,0 | 20% | CRUD, calendário, pontos, múltiplos prints e gravação transacional; falta cobertura dos fluxos completos no navegador. |
+| Integração DigiLab | 9,0 | 15% | Prévia, importação, mapeamentos, fila, reconciliação e histórico; saúde do agendamento precisa de validação em produção. |
+| Administração | 8,5 | 10% | Auth, allowlist, troca de senha, formatos, ban list, lojas, agenda e catálogo; revisar uniformidade de feedback das ações. |
+| Deckbuilder e catálogo | 8,5 | 10% | Catálogo local com cache, filtros, importação, edição e previews; conjuntos novos e fallback externo exigem manutenção. |
+| Estatísticas | 9,0 | 10% | Rankings, meta, cores, cartas, pilotos de decks e tendência de público por loja; faltam perfil agregado por deck de cada jogador e consistência temporal. |
+| Jogadores e decks | 8,5 | 10% | Históricos com decklists, acesso ao builder, inativação e famílias de decks; aprofundar análise de desempenho por jogador. |
+| Gerador de posts | 8,0 | 5% | Templates, backgrounds do banco, upload e exportação; melhorar atualização do cache e loading do seletor. |
+| CSS e mobile | 6,5 | 10% | Extração parcial de estilos; global com 20.346 linhas e 1.329 ocorrências de `!important`; auditoria visual mobile pendente. |
+| Infraestrutura, segurança e qualidade | 8,0 | 10% | 32 testes passando, lint no CI, migrations, PWA e funções server-side; faltam cobertura de navegador, auditoria completa de permissões e recuperação operacional demonstrada. |
 
----
+### Limites da avaliação
 
-### Admin Panel — 8 / 10
-**O que funciona bem:** CRUD de formatos com upload de background, bucket browser, deactivate/activate inline, default management, ban list editor, store CRUD parcial. DELETE com RLS funcionando. Paths legados de bucket corrigidos via migration.
+- Revisão estática e testes/lint locais; sem auditoria visual em navegador ou consulta ao Supabase remoto.
+- Migrations e workflows comprovam implementação versionada, sem confirmar aplicação e saúde em produção.
+- Não foram medidas disponibilidade, latência ou taxas de sucesso de OCR, DigiLab e API de cartas.
+- Notas são julgamento técnico baseado nas evidências disponíveis.
 
-**O que falta:**
-- Store CRUD: falta listagem de lojas no admin com edição inline de `logo_url`, `instagram_link`, `is_active`
-- Sem feedback de loading nos botões da tabela de formatos (Deactivate, Set Default) — UX deixa o usuário sem saber se a ação ocorreu
+## Evolução desde março
 
----
+- **DigiLab:** prévia pública por URL/ID, importação administrativa, cadastro de entidades ausentes, famílias/mapeamentos de decks, criação de formatos, sincronização agendada e histórico com nova tentativa.
+- **Confiabilidade:** migration `20260924010000_reliable_digilab_sync.sql` e testes de reserva de execução, fila, recuperação de itens expirados, importação atômica e reconciliação preservando IDs e decklists.
+- **Torneios:** gravação transacional de resultados e metadados OCR, pontos, múltiplos prints, agenda semanal e exclusão com limpeza da fila DigiLab.
+- **Admin:** gestão de lojas com edição e upload de logo, autenticação Supabase, allowlist e troca de senha. Gestão de lojas deixou de ser uma pendência geral.
+- **Cartas:** catálogo do Storage, matching local por texto e rotinas de atualização de metadados/imagens. A busca deixou de depender exclusivamente da API pública.
+- **Estatísticas:** tendência de público por loja já implementada e métricas de pilotos por deck disponíveis. Ainda falta consolidar o desempenho dos decks de cada jogador.
+- **Qualidade:** testes automatizados e lint/testes no CI; a afirmação antiga de “zero cobertura” foi removida.
+- **Suporte:** guias de administradores, documentação por feature e feedback com função server-side.
 
-### Post Generator — 8 / 10
-**O que funciona bem:** geração de posts top4, distribuição, template editor, backgrounds dinâmicos do DB, upload para bucket, custom backgrounds, canvas export.
+## Backlog prioritário
 
-**O que falta:**
-- `formatBackgroundMapPromise` é cache de sessão — se um novo formato for cadastrado no admin durante a mesma sessão do post generator, o selector não atualiza. Precisa de um botão "Refresh" ou invalidação ao fechar/abrir o selector
-- Sem estado de loading visível enquanto `initializeBackgroundSelector` busca do DB na inicialização
+### Evolução das estatísticas
 
----
+Estatísticas com visão geral do cenário (meta, jogadores e lojas) permanecem no backlog. O ciclo atual prioriza consolidar as funcionalidades existentes, com evidências de confiabilidade, segurança e UX antes de ampliar o produto. O gerador de posts mantém exportação manual; integrações de publicação automática em redes sociais foram retiradas do escopo em 04/10/2026.
 
-### Estatísticas — 9 / 10
-**O que funciona bem:** 7 views (decks, meta, cores, top cards, players, lojas, representação), donut chart, bar chart, sparklines, HHI diversity score, top cards por deck, card preview, cobertura de decklists, ranking mensal.
+**Redesenhar estatísticas em torno de perguntas úteis:**
 
-**O que falta:**
-- **Player deck profile** — `unique_decks_used` é só um contador. Falta mostrar quais decks o player usou e os resultados por deck (títulos, top4s, winrate estimado)
-- **Consistency metric** — um deck que entrou em top4 em 3 torneios seguidos é muito diferente de um que entrou uma vez. "Top4 streak" ou "eventos desde último top4" seria diferenciador
-- **Store attendance trends** — evolução do número de jogadores por torneio por loja ao longo do tempo. Responde "o cenário local está crescendo?"
-- **Estatísticas mobile em 375px** — tabelas com muitas colunas (top cards, deck performance) transbordam horizontalmente sem scroll visível
+- Panorama do período: torneios, participantes únicos, participações, lojas e cobertura de decklists, com filtros coerentes de período, formato e loja.
+- Metagame: popularidade dos decks separada de desempenho, evolução da participação e conversão em top4/títulos. Mostrar tamanho da amostra para contextualizar taxas elevadas com poucas participações.
+- Jogadores: evolução e desempenho por deck, com critérios de ranking explícitos.
+- Lojas: evolução de público e atividade, aproveitando a tendência já implementada.
+- Cartas: frequência em decklists separada da quantidade de cópias, sempre com cobertura da amostra.
+- Não apresentar taxa de vitória por partida ou confrontos sem dados de partidas. Pontos e colocação não substituem esses dados.
+- Entrega inicial: definir métricas e filtros, produzir uma tela de visão geral e revisar antes de substituir as telas existentes.
 
----
+### P1 — Segurança e confiabilidade
 
----
+- [ ] Auditar permissões e RLS por operação/papel (`anon`, autenticado e admin), incluindo RPCs, Storage e Edge Functions. Escrita pública deve ser uma decisão explícita do produto. Entrega: matriz versionada e testes dos acessos permitidos/negados.
+- [ ] Criar testes de navegador para criar/editar torneio, revisar OCR, salvar/reabrir decklist e importar/sincronizar DigiLab. Verificar persistência, erros e ausência de duplicação em reenvios.
+- [ ] Validar operação remota DigiLab: migrations aplicadas, cron ativo, recuperação de falhas e pendências visíveis. Registrar execução real e falha recuperada sem duplicação.
+- [x] Exibir duração das execuções DigiLab no histórico administrativo, junto ao início/fim e status existentes. Execuções em andamento mostram tempo decorrido no momento da consulta; timestamps ausentes/inválidos não geram métricas falsas.
+- [ ] Registrar sucesso/falha, duração e última execução de OCR e evoluir indicadores/alertas de sincronização.
 
-### Torneios (criação, listagem, edição) — 9 / 10
-**O que funciona bem:** create/edit/list completos, OCR import, format default na criação, exportação de resultados, detalhes expandíveis, filtros por loja/formato/mês.
+### P2 — Manutenção e UX
 
-**O que falta:**
-- Sem validação ao salvar torneio com 0 resultados registrados
-- Expandir Lojas button: visível apenas quando ranking por loja estiver selecionado — feito mas marcado como "precisa revisão"
+- [ ] Continuar extração de `styles.css` por página/componente e reduzir overrides. Mover uma área por vez, revisando temas e breakpoints sem duplicar regras.
+- [ ] Auditar 375, 414, 480, 768 px e desktop nos dois temas: tabelas, modais, filtros, builder, Admin e posts. Garantir ações acessíveis, rolagem perceptível e conteúdo sem cortes.
+- [x] Proteger salvamentos de formatos, ban list e lojas contra submissões simultâneas. Botões mostram “Salvando…”, formulários indicam `aria-busy` e ficam disponíveis para nova tentativa após falha.
+- [ ] Estender a padronização de loading, erro e sucesso às demais ações administrativas e salvamentos.
+- [x] Melhorar atualização do seletor de backgrounds: cache expira em 60 segundos, retorno à aba atualiza as opções quando expirado e falhas permitem nova consulta. Loading inicial e estado acessível de carregamento nos seletores.
+- [ ] Validar busca/previews com conjuntos recentes, catálogo indisponível e falha da API. Distinguir ausência de resultados de erro e oferecer recuperação.
 
----
+### P3 — Análise e produto
 
-### CSS / Design System — 6.5 / 10
-**O que funciona bem:** dark mode cobre a maioria das telas, breakpoints principais cobertos, componentes consistentes (pills, chips, modais).
+- [ ] Perfil do jogador por deck: participações, títulos, top4, pontos e evolução por período/formato.
+- [ ] Consistência dos decks: sequência de top4 e eventos desde o último top4, com recorte e cobertura explícitos.
+- [ ] Evoluir a tendência de público existente com comparações por período/loja e indicação de amostra.
+- [x] Atualizar README e documentação OCR: referência ao roadmap, telas estatísticas existentes e endpoint utilizado pelo código.
+- [ ] Atualizar snapshots do banco de março de forma controlada.
+- [ ] Documentar release, backup e restauração, incluindo ensaio de recuperação. Scripts de snapshot existem; falta evidência operacional de recuperação.
 
-**O que falta:**
-- `styles.css` com ~15k linhas — maior risco de regressão do projeto. Qualquer mudança CSS pode afetar 3 telas sem querer
-- Light mode muito brilhante — `#fff` e `#f8fbff` precisam de uma passagem para off-whites (`#f7f8fc`, `#f4f5fb`)
-- `!important` em excesso — maioria compensa specificity fights que deveriam ser resolvidos na origem
-- CSS custom properties como source of truth para cores de tema: não implementado
-- Dark styles ainda "vazam" em alguns componentes novos que não recebem override
+## Marcos
 
----
+| Marco | Estado | Critério de conclusão |
+| --- | --- | --- |
+| M1 — Torneios e decklists | Implementado; consolidar validação | Fluxos centrais com testes de navegador. |
+| M2 — DigiLab e administração | Implementado; validar operação remota | Importação, fila e reconciliação em produção com recuperação demonstrada. |
+| M3 — Segurança e confiabilidade | Próximo | Matriz de permissões, testes de autorização e indicadores operacionais. |
+| M4 — CSS e mobile | Próximo | Extração por área e revisão visual nos tamanhos definidos. |
+| M5 — Perfil e consistência | Futuro | Análise por jogador/deck e métricas temporais com cobertura clara. |
+| M6 — Redesenho das estatísticas | Planejado: meta, jogadores e lojas | Visão geral revisada, filtros coerentes, métricas documentadas e amostras visíveis. |
 
-### Players — 7.5 / 10
-**O que funciona bem:** listagem, cadastro via modal, histórico, ranking, deck profile básico.
+## Validação desta revisão
 
-**O que falta:**
-- Ver decks usados por player com performance por deck
-- Foto/avatar do player (campo existe no esquema?)
-- Busca de player por nome incompleto é case-sensitive em alguns contextos
+- `npm run test`: **44 aprovados**, sem falhas ou skips. Cobrem validação, utilitários, exportação DigiLab, autorização administrativa, importação, fila, cache de backgrounds, submissões administrativas concorrentes/recuperação após falha, duração do histórico, disponibilidade do post de decklist do campeão e quantidades/percentuais do post de distribuição; parte executa SQL em PGlite.
+- `npm run lint`: **0 erros e 0 warnings**.
+- `.github/workflows/ci.yml`: lint e testes antes do job de deploy DigiLab.
+- Fontes principais: `torneios/list-tournaments/script.js`, `torneios/decklist-builder/script.js`, `admin/script.js`, `players/script.js`, `decks/page.js`, `post-preview/script.js`, `tests/`, `database/migrations/` e `supabase/functions/`.
 
----
+## Arquitetura e reavaliação
 
-### Infraestrutura / Qualidade — 6 / 10
-**O que funciona bem:** cache busting consistente, SW versionado, Supabase views para queries pesadas.
+### Versão 2.0 — identidade Digital Hazard
 
-**O que falta:**
-- **Sem testes automatizados** — zero cobertura. Um bug em `normalizeDeckCode` pode silenciosamente quebrar imports de todos os usuários
-- RLS de outras tabelas não auditado completamente — apenas `formats` foi verificado e corrigido
-- **Sem monitoramento do OCR** — taxa de falha desconhecida em produção (endpoint migrado para Vercel)
-- Lint não enforced no CI
+Versão 2.0 em [demo-v2/](demo-v2/index.html), com escopo em [demo-v2/README.md](demo-v2/README.md). Usa o `Symbol_of_Digital_Hazard.svg` sem rotação, vermelho principal e posts em cinza chumbo. Visão geral organizada por formato: últimos torneios, decks em destaque e agenda das lojas. Metagame com participação, títulos/top 3 e resultados de jogadores, além dos relatórios consolidados. Cadastro manual de torneios, jogadores/decks, DigiLab e relatórios em páginas completas da v2, sem iframe. HTML/CSS adaptados, scripts de domínio compartilhados e estilos organizados em `shared/`. `npm run build:v2` gera as páginas a partir dos templates compartilhados. Exportação PNG preservada. Navegação, formulários e layouts conferidos no desktop e mobile; validação de gravações autorizadas e troca da entrada principal seguem descritas em [docs/architecture-v2.md](docs/architecture-v2.md).
 
----
+Manter HTML/CSS/JavaScript vanilla neste ciclo. Extração de estilos, módulos menores e testes oferecem benefício imediato. Reavaliar React/Vite se a manutenção de componentes ou a equipe justificar o custo.
 
-## Priority Order (atualizado Mar 31, 2026)
+Recalcular a nota após cada marco com os mesmos pesos. Para chegar a 9+, priorizar segurança demonstrada, operação confiável, testes no navegador e manutenção sustentável de CSS/mobile.
 
-> ~~1. Fix RLS DELETE na tabela `formats`~~ ✅
-> ~~2. Trocar endpoint OCR para `digimon-ocr-api.vercel.app`~~ ✅
-> ~~3. Migration one-shot para limpar `formats/` legados no DB~~ ✅
-> ~~4. Revisar modal de edição de torneio — cache stale de formato default~~ ✅
-> 1. **Deckbuilder API search quality** — melhorar matching e feedback quando nenhum resultado é encontrado
-> 2. **Player deck profile** nas estatísticas
-> 3. **CSS modularização** — split `styles.css` em arquivos por seção antes que cresça mais
+### Consolidação em 04/10/2026
 
----
+Publicação automática em redes sociais removida do escopo. Nesta rodada, o foco foi proteger salvamentos administrativos e tornar a duração DigiLab visível, mantendo o gerador manual. A nota permanece **8,5**: esses avanços têm testes locais, mas não concluem os marcos de auditoria de permissões, validação remota e cobertura de navegador necessários para uma reavaliação ampla.
 
-## Recent Wins (Mar 31, 2026 — follow-up)
-
-**4 bugs imediatos fechados:**
-- **RLS DELETE em `formats`** — policy adicionada no Supabase dashboard; botão Delete funcional.
-- **OCR endpoint** — migrado de HuggingFace para `digimon-ocr-api.vercel.app` em `list-tournaments/script.js` e `edit-tournament/modal.js`; validado em produção.
-- **Migration de paths legados** — `20260331_fix_formats_background_path.sql` executado; registros com `formats/` corrigidos no DB.
-- **Cache de formato default no edit-tournament** — `tournamentFormatsLoaded = false` antes de `loadTournamentFormats()` no `modal.js`; testado e confirmado.
-
----
-
-## Recent Wins (Mar 31, 2026)
-
-**Session 5 (Mar 31):**
-- **Deckbuilder layout** — grid 3 colunas → 2 colunas; chart de estatísticas deixou de ser comprimido pela coluna de meta pills. Meta pills com ícones SVG contextuais (deck/player/store/data/format) e separadores verticais no lugar de pills com fundo.
-- **Filtro Set ao lado de Cost** — removido `filter-full` do input de Set; agora ocupa a segunda coluna do grid ao lado de Cost, onde o filtro de Trait ficava.
-- **Post Generator backgrounds dinâmicos** — `DEFAULT_BACKGROUND_OPTIONS` hardcoded substituído por fetch dinâmico da tabela `formats` (`loadFormatBackgroundMap` retorna `options[]`). Inicialização async corrigida com `await` nos boot functions.
-- **Admin formats** — botão Deactivate/Activate inline (sem abrir modal), delete detecta 0 linhas via `count=exact` e exibe mensagem sobre RLS, promoção automática de novo default quando o default é deletado, fix de `background_url`/`background_path` setados como `''` ao limpar (antes ficavam como `null` e o PATCH não incluía os campos).
-- **Fix preview de imagem no admin** — `.admin-bg-fallback-label` de erro anterior persistia no DOM e aparecia como quadrado escuro ao lado da nova imagem; agora removido a cada chamada de `setFormatBgPreview`.
-- **Format default no New Tournament modal** — `tournamentFormatsLoaded` resetado ao abrir o modal para garantir re-fetch e refletir o default atual do DB.
-- **Legacy `formats/` bucket path** — normalização mantida na leitura (DB legado), removida na escrita (novos uploads e bucket browser usam root direto).
-- **Admin formato default** — ao marcar novo default, `clearOtherDefaults()` faz PATCH em todos os outros antes de salvar o novo.
-
----
-
-## Pending Immediate
-
-- [x] Adicionar política RLS `DELETE` na tabela `formats` no Supabase dashboard ✅
-- [x] Trocar endpoint OCR para `digimon-ocr-api.vercel.app` em todos os pontos de chamada ✅
-- [x] Migration one-shot: limpar `formats/` nos `background_url`/`background_path` legados ✅
-- [x] Revisar modal de edição de torneio (edit-tournament) para fix de cache de formato default ✅
-
----
-
-## Suggested Milestones
-
-1. **M1 (done):** Fix the three open bugs. Core flows unblocked. ✅
-2. **M2 (done):** Statistics improvements (charts, SQL view, coverage indicator). CSS dark theme Wave 1. Admin Panel (format/meta CRUD, ban list). Mobile UX Wave 1. ✅
-3. **M3 (done):** Players UX clarity ✅. Statistics sparkline ✅. Per-deck card filter ✅. Card preview in Top Cards ✅.
-4. **M4 (done):** Store registration in Admin ✅. Deckbuilder drag-and-drop ✅. Light mode brightness pass ✅. Format backgrounds dinâmicos ✅. Admin formats inline actions ✅.
-5. **M5 (next):** RLS fix, OCR endpoint, deckbuilder API search quality, player deck profile.
-6. **M6 (future):** CSS modularização, i18n toggle, testes smoke, store attendance trends, consistency metric.
-
----
-
-## Framework Migration
-
-**React + Vite — Future consideration only, not now.**
-
-The project works well in vanilla JS. A full migration would be costly with little immediate gain. Revisit only if the team grows or componentization becomes unmanageable. `styles.css` modularization (sem framework) seria o primeiro passo mais prático.
-
----
-
-## Making it a Product (checklist — long term)
-
-1. **Reliability & quality** — critical flow tests, consistent error handling, basic failure monitoring.
-2. **Security & data governance** — RLS review completo por tabela, front/DB validation parity, backup + migration plan.
-3. **Product & UX** — flawless core flows (onboarding, save, edit, export), consistent loading/error/success feedback, fewer active legacy paths.
-4. **Technical scalability** — real componentization (even without a framework), modular and reusable code, clear domain separation (tournament / deck / player).
-5. **Operations & release** — release checklist, versioning and release notes, basic usage metrics.
-6. **Positioning** — clear end-user documentation, product narrative (what it solves, for whom), simple landing page and demo if possible.
+Gerador manual: distribuição dedicada ao gráfico, nomes dos decks e legenda de quantidades/percentuais, sem classificação; imagens enquadradas por fatia. Top 4 com nomes ajustados à largura, acabamento mais limpo e colocação centrada na medalha. O tipo Decklist só aparece com lista válida do campeão. Prévia local do canvas de distribuição revisada no Edge com dados de exemplo; backgrounds e imagens remotas reais ainda precisam de revisão no fluxo completo.

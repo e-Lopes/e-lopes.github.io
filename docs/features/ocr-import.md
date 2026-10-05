@@ -14,7 +14,7 @@ The New/Edit Tournament modals optionally accept one or more Bandai TCG+ screens
 ## API
 
 ```
-POST https://e-lopes-digimon-ocr-api.hf.space/process
+POST https://digimon-ocr-api.vercel.app/process
 Content-Type: multipart/form-data
 Body: { file: <image file> }
 ```
