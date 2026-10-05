@@ -2789,9 +2789,10 @@ dialog::backdrop {
     }
     .recent-tournaments-track .carousel-slide {
         width: calc(100% - 8px);
+        max-width: calc(100% - 8px);
     }
     .overview-carousel .recent-event-card {
-        padding: 16px 14px 10px;
+        padding: 16px;
         min-height: 0;
     }
     .recent-event-card .recent-event-header {
@@ -2806,8 +2807,12 @@ dialog::backdrop {
     }
     .recent-event-card .recent-event-header > .recent-event-store {
         width: 56px;
-        height: 38px;
+        height: 52px;
         flex: 0 0 56px;
+        border: 1px solid #ffffff0a;
+        border-radius: 10px;
+        background: #ffffff03;
+        padding: 5px;
     }
     .recent-event-card .recent-event-store .store-logo {
         max-width: 56px;
@@ -2815,28 +2820,36 @@ dialog::backdrop {
     }
     .recent-event-card .recent-event-header h3 {
         font-size: 20px;
+        line-height: 1.25;
+        margin-top: 4px;
+    }
+    .recent-event-card .recent-event-header time {
+        font-size: 11px;
     }
     .recent-event-card .recent-event-meta {
         margin-top: 8px;
         font-size: 12px;
         gap: 8px;
+        margin-left: 68px;
+        justify-content: flex-start;
     }
     .recent-event-card .card-podium {
-        margin-top: 12px;
-        padding-bottom: 8px;
+        margin-top: 16px;
+        padding-bottom: 14px;
         max-width: none;
     }
     .recent-event-card .card-podium-row {
-        padding: 7px 8px;
-        grid-template-columns: 22px 44px minmax(0, 1fr);
-        gap: 9px;
+        padding: 8px 10px;
+        grid-template-columns: 24px 48px minmax(0, 1fr);
+        gap: 10px;
+        border: 1px solid color-mix(in srgb, var(--podium-color) 10%, transparent);
     }
     .recent-event-card .card-podium-row .art {
-        width: 44px;
-        height: 44px;
+        width: 48px;
+        height: 48px;
     }
     .recent-event-card .card-podium-row strong {
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.3;
     }
     .recent-event-card .card-podium-row div > span {
@@ -2847,8 +2860,19 @@ dialog::backdrop {
         font-size: 18px;
     }
     .recent-event-card .recent-event-results {
-        padding-top: 8px;
+        padding: 10px 12px;
         font-size: 12px;
+        border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+    }
+    .recent-event-card .card-podium-row + .card-podium-row {
+        margin-top: 6px;
+    }
+    .swiper-slide-active .recent-event-card {
+        box-shadow:
+            0 10px 24px #0006,
+            inset 0 1px 0 #ffffff08;
     }
     .recent-event-card .recent-event-new {
         top: 10px;

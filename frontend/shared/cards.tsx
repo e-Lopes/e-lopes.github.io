@@ -33,7 +33,7 @@ export function RecentTournamentCard({
         <article className="event-card recent-event-card">
             {isLatest && (
                 <span className="recent-event-new" aria-label="Torneio mais recente">
-                    NEW
+                    NOVO
                 </span>
             )}
             <header className="recent-event-header">
