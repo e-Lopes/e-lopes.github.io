@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { MetaProfileSummary } from './MetaProfileSummary';
 import type { MicroContext } from '../../contracts';
 import { useData, Loader } from '../../shared/runtime';
 import { PageHeading } from '../../shared/PageHeading';
@@ -498,10 +499,12 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                     </details>
                     {selected && (
                         <Dialog title={selected.name} wide onClose={() => setDetail('')}>
-                            <p>
-                                {selected.count} participações · {selected.players.size} jogadores ·{' '}
-                                {selected.titles} títulos
-                            </p>
+                            <MetaProfileSummary
+                                count={selected.count}
+                                share={percent(selected.count, model.known.length)}
+                                players={selected.players.size}
+                                titles={selected.titles}
+                            />
                             <button
                                 className="button secondary"
                                 onClick={() => go('decks', { deckId: selected.id })}

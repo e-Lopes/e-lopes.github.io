@@ -53,6 +53,7 @@ function loadPostImage(src) {
     const promise = new Promise((resolve) => {
         const image = new Image();
         const timeout = setTimeout(() => {
+            imageCache.delete(src);
             image.src = '';
             resolve(null);
         }, 15000);
@@ -70,6 +71,33 @@ function loadPostImage(src) {
     });
     imageCache.set(src, promise);
     return promise;
+}
+
+async function loadPostPortrait(src) {
+    if (!src) return null;
+    const code = String(src)
+        .match(
+            /\b((?:BT\d{1,2}|EX\d{1,2}|ST\d{1,2}|RB\d{1,2}|AD\d{1,2}|LM|P)-\d{1,3})(?=[._/?#]|$)/i
+        )?.[1]
+        ?.toUpperCase();
+    const storage = globalThis.window?.APP_CONFIG?.SUPABASE_URL;
+    const candidates = [src];
+    if (code) {
+        if (storage)
+            candidates.push(
+                `${storage}/storage/v1/object/public/deck-images/${encodeURIComponent(code)}.webp`
+            );
+        candidates.push(
+            `https://images.digimoncard.io/images/cards/${code}.webp`,
+            `https://images.digimoncard.io/images/cards/${code}.jpg`,
+            `https://deckbuilder.egmanevents.com/card_images/digimon/${code}.webp`
+        );
+    }
+    for (const candidate of new Set(candidates)) {
+        const image = await loadPostImage(candidate);
+        if (image) return image;
+    }
+    return null;
 }
 
 function fitPostText(ctx, text, maxWidth, initialSize, weight = 800, minimum = 22) {
@@ -533,7 +561,7 @@ export async function renderPost(canvas, settings, allEvents, hazardUrl, isCurre
             : event.podium.map((player) => player?.image || '');
     const [hazard, images, logos] = await Promise.all([
         loadPostImage(hazardUrl),
-        Promise.all(sources.map(loadPostImage)),
+        Promise.all(sources.map(loadPostPortrait)),
         Promise.all(events.map((event) => loadPostImage(event.logo)))
     ]);
     if (!isCurrent()) return { ready: false, message: '' };
