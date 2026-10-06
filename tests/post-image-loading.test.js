@@ -6,7 +6,18 @@ const vm = require('node:vm');
 test('BT24-101 portrait centers on x=220 and preserves the crop of other cards', () => {
     const paintPortrait = vm.runInNewContext(
         fs.readFileSync('shared/posts/renderer.js', 'utf8').replace(/export /g, '') +
-            '\npaintPortrait'
+            '\npaintPortrait',
+        {
+            window: {
+                cardPortraits: {
+                    get: (src) => ({
+                        center_x: /\bBT24-101(?=[._/?#]|$)/i.test(src) ? 220 / 430 : 0.5,
+                        offset_y: 0,
+                        zoom: 2.3
+                    })
+                }
+            }
+        }
     );
     for (const [src, center] of [
         ['https://digimon.digilab.cards/api/card/BT24-101.jpg?s=m&v=2', 220 / 430],

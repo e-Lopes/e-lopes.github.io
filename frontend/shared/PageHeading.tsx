@@ -9,9 +9,9 @@ export function PageHeading({
 }) {
     return (
         <div className="page-heading">
-            <span className="overview-eyebrow">{eyebrow}</span>
+            {eyebrow && <span className="overview-eyebrow">{eyebrow}</span>}
             <h1>{title}</h1>
-            <p>{description}</p>
+            {description && <p>{description}</p>}
         </div>
     );
 }

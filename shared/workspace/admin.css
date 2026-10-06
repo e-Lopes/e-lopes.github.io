@@ -1,3 +1,96 @@
+:root.v2-tools #v2Tools .admin-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--ds-line);
+}
+:root.v2-tools #v2Tools .admin-groups button {
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ds-muted);
+}
+:root.v2-tools #v2Tools .admin-groups button[aria-pressed='true'] {
+    background: var(--ds-red-soft);
+    border-color: var(--ds-line);
+    color: var(--accent);
+}
+:root.v2-tools #v2Tools .admin-groups button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+:root.v2-tools #v2Tools .admin-list-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+:root.v2-tools #v2Tools .admin-list-controls input {
+    flex: 1 1 200px;
+    min-width: 0;
+}
+:root.v2-tools #v2Tools .admin-list-controls select {
+    width: auto;
+    min-width: 0;
+}
+:root.v2-tools #v2Tools .admin-list-count {
+    margin-left: auto;
+    color: var(--ds-muted);
+    font-size: 13px;
+}
+:root.v2-tools #v2Tools .admin-list-controls button {
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+}
+:root.v2-tools #v2Tools .admin-actions-cell .player-history-register-btn {
+    color: var(--ds-text) !important;
+    background: var(--ds-raised) !important;
+    border: 1px solid var(--ds-line) !important;
+}
+:root.v2-tools #v2Tools .admin-actions-cell .admin-btn-danger {
+    color: var(--accent) !important;
+    background: var(--ds-red-soft) !important;
+}
+:root.v2-tools #v2Tools .admin-import-overview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 32px;
+    padding: 16px;
+    margin: 0 0 16px;
+    background: var(--ds-panel);
+    border: 1px solid var(--ds-line);
+    border-radius: 10px;
+}
+:root.v2-tools #v2Tools .admin-import-overview div {
+    display: grid;
+    gap: 4px;
+}
+:root.v2-tools #v2Tools .admin-import-overview span {
+    color: var(--ds-muted);
+    font-size: 12px;
+}
+:root.v2-tools #v2Tools .admin-advanced-actions {
+    flex-basis: 100%;
+}
+:root.v2-tools #v2Tools .admin-advanced-actions summary {
+    cursor: pointer;
+    color: var(--ds-muted);
+    padding: 12px 0;
+}
+:root.v2-tools #v2Tools .admin-advanced-actions[open] button {
+    margin: 4px 8px 4px 0;
+}
+:root.v2-tools #v2Tools .admin-tabs[hidden],
+:root.v2-tools #v2Tools .admin-tabs button[hidden] {
+    display: none !important;
+}
 :root.v2-tools
     #v2Tools
     :is(
@@ -61,7 +154,7 @@
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
-    padding: 16px !important;
+    padding: 10px 14px !important;
     border: 1px solid var(--ds-line) !important;
     border-radius: 10px !important;
     margin-bottom: 20px !important;
@@ -72,6 +165,80 @@
     gap: 8px;
     padding: 0 !important;
     margin: 0 0 24px !important;
+}
+:root.v2-tools #v2Tools .admin-tab-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+}
+:root.v2-tools #v2Tools .admin-tab-btn:focus-visible {
+    outline: 2px solid var(--ds-accent);
+    outline-offset: 3px;
+}
+:root.v2-tools #v2Tools .admin-session-identity {
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+}
+:root.v2-tools #v2Tools .admin-session-logout {
+    min-height: 44px;
+}
+:root.v2-tools #v2Tools .admin-panel-desc {
+    opacity: 1;
+    max-width: 72ch;
+}
+:root.v2-tools #v2Tools .admin-panel-header > div {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+:root.v2-tools #v2Tools .admin-digilab-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 340px);
+    align-items: start;
+}
+:root.v2-tools #v2Tools .admin-digilab-toolbar-actions {
+    align-self: end;
+}
+:root.v2-tools #v2Tools .admin-table-wrapper {
+    overscroll-behavior-x: contain;
+}
+:root.v2-tools #v2Tools .admin-form-status:empty {
+    display: none;
+}
+:root.v2-tools #v2Tools #adminContainer .modal-content {
+    background: var(--ds-panel) !important;
+    border: 1px solid var(--ds-line);
+}
+:root.v2-tools #v2Tools .admin-checkbox-options {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px 24px;
+}
+:root.v2-tools #v2Tools .admin-checkbox-options label {
+    width: auto;
+    margin: 0;
+    justify-content: flex-start;
+}
+:root.v2-tools
+    #v2Tools
+    #adminContainer
+    .modal-content
+    :is(input, select, textarea, button, a):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+@media (max-width: 1150px) {
+    :root.v2-tools #v2Tools .admin-digilab-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :root.v2-tools #v2Tools .admin-digilab-lookup {
+        width: min(100%, 430px);
+    }
 }
 :root.v2-tools #v2Tools .admin-repair-row + .admin-repair-row {
     border-top: 1px solid var(--ds-line);
@@ -103,6 +270,70 @@
     color: var(--ds-text) !important;
 }
 @media (max-width: 600px) {
+    :root.v2-tools #v2Tools .admin-responsive-list thead {
+        display: none;
+    }
+    :root.v2-tools #v2Tools .admin-responsive-list,
+    :root.v2-tools #v2Tools .admin-responsive-list tbody {
+        display: block;
+        min-width: 0 !important;
+        width: 100%;
+    }
+    :root.v2-tools #v2Tools .admin-responsive-list tr {
+        display: grid;
+        padding: 12px;
+        border-bottom: 1px solid var(--ds-line);
+    }
+    :root.v2-tools #v2Tools .admin-responsive-list td {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+    :root.v2-tools #v2Tools .admin-responsive-list td[data-label]::before {
+        content: attr(data-label);
+        flex: 0 0 110px;
+        color: var(--ds-muted);
+        font-size: 12px;
+    }
+    :root.v2-tools #v2Tools .admin-responsive-list .admin-actions-cell::before {
+        flex-basis: 100%;
+    }
+    :root.v2-tools #v2Tools .admin-groups {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    :root.v2-tools #v2Tools .admin-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    :root.v2-tools #v2Tools .admin-session-bar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    :root.v2-tools #v2Tools .admin-session-identity {
+        grid-column: 1 / -1;
+    }
+    :root.v2-tools #v2Tools .admin-digilab-toolbar-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }
+    :root.v2-tools #v2Tools .admin-panel-header > button {
+        width: 100%;
+    }
+    :root.v2-tools #v2Tools .admin-repair-actions {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+    }
+    :root.v2-tools #v2Tools .admin-repair-actions button {
+        flex: 1 1 120px;
+        min-height: 44px;
+    }
     :root.v2-tools
         #v2Tools
         :is(.admin-weekly-schedule, .admin-repair-section, .admin-sync-section) {

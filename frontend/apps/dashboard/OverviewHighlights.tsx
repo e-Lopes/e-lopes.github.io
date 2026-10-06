@@ -9,7 +9,7 @@ export function OverviewHighlights({ context }: { context: MicroContext }) {
     const { data, updatedAt } = useData(context.data);
     const { records, loading, error, retry } = useMetaResults(context, updatedAt);
     const format = currentFormat(data.formats, data.events),
-        range = overviewFourWeeks(data.events, format),
+        range = overviewFourWeeks(data.events),
         model = analyzeMeta(range.events, records);
     const played = [...model.decks]
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
@@ -19,7 +19,7 @@ export function OverviewHighlights({ context }: { context: MicroContext }) {
         .sort((a, b) => b.titles - a.titles || b.count - a.count || a.name.localeCompare(b.name))
         .slice(0, 3);
     const top = [...model.decks]
-        .filter((r) => r.topEligible > 0)
+        .filter((r) => r.topEligible > 0 && r.top4 >= 2)
         .sort(
             (a, b) =>
                 b.top4 / b.topEligible - a.top4 / a.topEligible ||
@@ -49,13 +49,6 @@ export function OverviewHighlights({ context }: { context: MicroContext }) {
                     Ver metagame ↗
                 </a>
             </div>
-            {range.start && (
-                <p className="highlights-period">
-                    {format} · {window.liveData.displayDate(range.start)} —{' '}
-                    {window.liveData.displayDate(range.end)} · {model.known.length} participações
-                    com deck identificado
-                </p>
-            )}
             {loading ? (
                 <Loader text="Carregando destaques…" />
             ) : error ? (
@@ -171,7 +164,7 @@ export function OverviewHighlights({ context }: { context: MicroContext }) {
                             {!column.rows.length && (
                                 <p className="highlights-empty">
                                     {column.key === 'top4'
-                                        ? 'Sem participações elegíveis em torneios de 8+ jogadores.'
+                                        ? 'Nenhum deck com pelo menos 2 colocações no Top 4 em torneios de 8+ jogadores neste período.'
                                         : 'Sem resultados elegíveis neste recorte.'}
                                 </p>
                             )}

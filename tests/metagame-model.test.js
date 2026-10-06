@@ -188,18 +188,38 @@ test('analysis reads all pages and passes cancellation and session headers', asy
     assert.equal(calls[0].options.headers.Authorization, 'session');
 });
 
-test('overview highlights cover four calendar weeks and keep only the selected format', () => {
+test('overview highlights cover the preceding 28 days inclusive for a selected format', () => {
     const events = [
-        { ...event('latest', 8), isoDate: '2026-10-02' },
+        { ...event('latest', 8), isoDate: '2026-10-05' },
         { ...event('boundary', 8), isoDate: '2026-09-07' },
         { ...event('old', 8), isoDate: '2026-09-06' },
         { ...event('other', 8), isoDate: '2026-09-28', format: 'EX12' }
     ];
     const range = setup().overviewFourWeeks(events, 'BT26');
     assert.equal(range.start, '2026-09-07');
-    assert.equal(range.end, '2026-10-04');
+    assert.equal(range.end, '2026-10-05');
     assert.equal(range.events.map((e) => e.id).join(','), 'latest,boundary');
     assert.equal(setup().overviewFourWeeks([], 'BT26').events.length, 0);
+});
+
+test('overview rolling window includes previous formats and advances with the latest event', () => {
+    const events = [
+        { ...event('latest', 7), isoDate: '2026-10-05', format: 'EX13' },
+        { ...event('boundary', 8), isoDate: '2026-09-07' },
+        { ...event('old', 8), isoDate: '2026-09-06' },
+        { ...event('previous', 8), isoDate: '2026-09-28' }
+    ];
+    const range = setup().overviewFourWeeks(events);
+    assert.equal(range.start, '2026-09-07');
+    assert.equal(range.end, '2026-10-05');
+    assert.equal(range.events.map((e) => e.id).join(','), 'latest,previous,boundary');
+    const next = setup().overviewFourWeeks([
+        ...events,
+        { ...event('next', 8), isoDate: '2026-10-06', format: 'EX13' }
+    ]);
+    assert.equal(next.start, '2026-09-08');
+    assert.equal(next.end, '2026-10-06');
+    assert.ok(!next.events.some((e) => e.id === 'boundary'));
 });
 
 test('meta cache reuses completed and pending reads and refreshes for a new data version', async () => {

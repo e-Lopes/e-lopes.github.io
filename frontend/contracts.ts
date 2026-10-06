@@ -91,6 +91,15 @@ export interface Manifest {
 }
 declare global {
     interface Window {
+        digistatsAdminAuthenticated?: boolean;
+        cardPortraits: {
+            codes(): string[];
+            get(src?: string): PortraitSetting;
+            style(setting: PortraitSetting): { transform: string; transformOrigin: string };
+            load(): Promise<void>;
+            codeFromImage(src?: string): string;
+            defaults: PortraitSetting;
+        };
         digistatsDeckMutations: {
             create(
                 url: string,
@@ -134,6 +143,9 @@ declare global {
             analyze(events: Tournament[]): { decks: StatisticsRow[]; players: StatisticsRow[] };
         };
         digistatsAdminSession: {
+            request(path: string, options?: RequestInit): Promise<Response>;
+            refresh(): Promise<void>;
+            verify(): Promise<void>;
             profile: { user_id: string; display_name?: string; username?: string } | null;
             restore(): Promise<boolean>;
             login(password: string): Promise<void>;
@@ -151,6 +163,11 @@ declare global {
         digistatsNavigate: MicroContext['navigate'];
         restoreDashboardReturnContext: () => Promise<void>;
     }
+}
+export interface PortraitSetting {
+    center_x: number;
+    offset_y: number;
+    zoom: number;
 }
 export interface StatisticsRow {
     name: string;

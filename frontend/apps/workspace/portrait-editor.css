@@ -1,0 +1,168 @@
+.portrait-editor {
+    margin: 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+}
+.portrait-deck-selector {
+    max-width: 320px;
+}
+.portrait-editor h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+}
+.portrait-editor p {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.portrait-editor > label {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+    max-width: 320px;
+    font-size: 13px;
+    color: var(--muted);
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    min-height: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    background: transparent !important;
+    cursor: pointer;
+    box-shadow: none;
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 35%, var(--panel));
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range']::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 35%, var(--panel));
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -7px;
+    border: 2px solid #858b91;
+    border-radius: 50%;
+    background: #454b52;
+    box-shadow: 0 2px 5px #0005;
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range']::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #858b91;
+    border-radius: 50%;
+    background: #454b52;
+    box-shadow: 0 2px 5px #0005;
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range']:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+}
+:root.v2-tools #v2Tools .portrait-editor input[type='range']:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+:root.v2-tools #v2Tools .portrait-editor .button {
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    background: var(--ds-raised);
+    min-height: 44px;
+    cursor: pointer;
+}
+:root.v2-tools #v2Tools .portrait-editor .button.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--ds-red-soft);
+}
+.portrait-editor-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 24px;
+    margin-top: 20px;
+}
+.portrait-editor label {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.portrait-editor input:not([type='range']) {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    background: var(--bg);
+    font: inherit;
+}
+.portrait-editor-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.portrait-editor-preview {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    touch-action: none;
+}
+.portrait-editor-preview:active {
+    cursor: grabbing;
+}
+.portrait-editor-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: none;
+    pointer-events: none;
+}
+.portrait-editor-guide {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(
+            90deg,
+            transparent calc(50% - 0.5px),
+            #ffffff60 calc(50% - 0.5px),
+            #ffffff60 calc(50% + 0.5px),
+            transparent calc(50% + 0.5px)
+        ),
+        linear-gradient(
+            transparent calc(50% - 0.5px),
+            #ffffff60 calc(50% - 0.5px),
+            #ffffff60 calc(50% + 0.5px),
+            transparent calc(50% + 0.5px)
+        );
+}
+@media (max-width: 700px) {
+    .portrait-editor-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .portrait-editor-body > :last-child {
+        order: -1;
+    }
+    .portrait-editor-preview {
+        margin-inline: auto;
+    }
+}

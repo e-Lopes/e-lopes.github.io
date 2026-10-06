@@ -8,8 +8,55 @@ const source = stripTypeScriptTypes(
 ).replace(/export /g, '');
 const model = vm.runInNewContext(
     source +
-        '\n({featuredDecks,latestWeekTournaments,overviewWeekEvents,centeredTournamentOrder,tournamentCarouselSlides})'
+        '\n({featuredDecks,latestWeekTournaments,latestStoreTournaments,overviewWeekEvents,centeredTournamentOrder,tournamentCarouselSlides})'
 );
+
+test('carousel keeps the newest event per store across all weeks', () => {
+    const events = [
+        { id: '8', storeId: 'a', store: 'Same name', isoDate: '2026-10-05' },
+        { id: '9', storeId: 'a', store: 'Same name', isoDate: '2026-10-05' },
+        { id: '4', storeId: 'b', store: 'Same name', isoDate: '2026-09-26' },
+        { id: '1', storeId: 'b', store: 'Same name', isoDate: '2026-09-01' },
+        ...['c', 'd', 'e', 'f', 'g'].map((storeId, index) => ({
+            id: String(10 + index),
+            storeId,
+            isoDate: '2026-09-20'
+        }))
+    ];
+    const result = model.latestStoreTournaments(events);
+    assert.equal(result.map((event) => event.id).join(','), '9,4,14,13,12,11,10');
+    assert.equal(result.length, 7, 'stores from older weeks and beyond five slides are retained');
+    assert.equal(result.filter((event) => event.id === result[0].id).length, 1);
+    assert.equal(events[0].id, '8', 'source order remains unchanged');
+    assert.equal(model.latestStoreTournaments([]).length, 0);
+});
+
+test('carousel follows the standard weekly store order regardless of tournament dates', () => {
+    const stores = [
+        { id: 1, name: 'Taverna Game House', is_active: true },
+        { id: 2, name: 'Gladiators', is_active: true },
+        { id: 3, name: 'Meruru', is_active: true },
+        { id: 4, name: 'El-Kubo', is_active: true },
+        { id: 5, name: 'Rei das Cartinhas (Celta)', is_active: true }
+    ];
+    const events = [
+        ...[5, 4, 3, 2, 1].map((id) => ({
+            id: String(id),
+            storeId: String(id),
+            store: 'Other label',
+            isoDate: `2026-10-0${id}`
+        })),
+        { id: '6', storeId: '1', isoDate: '2026-09-01' }
+    ];
+    const result = model.latestStoreTournaments(events, stores);
+    assert.equal(result.map((event) => event.storeId).join(','), '1,2,3,4,5');
+    assert.equal(result[0].id, '1', 'Taverna keeps its newest tournament');
+    assert.equal(
+        model.overviewWeekEvents(events)[0].id,
+        '5',
+        'NOVO stays with the global newest, even when it is last in the carousel'
+    );
+});
 
 test('overview takes the globally latest week across formats and retains every event for weekly highlights', () => {
     const events = [
@@ -33,6 +80,28 @@ test('overview takes the globally latest week across formats and retains every e
         ).length,
         7
     );
+});
+
+test('carousel excludes inactive stores while NOVO still refers to the global latest tournament', () => {
+    const events = [
+        { id: '4', storeId: 'inactive', isoDate: '2026-10-06' },
+        { id: '3', storeId: '1', isoDate: '2026-10-05' },
+        { id: '2', storeId: '1', isoDate: '2026-10-04' },
+        { id: '1', storeId: 'missing', isoDate: '2026-10-03' }
+    ];
+    const stores = [
+        { id: 'inactive', name: 'TCGBr', is_active: false },
+        { id: 1, name: 'Taverna', is_active: true }
+    ];
+    const result = model.latestStoreTournaments(events, stores);
+    assert.equal(result.map((event) => event.id).join(','), '3');
+    const globalLatestId = model.overviewWeekEvents(events)[0].id;
+    assert.equal(globalLatestId, '4');
+    assert.equal(
+        result.some((event) => event.id === globalLatestId),
+        false
+    );
+    assert.equal(model.latestStoreTournaments(events, []).length, 0);
 });
 
 test('one tournament stays single, a pair repeats for smooth looping, and larger sets stay unique', () => {

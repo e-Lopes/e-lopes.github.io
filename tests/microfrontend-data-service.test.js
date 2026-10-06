@@ -21,12 +21,12 @@ test('bootstrap starts independent scripts together and script URLs remain stabl
         .replace(/^import .*from.*;$/gm, '').replace(/export /g, '');
     vm.runInNewContext(source + '\nthis.start=bootstrap;this.load=loadScript;dataService.refresh=()=>{};', sandbox);
     const startup = sandbox.start();
-    assert.equal(elements.length, 5, 'all bootstrap scripts start before any completes');
+    assert.equal(elements.length, 6, 'all bootstrap scripts start before any completes');
     assert.ok(elements.every(element => new URL(element.src).searchParams.get('v') === 'release-one'));
     elements.forEach(element => element.onload());
     await startup;
     await sandbox.load('config/supabase.js');
-    assert.equal(elements.length, 5, 'a script is only inserted once');
+    assert.equal(elements.length, 6, 'a script is only inserted once');
     assert.equal(listeners.length, 1);
 });
 

@@ -4,12 +4,20 @@ import { mountReact, useData } from '../../shared/runtime';
 import { renderPost, POST_FORMAT, postEventTitle } from '../../../shared/posts/renderer.js';
 import { PageHeading } from '../../shared/PageHeading';
 import { Select } from '../../shared/Select';
+import { buildPodiumCaption, loadStandingsUrl } from './caption';
+import './studio.css';
 export const apiVersion = 1;
 export const mount = (element: HTMLElement, context: MicroContext) =>
     mountReact(Studio, element, context);
 function Studio({ context }: { context: MicroContext }) {
     const { data, loading } = useData(context.data);
     const canvas = useRef<HTMLCanvasElement>(null);
+    const [portraitVersion, setPortraitVersion] = useState(0);
+    useEffect(() => {
+        const update = () => setPortraitVersion((value) => value + 1);
+        window.addEventListener('digistats:portraits-changed', update);
+        return () => window.removeEventListener('digistats:portraits-changed', update);
+    }, []);
     const [template, setTemplate] = useState('podium'),
         [tournament, setTournament] = useState(''),
         [accent, setAccent] = useState('#ef646b'),
@@ -22,6 +30,42 @@ function Studio({ context }: { context: MicroContext }) {
         ...new Set(data.events.map((event) => window.liveData.weekStart(event.isoDate)))
     ];
     const currentEvent = events.find((event) => event.id === tournament) || events[0];
+    const [captionLink, setCaptionLink] = useState({ eventId: '', url: '', error: '' });
+    const [copyStatus, setCopyStatus] = useState('');
+    const captionField = useRef<HTMLTextAreaElement>(null);
+    const captionLoaded = captionLink.eventId === currentEvent?.id;
+    const caption = currentEvent
+        ? buildPodiumCaption(currentEvent, captionLoaded ? captionLink.url : '')
+        : '';
+    useEffect(() => {
+        setCopyStatus('');
+        if (template !== 'podium' || !currentEvent || !context.active) return;
+        const controller = new AbortController();
+        const eventId = currentEvent.id;
+        loadStandingsUrl(eventId, controller.signal)
+            .then((url) => {
+                if (!controller.signal.aborted) setCaptionLink({ eventId, url, error: '' });
+            })
+            .catch(() => {
+                if (!controller.signal.aborted)
+                    setCaptionLink({
+                        eventId,
+                        url: '',
+                        error: 'Não foi possível consultar o link do DigiLab. A legenda está sem o link.'
+                    });
+            });
+        return () => controller.abort();
+    }, [currentEvent?.id, template, context.active]);
+    async function copyCaption() {
+        try {
+            await navigator.clipboard.writeText(caption);
+            setCopyStatus('Legenda copiada!');
+        } catch {
+            captionField.current?.focus();
+            captionField.current?.select();
+            setCopyStatus('Selecionei a legenda. Use Ctrl+C ou copie pelo menu do dispositivo.');
+        }
+    }
     const currentWeek = week || weeks[0] || '';
     const pageCount = Math.max(
         1,
@@ -72,7 +116,17 @@ function Studio({ context }: { context: MicroContext }) {
         return () => {
             current = false;
         };
-    }, [data, context.active, template, tournament, accent, currentWeek, page, pageCount]);
+    }, [
+        data,
+        context.active,
+        template,
+        tournament,
+        accent,
+        currentWeek,
+        page,
+        pageCount,
+        portraitVersion
+    ]);
     async function download() {
         if (!canvas.current || !ready) return;
         setReady(false);
@@ -107,7 +161,7 @@ function Studio({ context }: { context: MicroContext }) {
                 title="Estúdio de posts"
                 description="Crie posts com os resultados e o resumo da semana."
             />
-            <div className="studio">
+            <div className={template === 'podium' ? 'studio studio-with-caption' : 'studio'}>
                 <div className="studio-controls">
                     <h2>Configurar publicação</h2>
                     <fieldset className="studio-group">
@@ -222,6 +276,34 @@ function Studio({ context }: { context: MicroContext }) {
                         aria-label="Prévia do post gerado"
                     />
                 </div>
+                {template === 'podium' && (
+                    <div className="studio-post-caption">
+                        <label htmlFor="studio-caption">Legenda para X / Instagram</label>
+                        <textarea
+                            id="studio-caption"
+                            ref={captionField}
+                            value={caption}
+                            readOnly
+                            rows={12}
+                        />
+                        <button
+                            className="button"
+                            disabled={!caption || loading || !captionLoaded}
+                            onClick={() => void copyCaption()}
+                        >
+                            Copiar legenda
+                        </button>
+                        <p className="muted" role="status">
+                            {copyStatus ||
+                                (captionLoaded
+                                    ? captionLink.error ||
+                                      (!captionLink.url
+                                          ? 'Este torneio ainda não tem um link do DigiLab.'
+                                          : '')
+                                    : 'Consultando link do DigiLab…')}
+                        </p>
+                    </div>
+                )}
             </div>
         </section>
     );

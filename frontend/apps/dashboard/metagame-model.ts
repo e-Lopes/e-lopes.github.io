@@ -61,16 +61,14 @@ export function eventType(title: string) {
         )[key] || title
     );
 }
-export function overviewFourWeeks(events: Tournament[], format: string) {
+export function overviewFourWeeks(events: Tournament[], format = '') {
     const selected = events
-        .filter((e) => e.format === format)
+        .filter((e) => !format || e.format === format)
         .sort((a, b) => b.isoDate.localeCompare(a.isoDate));
     if (!selected.length) return { events: [], start: '', end: '' };
     const end = new Date(selected[0].isoDate + 'T12:00:00Z');
-    const day = (end.getUTCDay() + 6) % 7;
-    end.setUTCDate(end.getUTCDate() - day + 6);
     const start = new Date(end);
-    start.setUTCDate(start.getUTCDate() - 27);
+    start.setUTCDate(start.getUTCDate() - 28);
     const from = start.toISOString().slice(0, 10),
         to = end.toISOString().slice(0, 10);
     return {

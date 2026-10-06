@@ -1,19 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Tournament, Result, Store, MicroContext } from '../contracts';
 export function Portrait({ image, className = 'art' }: { image?: string; className?: string }) {
-    // BT24-101 uses x=220 on the 430px card instead of the geometric center (215).
-    const isJupitermon = /\bBT24-101(?=[._/?#]|$)/i.test(image || '');
+    const [, update] = useState(0);
+    useEffect(() => {
+        const refresh = () => update((value) => value + 1);
+        window.addEventListener('digistats:portraits-changed', refresh);
+        return () => window.removeEventListener('digistats:portraits-changed', refresh);
+    }, []);
     return image ? (
         <span className={`${className} art-portrait`}>
             <img
                 src={image}
                 alt=""
                 loading="lazy"
-                style={
-                    isJupitermon
-                        ? { transform: `scale(2.3) translateX(-${(5 / 430) * 100}%)` }
-                        : undefined
-                }
+                style={window.cardPortraits?.style(window.cardPortraits.get(image))}
             />
         </span>
     ) : (

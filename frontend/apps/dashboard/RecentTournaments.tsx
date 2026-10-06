@@ -20,7 +20,7 @@ export function RecentTournaments({
 }) {
     return (
         <TournamentCarousel
-            key={events.map((event) => event.id).join(',')}
+            key={latestTournamentId + ':' + events.map((event) => event.id).join(',')}
             events={events}
             latestTournamentId={latestTournamentId}
             onDetails={onDetails}
@@ -38,8 +38,12 @@ function TournamentCarousel({
     onDetails(event: Tournament): void;
 }) {
     const swiper = useRef<SwiperInstance | null>(null);
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [anchor, setAnchor] = useState(0);
+    const initialIndex = Math.max(
+        0,
+        events.findIndex((event) => event.id === latestTournamentId)
+    );
+    const [activeIndex, setActiveIndex] = useState(initialIndex);
+    const [anchor, setAnchor] = useState(initialIndex);
     const reordering = useRef(false);
     const animations = useRef<Animation[]>([]);
     const pair = events.length === 2;
@@ -115,7 +119,7 @@ function TournamentCarousel({
         );
     }
     return (
-        <section className="overview-carousel" aria-label="Últimos torneios da semana">
+        <section className="overview-carousel" aria-label="Último torneio de cada loja">
             <div className="carousel-toolbar">
                 {events.length > 1 && (
                     <div className="carousel-controls carousel-mobile-controls">
@@ -153,7 +157,7 @@ function TournamentCarousel({
                 }}
                 slidesPerView="auto"
                 centeredSlides
-                initialSlide={middle}
+                initialSlide={pair ? initialIndex : middle}
                 loop={pair}
                 preventInteractionOnTransition
                 spaceBetween={56}

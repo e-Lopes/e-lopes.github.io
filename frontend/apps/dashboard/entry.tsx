@@ -5,7 +5,7 @@ import { EventCard, EventDialog, Portrait, Metrics } from '../../shared/cards';
 import { RecentTournaments } from './RecentTournaments';
 import { PageHeading } from '../../shared/PageHeading';
 import { Select } from '../../shared/Select';
-import { featuredDecks, latestWeekTournaments, overviewWeekEvents } from './overview-model';
+import { featuredDecks, latestStoreTournaments, overviewWeekEvents } from './overview-model';
 import { MetagamePage } from './MetagamePage';
 import { OverviewHighlights } from './OverviewHighlights';
 export const apiVersion = 1;
@@ -61,10 +61,7 @@ function Dashboard({ context }: { context: MicroContext }) {
                   .eventsForFormat(baseEvents, format)
                   .filter((event) => !store || event.storeId === store);
     const deckRows = useMemo(() => featuredDecks(events), [events]);
-    const recentEvents = latestWeekTournaments(events);
-    const recentWeek = recentEvents.length
-        ? window.liveData.weekStart(recentEvents[0].isoDate)
-        : '';
+    const recentEvents = latestStoreTournaments(data.events, data.stores);
     const total = deckRows.reduce((sum, row) => sum + row.count, 0);
     const weeks = [
         ...new Set(data.events.map((event) => window.liveData.weekStart(event.isoDate)))
@@ -109,20 +106,6 @@ function Dashboard({ context }: { context: MicroContext }) {
                         <div className="overview-section-title">
                             <span className="overview-eyebrow">Comunidade</span>
                             <h2>Últimos torneios</h2>
-                            {recentWeek && (
-                                <div className="overview-period">
-                                    <span className="carousel-week">
-                                        {window.liveData.displayDate(recentWeek)} —{' '}
-                                        {window.liveData.displayDate(
-                                            window.liveData.weekEnd(recentWeek)
-                                        )}
-                                    </span>
-                                    <span className="carousel-count">
-                                        {recentEvents.length}{' '}
-                                        {recentEvents.length === 1 ? 'torneio' : 'torneios'}
-                                    </span>
-                                </div>
-                            )}
                         </div>
                         <div className="overview-format-actions">
                             <a

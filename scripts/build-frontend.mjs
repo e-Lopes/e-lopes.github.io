@@ -4,7 +4,8 @@ import { build } from 'vite';
 import react from '@vitejs/plugin-react';
 import './generate-react-forms.mjs';
 const root = path.resolve(import.meta.dirname, '..');
-const assetVersion = fs.readFileSync(path.join(root, 'config/app-version.js'), 'utf8')
+const assetVersion = fs
+    .readFileSync(path.join(root, 'config/app-version.js'), 'utf8')
     .match(/2026\.\d+\.\d+\.\d+/)?.[0];
 if (!assetVersion) throw Error('Missing asset release version');
 const target = process.argv.find((arg) => arg.startsWith('--app='))?.split('=')[1];
@@ -117,7 +118,9 @@ const manifest = {
                           ]
                         : name === 'dashboard'
                           ? ['demo-v2/mfe/dashboard/digimon-dashboard.css']
-                          : []
+                          : name === 'studio'
+                            ? ['demo-v2/mfe/studio/digimon-dashboard.css']
+                            : []
             }
         ])
     )

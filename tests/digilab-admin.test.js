@@ -10,7 +10,9 @@ test('Admin history escapes remote content and disables retry for processing row
         source.indexOf('function renderDigilabSyncHistory('),
         source.indexOf('async function loadDigilabInventory(')
     );
+    const overview = {};
     const context = vm.createContext({
+        document: { getElementById: () => overview },
         escapeAdminHtml: (value) =>
             String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     });
@@ -37,6 +39,10 @@ test('Admin history escapes remote content and disables retry for processing row
     assert.ok(!host.innerHTML.includes('<script>'));
     assert.ok(host.innerHTML.includes('&lt;script&gt;'));
     assert.match(host.innerHTML, /data-admin-action="digilab-retry"[^>]+disabled/);
+    assert.match(overview.innerHTML, /Falhou/);
+    assert.match(overview.innerHTML, /Pendências<\/span><strong>1/);
+    context.renderDigilabSyncHistory(host, {});
+    assert.match(overview.innerHTML, /Sem registro/);
 });
 
 test('preview resolves new formats without mutating the database', async () => {

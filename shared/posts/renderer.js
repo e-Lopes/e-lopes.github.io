@@ -176,14 +176,14 @@ function paintPortrait(ctx, image, x, y, radius, color, initials) {
     ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
     if (image) {
         // Match Decks: width: 100%, scale(2.3), transform-origin: center 20%.
-        const zoom = 2.3;
+        const setting = globalThis.window?.cardPortraits?.get(image.src);
+        const zoom = setting?.zoom ?? 2.3;
         const baseScale = (radius * 2) / image.width;
         const baseHeight = image.height * baseScale;
         const width = radius * 2 * zoom,
             height = baseHeight * zoom;
-        const top = y - radius - baseHeight * 0.2 * (zoom - 1);
-        // BT24-101 centers on x=220 of its 430px source, at any image resolution.
-        const centerX = /\bBT24-101(?=[._/?#]|$)/i.test(image.src || '') ? 220 / 430 : 0.5;
+        const top = y - radius - baseHeight * 0.2 * (zoom - 1) - height * (setting?.offset_y ?? 0);
+        const centerX = setting?.center_x ?? 0.5;
         ctx.drawImage(image, x - width * centerX, top, width, height);
     } else {
         ctx.fillStyle = color;

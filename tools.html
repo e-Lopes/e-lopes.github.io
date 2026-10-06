@@ -787,7 +787,6 @@
                         <h1 class="page-title">Admin</h1>
                         <div id="adminSessionBar" class="admin-session-bar is-hidden">
                             <span class="admin-session-identity">
-                                <small>Conta administrativa</small>
                                 <strong id="adminSessionName"></strong>
                             </span>
                             <button
@@ -805,6 +804,43 @@
                                 Sair
                             </button>
                         </div>
+                        <nav
+                            class="admin-groups admin-auth-content is-hidden"
+                            aria-label="Áreas do Admin"
+                        >
+                            <button
+                                type="button"
+                                data-admin-action="admin-group"
+                                data-admin-group="import"
+                                aria-pressed="true"
+                            >
+                                Importação
+                            </button>
+                            <button
+                                type="button"
+                                data-admin-action="admin-group"
+                                data-admin-group="community"
+                                aria-pressed="false"
+                            >
+                                Comunidade
+                            </button>
+                            <button
+                                type="button"
+                                data-admin-action="admin-group"
+                                data-admin-group="cards"
+                                aria-pressed="false"
+                            >
+                                Cartas
+                            </button>
+                            <button
+                                type="button"
+                                data-admin-action="admin-group"
+                                data-admin-group="maintenance"
+                                aria-pressed="false"
+                            >
+                                Manutenção
+                            </button>
+                        </nav>
                         <div class="admin-tabs admin-auth-content is-hidden">
                             <button
                                 type="button"
@@ -814,7 +850,7 @@
                                 DigiLab
                             </button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="formats">
-                                Formatos / Meta
+                                Formatos
                             </button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="banlist">
                                 Lista de restrições
@@ -822,8 +858,11 @@
                             <button type="button" class="admin-tab-btn" data-admin-tab="stores">
                                 Lojas
                             </button>
+                            <button type="button" class="admin-tab-btn" data-admin-tab="portraits">
+                                Enquadramento
+                            </button>
                             <button type="button" class="admin-tab-btn" data-admin-tab="datarepair">
-                                Reparo de dados
+                                Manutenção
                             </button>
                         </div>
                     </div>
@@ -1031,15 +1070,19 @@
 
                     <!-- Formats / Meta panel -->
                     <div
+                        id="adminPortraitPanel"
+                        data-admin-panel="portraits"
+                        class="admin-panel is-hidden"
+                    ></div>
+                    <div
                         data-admin-panel="formats"
                         class="admin-panel admin-auth-content is-hidden"
                     >
                         <div class="admin-panel-header">
                             <div>
-                                <h2 class="admin-panel-title">Formatos / Meta</h2>
+                                <h2 class="admin-panel-title">Formatos</h2>
                                 <p class="admin-panel-desc">
-                                    Gerencie os formatos dos torneios. O formato padrão é
-                                    selecionado automaticamente ao criar um torneio.
+                                    O formato padrão é usado ao criar torneios.
                                 </p>
                             </div>
                             <button
@@ -1073,8 +1116,7 @@
                             <div>
                                 <h2 class="admin-panel-title">Lista de restrições</h2>
                                 <p class="admin-panel-desc">
-                                    Gerencie as restrições de cartas. As alterações valem somente
-                                    para novas listas de Deck.
+                                    Alterações valem para novas listas de deck.
                                 </p>
                             </div>
                             <button type="button" class="btn-primary" data-admin-action="add-ban">
@@ -1112,10 +1154,7 @@
                         <div class="admin-panel-header">
                             <div>
                                 <h2 class="admin-panel-title">Lojas</h2>
-                                <p class="admin-panel-desc">
-                                    Gerencie os locais dos torneios. As lojas ficam disponíveis ao
-                                    criar ou editar torneios.
-                                </p>
+                                <p class="admin-panel-desc">Lojas disponíveis nos torneios.</p>
                             </div>
                             <button
                                 type="button"
@@ -1171,19 +1210,16 @@
                     <div data-admin-panel="datarepair" class="admin-panel is-hidden">
                         <div class="admin-panel-header">
                             <div>
-                                <h2 class="admin-panel-title">Data Repair</h2>
-                                <p class="admin-panel-desc">
-                                    Re-hydrate missing card metadata (name, card_level, card_type)
-                                    for legacy entries in <code>decklist_card_metadata</code>.
-                                </p>
+                                <h2 class="admin-panel-title">Manutenção</h2>
                             </div>
                         </div>
                         <div class="admin-repair-section">
                             <div class="admin-repair-row">
                                 <div>
-                                    <strong>Card Metadata Repair</strong>
+                                    <strong>Informações incompletas das cartas</strong>
                                     <p class="admin-panel-desc" id="adminRepairMissingCount">
-                                        Click "Check" to scan for incomplete records.
+                                        Clique em “Verificar” para identificar cartas com dados
+                                        ausentes.
                                     </p>
                                 </div>
                                 <div class="admin-repair-actions">
@@ -1192,7 +1228,7 @@
                                         class="btn-secondary"
                                         data-admin-action="repair-check"
                                     >
-                                        Check
+                                        Verificar
                                     </button>
                                     <button
                                         type="button"
@@ -1201,7 +1237,7 @@
                                         data-admin-action="repair-run"
                                         disabled
                                     >
-                                        Repair
+                                        Corrigir dados
                                     </button>
                                 </div>
                             </div>
@@ -1226,11 +1262,10 @@
 
                             <div class="admin-repair-row">
                                 <div>
-                                    <strong>Download Cards</strong>
+                                    <strong>Atualizar catálogo de cartas</strong>
                                     <p class="admin-panel-desc" id="adminDownloadStatus">
-                                        Sincroniza o catálogo completo de cartas da API pública para
-                                        <code>decklist_card_metadata</code>. Melhora os resultados
-                                        de busca no Deck Builder.
+                                        Busca as informações mais recentes de todas as cartas para
+                                        melhorar a pesquisa no Deckbuilder.
                                     </p>
                                 </div>
                                 <div class="admin-repair-actions">
@@ -1240,7 +1275,7 @@
                                         id="adminDownloadRunBtn"
                                         data-admin-action="download-cards"
                                     >
-                                        Download All Cards
+                                        Atualizar cartas
                                     </button>
                                 </div>
                             </div>
@@ -1265,11 +1300,10 @@
 
                             <div class="admin-repair-row">
                                 <div>
-                                    <strong>Export Catalog</strong>
+                                    <strong>Publicar catálogo de cartas</strong>
                                     <p class="admin-panel-desc" id="adminExportStatus">
-                                        Gera <code>card-catalog.json</code> com os metadados de
-                                        todas as cartas e faz upload para o bucket
-                                        <code>card-catalog</code> no Supabase Storage.
+                                        Publica as informações atualizadas para serem usadas no
+                                        Deckbuilder e nas consultas de cartas.
                                     </p>
                                 </div>
                                 <div class="admin-repair-actions">
@@ -1279,7 +1313,7 @@
                                         id="adminExportRunBtn"
                                         data-admin-action="export-catalog"
                                     >
-                                        Export Catalog
+                                        Publicar catálogo
                                     </button>
                                 </div>
                             </div>
@@ -1312,55 +1346,43 @@
                         <div class="admin-digilab-hero">
                             <div class="admin-digilab-hero-icon" aria-hidden="true">DL</div>
                             <div class="admin-digilab-hero-copy">
-                                <div class="admin-digilab-eyebrow">
-                                    <span class="admin-digilab-live-dot"></span>
-                                    Scene Curitiba
-                                </div>
-                                <h2>Integração DigiLab</h2>
-                                <p>
-                                    Consulte torneios, revise correspondências e confirme vínculos
-                                    com o DIGIMON CWB.
-                                </p>
+                                <h2>Importação de torneios</h2>
                             </div>
-                            <button
-                                type="button"
-                                class="admin-digilab-action is-ghost"
-                                data-admin-action="digilab-health"
-                            >
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
-                                    <path d="M20 4v6h-6"></path>
-                                </svg>
-                                Testar conexão
-                            </button>
+                        </div>
+                        <div id="adminImportOverview" class="admin-import-overview" role="status">
+                            Carregando última execução…
                         </div>
                         <div class="admin-digilab-toolbar">
                             <div class="admin-digilab-toolbar-actions">
                                 <button
                                     type="button"
                                     class="admin-digilab-action is-primary"
-                                    data-admin-action="digilab-refresh"
-                                >
-                                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
-                                        <path d="M20 4v6h-6"></path>
-                                    </svg>
-                                    Atualizar inventário
-                                </button>
-                                <button
-                                    type="button"
-                                    class="admin-digilab-action is-secondary"
-                                    data-admin-action="digilab-sync-linked"
-                                >
-                                    Sincronizar dados pendentes
-                                </button>
-                                <button
-                                    type="button"
-                                    class="admin-digilab-action is-secondary"
                                     data-admin-action="digilab-run-background"
                                 >
-                                    Executar automação agora
+                                    Executar importação agora
                                 </button>
+                                <details class="admin-advanced-actions">
+                                    <summary>Opções avançadas</summary>
+                                    <button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-health">Testar conexão</button>
+                                    <button
+                                        type="button"
+                                        class="admin-digilab-action is-secondary"
+                                        data-admin-action="digilab-refresh"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+                                            <path d="M20 4v6h-6"></path>
+                                        </svg>
+                                        Atualizar inventário
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="admin-digilab-action is-secondary"
+                                        data-admin-action="digilab-sync-linked"
+                                    >
+                                        Sincronizar dados pendentes
+                                    </button>
+                                </details>
                             </div>
                             <div class="admin-digilab-lookup">
                                 <label for="adminDigilabId">Consultar torneio</label>
@@ -1541,10 +1563,7 @@
                                         autocomplete="off"
                                     />
                                 </div>
-                                <div
-                                    class="form-group"
-                                    style="display: flex; gap: 24px; align-items: center"
-                                >
+                                <div class="form-group admin-checkbox-options">
                                     <label
                                         style="
                                             display: flex;

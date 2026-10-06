@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MicroContext } from '../../contracts';
 import { mountReact, Loader } from '../../shared/runtime';
 import { DomainForms } from './DomainForms';
@@ -8,6 +9,7 @@ import { DecksPage, PlayersPage } from './CatalogPages';
 import { TournamentsPage, type TournamentCommand } from './TournamentsPage';
 import { TournamentSteps } from './TournamentSteps';
 import './catalog.css';
+import { PortraitEditor } from './PortraitEditor';
 const Forms = memo(DomainForms);
 let initialized: Promise<void> | null = null;
 const view = (name: string) => (name === 'manage' ? 'tournaments' : name);
@@ -18,10 +20,7 @@ const titles: Record<string, [string, string]> = {
     ],
     decks: ['Deckbuilder', 'Escolha um torneio para cadastrar listas.'],
     players: ['Jogadores', 'Cadastros, apelidos Bandai / DigiLab e histórico de resultados.'],
-    admin: [
-        'Administração',
-        'Gerencie a sincronização, as lojas, a agenda e os formatos da comunidade.'
-    ],
+    admin: ['Administração', ''],
     statistics: ['Estatísticas', 'Cartas, rankings, campeões por loja e análises detalhadas.']
 };
 export const apiVersion = 1;
@@ -64,6 +63,15 @@ function LegacyWorkspace({
     onEditorClosed(): void;
 }) {
     const toolsHost = usePageSizeSelects();
+    const [adminAuthenticated, setAdminAuthenticated] = useState(
+        () => window.digistatsAdminAuthenticated === true
+    );
+    useEffect(() => {
+        const update = () => setAdminAuthenticated(window.digistatsAdminAuthenticated === true);
+        window.addEventListener('digistats:admin-auth-changed', update);
+        update();
+        return () => window.removeEventListener('digistats:admin-auth-changed', update);
+    }, []);
     const [busy, setBusy] = useState(true),
         [error, setError] = useState('');
     const latest = useRef(context);
@@ -154,7 +162,9 @@ function LegacyWorkspace({
                         eyebrow={
                             context.route.name === 'statistics'
                                 ? 'Análises do cenário'
-                                : 'Gestão da comunidade'
+                                : context.route.name === 'admin'
+                                  ? ''
+                                  : 'Gestão da comunidade'
                         }
                         title={labels[0]}
                         description={labels[1]}
@@ -190,6 +200,14 @@ function LegacyWorkspace({
             <div data-workspace-root="true" ref={toolsHost}>
                 <Forms />
             </div>
+            {context.route.name === 'admin' &&
+                !busy &&
+                adminAuthenticated &&
+                document.getElementById('adminPortraitPanel') &&
+                createPortal(
+                    <PortraitEditor context={context} />,
+                    document.getElementById('adminPortraitPanel')!
+                )}
             {native && command && (
                 <TournamentSteps
                     mode={command.kind === 'create' ? 'create' : 'edit'}

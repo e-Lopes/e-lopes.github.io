@@ -195,22 +195,41 @@ export async function loadDecks(
         )
     ]);
     const imageMap = new Map(images.map((image) => [String(image.deck_id), image.image_url]));
-    return decks.map((deck) => {
-        const image = imageMap.get(String(deck.id)) || '';
-        const formats = [
-            ...new Set(
-                context.data
-                    .getSnapshot()
-                    .data.events.filter((event) =>
-                        event.results.some(
-                            (result) => normalizeSearch(result.deck) === normalizeSearch(deck.name)
+    const data = context.data.getSnapshot().data;
+    const orderedFormats = [...(data.formats || [])]
+        .sort(
+            (a, b) =>
+                Number(!!b.is_default) - Number(!!a.is_default) ||
+                (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0)
+        )
+        .map((format) => format.code);
+    const eventFormats = [...data.events]
+        .sort((a, b) => b.isoDate.localeCompare(a.isoDate))
+        .map((event) => event.format);
+    const ranks = new Map(
+        [...new Set([...orderedFormats, ...eventFormats])].map((format, index) => [format, index])
+    );
+    const rank = (formats: string[]) =>
+        Math.min(...formats.map((format) => ranks.get(format) ?? Infinity));
+    return decks
+        .map((deck) => {
+            const image = imageMap.get(String(deck.id)) || '';
+            const formats = [
+                ...new Set(
+                    data.events
+                        .filter((event) =>
+                            event.results.some(
+                                (result) =>
+                                    normalizeSearch(result.deck) === normalizeSearch(deck.name)
+                            )
                         )
-                    )
-                    .map((event) => event.format)
-            )
-        ];
-        return { ...deck, image, code: cardCode(image), formats, hasDecklist: false };
-    });
+                        .map((event) => event.format)
+                )
+            ];
+            formats.sort((a, b) => (ranks.get(a) ?? Infinity) - (ranks.get(b) ?? Infinity));
+            return { ...deck, image, code: cardCode(image), formats, hasDecklist: false };
+        })
+        .sort((a, b) => rank(a.formats) - rank(b.formats) || a.name.localeCompare(b.name, 'pt-BR'));
 }
 export async function loadDecklistIds(signal?: AbortSignal) {
     const results = await Promise.allSettled([

@@ -140,6 +140,47 @@ test('deck catalog joins images by identity and derives formats from event resul
     assert.equal(rows[0].code, 'BT26-001');
     assert.equal(rows[0].formats[0], 'BT26');
 });
+test('decks prioritize recent formats over names, with unused decks last', async () => {
+    const app = setup((url) =>
+        json(
+            url.includes('deck_images')
+                ? []
+                : [
+                      { id: 1, name: 'A antigo' },
+                      { id: 2, name: 'Z atual' },
+                      { id: 3, name: 'B atual' },
+                      { id: 4, name: 'Sem uso' }
+                  ]
+        )
+    );
+    const rows = await app.api.loadDecks({
+        data: {
+            getSnapshot: () => ({
+                data: {
+                    formats: [
+                        { code: 'EX13', is_default: true, created_at: '2026-10-01' },
+                        { code: 'BT26', created_at: '2026-09-01' }
+                    ],
+                    events: [
+                        {
+                            format: 'BT26',
+                            isoDate: '2026-09-30',
+                            results: [{ deck: 'A antigo' }, { deck: 'Z atual' }]
+                        },
+                        {
+                            format: 'EX13',
+                            isoDate: '2026-10-05',
+                            results: [{ deck: 'Z atual' }, { deck: 'B atual' }]
+                        }
+                    ]
+                }
+            })
+        }
+    });
+    assert.equal(rows.map((row) => row.name).join(','), 'B atual,Z atual,A antigo,Sem uso');
+    assert.equal(rows[1].formats.join(','), 'EX13,BT26');
+});
+
 test('deck saves validate duplicates and delegate to the existing image upload implementation', async () => {
     const app = setup(() => json([]));
     const saved = [];

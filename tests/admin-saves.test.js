@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const source = readFileSync('admin/script.js', 'utf8');
-const helper = source.slice(source.indexOf('function beginAdminFormSave('), source.indexOf('async function saveFormat('));
+const helper = source.slice(
+    source.indexOf('function beginAdminFormSave('),
+    source.indexOf('async function saveFormat(')
+);
 
 for (const [save, next, formId, statusId] of [
     ['saveFormat', 'clearOtherDefaults', 'adminFormatForm', 'adminFormatStatus'],
@@ -24,7 +27,8 @@ for (const [save, next, formId, statusId] of [
         const field = (id) => {
             if (id === formId) return form;
             if (id === statusId) return status;
-            if (id.endsWith('Modal')) return { querySelector: (selector) => field(selector.slice(1)) };
+            if (id.endsWith('Modal'))
+                return { querySelector: (selector) => field(selector.slice(1)) };
             if (id.endsWith('Id') || id.endsWith('OriginalCode')) return { value: '' };
             return { value: 'Test', checked: false, files: [] };
         };
@@ -32,19 +36,32 @@ for (const [save, next, formId, statusId] of [
         let rejectRequest;
         const context = vm.createContext({
             document: { getElementById: field },
-            window: { APP_CONFIG: { SUPABASE_URL: 'https://example.test' }, createSupabaseHeaders: () => ({}) },
+            window: {
+                APP_CONFIG: { SUPABASE_URL: 'https://example.test' },
+                createSupabaseHeaders: () => ({})
+            },
             adminBanNameMap: {},
             refreshAdminSessionIfNeeded: async () => {},
             createAuthenticatedAdminHeaders: () => ({}),
-            closeFormatModal: () => {}, closeBanModal: () => {}, closeStoreModal: () => {},
-            loadAdminFormats: async () => {}, loadAdminBanList: async () => {}, loadAdminStores: async () => {},
+            closeFormatModal: () => {},
+            closeBanModal: () => {},
+            closeStoreModal: () => {},
+            loadAdminFormats: async () => {},
+            loadAdminBanList: async () => {},
+            loadAdminStores: async () => {},
             fetch: () => {
                 requests++;
-                if (requests === 1) return new Promise((_resolve, reject) => { rejectRequest = reject; });
+                if (requests === 1)
+                    return new Promise((_resolve, reject) => {
+                        rejectRequest = reject;
+                    });
                 return Promise.resolve({ ok: true });
             }
         });
-        const handler = source.slice(source.indexOf(`async function ${save}(`), source.indexOf(`async function ${next}(`));
+        const handler = source.slice(
+            source.indexOf(`async function ${save}(`),
+            source.indexOf(`async function ${next}(`)
+        );
         vm.runInContext(helper + handler, context);
         const event = { preventDefault() {} };
         const first = context[save](event);
@@ -66,14 +83,33 @@ for (const [save, next, formId, statusId] of [
 }
 
 test('DigiLab history displays elapsed time and handles missing or inverted timestamps', () => {
-    const context = vm.createContext({ escapeAdminHtml: (value) => String(value) });
-    vm.runInContext(source.slice(source.indexOf('function renderDigilabSyncHistory('), source.indexOf('async function loadDigilabInventory(')), context);
+    const context = vm.createContext({
+        escapeAdminHtml: (value) => String(value),
+        document: { getElementById: () => null }
+    });
+    vm.runInContext(
+        source.slice(
+            source.indexOf('function renderDigilabSyncHistory('),
+            source.indexOf('async function loadDigilabInventory(')
+        ),
+        context
+    );
     const host = {};
-    context.renderDigilabSyncHistory(host, { runs: [
-        { status: 'completed', started_at: '2026-10-04T12:00:00Z', finished_at: '2026-10-04T12:01:05Z' },
-        { status: 'failed', started_at: 'invalid' },
-        { status: 'completed', started_at: '2026-10-04T12:01:00Z', finished_at: '2026-10-04T12:00:00Z' }
-    ] });
+    context.renderDigilabSyncHistory(host, {
+        runs: [
+            {
+                status: 'completed',
+                started_at: '2026-10-04T12:00:00Z',
+                finished_at: '2026-10-04T12:01:05Z'
+            },
+            { status: 'failed', started_at: 'invalid' },
+            {
+                status: 'completed',
+                started_at: '2026-10-04T12:01:00Z',
+                finished_at: '2026-10-04T12:00:00Z'
+            }
+        ]
+    });
     assert.match(host.innerHTML, /1min 5s/);
     assert.ok(!host.innerHTML.includes('NaNs'));
     assert.ok(!host.innerHTML.includes('-60s'));

@@ -1,4 +1,4 @@
-import type { Tournament } from '../../contracts';
+import type { Store, Tournament } from '../../contracts';
 
 export function centeredTournamentOrder(events: Tournament[], selected: number) {
     if (events.length < 3) return events;
@@ -71,4 +71,41 @@ export function overviewWeekEvents(events: Tournament[]) {
 
 export function latestWeekTournaments(events: Tournament[]) {
     return overviewWeekEvents(events).slice(0, 5);
+}
+
+export function latestStoreTournaments(events: Tournament[], registeredStores?: Store[]) {
+    const activeStores = registeredStores
+        ? new Set(
+              registeredStores
+                  .filter((store) => store.is_active !== false)
+                  .map((store) => String(store.id))
+          )
+        : null;
+    const ordered = [...events].sort(
+        (a, b) =>
+            b.isoDate.localeCompare(a.isoDate) ||
+            Number(b.id) - Number(a.id) ||
+            b.id.localeCompare(a.id)
+    );
+    const stores = new Set<string>();
+    const names = new Map(registeredStores?.map((store) => [String(store.id), store.name]));
+    const weeklyOrder = ['taverna', 'gladiators', 'meruru', 'elkubo', 'reidascartinhas'];
+    const storeOrder = (event: Tournament) => {
+        const name = (names.get(String(event.storeId)) || event.store || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+        const index = weeklyOrder.findIndex((store) => name.startsWith(store));
+        return index < 0 ? weeklyOrder.length : index;
+    };
+    return ordered
+        .filter((event) => {
+            if (activeStores && !activeStores.has(String(event.storeId))) return false;
+            const key = event.storeId || event.store;
+            if (stores.has(key)) return false;
+            stores.add(key);
+            return true;
+        })
+        .sort((a, b) => storeOrder(a) - storeOrder(b));
 }

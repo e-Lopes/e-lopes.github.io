@@ -13,6 +13,99 @@ let adminFormatsLoaded = false;
 let adminStoresLoaded = false;
 let adminWeeklyScheduleLoaded = false;
 let adminActiveTab = 'digilab';
+const adminTabGroups = {
+    digilab: 'import',
+    formats: 'community',
+    stores: 'community',
+    banlist: 'cards',
+    portraits: 'cards',
+    datarepair: 'maintenance'
+};
+const adminListPages = {};
+
+function labelAdminList(host) {
+    const table = host.closest('table');
+    if (!table) return;
+    const labels = [...table.querySelectorAll('thead th')].map((cell) => cell.textContent.trim());
+    table.classList.add('admin-responsive-list');
+    [...host.rows].forEach((row) => {
+        if (row.cells.length !== labels.length) return;
+        [...row.cells].forEach((cell, index) => {
+            cell.dataset.label = labels[index];
+        });
+    });
+}
+
+function adminListPage(key, rows, render) {
+    const host = document.getElementById(`admin${key}Body`);
+    if (!host) return rows;
+    let controls = document.getElementById(`admin${key}Controls`);
+    if (!controls) {
+        controls = document.createElement('div');
+        controls.id = `admin${key}Controls`;
+        controls.className = 'admin-list-controls';
+        const hasSearch = key === 'BanList';
+        const noun =
+            key === 'Formats' ? 'formato' : key === 'Digilab' ? 'torneio, loja ou formato' : 'loja';
+        controls.innerHTML = `${hasSearch ? '' : `<input type="search" aria-label="Buscar ${noun}" placeholder="Buscar ${noun}…" />`}
+            ${hasSearch || key === 'Digilab' ? '' : '<select aria-label="Filtrar por status"><option value="all">Todos os status</option><option value="active">Ativos</option><option value="inactive">Inativos</option></select>'}
+            <span class="admin-list-count" role="status"></span><button type="button" class="btn-secondary" data-page="prev" aria-label="Página anterior">‹</button><button type="button" class="btn-secondary" data-page="next" aria-label="Próxima página">›</button>`;
+        host.closest('.admin-table-wrapper').before(controls);
+        controls.addEventListener('input', () => {
+            adminListPages[key] = 1;
+            render();
+        });
+        controls.addEventListener('click', (event) => {
+            const direction = event.target.closest('[data-page]')?.dataset.page;
+            if (!direction) return;
+            adminListPages[key] = (adminListPages[key] || 1) + (direction === 'next' ? 1 : -1);
+            render();
+        });
+    }
+    const query = (controls.querySelector('input')?.value || '').trim().toLocaleLowerCase('pt-BR');
+    const status = controls.querySelector('select')?.value || 'all';
+    const filtered = rows.filter(
+        (row) =>
+            (!query ||
+                `${row.code || ''} ${row.name || ''} ${row.bandai_nick || ''} ${row.digilab_tournament_id || ''} ${row.store_name || ''} ${row.format || ''}`
+                    .toLocaleLowerCase('pt-BR')
+                    .includes(query)) &&
+            (status === 'all' || (row.is_active !== false) === (status === 'active'))
+    );
+    const pages = Math.max(1, Math.ceil(filtered.length / 10));
+    const page = Math.min(pages, Math.max(1, adminListPages[key] || 1));
+    adminListPages[key] = page;
+    controls.querySelector('.admin-list-count').textContent =
+        `${filtered.length} registros · ${page}/${pages}`;
+    controls.querySelector('[data-page="prev"]').disabled = page === 1;
+    controls.querySelector('[data-page="next"]').disabled = page === pages;
+    return filtered.slice((page - 1) * 10, page * 10);
+}
+const adminModalReturnFocus = new WeakMap();
+
+function adminModalFocusable(modal) {
+    return [
+        ...modal.querySelectorAll(
+            'button, input:not([type="hidden"]), select, textarea, a[href], [tabindex="0"]'
+        )
+    ].filter((element) => !element.disabled && element.getClientRects().length > 0);
+}
+
+function showAdminModal(modal, fieldId) {
+    adminModalReturnFocus.set(modal, document.activeElement);
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    (modal.querySelector(`#${fieldId}`) || adminModalFocusable(modal)[0])?.focus();
+}
+
+function hideAdminModal(modal) {
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    const trigger = adminModalReturnFocus.get(modal);
+    if (trigger?.isConnected) trigger.focus();
+    adminModalReturnFocus.delete(modal);
+}
 let _banPreviewDebounceTimer = null;
 let adminAuthSession = null;
 let adminAuthProfile = null;
@@ -85,8 +178,39 @@ function setupAdminActions() {
     if (!container) return;
 
     // Tab switching
+    const tabList = container.querySelector('.admin-tabs');
+    tabList?.setAttribute('role', 'tablist');
+    tabList?.setAttribute('aria-label', 'Ferramentas administrativas');
     container.querySelectorAll('[data-admin-tab]').forEach((btn) => {
+        const tab = btn.dataset.adminTab;
+        const panel = container.querySelector(`[data-admin-panel="${tab}"]`);
+        btn.id = `admin-tab-${tab}`;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', String(tab === adminActiveTab));
+        btn.tabIndex = tab === adminActiveTab ? 0 : -1;
+        if (panel) {
+            panel.id ||= `admin-panel-${tab}`;
+            btn.setAttribute('aria-controls', panel.id);
+            panel.setAttribute('role', 'tabpanel');
+            panel.setAttribute('aria-labelledby', btn.id);
+        }
         btn.addEventListener('click', () => switchAdminTab(btn.dataset.adminTab));
+    });
+    tabList?.addEventListener('keydown', (event) => {
+        const tabs = [...tabList.querySelectorAll('[data-admin-tab]')].filter(
+            (button) => !button.hidden
+        );
+        const index = tabs.indexOf(event.target);
+        if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next =
+            event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? tabs.length - 1
+                  : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        switchAdminTab(tabs[next].dataset.adminTab);
+        tabs[next].focus();
     });
 
     // Delegated clicks for all admin actions
@@ -108,6 +232,16 @@ function setupAdminActions() {
             return;
         }
 
+        if (action === 'admin-group') {
+            switchAdminTab(
+                {
+                    import: 'digilab',
+                    community: 'stores',
+                    cards: 'portraits',
+                    maintenance: 'datarepair'
+                }[btn.dataset.adminGroup]
+            );
+        }
         if (action === 'create-format') openFormatModal(null);
         if (action === 'edit-format') openFormatModal(id);
         if (action === 'set-default-format') setDefaultFormat(id);
@@ -204,11 +338,30 @@ function setupAdminActions() {
     const passwordForm = document.getElementById('adminChangePasswordForm');
     if (passwordForm) passwordForm.addEventListener('submit', changeAdminPassword);
     container.addEventListener('keydown', (event) => {
-        if (
-            event.key === 'Escape' &&
-            document.getElementById('adminChangePasswordModal')?.classList.contains('active')
-        ) {
-            closeAdminPasswordModal();
+        const modal = container.querySelector('.modal-overlay.active');
+        if (!modal) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            const close = {
+                adminChangePasswordModal: closeAdminPasswordModal,
+                adminFormatModal: closeFormatModal,
+                adminBanModal: closeBanModal,
+                adminStoreModal: closeStoreModal
+            }[modal.id];
+            close?.();
+        } else if (event.key === 'Tab') {
+            const fields = adminModalFocusable(modal);
+            const first = fields[0],
+                last = fields[fields.length - 1];
+            if (
+                fields.length &&
+                (event.shiftKey
+                    ? document.activeElement === first
+                    : document.activeElement === last)
+            ) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+            }
         }
     });
 
@@ -259,7 +412,10 @@ function setupAdminActions() {
     // Ban list search filter
     const banSearch = document.getElementById('adminBanListSearch');
     if (banSearch) {
-        banSearch.addEventListener('input', () => renderAdminBanList());
+        banSearch.addEventListener('input', () => {
+            adminListPages.BanList = 1;
+            renderAdminBanList();
+        });
     }
 
     // Background file input — upload new
@@ -304,8 +460,17 @@ function switchAdminTab(tab) {
     adminActiveTab = tab;
     const container = document.getElementById('adminContainer');
     if (!container) return;
+    const group = adminTabGroups[tab];
+    container.querySelectorAll('[data-admin-group]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.dataset.adminGroup === group));
+    });
+    const tabList = container.querySelector('.admin-tabs');
+    if (tabList) tabList.hidden = group === 'import' || group === 'maintenance';
     container.querySelectorAll('[data-admin-tab]').forEach((btn) => {
+        btn.hidden = adminTabGroups[btn.dataset.adminTab] !== group;
         btn.classList.toggle('is-active', btn.dataset.adminTab === tab);
+        btn.setAttribute('aria-selected', String(btn.dataset.adminTab === tab));
+        btn.tabIndex = btn.dataset.adminTab === tab ? 0 : -1;
     });
     container.querySelectorAll('[data-admin-panel]').forEach((panel) => {
         panel.classList.toggle('is-hidden', panel.dataset.adminPanel !== tab);
@@ -418,15 +583,12 @@ async function logoutAdmin() {
 function openAdminPasswordModal() {
     const modal = document.getElementById('adminChangePasswordModal');
     if (!modal || !adminAuthSession) return;
-    modal.classList.add('active');
-    modal.setAttribute('aria-hidden', 'false');
-    document.getElementById('adminCurrentPassword')?.focus();
+    showAdminModal(modal, 'adminCurrentPassword');
 }
 
 function closeAdminPasswordModal() {
     const modal = document.getElementById('adminChangePasswordModal');
-    modal?.classList.remove('active');
-    modal?.setAttribute('aria-hidden', 'true');
+    hideAdminModal(modal);
     ['adminCurrentPassword', 'adminNewPassword', 'adminConfirmPassword'].forEach((id) => {
         const input = document.getElementById(id);
         if (input) {
@@ -541,11 +703,18 @@ function setAdminAuthView(authenticated) {
         adminAuthSession?.access_token &&
         adminAuthProfile?.user_id === adminAuthSession?.user?.id
     );
+    window.digistatsAdminAuthenticated = authenticated;
+    window.dispatchEvent(
+        new CustomEvent('digistats:admin-auth-changed', {
+            detail: { authenticated }
+        })
+    );
     const container = document.getElementById('adminContainer');
     if (!container) return;
     document.getElementById('adminAuthGate')?.classList.toggle('is-hidden', authenticated);
     document.getElementById('adminSessionBar')?.classList.toggle('is-hidden', !authenticated);
     container.querySelector('.admin-tabs')?.classList.toggle('is-hidden', !authenticated);
+    container.querySelector('.admin-groups')?.classList.toggle('is-hidden', !authenticated);
     container.querySelectorAll('[data-admin-panel]').forEach((panel) => {
         panel.classList.toggle(
             'is-hidden',
@@ -583,6 +752,7 @@ function clearAdminSession() {
     adminDigilabDeckCatalogLoaded = false;
     adminDigilabDeckCatalog = null;
     sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+    setAdminAuthView(false);
 }
 
 function persistAdminSession() {
@@ -736,6 +906,8 @@ async function loadDigilabSyncHistory() {
         renderDigilabSyncHistory(host, history);
     } catch (error) {
         host.innerHTML = `<p class="admin-error">${escapeAdminHtml(error.message)}</p>`;
+        const overview = document.getElementById('adminImportOverview');
+        if (overview) overview.textContent = 'Não foi possível consultar a última execução.';
     }
 }
 
@@ -768,6 +940,11 @@ function renderDigilabSyncHistory(host, history) {
     const pending = history.pending || [];
     const events = history.events || [];
     const runs = history.runs || [];
+    const overview = document.getElementById('adminImportOverview');
+    if (overview) {
+        const latest = runs[0];
+        overview.innerHTML = `<div><span>Última execução</span><strong>${latest ? date(latest.started_at) : 'Sem registro'}</strong></div><div><span>Status</span><strong>${latest ? escapeAdminHtml(labels[latest.status] || latest.status) : '—'}</strong></div><div><span>Pendências</span><strong>${pending.length}</strong></div>`;
+    }
     host.innerHTML = `
         <h4>Execuções recentes</h4>
         <div class="admin-table-wrapper"><table class="admin-table">
@@ -832,6 +1009,7 @@ async function loadDigilabInventory(page = 1, options = {}) {
             per_page: 100
         });
         adminDigilabInventory = Array.isArray(result.data) ? result.data : [];
+        adminListPages.Digilab = 1;
         adminDigilabPage = Number(
             result.pagination?.current_page || result.pagination?.page || page
         );
@@ -1320,7 +1498,11 @@ function renderDigilabInventory() {
         body.innerHTML =
             '<tr><td colspan="8" class="admin-empty">Nenhum torneio encontrado.</td></tr>';
     } else {
-        body.innerHTML = adminDigilabInventory.map(renderDigilabRow).join('');
+        body.innerHTML =
+            adminListPage('Digilab', adminDigilabInventory, renderDigilabInventory)
+                .map(renderDigilabRow)
+                .join('') ||
+            '<tr><td colspan="8" class="admin-empty">Nenhum torneio encontrado nesta página do DigiLab.</td></tr>';
     }
     const pageLabel = document.getElementById('adminDigilabPage');
     if (pageLabel) pageLabel.textContent = `Página ${adminDigilabPage} de ${adminDigilabLastPage}`;
@@ -2157,15 +2339,25 @@ function renderAdminFormats() {
         return;
     }
 
-    host.innerHTML = adminFormats
-        .map(
-            (f) => `
+    const rows = adminListPage(
+        'Formats',
+        [...adminFormats].sort(
+            (a, b) =>
+                Number(b.is_default) - Number(a.is_default) ||
+                Number(b.is_active) - Number(a.is_active)
+        ),
+        renderAdminFormats
+    );
+    host.innerHTML =
+        rows
+            .map(
+                (f) => `
         <tr>
             <td><code>${escapeAdminHtml(f.code || '')}</code></td>
             <td>${escapeAdminHtml(f.name || '—')}</td>
-            <td>${f.is_default ? '<span class="admin-badge admin-badge--default">Default</span>' : ''}</td>
+            <td>${f.is_default ? '<span class="admin-badge admin-badge--default">Padrão</span>' : ''}</td>
             <td>${f.is_active ? '<span class="admin-badge admin-badge--active">Ativo</span>' : '<span class="admin-badge admin-badge--inactive">Inativo</span>'}</td>
-            <td>${f.background_url ? `<a href="${escapeAdminHtml(f.background_url)}" target="_blank" rel="noopener" class="admin-link">View BG</a>` : '<span class="admin-dim">—</span>'}</td>
+            <td>${f.background_url ? `<a href="${escapeAdminHtml(f.background_url)}" target="_blank" rel="noopener" class="admin-link">Ver imagem</a>` : '<span class="admin-dim">—</span>'}</td>
             <td class="admin-actions-cell">
                 ${!f.is_default ? `<button class="player-history-register-btn" data-admin-action="set-default-format" data-id="${f.id}">Definir padrão</button>` : ''}
                 <button class="player-history-register-btn" data-admin-action="edit-format" data-id="${f.id}">Editar</button>
@@ -2174,8 +2366,10 @@ function renderAdminFormats() {
             </td>
         </tr>
     `
-        )
-        .join('');
+            )
+            .join('') ||
+        '<tr><td colspan="6" class="admin-empty">Nenhum formato encontrado.</td></tr>';
+    labelAdminList(host);
 }
 
 function openFormatModal(id) {
@@ -2212,12 +2406,12 @@ function openFormatModal(id) {
     modal.querySelector('.admin-modal-title').textContent = format
         ? 'Editar formato / Meta'
         : 'Novo formato / Meta';
-    modal.classList.add('active');
+    showAdminModal(modal, 'adminFormatCode');
 }
 
 function closeFormatModal() {
     const modal = document.getElementById('adminFormatModal');
-    if (modal) modal.classList.remove('active');
+    hideAdminModal(modal);
 }
 
 function beginAdminFormSave(formId) {
@@ -2511,8 +2705,8 @@ function renderAdminBanList() {
 
     if (countEl) {
         countEl.textContent = query
-            ? `${filtered.length} of ${adminBanList.length}`
-            : `${adminBanList.length} entries`;
+            ? `${filtered.length} de ${adminBanList.length}`
+            : `${adminBanList.length} restrições`;
     }
 
     if (!filtered.length) {
@@ -2521,9 +2715,9 @@ function renderAdminBanList() {
     }
 
     const LABELS = {
-        banned: 'Banned',
-        limited: 'Limited (1 copy)',
-        'choice-restricted': 'Choice-Restricted'
+        banned: 'Proibida',
+        limited: 'Limitada (1 cópia)',
+        'choice-restricted': 'Restrição de combinação'
     };
     const BADGE_CLASS = {
         banned: 'admin-badge--banned',
@@ -2531,7 +2725,7 @@ function renderAdminBanList() {
         'choice-restricted': 'admin-badge--choice'
     };
 
-    host.innerHTML = filtered
+    host.innerHTML = adminListPage('BanList', filtered, renderAdminBanList)
         .map((entry) => {
             const name = adminBanNameMap[entry.card_code];
             const previewAttr = `data-card-preview-code="${encodeURIComponent(entry.card_code)}"`;
@@ -2549,6 +2743,7 @@ function renderAdminBanList() {
         })
         .join('');
 
+    labelAdminList(host);
     if (typeof bindStatisticsCardPreview === 'function') {
         bindStatisticsCardPreview(host);
     }
@@ -2570,12 +2765,12 @@ function openBanModal(cardCode) {
         ? 'Editar restrição'
         : 'Adicionar restrição';
     updateBanCardPreview(entry?.card_code || '');
-    modal.classList.add('active');
+    showAdminModal(modal, 'adminBanCardCode');
 }
 
 function closeBanModal() {
     const modal = document.getElementById('adminBanModal');
-    if (modal) modal.classList.remove('active');
+    hideAdminModal(modal);
 }
 
 async function saveBanEntry(e) {
@@ -2588,7 +2783,7 @@ async function saveBanEntry(e) {
     const notes = modal.querySelector('#adminBanNotes').value.trim();
 
     if (!cardCode) {
-        statusEl.textContent = 'Card code is required.';
+        statusEl.textContent = 'Informe o código da carta.';
         return;
     }
 
@@ -3213,7 +3408,7 @@ async function runRepairCheck() {
     _repairIncompleteCodesCache = null;
     const countEl = document.getElementById('adminRepairMissingCount');
     const runBtn = document.getElementById('adminRepairRunBtn');
-    if (countEl) countEl.textContent = 'Scanning…';
+    if (countEl) countEl.textContent = 'Verificando cartas…';
     if (runBtn) runBtn.disabled = true;
 
     try {
@@ -3221,22 +3416,25 @@ async function runRepairCheck() {
         _repairIncompleteCodesCache = codes;
         if (countEl) {
             countEl.textContent = codes.length
-                ? `Found ${codes.length} card(s) with incomplete metadata.`
-                : 'All records are complete. Nothing to repair.';
+                ? `${codes.length} carta(s) com informações incompletas.`
+                : 'Todas as cartas estão completas. Nenhuma correção necessária.';
         }
         if (runBtn) runBtn.disabled = codes.length === 0;
         if (codes.length)
-            repairLog(`${codes.length} incomplete card(s) found. Click "Repair" to fix.`, 'info');
+            repairLog(
+                `${codes.length} carta(s) incompletas. Clique em “Corrigir dados” para continuar.`,
+                'info'
+            );
     } catch (err) {
-        if (countEl) countEl.textContent = 'Error scanning records.';
-        repairLog(`Error: ${err.message}`, 'error');
+        if (countEl) countEl.textContent = 'Não foi possível verificar as cartas.';
+        repairLog(`Erro: ${err.message}`, 'error');
     }
 }
 
 async function runRepairRun() {
     const codes = _repairIncompleteCodesCache;
     if (!codes || !codes.length) {
-        repairLog('Run "Check" first.', 'warn');
+        repairLog('Clique em “Verificar” primeiro.', 'warn');
         return;
     }
 
@@ -3299,7 +3497,8 @@ async function runRepairRun() {
         _repairIncompleteCodesCache = null;
         const countEl = document.getElementById('adminRepairMissingCount');
         if (countEl)
-            countEl.textContent = 'Repair concluído. Clique em "Check" para verificar novamente.';
+            countEl.textContent =
+                'Correção concluída. Clique em “Verificar” para conferir novamente.';
     } catch (err) {
         repairProgressHide();
         repairLog(`Erro: ${err.message}`, 'error');
@@ -3766,13 +3965,12 @@ function injectSyncCardsSection() {
     section.style.cssText =
         'padding:20px;border:1px solid #1e293b;border-radius:8px;background:#0f172a;color:#f1f5f9';
     section.innerHTML = `
-        <h3 style="margin:0 0 4px;font-size:1rem;font-weight:600;color:#f1f5f9">Sync Cards</h3>
+        <h3 style="margin:0 0 4px;font-size:1rem;font-weight:600;color:#f1f5f9">Catálogo de cartas</h3>
         <p style="margin:0 0 14px;font-size:.85rem;color:#94a3b8">
-            Busca novos sets no <code style="background:#1e293b;padding:1px 4px;border-radius:3px">getAllCards</code>,
-            baixa os metadados das cartas faltantes/incompletas e exporta o catálogo atualizado.
+            Busca novas cartas, completa dados ausentes e publica o catálogo.
         </p>
         <button id="adminSyncRunBtn" class="player-history-register-btn" data-admin-action="sync-cards-full">
-            Sync &amp; Export
+            Atualizar catálogo de cartas
         </button>
         <div id="adminSyncStatus" style="margin-top:10px;font-size:.85rem;color:#94a3b8"></div>
         <div id="adminSyncProgress" style="margin-top:12px;display:none">
@@ -4400,9 +4598,18 @@ function renderAdminStores() {
         return;
     }
 
-    host.innerHTML = adminStores
-        .map(
-            (s) => `
+    host.innerHTML =
+        adminListPage(
+            'Stores',
+            [...adminStores].sort(
+                (a, b) =>
+                    Number(b.is_active !== false) - Number(a.is_active !== false) ||
+                    a.name.localeCompare(b.name, 'pt-BR')
+            ),
+            renderAdminStores
+        )
+            .map(
+                (s) => `
         <tr>
             <td>${s.logo_url ? `<img src="${escapeAdminHtml(s.logo_url)}" alt="${escapeAdminHtml(s.name)}" style="height:36px;object-fit:contain;border-radius:6px;display:block;" />` : '<span class="admin-dim">—</span>'}</td>
             <td>${escapeAdminHtml(s.name || '—')}</td>
@@ -4414,8 +4621,10 @@ function renderAdminStores() {
             </td>
         </tr>
     `
-        )
-        .join('');
+            )
+            .join('') ||
+        '<tr><td colspan="5" class="admin-empty">Nenhuma loja encontrada.</td></tr>';
+    labelAdminList(host);
 }
 
 function setStoreLogoPreview(url) {
@@ -4483,12 +4692,12 @@ function openStoreModal(id) {
     if (fileInput) fileInput.value = '';
     setStoreLogoPreview(store?.logo_url || '');
 
-    modal.classList.add('active');
+    showAdminModal(modal, 'adminStoreName');
 }
 
 function closeStoreModal() {
     const modal = document.getElementById('adminStoreModal');
-    if (modal) modal.classList.remove('active');
+    hideAdminModal(modal);
 }
 
 async function saveStore(e) {
@@ -4503,7 +4712,7 @@ async function saveStore(e) {
     const is_active = document.getElementById('adminStoreIsActive')?.checked ?? true;
 
     if (!name) {
-        if (statusEl) statusEl.textContent = 'Name is required.';
+        if (statusEl) statusEl.textContent = 'Informe o nome da loja.';
         return;
     }
 

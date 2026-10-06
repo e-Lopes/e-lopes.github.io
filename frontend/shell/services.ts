@@ -64,7 +64,10 @@ export const dataService: DataService = {
                     }),
                 controller.signal
             )
-            .then((data) => publish({ data, loading: false, error: '', updatedAt: Date.now() }))
+            .then(async (data) => {
+                await window.cardPortraits?.load().catch(() => {});
+                publish({ data, loading: false, error: '', updatedAt: Date.now() });
+            })
             .catch((error) =>
                 publish({
                     ...snapshot,
@@ -103,13 +106,16 @@ export async function bootstrap() {
     window.DIGISTATS_NATIVE_V2 = true;
     window.digiStatsComponentRoot = () => document.getElementById('v2Tools') || document.body;
     window.digistatsNavigate = navigate;
-    await Promise.all([
-        'config/supabase.js',
-        'config/app-version.js',
-        'shared/data/tournaments.js',
-        'shared/data/statistics.js',
-        'shared/data/admin-session.js'
-    ].map(loadScript));
+    await Promise.all(
+        [
+            'config/supabase.js',
+            'config/app-version.js',
+            'shared/data/tournaments.js',
+            'shared/data/statistics.js',
+            'shared/data/admin-session.js',
+            'shared/data/card-portraits.js'
+        ].map(loadScript)
+    );
     window.addEventListener('digistats:tournaments-changed', () => void dataService.refresh());
     void dataService.refresh();
 }
