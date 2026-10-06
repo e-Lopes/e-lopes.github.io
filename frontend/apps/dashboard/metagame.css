@@ -812,8 +812,13 @@
     width: 100%;
     min-width: 0;
 }
-.meta-deck-table .meta-deck-button span:last-child {
+.meta-deck-table .meta-deck-button > .meta-deck-name {
+    min-width: 0;
     overflow-wrap: anywhere;
+}
+.meta-deck-table .meta-deck-button > .deck-color-dots {
+    flex-shrink: 0;
+    align-self: center;
 }
 .meta-deck-table .meta-deck-button:hover {
     color: var(--accent);

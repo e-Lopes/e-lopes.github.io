@@ -464,8 +464,8 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                                     <Portrait image={r.image} />
                                                     <span className="meta-deck-name">
                                                         {r.name}
-                                                        <DeckColors colors={r.colors} />
                                                     </span>
+                                                    <DeckColors colors={r.colors} />
                                                 </button>
                                             </th>
                                             <td>

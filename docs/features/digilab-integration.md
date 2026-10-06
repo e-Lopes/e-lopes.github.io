@@ -24,7 +24,7 @@ A conferência final reproduziu os 63 decks e 241 participações do DigiLab, co
 
 A Edge Function `digilab-deck-catalog` busca todas as páginas da API e aplica decks, famílias, imagens, vínculos e formatos em uma única transação. O DigiLab determina nomes, cores e carta representativa; arquétipos novos são cadastrados e os que saem do catálogo são inativados, preservando os resultados e listas anteriores. IDs externos estáveis permitem renomear decks sem trocar o ID local.
 
-O catálogo é atualizado às **00h45, 06h45, 12h45 e 18h45**, no horário de Brasília. A sincronização de torneios executa às **01h, 07h, 13h e 19h**. Os jobs `digilab-catalog-sync` e `digilab-background-sync` usam UTC no `pg_cron`. Nenhum navegador precisa permanecer aberto.
+O catálogo é atualizado às **00h45, 06h45, 12h45 e 18h45**, no horário de Brasília. A sincronização de torneios executa **a cada hora, no minuto zero**, com `0 * * * *`. Os jobs `digilab-catalog-sync` e `digilab-background-sync` usam UTC no `pg_cron`. Nenhum navegador precisa permanecer aberto.
 
 Formatos novos recebem o código e nome publicados pelo DigiLab. Os existentes mantêm ID, ativação, formato padrão e imagem de fundo. Datas de lançamento são usadas quando fornecidas; o retorno atual de `/api/meta` não inclui essas datas, então as datas locais existentes são preservadas. Em 05/10/2026 foram conferidos 282 arquétipos e 14 formatos externos; um formato novo foi cadastrado e 13 existentes foram atualizados.
 
@@ -32,7 +32,7 @@ Formatos novos recebem o código e nome publicados pelo DigiLab. Os existentes m
 
 O menu **Deckbuilder** substitui o catálogo e o cadastro manual de decks: escolha um torneio existente, selecione um resultado e abra sua lista para criar ou editar. O Metagame usa bolinhas na ordem do DigiLab: cor primária primeiro, cor secundária depois, quando existir. Dados antigos sem cor primária utilizam a ordem salva em `colors`. O retrato circular usa o mesmo zoom do restante do sistema. O modal reúne indicadores, evolução mensal e resultados/listas em tabelas compactas. As barras do gráfico e da tabela usam a cor primária; preto recebe um grafite mais claro (`#73777f`) para contraste no tema escuro. As participações são normalizadas pelo deck mais utilizado, que ocupa 100% da largura.
 
-As migrations `20261005010000_automate_digilab_catalog.sql`, `20261005020000_schedule_digilab_catalog.sql` e `20261005030000_digilab_tournaments_every_six_hours.sql` instalam a rotina, permissões e horários. O workflow de CI aplica essas migrations e publica a função. Para executar ou verificar manualmente, com `SUPABASE_DB_URL` no `.env`:
+As migrations `20261005010000_automate_digilab_catalog.sql`, `20261005020000_schedule_digilab_catalog.sql` e `20261005030000_digilab_tournaments_every_six_hours.sql` instalam a rotina, permissões e horários. A migration `20261006010000_digilab_tournaments_hourly.sql` restaura o intervalo de uma hora em 06/10/2026. O workflow de CI aplica essas migrations e publica a função. Para executar ou verificar manualmente, com `SUPABASE_DB_URL` no `.env`:
 
 ```powershell
 npm.cmd install --prefix .tmp/digilab-tools --no-save --no-package-lock pg
@@ -55,7 +55,7 @@ Estado em 05/10/2026:
 - Prévia individual por URL ou ID disponível no modal público **Novo torneio**.
 - Aba DigiLab posicionada primeiro e selecionada por padrão no Admin.
 - Criação manual e automática de jogadores inequivocamente novos antes da importação do torneio.
-- Fila em background executada a cada 6 horas pelo `pg_cron`, sem depender de navegador aberto.
+- Fila em background executada a cada hora pelo `pg_cron`, sem depender de navegador aberto.
 
 O plano detalhado e os critérios de correspondência estão em [`proposta_sincronizacao_digistats_digilab.md`](../../proposta_sincronizacao_digistats_digilab.md).
 
@@ -327,7 +327,7 @@ Entrar na aba e trocar de página apenas carregam dados. O botão **Atualizar in
 
 ### Importação em background
 
-A Edge Function `sync-new-digilab-tournaments` é chamada às 01h, 07h, 13h e 19h de Brasília por `pg_cron`, sem depender de navegador ou sessão administrativa. Cada ciclo consulta a primeira página da scene Curitiba e uma página histórica, retomada pelo cursor persistido em `digilab_sync_state.next_page`. Ao chegar ao fim, o cursor volta à página 2. A descoberta coloca torneios novos na fila; torneios vinculados dos últimos 30 dias também entram para revisão a cada seis horas. São processados até oito itens por ciclo, com orçamento de 60 segundos para iniciar novas operações e intervalos de 1,3 segundo entre consultas ao DigiLab.
+A Edge Function `sync-new-digilab-tournaments` é chamada a cada hora, no minuto zero, por `pg_cron`, sem depender de navegador ou sessão administrativa. Cada ciclo consulta a primeira página da scene Curitiba e uma página histórica, retomada pelo cursor persistido em `digilab_sync_state.next_page`. Ao chegar ao fim, o cursor volta à página 2. A descoberta coloca torneios novos na fila; torneios vinculados dos últimos 30 dias também entram para revisão a cada seis horas. São processados até oito itens por ciclo, com orçamento de 60 segundos para iniciar novas operações e intervalos de 1,3 segundo entre consultas ao DigiLab.
 
 Somente torneios com loja resolvida e sem candidato local conflitante são importados automaticamente. Jogadores, decks e formatos ausentes são criados pela RPC `sync_digilab_tournament_atomic`, na mesma transação dos resultados e dos mapeamentos. Decks novos não recebem Deck Code. Qualquer erro desfaz os cadastros dessa tentativa. Nomes ambíguos, jogadores locais ausentes no DigiLab e colocações incompletas ou empatadas exigem revisão. Itens `needs_review` voltam a ser avaliados depois de seis horas; erros transitórios usam `retry` com espera progressiva de 30 minutos até seis horas, respeitando também `Retry-After`. O job mantém os segredos existentes no Vault e nas Edge Functions.
 
@@ -337,7 +337,7 @@ A RPC confirma o vínculo e os resultados na mesma transação antes de retornar
 
 Em **Admin → DigiLab → Histórico da sincronização**, são exibidas as últimas 20 execuções, 80 resultados e até 100 pendências, com horários, contagens de importações, atualizações e cadastros, além do motivo de cada falha. **Atualizar histórico** consulta somente o banco. **Tentar novamente** antecipa e processa apenas o torneio escolhido, respeitando a reserva de execução. As tabelas `digilab_sync_runs` e `digilab_sync_events` mantêm o histórico completo; o acesso ocorre pela função autenticada como administrador.
 
-No desktop, a barra lateral calcula a contagem regressiva até o próximo quarto de hora. Durante os primeiros segundos do ciclo ela mostra **Atualizando** e, após 35 segundos, recarrega a lista local de torneios. Se o usuário estiver em outra seção, a atualização fica marcada e ocorre ao retornar para **Torneios**. O contador informa o horário do job; o cache externo ainda pode adiar a descoberta para o ciclo seguinte.
+No desktop, a barra lateral calcula a contagem regressiva até o início da próxima hora. Durante os primeiros segundos do ciclo ela mostra **Atualizando** e, após 35 segundos, recarrega a lista local de torneios. Se o usuário estiver em outra seção, a atualização fica marcada e ocorre ao retornar para **Torneios**. O contador informa o horário do job; o cache externo ainda pode adiar a descoberta para o ciclo seguinte.
 
 O botão **Sincronizar dados pendentes** processa em lote os torneios vinculados e novos da página atual usando a mesma RPC transacional. O painel mostra progresso, permite interromper após o item atual e deixa torneios incompletos marcados para revisão. As chamadas são sequenciais, com intervalo de 1,3 segundo.
 

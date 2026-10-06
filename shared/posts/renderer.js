@@ -182,7 +182,9 @@ function paintPortrait(ctx, image, x, y, radius, color, initials) {
         const width = radius * 2 * zoom,
             height = baseHeight * zoom;
         const top = y - radius - baseHeight * 0.2 * (zoom - 1);
-        ctx.drawImage(image, x - width / 2, top, width, height);
+        // BT24-101 centers on x=220 of its 430px source, at any image resolution.
+        const centerX = /\bBT24-101(?=[._/?#]|$)/i.test(image.src || '') ? 220 / 430 : 0.5;
+        ctx.drawImage(image, x - width * centerX, top, width, height);
     } else {
         ctx.fillStyle = color;
         ctx.textAlign = 'center';
@@ -303,7 +305,7 @@ function paintPodiumIdentity(ctx, player, portrait, isWinner) {
     fitPostText(ctx, deckName, portrait.width, isWinner ? 36 : 29, 800);
     ctx.fillText(deckName, portrait.x, top + 38, portrait.width);
     ctx.fillStyle = '#e0e3e5';
-    fitPostText(ctx, player.name, portrait.width, isWinner ? 29 : 27, 500, 20);
+    fitPostText(ctx, player.name, portrait.width, isWinner ? 29 : 27, 700, 20);
     ctx.fillText(player.name, portrait.x, top + 74, portrait.width);
 }
 
@@ -498,7 +500,7 @@ function paintWeekly(ctx, hazard, accent, images, storeLogos, events, weekEvents
             fitPostText(ctx, winner.deck, 385, 34, 800, 24);
             ctx.fillText(winner.deck, 410, y + 54, 385);
             ctx.fillStyle = '#c7cbd0';
-            fitPostText(ctx, winner.name, 385, 29, 500, 24);
+            fitPostText(ctx, winner.name, 385, 29, 700, 24);
             ctx.fillText(winner.name, 410, y + 92, 385);
         }
         ctx.textAlign = 'center';
@@ -508,7 +510,7 @@ function paintWeekly(ctx, hazard, accent, images, storeLogos, events, weekEvents
             fitPostText(ctx, event.store.toUpperCase(), 172, 24, 800, 18);
             ctx.fillText(event.store.toUpperCase(), 902, y + 57, 172);
         }
-        ctx.font = '500 21px Arial';
+        ctx.font = '700 21px Arial';
         ctx.fillStyle = '#b9bec2';
         ctx.fillText(
             `${event.players} ${event.players === 1 ? 'player' : 'players'}`,

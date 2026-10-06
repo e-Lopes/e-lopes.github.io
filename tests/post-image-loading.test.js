@@ -3,6 +3,46 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
+test('BT24-101 portrait centers on x=220 and preserves the crop of other cards', () => {
+    const paintPortrait = vm.runInNewContext(
+        fs.readFileSync('shared/posts/renderer.js', 'utf8').replace(/export /g, '') +
+            '\npaintPortrait'
+    );
+    for (const [src, center] of [
+        ['https://digimon.digilab.cards/api/card/BT24-101.jpg?s=m&v=2', 220 / 430],
+        ['https://storage.example/deck-images/digilab/BT24-101.webp', 220 / 430],
+        ['https://storage.example/deck-images/BT24-1010.webp', 0.5],
+        ['https://storage.example/deck-images/ST23-09.webp', 0.5]
+    ]) {
+        for (const sourceWidth of [430, 860]) {
+            let draw;
+            const ctx = new Proxy(
+                {},
+                {
+                    get: (_, key) =>
+                        key === 'drawImage'
+                            ? (...args) => {
+                                  draw = args;
+                              }
+                            : () => {},
+                    set: () => true
+                }
+            );
+            paintPortrait(
+                ctx,
+                { src, width: sourceWidth, height: (sourceWidth * 601) / 430 },
+                540,
+                650,
+                185,
+                'gold',
+                'JU'
+            );
+            const [, left, , width] = draw;
+            assert.ok(Math.abs((540 - left) / width - center) < 1e-12, src);
+        }
+    }
+});
+
 function loader(fail) {
     const attempts = [];
     const api = vm.runInNewContext(

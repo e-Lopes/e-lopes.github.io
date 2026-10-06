@@ -114,6 +114,7 @@ jobs:
                     database/migrations/20261005030000_digilab_tournaments_every_six_hours.sql \
                     database/migrations/20261005040000_require_digilab_tournament_format.sql \
                     database/migrations/20261005050000_store_digilab_catalog_images.sql \
+                    database/migrations/20261006010000_digilab_tournaments_hourly.sql \
                     supabase/config.toml \
                     supabase/functions/_shared \
                     supabase/functions/digilab-deck-catalog \

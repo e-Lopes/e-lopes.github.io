@@ -16,7 +16,8 @@ async function main() {
         '20261005020000_schedule_digilab_catalog.sql',
         '20261005030000_digilab_tournaments_every_six_hours.sql',
         '20261005040000_require_digilab_tournament_format.sql',
-        '20261005050000_store_digilab_catalog_images.sql'
+        '20261005050000_store_digilab_catalog_images.sql',
+        '20261006010000_digilab_tournaments_hourly.sql'
     ];
     const query = migrations
         .map((migration) =>

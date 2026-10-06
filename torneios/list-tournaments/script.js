@@ -28,9 +28,9 @@ const STATS_COLUMN_WIDTHS_STORAGE_KEY = 'dashboardStatisticsColumnWidths';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const OCR_API_BASE_URL = 'https://digimon-ocr-api.vercel.app';
 const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
-const DIGILAB_BACKGROUND_INTERVAL_MS = 6 * 60 * 60 * 1000;
-// 01h Brasília = 04h UTC, repeated every six hours.
-const DIGILAB_BACKGROUND_OFFSET_MS = 4 * 60 * 60 * 1000;
+const DIGILAB_BACKGROUND_INTERVAL_MS = 60 * 60 * 1000;
+// Synchronize at the start of every hour, matching pg_cron.
+const DIGILAB_BACKGROUND_OFFSET_MS = 0;
 const DIGILAB_BACKGROUND_REFRESH_DELAY_MS = 35 * 1000;
 const ENABLE_TOP_CARDS_API_LOOKUP = window.APP_CONFIG?.ENABLE_TOP_CARDS_API_LOOKUP !== false;
 const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
