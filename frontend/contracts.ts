@@ -86,6 +86,7 @@ export interface MicroModule {
 }
 export interface Manifest {
     apiVersion: 1;
+    version: string;
     modules: Record<string, { entry: string; styles?: string[]; routes: RouteName[] }>;
 }
 declare global {

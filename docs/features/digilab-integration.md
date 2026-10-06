@@ -1,10 +1,50 @@
 # Integração com o DigiLab
 
+## Catálogo alinhado ao DigiLab em 05/10/2026
+
+### Imagens armazenadas no Supabase
+
+A sincronização copia a carta representativa do DigiLab para `deck-images/digilab/` antes de aplicar o catálogo. As URLs públicas desse storage são usadas em decks e posts, com CORS permitido para exportar PNG. Arquivos existentes são reutilizados; cartas ausentes no DigiLab usam a mesma carta do storage anterior ou das fontes de imagem já utilizadas pelo sistema. JPEG, WebP e PNG mantêm seu formato real. Uma falha de download ou upload impede a aplicação do catálogo, preservando os dados anteriores.
+
+`20261005050000_store_digilab_catalog_images.sql` rejeita URLs externas no catálogo. O histórico da sincronização registra imagens enviadas e reutilizadas em `summary.images`. A correção foi aplicada no Supabase e conferida: todas as 295 URLs de `deck_images` usam storage, incluindo os cadastros históricos. O script manual `sync-digilab-catalog.mjs --apply` foi bloqueado; novas sincronizações devem usar a função `digilab-deck-catalog`, inclusive pelo script `sync-digilab-deck-colors.mjs`.
+
+A consulta autenticada de `/api/meta?format=all&group_by=archetype` retornou 282 arquétipos e 29 famílias. A sincronização local atualizou 163 decks mantendo seus IDs, criou 119 e preservou 17 cadastros históricos como inativos, sem alterar resultados ou decklists. Nomes, slug, cores, família e carta representativa dos 282 decks ativos foram conferidos contra o catálogo atual. Imagens usam a carta representativa publicada pelo DigiLab. Glowing Dawn passou de `y,g,b,p` para `g,b`, com ST23-09.
+
+O backup completo está em `backup/decks/digilab-catalog-2026-10-05T18-56-46-563Z.json`; o resumo da operação está em `backup/decks/digilab-catalog-latest-report.json`. Credenciais não são incluídas nesses arquivos.
+
+### Correção histórica do EX12 em 05/10/2026
+
+A auditoria comparou os 206 torneios de Curitiba retornados pela API com seus vínculos locais. Foram corrigidos 62 formatos: 61 eventos de outros períodos estavam classificados como EX12 e um estava em BT24. Nos 31 torneios realmente EX12, 12 resultados tiveram seu `deck_id` atualizado para o arquétipo informado nos standings atuais. Os IDs dos torneios e resultados, jogadores e listas foram preservados; backups da alteração estão em `backup/tournaments/`.
+
+A conferência final reproduziu os 63 decks e 241 participações do DigiLab, com Glowing Dawn em primeiro (27 participações, 11,2%). Todas as contagens por arquétipo coincidiram. `20261005040000_require_digilab_tournament_format.sql` exige o código oficial na importação; a prévia também deixa de escolher o formato padrão quando o código está ausente. Esses casos exigem revisão em vez de misturar períodos.
+
+`audit_tournaments` é uma ação de consulta protegida de `digilab-deck-catalog`, usada pelos scripts `reconcile-digilab-tournament-formats.mjs` e `reconcile-digilab-ex12-results.mjs`. Eles conferem data, IDs, correspondências e completude antes de aplicar alterações com `--apply`. O primeiro consulta os formatos oficiais de todos os torneios vinculados; o segundo compara jogadores/decks dos standings EX12. A consulta não altera o banco.
+
+### Rotina automática
+
+A Edge Function `digilab-deck-catalog` busca todas as páginas da API e aplica decks, famílias, imagens, vínculos e formatos em uma única transação. O DigiLab determina nomes, cores e carta representativa; arquétipos novos são cadastrados e os que saem do catálogo são inativados, preservando os resultados e listas anteriores. IDs externos estáveis permitem renomear decks sem trocar o ID local.
+
+O catálogo é atualizado às **00h45, 06h45, 12h45 e 18h45**, no horário de Brasília. A sincronização de torneios executa às **01h, 07h, 13h e 19h**. Os jobs `digilab-catalog-sync` e `digilab-background-sync` usam UTC no `pg_cron`. Nenhum navegador precisa permanecer aberto.
+
+Formatos novos recebem o código e nome publicados pelo DigiLab. Os existentes mantêm ID, ativação, formato padrão e imagem de fundo. Datas de lançamento são usadas quando fornecidas; o retorno atual de `/api/meta` não inclui essas datas, então as datas locais existentes são preservadas. Em 05/10/2026 foram conferidos 282 arquétipos e 14 formatos externos; um formato novo foi cadastrado e 13 existentes foram atualizados.
+
+`digilab_catalog_sync_runs` registra início, conclusão, contagens e falhas. Paginação incompleta, códigos inválidos ou uma queda maior que 20% no tamanho do catálogo cancelam a aplicação. Usuários públicos e autenticados podem consultar o registro de decks; a escrita cabe ao serviço de sincronização. O Admin permite consultar o catálogo e solicitar uma atualização completa, sem mapeamento ou criação manual de arquétipos.
+
+O menu **Deckbuilder** substitui o catálogo e o cadastro manual de decks: escolha um torneio existente, selecione um resultado e abra sua lista para criar ou editar. O Metagame usa bolinhas na ordem do DigiLab: cor primária primeiro, cor secundária depois, quando existir. Dados antigos sem cor primária utilizam a ordem salva em `colors`. O retrato circular usa o mesmo zoom do restante do sistema. O modal reúne indicadores, evolução mensal e resultados/listas em tabelas compactas. As barras do gráfico e da tabela usam a cor primária; preto recebe um grafite mais claro (`#73777f`) para contraste no tema escuro. As participações são normalizadas pelo deck mais utilizado, que ocupa 100% da largura.
+
+As migrations `20261005010000_automate_digilab_catalog.sql`, `20261005020000_schedule_digilab_catalog.sql` e `20261005030000_digilab_tournaments_every_six_hours.sql` instalam a rotina, permissões e horários. O workflow de CI aplica essas migrations e publica a função. Para executar ou verificar manualmente, com `SUPABASE_DB_URL` no `.env`:
+
+```powershell
+npm.cmd install --prefix .tmp/digilab-tools --no-save --no-package-lock pg
+node scripts/deploy-digilab-catalog-automation.mjs sync
+node scripts/deploy-digilab-catalog-automation.mjs verify
+```
+
 ## Objetivo e estado atual
 
 O DigiStats exporta standings para publicação manual no DigiLab e usa a API oficial para confirmar posteriormente que o torneio publicado corresponde ao registro local.
 
-Estado em 04/08/2026:
+Estado em 05/10/2026:
 
 - Exportação manual de standings implementada no frontend.
 - Secret `DIGILAB_API_KEY` configurado nos secrets das Edge Functions.
@@ -15,7 +55,7 @@ Estado em 04/08/2026:
 - Prévia individual por URL ou ID disponível no modal público **Novo torneio**.
 - Aba DigiLab posicionada primeiro e selecionada por padrão no Admin.
 - Criação manual e automática de jogadores inequivocamente novos antes da importação do torneio.
-- Fila em background executada a cada 15 minutos pelo `pg_cron`, sem depender de navegador aberto.
+- Fila em background executada a cada 6 horas pelo `pg_cron`, sem depender de navegador aberto.
 
 O plano detalhado e os critérios de correspondência estão em [`proposta_sincronizacao_digistats_digilab.md`](../../proposta_sincronizacao_digistats_digilab.md).
 
@@ -287,7 +327,7 @@ Entrar na aba e trocar de página apenas carregam dados. O botão **Atualizar in
 
 ### Importação em background
 
-A Edge Function `sync-new-digilab-tournaments` é chamada nos minutos `00`, `15`, `30` e `45` por `pg_cron`, sem depender de navegador ou sessão administrativa. Cada ciclo consulta a primeira página da scene Curitiba e uma página histórica, retomada pelo cursor persistido em `digilab_sync_state.next_page`. Ao chegar ao fim, o cursor volta à página 2. A descoberta coloca torneios novos na fila; torneios vinculados dos últimos 30 dias também entram para revisão a cada seis horas. São processados até oito itens por ciclo, com orçamento de 60 segundos para iniciar novas operações e intervalos de 1,3 segundo entre consultas ao DigiLab.
+A Edge Function `sync-new-digilab-tournaments` é chamada às 01h, 07h, 13h e 19h de Brasília por `pg_cron`, sem depender de navegador ou sessão administrativa. Cada ciclo consulta a primeira página da scene Curitiba e uma página histórica, retomada pelo cursor persistido em `digilab_sync_state.next_page`. Ao chegar ao fim, o cursor volta à página 2. A descoberta coloca torneios novos na fila; torneios vinculados dos últimos 30 dias também entram para revisão a cada seis horas. São processados até oito itens por ciclo, com orçamento de 60 segundos para iniciar novas operações e intervalos de 1,3 segundo entre consultas ao DigiLab.
 
 Somente torneios com loja resolvida e sem candidato local conflitante são importados automaticamente. Jogadores, decks e formatos ausentes são criados pela RPC `sync_digilab_tournament_atomic`, na mesma transação dos resultados e dos mapeamentos. Decks novos não recebem Deck Code. Qualquer erro desfaz os cadastros dessa tentativa. Nomes ambíguos, jogadores locais ausentes no DigiLab e colocações incompletas ou empatadas exigem revisão. Itens `needs_review` voltam a ser avaliados depois de seis horas; erros transitórios usam `retry` com espera progressiva de 30 minutos até seis horas, respeitando também `Retry-After`. O job mantém os segredos existentes no Vault e nas Edge Functions.
 
@@ -330,17 +370,15 @@ Família
 
 `deck_families` contém famílias como `Mastemon`; `decks` continua sendo o arquétipo usado no resultado, como `Mastemon (Tribal)` ou `CS Mastemon`, e recebe `family_id`. `tournament_results.deck_id` não muda, preservando todas as referências históricas e as estatísticas atuais por arquétipo.
 
-`digilab_deck_catalog` espelha os dados retornados por `/api/meta?format=all&group_by=archetype`, incluindo ID/slug, família, cores e carta representativa. O espelho não usa IDs DigiLab como chave das tabelas locais. `digilab_deck_sync` faz o vínculo revisado entre o slug externo e `decks.id`.
+`digilab_deck_catalog` espelha os dados retornados por `/api/meta?format=all&group_by=archetype`, incluindo ID/slug, família, cores e carta representativa. O espelho não usa IDs DigiLab como chave das tabelas locais. `digilab_deck_sync` mantém automaticamente o vínculo entre o ID/slug externo e `decks.id`.
 
-A Edge Function `digilab-deck-catalog` possui cinco ações autenticadas:
+A Edge Function `digilab-deck-catalog` aceita três ações autenticadas:
 
 - `list`: lê o catálogo salvo sem consumir a API DigiLab;
-- `sync`: pagina o catálogo oficial, atualiza famílias e arquétipos externos e retorna a comparação;
-- `map`: vincula um arquétipo externo a um deck local e atribui sua família;
-- `create`: cria um arquétipo local a partir do catálogo e salva o vínculo.
-- `map_exact_names`: cria em lote somente vínculos de nome normalizado igual, com uma única correspondência local e cujo deck já tenha resultados no DigiStats.
+- `sync`: sincroniza o registro completo de decks, famílias, imagens e formatos usando a API oficial.
+- `audit_tournaments`: consulta formatos e standings de Curitiba para conferir os vínculos históricos.
 
-Na aba **Admin → DigiLab**, o card **Catálogo de decks DigiLab** diferencia mapeados, nomes iguais e itens sem correspondente, com filtros por busca, situação e família. A listagem operacional mostra somente arquétipos associados a decks que já aparecem nos resultados do DigiStats; itens globais do DigiLab sem uso local ficam ocultos. Arquétipos novos encontrados nos torneios de Curitiba continuam sendo tratados durante a prévia/importação do torneio. A criação nunca é automática para nomes divergentes. A migration `20260731050000_create_deck_families_and_digilab_catalog.sql` também cria `v_deck_family_stats`; decks ainda não classificados permanecem como grupos próprios, sem desaparecer dos relatórios.
+Na aba **Admin → DigiLab**, o card **Catálogo de decks DigiLab** mostra todos os arquétipos ativos, com filtros por busca, situação e família. O vínculo em `digilab_deck_sync` é mantido automaticamente por ID externo e slug. A migration `20260731050000_create_deck_families_and_digilab_catalog.sql` também cria `v_deck_family_stats`; decks históricos ainda não classificados permanecem como grupos próprios.
 
 Quando um candidato local possui menos participantes que o torneio DigiLab, o Admin oferece **Adicionar ausentes**. A reconciliação exige a mesma data e loja, reutiliza o de-para revisado, adiciona resultados ausentes e atualiza posição, deck e pontos dos participantes presentes no DigiLab. Resultados locais excedentes não são excluídos automaticamente. A operação é transacional pela migration `20260731060000_reconcile_digilab_tournament_results.sql` e registra sua origem em `tournament_digilab_sync.comparison_summary`.
 

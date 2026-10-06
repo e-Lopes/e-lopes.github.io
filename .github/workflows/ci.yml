@@ -109,8 +109,14 @@ jobs:
                     .github/workflows/ci.yml \
                     scripts/deploy-digilab-schema.js \
                     database/migrations/20260924010000_reliable_digilab_sync.sql \
+                    database/migrations/20261005010000_automate_digilab_catalog.sql \
+                    database/migrations/20261005020000_schedule_digilab_catalog.sql \
+                    database/migrations/20261005030000_digilab_tournaments_every_six_hours.sql \
+                    database/migrations/20261005040000_require_digilab_tournament_format.sql \
+                    database/migrations/20261005050000_store_digilab_catalog_images.sql \
                     supabase/config.toml \
                     supabase/functions/_shared \
+                    supabase/functions/digilab-deck-catalog \
                     supabase/functions/import-digilab-tournament \
                     supabase/functions/preview-digilab-import \
                     supabase/functions/sync-new-digilab-tournaments; then
@@ -150,3 +156,4 @@ jobs:
                   supabase functions deploy import-digilab-tournament --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
                   supabase functions deploy preview-digilab-import --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
                   supabase functions deploy sync-new-digilab-tournaments --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
+                  supabase functions deploy digilab-deck-catalog --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt

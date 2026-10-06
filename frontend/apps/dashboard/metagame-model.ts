@@ -6,7 +6,14 @@ export interface MetaResult {
     deck_id: string | null;
     player_id: string | null;
     placement: number;
-    deck: { name: string } | null;
+    deck: {
+        name: string;
+        colors?: string | null;
+        primary_color?: string | null;
+        secondary_color?: string | null;
+        display_card_id?: string | null;
+        deck_images?: { image_url: string }[];
+    } | null;
     player: { name: string } | null;
     decklists: { id: string }[];
 }
@@ -119,6 +126,10 @@ export function analyzeMeta(events: Tournament[], records: MetaResult[]) {
             top4: number;
             topEligible: number;
             image: string;
+            lists: number;
+            colors: string;
+            primaryColor: string;
+            card: string;
         }
     >();
     for (const r of known) {
@@ -131,10 +142,17 @@ export function analyzeMeta(events: Tournament[], records: MetaResult[]) {
             eligible: 0,
             top4: 0,
             topEligible: 0,
+            lists: 0,
+            colors: metaDeckColors(r.deck!),
+            primaryColor: metaDeckColors(r.deck!).split(',')[0] || '',
+            card: r.deck?.display_card_id || '',
             image:
-                events.flatMap((e) => e.results).find((p) => p.deck === r.deck!.name)?.image || ''
+                r.deck?.deck_images?.[0]?.image_url ||
+                events.flatMap((e) => e.results).find((p) => p.deck === r.deck!.name)?.image ||
+                ''
         };
         row.count++;
+        row.lists += r.decklists?.length || 0;
         if (r.player_id) row.players.add(r.player_id);
         if (complete.has(String(r.tournament_id))) {
             row.eligible++;
@@ -148,7 +166,16 @@ export function analyzeMeta(events: Tournament[], records: MetaResult[]) {
     }
     const players = new Map<
         string,
-        { id: string; name: string; count: number; titles: number; last: string }
+        {
+            id: string;
+            name: string;
+            count: number;
+            titles: number;
+            top4: number;
+            topEligible: number;
+            last: string;
+            decks: Map<string, { id: string; name: string; count: number }>;
+        }
     >();
     for (const r of results) {
         if (!r.player_id || !r.player) continue;
@@ -158,10 +185,22 @@ export function analyzeMeta(events: Tournament[], records: MetaResult[]) {
             name: r.player.name,
             count: 0,
             titles: 0,
+            top4: 0,
+            topEligible: 0,
+            decks: new Map(),
             last: ''
         };
         row.count++;
         if (complete.has(String(r.tournament_id)) && r.placement === 1) row.titles++;
+        if (eligibleTop.has(String(r.tournament_id))) {
+            row.topEligible++;
+            if (r.placement <= 4) row.top4++;
+        }
+        if (deckEvents.has(String(r.tournament_id)) && r.deck_id && r.deck) {
+            const deck = row.decks.get(r.deck_id) || { id: r.deck_id, name: r.deck.name, count: 0 };
+            deck.count++;
+            row.decks.set(deck.id, deck);
+        }
         if (date > row.last) row.last = date;
         players.set(row.id, row);
     }
@@ -175,11 +214,73 @@ export function analyzeMeta(events: Tournament[], records: MetaResult[]) {
         deckExpected: events.filter((e) => deckEvents.has(e.id)).reduce((s, e) => s + e.players, 0)
     };
 }
+export function metaDeckColors(deck: NonNullable<MetaResult['deck']>) {
+    const codes: Record<string, string> = {
+        red: 'r',
+        blue: 'u',
+        yellow: 'y',
+        green: 'g',
+        black: 'b',
+        purple: 'p',
+        white: 'w'
+    };
+    const saved = (deck.colors || '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+    const source = deck.primary_color
+        ? ([deck.primary_color, deck.secondary_color].filter(Boolean) as string[])
+        : saved;
+    return [
+        ...new Set(
+            source
+                .map((value) => codes[value.toLowerCase()] || value.toLowerCase())
+                .filter((value) => Object.values(codes).includes(value))
+        )
+    ].join(',');
+}
+export function communityActivity(events: Tournament[]) {
+    const stores = new Map<
+        string,
+        { id: string; name: string; count: number; entries: number; last: string }
+    >();
+    const weeks = new Map<string, number>();
+    for (const event of events) {
+        const row = stores.get(event.storeId) || {
+            id: event.storeId,
+            name: event.store,
+            count: 0,
+            entries: 0,
+            last: ''
+        };
+        row.count++;
+        row.entries += event.players;
+        if (event.isoDate > row.last) row.last = event.isoDate;
+        stores.set(row.id, row);
+        const date = new Date(event.isoDate + 'T12:00:00Z');
+        date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+        const week = date.toISOString().slice(0, 10);
+        weeks.set(week, (weeks.get(week) || 0) + 1);
+    }
+    const ordered = [...weeks.keys()].sort();
+    if (ordered.length) {
+        const cursor = new Date(ordered[0] + 'T12:00:00Z');
+        while (cursor.toISOString().slice(0, 10) <= ordered[ordered.length - 1]) {
+            const key = cursor.toISOString().slice(0, 10);
+            if (!weeks.has(key)) weeks.set(key, 0);
+            cursor.setUTCDate(cursor.getUTCDate() + 7);
+        }
+    }
+    return {
+        stores: [...stores.values()],
+        weeks: [...weeks.entries()].sort(([a], [b]) => a.localeCompare(b))
+    };
+}
 export async function readMeta(context: { asset(path: string): string }, signal: AbortSignal) {
     const rows: MetaResult[] = [];
     for (let offset = 0; ; offset += 500) {
         const query = new URLSearchParams({
-            select: 'id,tournament_id,deck_id,player_id,placement,deck:decks(name),player:players(name),decklists(id)',
+            select: 'id,tournament_id,deck_id,player_id,placement,deck:decks(*,deck_images(image_url)),player:players(name),decklists(id)',
             order: 'id.asc',
             limit: '500',
             offset: String(offset)

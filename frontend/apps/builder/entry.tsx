@@ -45,12 +45,21 @@ function Builder({ context }: { context: MicroContext }) {
             current = false;
         };
     }, [context.route, context.active, desktop]);
+    const returnViews = {
+        decks: 'decks',
+        players: 'players',
+        statistics: 'meta',
+        meta: 'meta'
+    } as const;
     const destination =
-        ({ decks: 'decks', players: 'players', statistics: 'meta', meta: 'meta' } as const)[
-            context.route.params.get('returnView') as 'decks'
-        ] || 'manage';
+        returnViews[context.route.params.get('returnView') as keyof typeof returnViews] || 'manage';
     const returnParams = Object.fromEntries(context.route.params);
     returnParams.view = context.route.params.get('returnView') || 'tournaments';
+    if (destination === 'meta') {
+        returnParams.format = context.route.params.get('returnFormat') || returnParams.format || '';
+        returnParams.period = context.route.params.get('returnPeriod') || returnParams.period || '';
+        returnParams.store = context.route.params.get('returnStore') || '';
+    }
     return (
         <>
             <PageHeading

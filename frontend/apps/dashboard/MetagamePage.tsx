@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { MetaProfileSummary } from './MetaProfileSummary';
 import type { MicroContext } from '../../contracts';
 import { useData, Loader } from '../../shared/runtime';
-import { PageHeading } from '../../shared/PageHeading';
 import { Select } from '../../shared/Select';
-import { Portrait, Metrics } from '../../shared/cards';
+import { DeckColors } from '../../shared/DeckColors';
+import { deckColors } from '../workspace/catalog-service';
+import { Portrait } from '../../shared/cards';
 import { Dialog, Pagination } from '../../shared/ListPage';
-import { analyzeMeta, currentFormat, eventType } from './metagame-model';
+import { analyzeMeta, currentFormat, eventType, communityActivity } from './metagame-model';
 import '../workspace/catalog.css';
 import './metagame.css';
 import { useMetaResults } from './useMetaResults';
@@ -18,6 +19,10 @@ const monthLabel = (month: string) =>
         month: 'long',
         year: 'numeric'
     });
+const deckBarColor = (code: string) =>
+    code === 'b'
+        ? '#73777f'
+        : deckColors.find((color) => color.code === code)?.color || 'var(--accent)';
 export function MetagamePage({ context }: { context: MicroContext }) {
     const snapshot = useData(context.data),
         { data } = snapshot;
@@ -33,7 +38,11 @@ export function MetagamePage({ context }: { context: MicroContext }) {
         [sort, setSort] = useState('count'),
         [page, setPage] = useState(1),
         [size, setSize] = useState(20),
-        [detail, setDetail] = useState('');
+        [detail, setDetail] = useState(''),
+        [listDeck, setListDeck] = useState(''),
+        [minimum, setMinimum] = useState('0'),
+        [communitySort, setCommunitySort] = useState('count'),
+        [storeSort, setStoreSort] = useState('count');
     useEffect(() => {
         setHistorical(context.route.params.get('format') || '');
         const p = context.route.params.get('period') || '';
@@ -55,32 +64,83 @@ export function MetagamePage({ context }: { context: MicroContext }) {
     useEffect(() => {
         setPage(1);
         setDetail('');
-    }, [format, month, store, type, query, sort, tab, size]);
+    }, [format, month, store, type, query, sort, tab, size, minimum, communitySort]);
     const rows = model.decks
-        .filter((r) => r.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+        .filter(
+            (r) =>
+                r.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()) &&
+                r.count >= Number(minimum)
+        )
         .sort((a, b) => {
             const score = (r: typeof a) =>
-                sort === 'titles'
-                    ? r.titles
-                    : sort === 'conversion'
-                      ? r.eligible
-                          ? r.titles / r.eligible
-                          : 0
-                      : r.count;
+                sort === 'players'
+                    ? r.players.size
+                    : sort === 'lists'
+                      ? r.lists
+                      : sort === 'top4'
+                        ? r.topEligible
+                            ? r.top4 / r.topEligible
+                            : -1
+                        : sort === 'titles'
+                          ? r.titles
+                          : sort === 'conversion'
+                            ? r.eligible
+                                ? r.titles / r.eligible
+                                : 0
+                            : r.count;
             return score(b) - score(a) || b.count - a.count || a.name.localeCompare(b.name);
         });
     const selected = model.decks.find((r) => r.id === detail);
+    const mostEntries = Math.max(1, ...model.decks.map((deck) => deck.count));
     const lists = model.results.filter(
         (r) =>
             r.decklists?.length &&
+            (!listDeck || r.deck_id === listDeck) &&
             (!query ||
                 `${r.deck?.name || ''} ${r.player?.name || ''}`
                     .toLocaleLowerCase()
                     .includes(query.toLocaleLowerCase()))
     );
+    const activity = communityActivity(events);
     const playerRows = [...model.players]
         .filter((r) => r.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
-        .sort((a, b) => b.count - a.count || b.titles - a.titles || a.name.localeCompare(b.name));
+        .sort((a, b) =>
+            communitySort === 'last'
+                ? b.last.localeCompare(a.last) || a.name.localeCompare(b.name)
+                : (communitySort === 'titles'
+                      ? b.titles - a.titles
+                      : communitySort === 'top4'
+                        ? b.top4 - a.top4
+                        : b.count - a.count) || a.name.localeCompare(b.name)
+        );
+    const storeRows = activity.stores
+        .filter((r) => r.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+        .sort((a, b) =>
+            storeSort === 'last'
+                ? b.last.localeCompare(a.last) || a.name.localeCompare(b.name)
+                : (storeSort === 'average'
+                      ? b.entries / b.count - a.entries / a.count
+                      : storeSort === 'entries'
+                        ? b.entries - a.entries
+                        : b.count - a.count) || a.name.localeCompare(b.name)
+        );
+    const leaders = [...model.decks]
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+        .slice(0, 10);
+    const latest = [...events].sort((a, b) => b.isoDate.localeCompare(a.isoDate))[0];
+    const entries = events.reduce((sum, e) => sum + e.players, 0);
+    const sortHeader = (
+        label: string,
+        key: string,
+        value: string,
+        change: (key: string) => void
+    ) => (
+        <th aria-sort={value === key ? 'descending' : 'none'}>
+            <button className="meta-sort-button" onClick={() => change(key)}>
+                {label} {value === key ? '↓' : ''}
+            </button>
+        </th>
+    );
     const total =
         tab === 'meta' ? rows.length : tab === 'community' ? playerRows.length : lists.length;
     const actualPage = Math.min(page, Math.max(1, Math.ceil(total / size))),
@@ -89,25 +149,29 @@ export function MetagamePage({ context }: { context: MicroContext }) {
         name: 'decks' | 'players' | 'builder' | 'tournaments',
         params: Record<string, string>
     ) => context.navigate(name, params);
+    const openList = (result: (typeof model.results)[number]) => {
+        const event = events.find((event) => event.id === String(result.tournament_id));
+        go('builder', {
+            resultId: result.id,
+            tournamentId: String(result.tournament_id),
+            deck: result.deck?.name || '',
+            player: result.player?.name || '',
+            store: event?.store || '',
+            date: event?.isoDate || '',
+            format: event?.format || format,
+            returnView: 'meta',
+            returnFormat: format,
+            returnPeriod: month ? `month:${month}` : '',
+            returnStore: store
+        });
+    };
     return (
         <section className="view metagame-view">
-            <PageHeading
-                eyebrow={
-                    historical && historical !== current ? 'Histórico de formatos' : 'Cenário atual'
-                }
-                title="Metagame"
-                description="O que a comunidade joga e como os decks se saem nos torneios."
-            />
+            <div className="page-heading meta-page-heading">
+                <h1>Metagame</h1>
+            </div>
             <div className="meta-controls">
-                <div className="meta-format-heading">
-                    <div>
-                        <span className="overview-eyebrow">
-                            {historical && historical !== current
-                                ? 'Formato histórico'
-                                : 'Formato atual'}
-                        </span>
-                        <h2>{window.liveData.formatLabel(format, data.formats)}</h2>
-                    </div>
+                <div className="meta-filter-bar">
                     <Select
                         label="Formato"
                         value={format}
@@ -136,8 +200,7 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                 }))
                         ]}
                     />
-                </div>
-                <div className="meta-filters">
+
                     <Select
                         label="Período"
                         value={month}
@@ -181,45 +244,99 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                 </div>
             ) : (
                 <>
-                    <Metrics
-                        rows={[
-                            [
-                                'Torneios',
-                                events.length,
-                                month ? monthLabel(month) : 'Todo o formato'
-                            ],
-                            [
-                                'Participações',
-                                model.results.length,
-                                `${model.players.length} jogadores distintos`
-                            ],
-                            [
-                                'Decks identificados',
-                                model.decks.length,
-                                `${model.known.length} participações com deck`
-                            ]
-                        ]}
-                    />
-                    <p className="meta-coverage meta-record-coverage">
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                        >
-                            <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
-                            <path d="m9 12 2 2 4-4" />
-                        </svg>
-                        <span>
-                            {model.complete.size} de {events.length} torneios com classificação
-                            completa · decks identificados em {model.known.length} de{' '}
-                            {model.deckExpected} participações elegíveis. Eventos sem deck ficam
-                            fora da análise de metagame.
-                        </span>
-                    </p>
+                    <div className={`meta-summary ${tab === 'lists' ? 'meta-summary-lists' : ''}`}>
+                        <div className="meta-summary-stats">
+                            <h2>
+                                {tab === 'community'
+                                    ? 'Atividade da comunidade'
+                                    : 'Decks e metagame'}
+                            </h2>
+                            <div className="meta-kpis">
+                                {(tab === 'community'
+                                    ? [
+                                          ['Torneios', events.length],
+                                          [
+                                              'Média por torneio',
+                                              events.length
+                                                  ? (entries / events.length).toLocaleString(
+                                                        'pt-BR',
+                                                        { maximumFractionDigits: 1 }
+                                                    )
+                                                  : '—'
+                                          ],
+                                          ['Participações', entries],
+                                          ['Último evento', latest?.date || '—']
+                                      ]
+                                    : [
+                                          ['Decks', model.decks.length],
+                                          ['Participações', model.known.length],
+                                          ['Mais utilizado', leaders[0]?.name || '—'],
+                                          [
+                                              'Meta do líder',
+                                              percent(leaders[0]?.count || 0, model.known.length)
+                                          ]
+                                      ]
+                                ).map(([label, value]) => (
+                                    <div className="meta-kpi" key={label}>
+                                        <span>{label}</span>
+                                        <strong>{value}</strong>
+                                    </div>
+                                ))}
+                            </div>
+                            {tab !== 'community' &&
+                                leaders.length > 1 &&
+                                leaders[0].count === leaders[1].count && (
+                                    <p className="meta-tie">Liderança compartilhada</p>
+                                )}
+                        </div>
+                        {tab === 'meta' && leaders.length > 0 && (
+                            <div className="meta-chart">
+                                <h2>Top 10 decks</h2>
+                                {leaders.map((r) => (
+                                    <button
+                                        key={r.id}
+                                        onClick={() => setDetail(r.id)}
+                                        className="meta-chart-row"
+                                    >
+                                        <span>{r.name}</span>
+                                        <span className="meta-chart-track">
+                                            <i
+                                                style={{
+                                                    width: `${(100 * r.count) / leaders[0].count}%`,
+                                                    background: deckBarColor(r.primaryColor)
+                                                }}
+                                            />
+                                        </span>
+                                        <strong>{percent(r.count, model.known.length)}</strong>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {tab === 'community' && activity.weeks.length > 0 && (
+                            <div className="meta-chart">
+                                <h2>Torneios por semana</h2>
+                                <div className="meta-week-chart">
+                                    {activity.weeks.map(([week, count]) => (
+                                        <div
+                                            key={week}
+                                            className="meta-week"
+                                            title={`Semana de ${window.liveData.displayDate(week)}: ${count} torneios`}
+                                        >
+                                            <strong>{count}</strong>
+                                            <div className="meta-week-track">
+                                                <i
+                                                    style={{
+                                                        height: `${(100 * count) / Math.max(1, ...activity.weeks.map(([, n]) => n))}%`
+                                                    }}
+                                                />
+                                            </div>
+                                            <span>{window.liveData.displayDate(week)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <div className="analysis-tabs" aria-label="Análises">
                         {[
                             ['meta', 'Metagame'],
@@ -231,6 +348,7 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                 aria-pressed={tab === value}
                                 onClick={() => {
                                     setTab(value);
+                                    setListDeck('');
                                     setQuery('');
                                 }}
                             >
@@ -249,7 +367,7 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                         <label>
                             Buscar{' '}
                             {tab === 'community'
-                                ? 'jogador'
+                                ? 'jogador ou loja'
                                 : tab === 'lists'
                                   ? 'deck ou jogador'
                                   : 'deck'}
@@ -262,28 +380,32 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                         </label>
                         {tab === 'meta' && (
                             <Select
-                                label="Ordenar"
-                                value={sort}
-                                onChange={setSort}
+                                label="Amostra mínima"
+                                value={minimum}
+                                onChange={setMinimum}
                                 options={[
-                                    { value: 'count', label: 'Mais utilizados' },
-                                    { value: 'titles', label: 'Mais títulos' },
-                                    { value: 'conversion', label: 'Conversão em títulos' }
+                                    { value: '0', label: 'Todos os decks' },
+                                    { value: '5', label: '5 participações' },
+                                    { value: '10', label: '10 participações' }
                                 ]}
                             />
                         )}
+                        <span className="meta-result-count">
+                            {tab === 'meta'
+                                ? `${rows.length} de ${model.decks.length} decks`
+                                : tab === 'community'
+                                  ? `${playerRows.length} jogadores · ${storeRows.length} lojas`
+                                  : `${lists.length} participações com listas`}
+                        </span>
                     </div>
+                    {tab === 'lists' && listDeck && (
+                        <button className="button secondary" onClick={() => setListDeck('')}>
+                            Mostrar listas de todos os decks
+                        </button>
+                    )}
                     {tab === 'meta' ? (
                         <div className="meta-table-scroll">
                             <table className="meta-results-table meta-deck-table">
-                                <colgroup>
-                                    <col className="meta-col-deck" />
-                                    <col className="meta-col-share" />
-                                    <col />
-                                    <col />
-                                    <col />
-                                    <col />
-                                </colgroup>
                                 <thead>
                                     <tr>
                                         <th>Deck</th>
@@ -295,7 +417,8 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                                 Participações {sort === 'count' ? '↓' : ''}
                                             </button>
                                         </th>
-                                        <th>Jogadores</th>
+                                        {sortHeader('Meta %', 'count', sort, setSort)}
+                                        {sortHeader('Jogadores', 'players', sort, setSort)}
                                         <th aria-sort={sort === 'titles' ? 'descending' : 'none'}>
                                             <button
                                                 className="meta-sort-button"
@@ -317,8 +440,14 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                             </button>
                                         </th>
                                         <th title="Somente torneios completos com pelo menos 8 participantes">
-                                            Top 4 <small>8+ players</small>
+                                            <button
+                                                className="meta-sort-button"
+                                                onClick={() => setSort('top4')}
+                                            >
+                                                Top 4 {sort === 'top4' ? '↓' : ''}
+                                            </button>
                                         </th>
+                                        {sortHeader('Listas', 'lists', sort, setSort)}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -333,22 +462,24 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                                         {String(start + index + 1).padStart(2, '0')}
                                                     </span>
                                                     <Portrait image={r.image} />
-                                                    <span>{r.name}</span>
+                                                    <span className="meta-deck-name">
+                                                        {r.name}
+                                                        <DeckColors colors={r.colors} />
+                                                    </span>
                                                 </button>
                                             </th>
                                             <td>
                                                 <strong>{r.count}</strong>
-                                                <span>
-                                                    {percent(r.count, model.known.length)} do meta
-                                                </span>
-                                                <div className="meta-share-bar">
+                                                <div className="meta-share-bar" aria-hidden="true">
                                                     <i
                                                         style={{
-                                                            width: `${model.known.length ? (r.count / model.known.length) * 100 : 0}%`
+                                                            width: `${(100 * r.count) / mostEntries}%`,
+                                                            background: deckBarColor(r.primaryColor)
                                                         }}
                                                     />
                                                 </div>
                                             </td>
+                                            <td>{percent(r.count, model.known.length)}</td>
                                             <td>{r.players.size}</td>
                                             <td>
                                                 <span
@@ -357,21 +488,47 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                                                     {r.titles}
                                                 </span>
                                             </td>
-                                            <td>
-                                                {percent(r.titles, r.eligible)}
-                                                <span>
-                                                    {r.titles} de {r.eligible}
+                                            <td className="meta-rate">
+                                                {percent(r.titles, r.eligible)}{' '}
+                                                <span className="meta-rate-base">
+                                                    ({r.titles}/{r.eligible})
                                                 </span>
                                             </td>
-                                            <td>
-                                                {percent(r.top4, r.topEligible)}
-                                                <span>
-                                                    {r.top4} de {r.topEligible}
+                                            <td
+                                                className="meta-rate"
+                                                title={
+                                                    r.topEligible > 0 && r.topEligible < 5
+                                                        ? 'Amostra pequena: menos de 5 participações elegíveis'
+                                                        : undefined
+                                                }
+                                            >
+                                                {percent(r.top4, r.topEligible)}{' '}
+                                                <span className="meta-rate-base">
+                                                    ({r.top4}/{r.topEligible})
                                                 </span>
                                                 {r.topEligible > 0 && r.topEligible < 5 && (
-                                                    <small className="meta-small-sample">
-                                                        Amostra pequena
-                                                    </small>
+                                                    <span
+                                                        className="meta-sample-marker"
+                                                        aria-label="Amostra pequena"
+                                                    >
+                                                        *
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                {r.lists ? (
+                                                    <button
+                                                        className="meta-text-button"
+                                                        onClick={() => {
+                                                            setTab('lists');
+                                                            setQuery('');
+                                                            setListDeck(r.id);
+                                                        }}
+                                                    >
+                                                        {r.lists} ↗
+                                                    </button>
+                                                ) : (
+                                                    '—'
                                                 )}
                                             </td>
                                         </tr>
@@ -380,67 +537,172 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                             </table>
                         </div>
                     ) : tab === 'community' ? (
-                        <>
-                            <div className="meta-months">
-                                <h2>Atividade da comunidade</h2>
-                                {months
-                                    .slice()
-                                    .reverse()
-                                    .map((m) => {
-                                        const es = base.filter((e) => e.isoDate.startsWith(m));
-                                        return (
-                                            <div key={m}>
-                                                <strong>{monthLabel(m)}</strong>
-                                                <span>
-                                                    {es.length} torneios ·{' '}
-                                                    {es.reduce((s, e) => s + e.players, 0)}{' '}
-                                                    participações · média{' '}
-                                                    {es.length
-                                                        ? (
-                                                              es.reduce(
-                                                                  (s, e) => s + e.players,
-                                                                  0
-                                                              ) / es.length
-                                                          ).toFixed(1)
-                                                        : '—'}{' '}
-                                                    por torneio
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                            </div>
-                            <div className="meta-table-scroll">
-                                <table className="meta-results-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Jogador</th>
-                                            <th>Participações</th>
-                                            <th>Títulos</th>
-                                            <th>Último evento</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {playerRows.slice(start, start + size).map((r) => (
-                                            <tr key={r.id}>
-                                                <th>
-                                                    <button
-                                                        className="meta-text-button"
-                                                        onClick={() =>
-                                                            go('players', { playerId: r.id })
-                                                        }
-                                                    >
-                                                        {r.name}
-                                                    </button>
-                                                </th>
-                                                <td>{r.count}</td>
-                                                <td>{r.titles}</td>
-                                                <td>{window.liveData.displayDate(r.last)}</td>
+                        <div className="meta-community-grid">
+                            <section className="meta-dashboard-panel">
+                                <h2 className="meta-section-title">Lojas</h2>
+                                <div className="meta-table-scroll">
+                                    <table className="meta-results-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Loja</th>
+                                                {sortHeader(
+                                                    'Torneios',
+                                                    'count',
+                                                    storeSort,
+                                                    setStoreSort
+                                                )}
+                                                {sortHeader(
+                                                    'Participações',
+                                                    'entries',
+                                                    storeSort,
+                                                    setStoreSort
+                                                )}
+                                                {sortHeader(
+                                                    'Média por torneio',
+                                                    'average',
+                                                    storeSort,
+                                                    setStoreSort
+                                                )}
+                                                {sortHeader(
+                                                    'Último evento',
+                                                    'last',
+                                                    storeSort,
+                                                    setStoreSort
+                                                )}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </>
+                                        </thead>
+                                        <tbody>
+                                            {storeRows.map((r) => (
+                                                <tr key={r.id}>
+                                                    <th>
+                                                        <button
+                                                            className="meta-text-button"
+                                                            onClick={() =>
+                                                                context.navigate('tournaments', {
+                                                                    format,
+                                                                    store: r.id,
+                                                                    ...(month
+                                                                        ? {
+                                                                              period: `month:${month}`
+                                                                          }
+                                                                        : {})
+                                                                })
+                                                            }
+                                                        >
+                                                            {r.name}
+                                                        </button>
+                                                    </th>
+                                                    <td>{r.count}</td>
+                                                    <td>{r.entries}</td>
+                                                    <td>
+                                                        {(r.entries / r.count).toLocaleString(
+                                                            'pt-BR',
+                                                            {
+                                                                maximumFractionDigits: 1
+                                                            }
+                                                        )}
+                                                    </td>
+                                                    <td>{window.liveData.displayDate(r.last)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {!storeRows.length && (
+                                    <p className="meta-empty">
+                                        Nenhuma loja encontrada neste recorte.
+                                    </p>
+                                )}
+                            </section>
+                            <section className="meta-dashboard-panel">
+                                <h2 className="meta-section-title">Jogadores</h2>
+                                <div className="meta-table-scroll">
+                                    <table className="meta-results-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Jogador</th>
+                                                {sortHeader(
+                                                    'Participações',
+                                                    'count',
+                                                    communitySort,
+                                                    setCommunitySort
+                                                )}
+                                                {sortHeader(
+                                                    'Títulos',
+                                                    'titles',
+                                                    communitySort,
+                                                    setCommunitySort
+                                                )}
+                                                {sortHeader(
+                                                    'Top 4',
+                                                    'top4',
+                                                    communitySort,
+                                                    setCommunitySort
+                                                )}
+                                                <th>Deck mais utilizado</th>
+                                                {sortHeader(
+                                                    'Último evento',
+                                                    'last',
+                                                    communitySort,
+                                                    setCommunitySort
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {playerRows.slice(start, start + size).map((r) => (
+                                                <tr key={r.id}>
+                                                    <th>
+                                                        <button
+                                                            className="meta-text-button"
+                                                            onClick={() =>
+                                                                go('players', { playerId: r.id })
+                                                            }
+                                                        >
+                                                            {r.name}
+                                                        </button>
+                                                    </th>
+                                                    <td>{r.count}</td>
+                                                    <td>{r.titles}</td>
+                                                    <td
+                                                        title={`${r.topEligible} participações elegíveis`}
+                                                    >
+                                                        {r.top4}
+                                                    </td>
+                                                    <td>
+                                                        {[...r.decks.values()]
+                                                            .filter(
+                                                                (d) =>
+                                                                    d.count ===
+                                                                    Math.max(
+                                                                        ...[
+                                                                            ...r.decks.values()
+                                                                        ].map((d) => d.count)
+                                                                    )
+                                                            )
+                                                            .map((d) => (
+                                                                <button
+                                                                    key={d.id}
+                                                                    className="meta-text-button meta-player-deck"
+                                                                    onClick={() =>
+                                                                        go('decks', {
+                                                                            deckId: d.id
+                                                                        })
+                                                                    }
+                                                                >
+                                                                    {d.name}{' '}
+                                                                    <small>({d.count})</small>
+                                                                </button>
+                                                            ))}
+                                                        {!r.decks.size && '—'}
+                                                    </td>
+                                                    <td>{window.liveData.displayDate(r.last)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        </div>
                     ) : (
                         <>
                             <p className="meta-coverage">
@@ -449,12 +711,7 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                             </p>
                             <div className="meta-list-cards">
                                 {lists.slice(start, start + size).map((r) => (
-                                    <button
-                                        key={r.id}
-                                        onClick={() =>
-                                            go('builder', { resultId: r.id, returnView: 'meta' })
-                                        }
-                                    >
+                                    <button key={r.id} onClick={() => openList(r)}>
                                         <strong>{r.deck?.name || 'Deck não informado'}</strong>
                                         <span>
                                             {r.player?.name || 'Jogador não informado'} ·{' '}
@@ -488,6 +745,18 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                     <details className="meta-methodology">
                         <summary>Como interpretar os dados</summary>
                         <p>
+                            {model.complete.size}/{events.length} torneios com classificação
+                            completa. Decks identificados em {model.known.length}/
+                            {model.deckExpected} participações elegíveis. Eventos sem deck ficam
+                            fora do metagame.
+                        </p>
+                        <p>
+                            Os valores entre parênteses mostram resultado/base da taxa. * indica
+                            menos de cinco participações elegíveis. Semanas começam na
+                            segunda-feira. As listas disponíveis representam somente a amostra
+                            cadastrada.
+                        </p>
+                        <p>
                             Popularidade conta participações com deck identificado. Conversão é a
                             proporção de participações que terminaram em título, somente em
                             classificações completas. Top 4 considera torneios completos com pelo
@@ -499,82 +768,123 @@ export function MetagamePage({ context }: { context: MicroContext }) {
                     </details>
                     {selected && (
                         <Dialog title={selected.name} wide onClose={() => setDetail('')}>
-                            <MetaProfileSummary
-                                count={selected.count}
-                                share={percent(selected.count, model.known.length)}
-                                players={selected.players.size}
-                                titles={selected.titles}
-                            />
-                            <button
-                                className="button secondary"
-                                onClick={() => go('decks', { deckId: selected.id })}
-                            >
-                                Ver deck ↗
-                            </button>
-                            <div className="meta-months">
-                                <h3>Evolução mensal no formato</h3>
-                                {months
-                                    .slice()
-                                    .reverse()
-                                    .map((m) => {
-                                        const a = analyzeMeta(
-                                            base.filter((e) => e.isoDate.startsWith(m)),
-                                            records
-                                        );
-                                        const r = a.decks.find((d) => d.id === selected.id);
-                                        return (
-                                            <div key={m}>
-                                                <strong>{monthLabel(m)}</strong>
-                                                <span>
-                                                    {r?.count || 0} participações ·{' '}
-                                                    {percent(r?.count || 0, a.known.length)} do meta
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
+                            <div className="meta-deck-profile">
+                                <Portrait image={selected.image} className="art meta-deck-art" />
+                                <div className="meta-deck-profile-info">
+                                    <div className="meta-profile-identity">
+                                        <DeckColors colors={selected.colors} />
+                                        {selected.card && (
+                                            <span className="meta-card-code">{selected.card}</span>
+                                        )}
+                                    </div>
+                                    <MetaProfileSummary
+                                        count={selected.count}
+                                        share={percent(selected.count, model.known.length)}
+                                        players={selected.players.size}
+                                        titles={selected.titles}
+                                    />
+                                </div>
                             </div>
-                            <h3>Resultados recentes</h3>
-                            <div className="meta-detail-results">
-                                {model.known
-                                    .filter((r) => r.deck_id === selected.id)
-                                    .sort((a, b) =>
-                                        (
-                                            events.find((e) => e.id === String(b.tournament_id))
-                                                ?.isoDate || ''
-                                        ).localeCompare(
-                                            events.find((e) => e.id === String(a.tournament_id))
-                                                ?.isoDate || ''
-                                        )
-                                    )
-                                    .slice(0, 20)
-                                    .map((r) => (
-                                        <button
-                                            key={r.id}
-                                            onClick={() =>
-                                                go('tournaments', {
-                                                    tournament: String(r.tournament_id)
-                                                })
-                                            }
-                                        >
-                                            <strong>
-                                                {r.player?.name || 'Jogador não informado'}
-                                            </strong>
-                                            <span>
-                                                {r.placement}º ·{' '}
-                                                {
+                            <h3>Evolução mensal no formato</h3>
+                            <div className="meta-detail-table-scroll">
+                                <table className="meta-detail-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Mês</th>
+                                            <th>Participações</th>
+                                            <th>Meta %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {months
+                                            .slice()
+                                            .reverse()
+                                            .map((m) => {
+                                                const a = analyzeMeta(
+                                                    base.filter((e) => e.isoDate.startsWith(m)),
+                                                    records
+                                                );
+                                                const count =
+                                                    a.decks.find((d) => d.id === selected.id)
+                                                        ?.count || 0;
+                                                return (
+                                                    <tr key={m}>
+                                                        <th>{monthLabel(m)}</th>
+                                                        <td>{count}</td>
+                                                        <td>{percent(count, a.known.length)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <h3>Resultados e listas</h3>
+                            <div className="meta-detail-table-scroll">
+                                <table className="meta-detail-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos.</th>
+                                            <th>Jogador</th>
+                                            <th>Torneio</th>
+                                            <th>Lista</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {model.known
+                                            .filter((r) => r.deck_id === selected.id)
+                                            .sort((a, b) =>
+                                                (
                                                     events.find(
-                                                        (e) => e.id === String(r.tournament_id)
-                                                    )?.date
-                                                }{' '}
-                                                ·{' '}
-                                                {
+                                                        (e) => e.id === String(b.tournament_id)
+                                                    )?.isoDate || ''
+                                                ).localeCompare(
                                                     events.find(
-                                                        (e) => e.id === String(r.tournament_id)
-                                                    )?.store
-                                                }
-                                            </span>
-                                        </button>
-                                    ))}
+                                                        (e) => e.id === String(a.tournament_id)
+                                                    )?.isoDate || ''
+                                                )
+                                            )
+                                            .slice(0, 20)
+                                            .map((r) => {
+                                                const event = events.find(
+                                                    (e) => e.id === String(r.tournament_id)
+                                                );
+                                                return (
+                                                    <tr key={r.id}>
+                                                        <td>{r.placement}º</td>
+                                                        <th>
+                                                            {r.player?.name ||
+                                                                'Jogador não informado'}
+                                                        </th>
+                                                        <td>
+                                                            <button
+                                                                className="meta-table-link"
+                                                                onClick={() =>
+                                                                    go('tournaments', {
+                                                                        tournament: String(
+                                                                            r.tournament_id
+                                                                        )
+                                                                    })
+                                                                }
+                                                            >
+                                                                {event?.date} ·{' '}
+                                                                {event?.store || 'Abrir torneio'}
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                className="meta-table-link"
+                                                                onClick={() => openList(r)}
+                                                            >
+                                                                {r.decklists?.length
+                                                                    ? 'Ver lista ↗'
+                                                                    : 'Cadastrar ↗'}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
                             </div>
                         </Dialog>
                     )}

@@ -7,7 +7,7 @@ const nativeRoutes = {
         'Gerenciar torneios',
         'Cadastre torneios, importe resultados e acompanhe as classificações.'
     ],
-    decks: ['Decks', 'Gerencie o catálogo, imagens, cores e decklists.'],
+    decks: ['Deckbuilder', 'Escolha um torneio para cadastrar ou editar uma lista.'],
     players: ['Jogadores', 'Cadastros, apelidos Bandai / DigiLab e histórico de resultados.'],
     admin: ['Admin / DigiLab', 'Sincronização, lojas, agenda, formatos e ferramentas do cenário.'],
     statistics: ['Estatísticas', 'Cartas, rankings, campeões por loja e análises detalhadas.'],
@@ -45,8 +45,6 @@ function initNativeShell() {
         window.history.replaceState(window.history.state, '', cleanUrl);
         if (tournament && typeof openCreateTournamentModal === 'function')
             await openCreateTournamentModal();
-        else if (route === 'decks' && action === 'create-deck')
-            document.getElementById('btnOpenCreateDeckModal')?.click();
         else if (route === 'players' && action === 'create-player')
             document.getElementById('btnAddPlayer')?.click();
         window.sectionNavigation?.setCurrent(route);

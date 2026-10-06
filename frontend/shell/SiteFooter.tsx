@@ -73,6 +73,7 @@ export function SiteFooter() {
                             <span className="sidebar-support-label">Suporte</span>
                             <button
                                 className="sidebar-support-action"
+                                aria-label="Enviar sugestão"
                                 onClick={() => open('suggestion')}
                             >
                                 <svg
@@ -87,9 +88,13 @@ export function SiteFooter() {
                                     <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 4a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.4Z" />
                                     <path d="M8 10h8M8 14h5" />
                                 </svg>
-                                <span>Enviar sugestão</span>
+                                <span>Sugestão</span>
                             </button>
-                            <button className="sidebar-support-action" onClick={() => open('bug')}>
+                            <button
+                                className="sidebar-support-action"
+                                aria-label="Reportar bug"
+                                onClick={() => open('bug')}
+                            >
                                 <svg
                                     viewBox="0 0 24 24"
                                     fill="none"
@@ -105,7 +110,7 @@ export function SiteFooter() {
                                 <span>Reportar bug</span>
                             </button>
                             <button
-                                className="sidebar-support-action"
+                                className="sidebar-support-action sidebar-support-privacy"
                                 onClick={() => open('privacy')}
                             >
                                 <svg
@@ -120,7 +125,7 @@ export function SiteFooter() {
                                     <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
                                     <path d="m9 12 2 2 4-4" />
                                 </svg>
-                                <span>Política de privacidade</span>
+                                <span>Privacidade</span>
                             </button>
                             <div className="sidebar-social-links">
                                 <a
@@ -139,7 +144,8 @@ export function SiteFooter() {
                                     target="_blank"
                                     rel="noreferrer"
                                 >
-                                    <span className="sidebar-social-icon x" aria-hidden="true" />X
+                                    <span className="sidebar-social-icon x" aria-hidden="true" />
+                                    x.com
                                 </a>
                             </div>
                         </nav>

@@ -1816,7 +1816,7 @@ footer {
 }
 .sidebar-support {
     margin-top: auto;
-    padding-top: 28px;
+    padding-top: 16px;
 }
 .sidebar-support[hidden] {
     display: none;
@@ -1826,7 +1826,13 @@ footer {
     padding-top: 14px;
     border-top: 1px solid var(--line);
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
+}
+.sidebar-support-label,
+.sidebar-support-privacy,
+.sidebar-social-links {
+    grid-column: 1 / -1;
 }
 .sidebar-support nav :is(button, a) {
     display: inline-flex;
@@ -1866,17 +1872,18 @@ footer {
     opacity: 0.7;
 }
 .sidebar-support nav .sidebar-support-action {
-    padding: 8px;
+    padding: 6px 4px;
     border-radius: 8px;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
     text-align: left;
-    min-height: 36px;
+    min-height: 30px;
+    font-size: 11px;
 }
 .sidebar-support-action svg {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 16px;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
     color: var(--muted);
 }
 .sidebar-support nav .sidebar-support-action:hover {

@@ -7,6 +7,7 @@ import { readRoute, subscribeRoute, href, navigate } from './routes';
 import styles from './Shell.module.css';
 import { SiteFooter } from './SiteFooter';
 import { restoreAccent } from './ThemePicker';
+import { loadStylesheet } from './styles';
 import '../../shared/theme.css';
 import '../../demo-v2/styles.css';
 import '../../shared/presentation.css';
@@ -33,11 +34,8 @@ const sections: {
     },
     {
         key: 'decks',
-        label: 'Decks',
-        links: [
-            ['Catálogo de decks', 'decks'],
-            ['Cadastrar deck', 'decks', { action: 'create-deck' }]
-        ]
+        label: 'Deckbuilder',
+        links: [['Deckbuilder', 'decks']]
     },
     {
         key: 'players',
@@ -54,7 +52,7 @@ const labels: Record<RouteName, string> = {
     overview: 'Visão geral',
     tournaments: 'Torneios',
     meta: 'Metagame',
-    decks: 'Decks',
+    decks: 'Deckbuilder',
     players: 'Jogadores',
     admin: 'Admin / DigiLab',
     manage: 'Torneios',
@@ -87,7 +85,7 @@ function Shell() {
     useEffect(() => subscribeRoute(() => setRoute(readRoute())), []);
     const activeKey =
         (
-            { manage: 'tournaments', builder: 'tournaments', statistics: 'meta' } as Partial<
+            { manage: 'tournaments', builder: 'decks', statistics: 'meta' } as Partial<
                 Record<RouteName, string>
             >
         )[route.name] || route.name;
@@ -111,7 +109,9 @@ function Shell() {
         };
         (async () => {
             manifest.current ||= await (
-                await fetch(asset(`demo-v2/microfrontends.json?v=${scriptVersion}`), { cache: 'no-cache' })
+                await fetch(asset(`demo-v2/microfrontends.json?v=${scriptVersion}`), {
+                    cache: 'no-cache'
+                })
             ).json();
             if (cancelled) return;
             if (manifest.current?.apiVersion !== 1)
@@ -121,6 +121,12 @@ function Shell() {
             );
             if (!record) throw Error('Tela não encontrada.');
             const [name, config] = record;
+            await Promise.all(
+                (config.styles || []).map((path) =>
+                    loadStylesheet(path, manifest.current!.version, asset)
+                )
+            );
+            if (cancelled) return;
             for (const [id, item] of handles.current) {
                 item.element.hidden = id !== name;
                 item.element.id = id === name && name === 'builder' ? 'v2Tools' : '';
@@ -139,31 +145,8 @@ function Shell() {
             if (!handles.current.has(name)) {
                 const entry = new URL(asset(config.entry));
                 if (retry) entry.searchParams.set('retry', String(retry));
-                // Start the module and styles together instead of waiting for CSS first.
+                // Mount only after the styles for this build are ready.
                 const moduleRequest = import(/* @vite-ignore */ entry.href) as Promise<MicroModule>;
-                // Keep a failed early import handled while the styles are loading.
-                void moduleRequest.catch(() => {});
-                await Promise.all(
-                    (config.styles || []).map(
-                        (path) =>
-                            new Promise<void>((resolve, reject) => {
-                                if (document.querySelector(`link[data-mfe-style="${path}"]`))
-                                    return resolve();
-                                const link = document.createElement('link');
-                                link.rel = 'stylesheet';
-                                const styleUrl = new URL(asset(path));
-                                styleUrl.searchParams.set('v', scriptVersion);
-                                link.href = styleUrl.href;
-                                link.dataset.mfeStyle = path;
-                                link.onload = () => resolve();
-                                link.onerror = () => {
-                                    link.remove();
-                                    reject(Error('Falha ao carregar os estilos.'));
-                                };
-                                document.head.append(link);
-                            })
-                    )
-                );
                 if (cancelled) return;
                 const module = await moduleRequest;
                 if (cancelled) return;

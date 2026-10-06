@@ -29,6 +29,7 @@ before(async () => {
         queue.slice(queue.indexOf('create table'), queue.indexOf('select cron.unschedule'))
     );
     await db.exec(read('20260924010000_reliable_digilab_sync'));
+    await db.exec(read('20261005040000_require_digilab_tournament_format'));
 });
 after(async () => {
     if (db) await db.close();
@@ -38,6 +39,30 @@ const standing = (name, placement, deck = 'Rosemon') => ({
     deck: { name: deck, slug: deck.toLowerCase() },
     placement,
     record: { wins: 1, ties: 0 }
+});
+
+test('missing source format never assigns the local default to a historical event', async () => {
+    await db.query(
+        "insert into formats(code,name,is_active,is_default) values('EX12','Default',true,true) on conflict(code) do update set is_default=true"
+    );
+    await assert.rejects(
+        sync(99999, [standing('Missing format player', 1)], '2024-01-01', { format: null }),
+        /Formato DigiLab ausente/
+    );
+    assert.equal(
+        (
+            await db.query(
+                "select count(*)::int n from tournament where tournament_date='2024-01-01'"
+            )
+        ).rows[0].n,
+        0
+    );
+    assert.equal(
+        (await db.query("select count(*)::int n from players where name='Missing format player'"))
+            .rows[0].n,
+        0
+    );
+    await db.query("delete from formats where code='EX12'");
 });
 async function sync(id, rows, date = '2026-09-24', overrides = {}) {
     const tournament = {

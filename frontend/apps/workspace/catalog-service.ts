@@ -40,6 +40,20 @@ export interface TournamentResultRecord {
     player?: { name: string; bandai_id?: string; digilab_name?: string };
     deck?: { name: string };
 }
+export interface BuilderResultRecord extends TournamentResultRecord {
+    deck?: { name: string; deck_images?: { image_url: string }[] };
+    tournament_id: string | number | null;
+    tournament_date: string;
+    store_id: string | number;
+    decklists?: { id: string }[];
+    decklist?: string | null;
+}
+export function loadBuilderResults(signal?: AbortSignal) {
+    return readRows<BuilderResultRecord>(
+        '/rest/v1/tournament_results?select=id,tournament_id,tournament_date,store_id,placement,decklist,player:players(name,bandai_id,digilab_name),deck:decks(name,deck_images(image_url)),decklists(id)&order=tournament_date.desc,placement.asc,id.asc',
+        signal
+    );
+}
 export async function loadTournamentResults(
     event: Tournament,
     events: Tournament[],
@@ -79,6 +93,11 @@ export const deckColors = [
     { code: 'y', label: 'Amarelo', color: '#e3c54c' },
     { code: 'p', label: 'Roxo', color: '#b074d9' }
 ];
+export function orderedDeckColors(colors: string) {
+    return [...new Set(colors.split(',').map((code) => code.trim().toLowerCase()))]
+        .map((code) => deckColors.find((color) => color.code === code))
+        .filter((color) => color !== undefined);
+}
 export function normalizeSearch(value: unknown) {
     return String(value || '')
         .normalize('NFD')
@@ -219,9 +238,10 @@ export async function loadHistory(
 ) {
     const field = kind === 'players' ? 'player_id' : 'deck_id';
     const path = `/rest/v1/tournament_results?${field}=eq.${encodeURIComponent(id)}&select=*,store:stores(name),deck:decks(name),player:players(name),decklists(id)`;
-    return request<HistoryRecord[]>(path + '&order=tournament_date.desc,placement.asc&limit=200', {
+    return readRows<HistoryRecord>(
+        path + '&order=tournament_date.desc,placement.asc,id.asc',
         signal
-    });
+    );
 }
 export function loadHistoryDecklists(resultId: string | number, signal?: AbortSignal) {
     return request<NonNullable<HistoryRecord['decklists']>>(

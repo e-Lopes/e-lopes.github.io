@@ -28,7 +28,9 @@ const STATS_COLUMN_WIDTHS_STORAGE_KEY = 'dashboardStatisticsColumnWidths';
 const POST_PREVIEW_STATE_KEY = 'digistats.post-preview.state.v1';
 const OCR_API_BASE_URL = 'https://digimon-ocr-api.vercel.app';
 const DIGIMON_CARD_API_URL = 'https://digimoncard.io/api-public/search';
-const DIGILAB_BACKGROUND_INTERVAL_MS = 15 * 60 * 1000;
+const DIGILAB_BACKGROUND_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// 01h Brasília = 04h UTC, repeated every six hours.
+const DIGILAB_BACKGROUND_OFFSET_MS = 4 * 60 * 60 * 1000;
 const DIGILAB_BACKGROUND_REFRESH_DELAY_MS = 35 * 1000;
 const ENABLE_TOP_CARDS_API_LOOKUP = window.APP_CONFIG?.ENABLE_TOP_CARDS_API_LOOKUP !== false;
 const IMAGE_BASE_URL = 'https://deckbuilder.egmanevents.com/card_images/digimon/';
@@ -1194,7 +1196,11 @@ async function refreshTournamentListAfterExternalChange() {
 }
 
 function getDigilabCycleStart(timestamp = Date.now()) {
-    return Math.floor(timestamp / DIGILAB_BACKGROUND_INTERVAL_MS) * DIGILAB_BACKGROUND_INTERVAL_MS;
+    return (
+        Math.floor((timestamp - DIGILAB_BACKGROUND_OFFSET_MS) / DIGILAB_BACKGROUND_INTERVAL_MS) *
+            DIGILAB_BACKGROUND_INTERVAL_MS +
+        DIGILAB_BACKGROUND_OFFSET_MS
+    );
 }
 
 function refreshTournamentListAfterScheduledDigilabSync() {
@@ -1241,9 +1247,10 @@ function updateDigilabSyncCountdown() {
 
     const nextCycle = cycleStart + DIGILAB_BACKGROUND_INTERVAL_MS;
     const remainingSeconds = Math.max(0, Math.ceil((nextCycle - now) / 1000));
-    const minutes = Math.floor(remainingSeconds / 60);
+    const hours = Math.floor(remainingSeconds / 3600);
+    const minutes = Math.floor((remainingSeconds % 3600) / 60);
     const seconds = remainingSeconds % 60;
-    countdown.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    countdown.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     hint.textContent = 'Próxima busca automática';
 }
 

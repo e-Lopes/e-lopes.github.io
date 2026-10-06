@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react';
+import { playerStatistics } from './player-statistics';
 import type { MicroContext } from '../../contracts';
-import { useData, Loader } from '../../shared/runtime';
+import { Loader } from '../../shared/runtime';
 import { PageHeading } from '../../shared/PageHeading';
+import { DeckColors } from '../../shared/DeckColors';
 import { Portrait } from '../../shared/cards';
 import { Select } from '../../shared/Select';
 import { ActionMenu, Dialog, EmptyState, ListToolbar, Pagination } from '../../shared/ListPage';
 import {
     cardCode,
-    deckColors,
-    loadDecklistIds,
-    loadDecks,
     loadHistory,
     loadHistoryDecklists,
     loadPlayers,
     normalizeSearch,
     paginate,
     request,
-    saveDeck,
     savePlayer,
     setActivity,
     type DeckRecord,
@@ -27,6 +25,7 @@ import {
 function useRecords<T>(load: (signal: AbortSignal) => Promise<T[]>, active: boolean, key: string) {
     const [items, setItems] = useState<T[]>([]),
         [loading, setLoading] = useState(true),
+        [loadedKey, setLoadedKey] = useState(''),
         [error, setError] = useState(''),
         [revision, setRevision] = useState(0);
     useEffect(() => {
@@ -42,11 +41,19 @@ function useRecords<T>(load: (signal: AbortSignal) => Promise<T[]>, active: bool
                 if (!controller.signal.aborted) setError(error.message);
             })
             .finally(() => {
-                if (!controller.signal.aborted) setLoading(false);
+                if (!controller.signal.aborted) {
+                    setLoadedKey(key);
+                    setLoading(false);
+                }
             });
         return () => controller.abort();
     }, [active, key, revision]);
-    return { items, loading, error, refresh: () => setRevision((value) => value + 1) };
+    return {
+        items: loadedKey === key ? items : [],
+        loading: loading || loadedKey !== key,
+        error: loadedKey === key ? error : '',
+        refresh: () => setRevision((value) => value + 1)
+    };
 }
 function usePageSize(key: string) {
     const [size, changeSize] = useState(() => {
@@ -80,17 +87,7 @@ function LoadError({ error, retry }: { error: string; retry(): void }) {
     ) : null;
 }
 function Colors({ colors }: { colors?: string }) {
-    return (
-        <span className="catalog-colors">
-            {deckColors
-                .filter((color) => colors?.split(',').includes(color.code))
-                .map((color) => (
-                    <span key={color.code} style={{ background: color.color }} title={color.label}>
-                        <span className="sr-only">{color.label}</span>
-                    </span>
-                ))}
-        </span>
-    );
+    return <DeckColors colors={colors || ''} />;
 }
 export function PlayersPage({ context }: { context: MicroContext }) {
     const records = useRecords(loadPlayers, context.active, 'players');
@@ -266,242 +263,7 @@ export function PlayersPage({ context }: { context: MicroContext }) {
         </section>
     );
 }
-export function DecksPage({ context }: { context: MicroContext }) {
-    const snapshot = useData(context.data);
-    const records = useRecords((signal) => loadDecks(context, signal), context.active, 'decks');
-    const [query, setQuery] = useState(''),
-        [color, setColor] = useState(''),
-        [format, setFormat] = useState(''),
-        [onlyLists, setOnlyLists] = useState(false),
-        [view, setView] = useState('list'),
-        [page, setPage] = useState(1),
-        [size, setSize] = usePageSize('decksPageSize');
-    const [listIds, setListIds] = useState<Set<string> | null>(null),
-        [listError, setListError] = useState(''),
-        [listRevision, setListRevision] = useState(0);
-    const [selected, setSelected] = useState<DeckRecord | null>(null),
-        [editing, setEditing] = useState<Partial<DeckRecord> | null>(null),
-        [confirming, setConfirming] = useState<DeckRecord | null>(null),
-        [notice, setNotice] = useState('');
-    useEffect(() => {
-        setPage(1);
-    }, [query, color, format, onlyLists, size]);
-    useEffect(() => {
-        if (!context.active || !onlyLists || listIds) return;
-        const controller = new AbortController();
-        setListError('');
-        loadDecklistIds(controller.signal)
-            .then(setListIds)
-            .catch((error) => {
-                if (!controller.signal.aborted) setListError(error.message);
-            });
-        return () => controller.abort();
-    }, [context.active, onlyLists, listIds, listRevision]);
-    useEffect(() => {
-        if (!context.active) {
-            setSelected(null);
-            setEditing(null);
-            setConfirming(null);
-            return;
-        }
-        const id = context.route.params.get('deckId');
-        if (id) setSelected(records.items.find((deck) => String(deck.id) === id) || null);
-    }, [context.active, context.route, records.items]);
-    useEffect(() => {
-        if (context.active && context.route.params.get('action') === 'create-deck') setEditing({});
-    }, [context.active, context.route]);
-    const filtered = records.items.filter(
-        (deck) =>
-            normalizeSearch(`${deck.name} ${deck.code}`).includes(normalizeSearch(query)) &&
-            (!color || deck.colors?.split(',').includes(color)) &&
-            (!format ||
-                snapshot.data.events.some(
-                    (event) =>
-                        event.format === format &&
-                        event.results.some(
-                            (result) => normalizeSearch(result.deck) === normalizeSearch(deck.name)
-                        )
-                )) &&
-            (!onlyLists || !listIds || listIds.has(String(deck.id)))
-    );
-    const paging = paginate(filtered, page, size);
-    return (
-        <section className="catalog-app">
-            <div className="catalog-heading">
-                <PageHeading
-                    eyebrow="Biblioteca da comunidade"
-                    title="Decks"
-                    description="Explore o catálogo, as decklists e o histórico dos decks."
-                />
-                <button className="button primary" onClick={() => setEditing({})}>
-                    + Adicionar deck
-                </button>
-            </div>
-            <ListToolbar
-                query={query}
-                onQuery={setQuery}
-                placeholder="Buscar deck ou código da carta"
-                count={Number(!!color) + Number(!!format) + Number(onlyLists)}
-                trailing={
-                    <div className="catalog-view-switch" aria-label="Visualização">
-                        <button
-                            className={`button secondary${view === 'list' ? ' is-active' : ''}`}
-                            aria-pressed={view === 'list'}
-                            onClick={() => setView('list')}
-                        >
-                            Lista
-                        </button>
-                        <button
-                            className={`button secondary${view === 'grid' ? ' is-active' : ''}`}
-                            aria-pressed={view === 'grid'}
-                            onClick={() => setView('grid')}
-                        >
-                            Grade
-                        </button>
-                    </div>
-                }
-                filters={
-                    <>
-                        <Select
-                            label="Cor"
-                            value={color}
-                            onChange={setColor}
-                            options={[
-                                { value: '', label: 'Todas as cores' },
-                                ...deckColors.map((color) => ({
-                                    value: color.code,
-                                    label: color.label
-                                }))
-                            ]}
-                        />
-                        <Select
-                            label="Formato em que foi utilizado"
-                            value={format}
-                            onChange={setFormat}
-                            options={[
-                                { value: '', label: 'Todos os formatos' },
-                                ...snapshot.data.formats.map((format) => ({
-                                    value: format.code,
-                                    label: format.code
-                                }))
-                            ]}
-                        />
-                        <label className="list-checkbox">
-                            <input
-                                type="checkbox"
-                                checked={onlyLists}
-                                onChange={(event) => setOnlyLists(event.target.checked)}
-                            />
-                            Apenas com decklist
-                        </label>
-                        {(color || format || onlyLists) && (
-                            <button
-                                className="button secondary"
-                                onClick={() => {
-                                    setColor('');
-                                    setFormat('');
-                                    setOnlyLists(false);
-                                }}
-                            >
-                                Limpar filtros
-                            </button>
-                        )}
-                    </>
-                }
-            />
-            {notice && (
-                <p className="catalog-notice" role="status">
-                    {notice}
-                </p>
-            )}
-            <LoadError error={records.error} retry={records.refresh} />
-            <LoadError error={listError} retry={() => setListRevision((value) => value + 1)} />
-            {(records.loading && !records.items.length) || (onlyLists && !listIds && !listError) ? (
-                <Loader text="Carregando catálogo…" />
-            ) : onlyLists && !listIds && listError ? (
-                <EmptyState>
-                    Não foi possível aplicar o filtro de decklists. Tente novamente ou desmarque
-                    esse filtro.
-                </EmptyState>
-            ) : (
-                <>
-                    <p className="catalog-count">{filtered.length} decks encontrados</p>
-                    <div className={`catalog-list${view === 'grid' ? ' catalog-grid' : ''}`}>
-                        {paging.items.map((deck) => (
-                            <article className="catalog-row" key={deck.id}>
-                                <button className="catalog-item" onClick={() => setSelected(deck)}>
-                                    <Portrait image={deck.image} />
-                                    <span className="catalog-identity">
-                                        <strong>{deck.name}</strong>
-                                        <span>{deck.code || 'Código não identificado'}</span>
-                                    </span>
-                                    <Colors colors={deck.colors} />
-                                </button>
-                                <ActionMenu label={deck.name}>
-                                    <button onClick={() => setSelected(deck)}>Ver detalhes</button>
-                                    <button onClick={() => setEditing(deck)}>Editar deck</button>
-                                    <button onClick={() => setConfirming(deck)}>
-                                        Inativar deck
-                                    </button>
-                                </ActionMenu>
-                            </article>
-                        ))}
-                    </div>
-                    {!filtered.length && !records.error && (
-                        <EmptyState>
-                            Nenhum deck encontrado. Tente outra busca ou limpe os filtros.
-                        </EmptyState>
-                    )}
-                    <Pagination
-                        page={paging.page}
-                        pages={paging.totalPages}
-                        total={filtered.length}
-                        size={size}
-                        onPage={setPage}
-                        onSize={setSize}
-                    />
-                </>
-            )}
-            {selected && (
-                <RecordDetails
-                    context={context}
-                    kind="decks"
-                    record={selected}
-                    onClose={() => setSelected(null)}
-                    onEdit={() => {
-                        setSelected(null);
-                        setEditing(selected);
-                    }}
-                />
-            )}
-            {editing && (
-                <DeckForm
-                    context={context}
-                    deck={editing}
-                    onClose={() => setEditing(null)}
-                    onSaved={() => {
-                        setEditing(null);
-                        records.refresh();
-                        setListIds(null);
-                        setNotice('Deck salvo.');
-                    }}
-                />
-            )}
-            {confirming && (
-                <ActivityDialog
-                    kind="decks"
-                    record={confirming}
-                    onClose={() => setConfirming(null)}
-                    onSaved={() => {
-                        setConfirming(null);
-                        records.refresh();
-                        setNotice('Deck inativado. O histórico foi preservado.');
-                    }}
-                />
-            )}
-        </section>
-    );
-}
+export { DecksPage } from './DeckbuilderPage';
 function PlayerForm({
     player,
     onClose,
@@ -579,157 +341,6 @@ function PlayerForm({
         </Dialog>
     );
 }
-function DeckForm({
-    context,
-    deck,
-    onClose,
-    onSaved
-}: {
-    context: MicroContext;
-    deck: Partial<DeckRecord>;
-    onClose(): void;
-    onSaved(): void;
-}) {
-    const [name, setName] = useState(deck.name || ''),
-        [code, setCode] = useState(deck.code || cardCode(deck.image || '')),
-        [colors, setColors] = useState(deck.colors?.split(',') || []),
-        [family, setFamily] = useState(deck.family_id || ''),
-        [families, setFamilies] = useState<{ id: string; name: string }[] | null>(null),
-        [busy, setBusy] = useState(false),
-        [error, setError] = useState(''),
-        [familyError, setFamilyError] = useState('');
-    useEffect(() => {
-        if (!deck.id) return;
-        const controller = new AbortController();
-        request<{ id: string; name: string }[]>(
-            '/rest/v1/deck_families?select=id,name,is_active&order=name.asc',
-            { signal: controller.signal }
-        )
-            .then(setFamilies)
-            .catch((error) => {
-                if (!controller.signal.aborted)
-                    setFamilyError(
-                        'Não foi possível carregar as famílias. A família atual será mantida.'
-                    );
-            });
-        return () => controller.abort();
-    }, [deck.id]);
-    return (
-        <Dialog title={deck.id ? 'Editar deck' : 'Adicionar deck'} onClose={onClose} busy={busy}>
-            <form
-                className="catalog-form"
-                onSubmit={async (event) => {
-                    event.preventDefault();
-                    setBusy(true);
-                    setError('');
-                    try {
-                        await saveDeck(
-                            context,
-                            {
-                                id: deck.id,
-                                name,
-                                code,
-                                colors: deckColors
-                                    .filter((color) => colors.includes(color.code))
-                                    .map((color) => color.code)
-                                    .join(','),
-                                family_id: family || null
-                            },
-                            families !== null
-                        );
-                        onSaved();
-                    } catch (error) {
-                        setError((error as Error).message);
-                    } finally {
-                        setBusy(false);
-                    }
-                }}
-            >
-                <label>
-                    Nome do deck *
-                    <input
-                        value={name}
-                        required
-                        minLength={2}
-                        disabled={busy}
-                        onChange={(event) => setName(event.target.value)}
-                    />
-                </label>
-                <label>
-                    Código da carta *
-                    <input
-                        value={code}
-                        required
-                        disabled={busy}
-                        placeholder="BT26-001"
-                        onChange={(event) => setCode(event.target.value.toUpperCase())}
-                    />
-                    <small>A imagem será obtida a partir do código da carta.</small>
-                </label>
-                <fieldset className="catalog-color-picker">
-                    <legend>Cores do deck</legend>
-                    {deckColors.map((color) => (
-                        <button
-                            key={color.code}
-                            type="button"
-                            disabled={busy}
-                            style={{ '--color': color.color } as React.CSSProperties}
-                            className={colors.includes(color.code) ? 'is-selected' : ''}
-                            aria-pressed={colors.includes(color.code)}
-                            onClick={() =>
-                                setColors(
-                                    colors.includes(color.code)
-                                        ? colors.filter((item) => item !== color.code)
-                                        : [...colors, color.code]
-                                )
-                            }
-                        >
-                            <span />
-                            {color.label}
-                        </button>
-                    ))}
-                </fieldset>
-                {deck.id && (
-                    <Select
-                        label="Família"
-                        disabled={busy || !families}
-                        value={family}
-                        onChange={setFamily}
-                        options={[
-                            {
-                                value: '',
-                                label: families ? 'Nenhuma família' : 'Carregando famílias…'
-                            },
-                            ...(families || []).map((family) => ({
-                                value: String(family.id),
-                                label: family.name
-                            }))
-                        ]}
-                    />
-                )}
-                {familyError && <p role="status">{familyError}</p>}
-                {error && (
-                    <p className="list-error" role="alert">
-                        {error}
-                    </p>
-                )}
-                <div className="catalog-form-actions">
-                    <button
-                        type="button"
-                        className="button secondary"
-                        disabled={busy}
-                        onClick={onClose}
-                    >
-                        Cancelar
-                    </button>
-                    <button className="button primary" disabled={busy}>
-                        {busy ? 'Salvando…' : 'Salvar deck'}
-                    </button>
-                </div>
-            </form>
-        </Dialog>
-    );
-}
 function ActivityDialog({
     kind,
     record,
@@ -789,18 +400,20 @@ function RecordDetails({
     kind,
     record,
     onClose,
-    onEdit
+    onEdit,
+    initialTab
 }: {
     context: MicroContext;
     kind: 'players' | 'decks';
     record: PlayerRecord | DeckRecord;
     onClose(): void;
-    onEdit(): void;
+    onEdit?(): void;
+    initialTab?: string;
 }) {
-    const [tab, setTab] = useState(kind === 'decks' ? 'history' : 'info');
+    const [tab, setTab] = useState(kind === 'decks' ? initialTab || 'lists' : 'info');
     const history = useRecords(
         (signal) => loadHistory(kind, record.id, signal),
-        tab !== 'info',
+        true,
         `${kind}:${record.id}`
     );
     const player = record as PlayerRecord,
@@ -840,33 +453,15 @@ function RecordDetails({
                                     {label}
                                 </button>
                             ))}
-                            <button className="button secondary" onClick={onEdit}>
-                                Editar cadastro
-                            </button>
                         </nav>
                     </div>
                 ) : undefined
             }
         >
-            {kind === 'players' && (
-                <nav className="catalog-tabs" aria-label="Detalhes">
-                    {[
-                        ...(kind === 'players' ? [['info', 'Informações']] : []),
-                        ['history', 'Histórico'],
-                    ].map(([value, label]) => (
-                        <button
-                            key={value}
-                            className={`button secondary${tab === value ? ' is-active' : ''}`}
-                            aria-pressed={tab === value}
-                            onClick={() => setTab(value)}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </nav>
-            )}
             {tab === 'info' && (
-                <div className="catalog-detail-summary">
+                <div
+                    className={`catalog-detail-summary${kind === 'players' ? ' catalog-player-info' : ''}`}
+                >
                     <div className="catalog-detail-info">
                         {kind === 'decks' && <Portrait image={deck.image} />}
                         <dl>
@@ -896,7 +491,7 @@ function RecordDetails({
                     </button>
                 </div>
             )}
-            {tab !== 'info' && (
+            {(kind === 'players' || tab !== 'info') && (
                 <>
                     {kind === 'decks' && tab === 'history' && (
                         <h3 className="catalog-history-heading">Histórico de torneios</h3>
@@ -904,19 +499,103 @@ function RecordDetails({
                     <LoadError error={history.error} retry={history.refresh} />
                     {history.loading ? (
                         <Loader text="Carregando histórico…" />
-                    ) : (
-                        <HistoryList
-                            rows={history.items}
-                            context={context}
-                            kind={kind}
-                            name={record.name}
-                            recordId={String(record.id)}
-                            showLists={tab === 'lists'}
-                        />
+                    ) : history.error ? null : (
+                        <>
+                            {kind === 'players' && (
+                                <>
+                                    <h3>Estatísticas</h3>
+                                    <PlayerStatistics rows={history.items} />
+                                    <h3>Histórico de torneios</h3>
+                                </>
+                            )}
+                            <HistoryList
+                                rows={history.items}
+                                context={context}
+                                kind={kind}
+                                name={record.name}
+                                recordId={String(record.id)}
+                                showLists={tab === 'lists'}
+                            />
+                        </>
                     )}
                 </>
             )}
         </Dialog>
+    );
+}
+function PlayerStatistics({ rows, compact = false }: { rows: HistoryRecord[]; compact?: boolean }) {
+    const stats = playerStatistics(rows);
+    if (!stats.events) return <EmptyState>Nenhum torneio registrado para este jogador.</EmptyState>;
+    const date = (value?: string) => (value ? window.liveData.displayDate(value) : '—');
+    return (
+        <div className="catalog-player-stats">
+            {stats.decks.length > 0 && (
+                <span
+                    className="catalog-favorite-deck"
+                    title="Deck mais utilizado nos torneios registrados"
+                >
+                    <span>Deck favorito</span>
+                    <strong>{stats.decks[0].name}</strong>
+                </span>
+            )}
+            <dl className="catalog-player-metrics">
+                {[
+                    ['Torneios', stats.events],
+                    ['Títulos', stats.titles],
+                    ['Top 3', stats.top3],
+                    [
+                        'Posição média',
+                        stats.averagePlacement === null
+                            ? '—'
+                            : stats.averagePlacement.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 1,
+                                  maximumFractionDigits: 1
+                              })
+                    ]
+                ].map(([label, value]) => (
+                    <div key={label}>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                    </div>
+                ))}
+            </dl>
+            {!compact && (
+                <>
+                    <p className="muted">
+                        {date(stats.first)} a {date(stats.recent)} · {stats.stores} lojas
+                    </p>
+                    <h3>Decks utilizados</h3>
+                    {stats.decks.length ? (
+                        <div className="catalog-player-table-scroll">
+                            <table className="catalog-player-table">
+                                <thead>
+                                    <tr>
+                                        <th>Deck</th>
+                                        <th>Torneios</th>
+                                        <th>Títulos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {stats.decks.map((deck) => (
+                                        <tr key={deck.name}>
+                                            <th>{deck.name}</th>
+                                            <td>{deck.count}</td>
+                                            <td>{deck.titles}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="muted">Os resultados não têm decks identificados.</p>
+                    )}
+                    <p className="catalog-stats-note">
+                        Estatísticas dos resultados cadastrados. Top 3 conta colocações de 1º a 3º,
+                        independentemente do tamanho do torneio.
+                    </p>
+                </>
+            )}
+        </div>
     );
 }
 function HistoryList({
@@ -934,6 +613,9 @@ function HistoryList({
     showLists: boolean;
     recordId: string;
 }) {
+    const [page, setPage] = useState(1);
+    const [size, setSize] = useState(20);
+    useEffect(() => setPage(1), [rows, showLists, size]);
     const visible = showLists
         ? rows.filter((row) => row.decklists?.length || row.decklist || row.decklist_link)
         : rows;
@@ -956,7 +638,7 @@ function HistoryList({
                     ? `${visible.length} resultados com decklist.`
                     : `Últimos ${rows.length} resultados.`}
             </p>
-            {visible.map((row) => (
+            {paginate(visible, page, size).items.map((row) => (
                 <HistoryEntry
                     key={row.id}
                     row={row}
@@ -966,6 +648,16 @@ function HistoryList({
                     recordId={recordId}
                 />
             ))}
+            {visible.length > 10 && (
+                <Pagination
+                    page={paginate(visible, page, size).page}
+                    pages={Math.ceil(visible.length / size)}
+                    total={visible.length}
+                    size={size}
+                    onPage={setPage}
+                    onSize={setSize}
+                />
+            )}
         </div>
     );
 }

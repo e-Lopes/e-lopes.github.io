@@ -405,7 +405,6 @@ async function resolveImportContext(
     const selectedFormat =
         digilabFormat ||
         (normalizeFormat(formatCode) ? { id: null, code: formatCode } : null) ||
-        formats.find((format: JsonRecord) => format.is_active && format.is_default) ||
         null;
 
     return {

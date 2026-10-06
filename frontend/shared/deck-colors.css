@@ -1,0 +1,14 @@
+.deck-color-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    vertical-align: middle;
+}
+.deck-color-dots > span {
+    display: block;
+    width: 10px;
+    height: 10px;
+    flex: 0 0 10px;
+    border-radius: 50%;
+    border: 1px solid #ffffff40;
+}

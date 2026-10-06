@@ -75,4 +75,12 @@ test('preview resolves new formats without mutating the database', async () => {
     );
     assert.equal(result.format.status, 'auto_create');
     assert.equal(result.format.format_id, null);
+    tables.formats.push({ id: 'default', code: 'EX12', is_active: true, is_default: true });
+    const missing = await context.resolveImportContext(
+        db,
+        { store: { name: 'Store' }, format: null },
+        []
+    );
+    assert.equal(missing.format.status, 'unmatched');
+    assert.equal(missing.format.format_id, null);
 });

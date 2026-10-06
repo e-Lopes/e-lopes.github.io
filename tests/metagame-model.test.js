@@ -19,7 +19,7 @@ function setup(fetch = async () => ({ ok: true, json: async () => [] })) {
         .replace(/export /g, '');
     vm.runInNewContext(
         source +
-            '\nthis.api={analyzeMeta,currentFormat,eventType,readMeta,overviewFourWeeks,createMetaCache}',
+            '\nthis.api={analyzeMeta,currentFormat,eventType,readMeta,overviewFourWeeks,createMetaCache,communityActivity,metaDeckColors}',
         sandbox
     );
     return sandbox.api;
@@ -41,6 +41,84 @@ const result = (eventId, placement, deck = 'd1') => ({
     deck: deck ? { name: 'Same display name' } : null,
     player: { name: 'Player ' + placement },
     decklists: []
+});
+
+test('deck metadata preserves DigiLab primary/secondary order and uses saved colors only for legacy decks', () => {
+    const api = setup();
+    assert.equal(
+        api.metaDeckColors({
+            name: 'Glowing Dawn',
+            primary_color: 'green',
+            secondary_color: 'black'
+        }),
+        'g,b'
+    );
+    assert.equal(api.metaDeckColors({ name: 'Deck', colors: 'g,b', primary_color: 'yellow' }), 'y');
+    assert.equal(
+        api.metaDeckColors({
+            name: 'Deck',
+            colors: 'g,b,p',
+            primary_color: 'Black',
+            secondary_color: 'Green'
+        }),
+        'b,g'
+    );
+    assert.equal(
+        api.metaDeckColors({ name: 'Deck', primary_color: 'Blue', secondary_color: null }),
+        'u'
+    );
+    assert.equal(api.metaDeckColors({ name: 'Deck', colors: 'p,y' }), 'p,y');
+    assert.equal(api.metaDeckColors({ name: 'Deck', primary_color: 'unknown' }), '');
+    const row = result('a', 1);
+    row.deck = {
+        name: 'Glowing Dawn',
+        colors: 'g,b',
+        primary_color: 'Green',
+        secondary_color: 'Black',
+        display_card_id: 'ST23-09',
+        deck_images: [{ image_url: '/deck.jpg' }]
+    };
+    const model = api.analyzeMeta([event('a', 1)], [row]);
+    assert.equal(model.decks[0].image, '/deck.jpg');
+    assert.equal(model.decks[0].colors, 'g,b');
+    assert.equal(model.decks[0].primaryColor, 'g');
+    assert.equal(model.decks[0].card, 'ST23-09');
+});
+
+test('community groups stores by ID and includes empty weeks between events', () => {
+    const activity = setup().communityActivity([
+        { ...event('a', 8), storeId: 's1', store: 'Same name', isoDate: '2026-09-07' },
+        { ...event('b', 4), storeId: 's1', store: 'Same name', isoDate: '2026-09-27' },
+        { ...event('c', 10), storeId: 's2', store: 'Same name', isoDate: '2026-09-27' }
+    ]);
+    assert.equal(activity.stores.length, 2);
+    assert.equal(activity.stores[0].entries, 12);
+    assert.equal(activity.stores[0].count, 2);
+    assert.equal(activity.stores[0].last, '2026-09-27');
+    assert.equal(
+        JSON.stringify(activity.weeks),
+        JSON.stringify([
+            ['2026-09-07', 1],
+            ['2026-09-14', 0],
+            ['2026-09-21', 2]
+        ])
+    );
+    assert.equal(setup().communityActivity([]).weeks.length, 0);
+});
+
+test('player deck usage preserves ties by ID and excludes release decks; list counts follow the deck', () => {
+    const records = [result('a', 1, 'd1'), result('b', 1, 'd2'), result('release', 1, 'd3')];
+    records[0].decklists = [{ id: 'list1' }];
+    const model = setup().analyzeMeta(
+        [event('a', 1), event('b', 1), event('release', 1, true)],
+        records
+    );
+    assert.equal(model.players[0].count, 3);
+    assert.equal(model.players[0].decks.size, 2);
+    assert.equal(model.players[0].decks.get('d1').count, 1);
+    assert.equal(model.players[0].decks.get('d2').count, 1);
+    assert.equal(model.decks.find((d) => d.id === 'd1').lists, 1);
+    assert.equal(model.players[0].topEligible, 0);
 });
 
 test('metagame separates deck popularity, distinct players and eligible Top 4', () => {

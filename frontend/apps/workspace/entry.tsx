@@ -16,7 +16,7 @@ const titles: Record<string, [string, string]> = {
         'Gerenciar torneios',
         'Cadastre torneios, importe resultados e acompanhe as classificações.'
     ],
-    decks: ['Decks', 'Gerencie o catálogo, imagens, cores e decklists.'],
+    decks: ['Deckbuilder', 'Escolha um torneio para cadastrar listas.'],
     players: ['Jogadores', 'Cadastros, apelidos Bandai / DigiLab e histórico de resultados.'],
     admin: [
         'Administração',

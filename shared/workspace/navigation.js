@@ -13,10 +13,7 @@
             ['Metagame', '#meta'],
             ['Relatórios detalhados', 'tools.html?view=statistics']
         ],
-        decks: [
-            ['Catálogo de decks', 'tools.html?view=decks'],
-            ['Cadastrar deck', 'tools.html?view=decks&action=create-deck']
-        ],
+        decks: [['Deckbuilder', 'tools.html?view=decks']],
         players: [
             ['Lista de jogadores', 'tools.html?view=players'],
             ['Cadastrar jogador', 'tools.html?view=players&action=create-player']

@@ -26,7 +26,7 @@ function setup(respond) {
         .replace(/export /g, '');
     vm.runInNewContext(
         source +
-            '\nthis.api={paginate,normalizeSearch,readRows,loadPlayers,savePlayer,setActivity,loadDecks,loadDecklistIds,loadHistory,saveDeck,loadTournamentResults};',
+            '\nthis.api={paginate,normalizeSearch,readRows,loadPlayers,savePlayer,setActivity,loadDecks,loadDecklistIds,loadHistory,saveDeck,loadTournamentResults,orderedDeckColors,loadBuilderResults};',
         sandbox
     );
     return { ...sandbox, calls };
@@ -36,6 +36,44 @@ const json = (value, status = 200) =>
         status,
         headers: { 'Content-Type': 'application/json' }
     });
+
+test('builder result query uses existing result columns and includes saved lists', async () => {
+    const schema = fs.readFileSync('database/schema.latest.sql', 'utf8');
+    const table = schema.match(
+        /CREATE TABLE IF NOT EXISTS "public"\."tournament_results" \(([\s\S]*?)\n\);/
+    )[1];
+    const columns = [...table.matchAll(/^\s+"([^"]+)" /gm)].map((match) => match[1]);
+    const { api, calls } = setup(() => json([]));
+    await api.loadBuilderResults();
+    const url = new URL(calls[0].url);
+    const selection = url.searchParams.get('select');
+    const fields = selection
+        .replace(/[a-z_]+(?::[a-z_]+)?\([^)]*\),?/g, '')
+        .split(',')
+        .filter(Boolean)
+        .filter((field) => !field.includes(':') && !field.includes('(') && !field.includes(')'));
+    for (const field of fields)
+        assert.ok(columns.includes(field), `Unknown result column: ${field}`);
+    assert.ok(selection.includes('decklists(id)'));
+    assert.equal(url.searchParams.get('limit'), '500');
+});
+
+test('color dots follow the supplied primary/secondary order rather than the system palette', () => {
+    const { api } = setup(() => json([]));
+    assert.deepEqual(
+        Array.from(api.orderedDeckColors('g,b'), (color) => color.label),
+        ['Verde', 'Preto']
+    );
+    assert.deepEqual(
+        Array.from(api.orderedDeckColors('b,g'), (color) => color.label),
+        ['Preto', 'Verde']
+    );
+    assert.deepEqual(
+        Array.from(api.orderedDeckColors(' u, y, u,unknown'), (color) => color.code),
+        ['u', 'y']
+    );
+    assert.equal(api.orderedDeckColors('p').length, 1);
+});
 test('catalog pagination clamps the page after filtering and handles empty lists', () => {
     const { api } = setup(() => json([]));
     const items = Array.from({ length: 21 }, (_, index) => index);

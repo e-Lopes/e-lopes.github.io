@@ -1,5 +1,5 @@
 /* global __dirname */
-// Apply only the reviewed DigiLab migration before deploying its Edge Functions.
+// Apply the reviewed DigiLab migrations before deploying their Edge Functions.
 // Management API reference: https://supabase.com/docs/reference/api/v1-run-a-query
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
@@ -10,10 +10,19 @@ async function main() {
     if (!token || !/^[a-z0-9]{20}$/.test(project || '')) {
         throw new Error('Configure SUPABASE_ACCESS_TOKEN e SUPABASE_PROJECT_ID.');
     }
-    const query = readFileSync(
-        resolve(__dirname, '../database/migrations/20260924010000_reliable_digilab_sync.sql'),
-        'utf8'
-    );
+    const migrations = [
+        '20260924010000_reliable_digilab_sync.sql',
+        '20261005010000_automate_digilab_catalog.sql',
+        '20261005020000_schedule_digilab_catalog.sql',
+        '20261005030000_digilab_tournaments_every_six_hours.sql',
+        '20261005040000_require_digilab_tournament_format.sql',
+        '20261005050000_store_digilab_catalog_images.sql'
+    ];
+    const query = migrations
+        .map((migration) =>
+            readFileSync(resolve(__dirname, '../database/migrations', migration), 'utf8')
+        )
+        .join('\n');
     const response = await fetch(`https://api.supabase.com/v1/projects/${project}/database/query`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

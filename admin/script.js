@@ -174,9 +174,6 @@ function setupAdminActions() {
         }
         if (action === 'digilab-decks-open') loadDigilabDeckCatalog(false);
         if (action === 'digilab-decks-sync') loadDigilabDeckCatalog(true);
-        if (action === 'digilab-decks-map-exact') mapExactDigilabDecks(btn);
-        if (action === 'digilab-deck-map') mapDigilabDeck(Number(btn.dataset.id), false, btn);
-        if (action === 'digilab-deck-create') mapDigilabDeck(Number(btn.dataset.id), true, btn);
         if (action === 'digilab-edit-local') editLocalDigilabCandidate(Number(btn.dataset.id));
         if (action === 'digilab-prev' && adminDigilabPage > 1) {
             loadDigilabInventory(adminDigilabPage - 1);
@@ -1967,14 +1964,14 @@ async function loadDigilabDeckCatalog(syncFromDigilab) {
     if (!syncFromDigilab && adminDigilabDeckCatalogLoaded && adminDigilabDeckCatalog) {
         renderDigilabDeckCatalog();
         const usedCount = (adminDigilabDeckCatalog.data || []).filter(
-            (row) => row.used_in_digistats
+            (row) => row.is_active
         ).length;
-        setDigilabDeckStatus(`${usedCount} arquétipos usados no DigiStats carregados.`);
+        setDigilabDeckStatus(`${usedCount} arquétipos ativos sincronizados carregados.`);
         return;
     }
     host.innerHTML = '<div class="admin-loading"><div class="spinner"></div></div>';
     setDigilabDeckStatus(
-        syncFromDigilab ? 'Atualizando famílias e arquétipos…' : 'Carregando catálogo salvo…'
+        syncFromDigilab ? 'Sincronizando decks, famílias e formatos…' : 'Carregando catálogo salvo…'
     );
     try {
         const result = await callDigilabFunction('digilab-deck-catalog', {
@@ -1986,9 +1983,9 @@ async function loadDigilabDeckCatalog(syncFromDigilab) {
         const requestText = syncFromDigilab
             ? ` ${Number(result.request_count) || 0} requisição(ões) ao DigiLab.`
             : '';
-        const usedCount = (result.data || []).filter((row) => row.used_in_digistats).length;
+        const usedCount = (result.data || []).filter((row) => row.is_active).length;
         setDigilabDeckStatus(
-            `${usedCount} arquétipos usados no DigiStats; ${result.family_options?.length || 0} famílias.${requestText}`
+            `${usedCount} arquétipos ativos sincronizados; ${result.family_options?.length || 0} famílias.${requestText}`
         );
     } catch (error) {
         host.innerHTML = `<p class="admin-error">${escapeAdminHtml(error.message)}</p>`;
@@ -2000,7 +1997,7 @@ function renderDigilabDeckCatalog() {
     const host = document.getElementById('adminDigilabDeckCatalog');
     if (!host || !adminDigilabDeckCatalog) return;
     const allRows = Array.isArray(adminDigilabDeckCatalog.data) ? adminDigilabDeckCatalog.data : [];
-    const rows = allRows.filter((row) => row.used_in_digistats);
+    const rows = allRows.filter((row) => row.is_active);
     const familyOptions = Array.isArray(adminDigilabDeckCatalog.family_options)
         ? adminDigilabDeckCatalog.family_options
         : [];
@@ -2032,7 +2029,7 @@ function renderDigilabDeckCatalog() {
             <span><strong>${Number(visibleCounts.mapped) || 0}</strong> mapeados</span>
             <span><strong>${Number(visibleCounts.exact_name) || 0}</strong> nomes iguais</span>
             <span><strong>${Number(visibleCounts.unmapped) || 0}</strong> sem correspondente</span>
-            <span><strong>${Math.max(0, allRows.length - rows.length)}</strong> externos sem uso ocultos</span>
+            <span>Atualização automática a cada 6 horas</span>
         </div>
         <div class="admin-digilab-catalog-toolbar">
             <label class="admin-digilab-catalog-search">
@@ -2057,15 +2054,13 @@ function renderDigilabDeckCatalog() {
                     ${[...new Map(rows.filter((row) => row.family_slug && !row.local_family).map((row) => [row.family_slug, row.family_name || row.family_slug])).entries()].map(([slug, name]) => `<option value="${escapeAdminHtml(slug)}" ${adminDigilabDeckFilters.family === slug ? 'selected' : ''}>${escapeAdminHtml(name)}</option>`).join('')}
                 </select>
             </label>
-            <button type="button" class="admin-digilab-action is-secondary" data-admin-action="digilab-decks-map-exact" ${Number(visibleCounts.exact_name) ? '' : 'disabled'}>
-                Mapear nomes iguais (${Number(visibleCounts.exact_name) || 0})
-            </button>
+
         </div>
-        <p class="admin-digilab-catalog-result-count">Exibindo ${filteredRows.length} de ${rows.length} arquétipos usados no DigiStats.</p>
+        <p class="admin-digilab-catalog-result-count">Exibindo ${filteredRows.length} de ${rows.length} arquétipos ativos sincronizados.</p>
         <div class="admin-table-wrapper admin-digilab-catalog-table-shell">
             <table class="admin-table admin-digilab-catalog-table">
-                <thead><tr><th>Arquétipo DigiLab</th><th>Família</th><th>Cores</th><th>Deck DigiStats</th><th>Família local</th><th>Situação</th><th>Ações</th></tr></thead>
-                <tbody>${filteredRows.length ? filteredRows.map(renderDigilabDeckCatalogRow).join('') : `<tr><td colspan="7" class="admin-empty">${rows.length ? 'Nenhum arquétipo corresponde aos filtros.' : 'Nenhum arquétipo usado no DigiStats foi encontrado no catálogo.'}</td></tr>`}</tbody>
+                <thead><tr><th>Arquétipo DigiLab</th><th>Família</th><th>Cores</th><th>Deck DigiStats</th><th>Família local</th><th>Situação</th></tr></thead>
+                <tbody>${filteredRows.length ? filteredRows.map(renderDigilabDeckCatalogRow).join('') : `<tr><td colspan="6" class="admin-empty">${rows.length ? 'Nenhum arquétipo corresponde aos filtros.' : 'Nenhum arquétipo ativo foi encontrado no catálogo.'}</td></tr>`}</tbody>
             </table>
         </div>`;
 }
@@ -2078,101 +2073,15 @@ function normalizeDigilabCatalogText(value) {
         .toLocaleLowerCase('pt-BR');
 }
 
-async function mapExactDigilabDecks(button) {
-    if (button) {
-        button.disabled = true;
-        button.setAttribute('aria-busy', 'true');
-        button.innerHTML =
-            '<span class="admin-digilab-button-spinner" aria-hidden="true"></span>Mapeando…';
-    }
-    setDigilabDeckStatus('Mapeando arquétipos usados com nome igual…');
-    try {
-        const result = await callDigilabFunction('digilab-deck-catalog', {
-            action: 'map_exact_names'
-        });
-        adminDigilabDeckCatalog = result;
-        adminDigilabDeckCatalogLoaded = true;
-        renderDigilabDeckCatalog();
-        setDigilabDeckStatus(
-            `${Number(result.bulk?.mapped) || 0} vínculo(s) criado(s) automaticamente.${Number(result.bulk?.ambiguous) ? ` ${Number(result.bulk.ambiguous)} nome(s) ambíguo(s) mantido(s) para revisão.` : ''}`
-        );
-    } catch (error) {
-        if (button) {
-            button.disabled = false;
-            button.removeAttribute('aria-busy');
-            button.textContent = 'Tentar mapear nomes iguais';
-        }
-        setDigilabDeckStatus(error.message, true);
-    }
-}
-
 function renderDigilabDeckCatalogRow(row) {
-    const deckOptions = Array.isArray(adminDigilabDeckCatalog?.deck_options)
-        ? adminDigilabDeckCatalog.deck_options
-        : [];
-    const familyOptions = Array.isArray(adminDigilabDeckCatalog?.family_options)
-        ? adminDigilabDeckCatalog.family_options
-        : [];
-    const selectedDeckId = row.local_deck?.deck_id || '';
-    const selectedFamilyId = row.local_family?.family_id || '';
-    const deckSelect = `<select class="admin-digilab-player-select" data-catalog-deck-id="${Number(row.digilab_archetype_id)}"><option value="">Selecionar deck…</option>${deckOptions.map((deck) => `<option value="${escapeAdminHtml(deck.deck_id)}" ${deck.deck_id === selectedDeckId ? 'selected' : ''}>${escapeAdminHtml(deck.deck_name)}</option>`).join('')}</select>`;
-    const familySelect = `<select class="admin-digilab-player-select" data-catalog-family-id="${Number(row.digilab_archetype_id)}"><option value="">Sem família</option>${familyOptions.map((family) => `<option value="${escapeAdminHtml(family.family_id)}" ${family.family_id === selectedFamilyId ? 'selected' : ''}>${escapeAdminHtml(family.family_name)}</option>`).join('')}</select>`;
-    const statusLabel =
-        {
-            mapped: 'Mapeado',
-            exact_name: 'Nome igual',
-            unmapped: 'Sem correspondente'
-        }[row.status] || row.status;
-    return `<tr data-catalog-archetype-id="${Number(row.digilab_archetype_id)}">
+    return `<tr>
         <td><strong>${escapeAdminHtml(row.name)}</strong><small class="admin-digilab-player-slug">${escapeAdminHtml(row.slug)}</small></td>
-        <td>${escapeAdminHtml(row.family_name || 'Sem família')}</td>
+        <td>${escapeAdminHtml(row.family_name || '—')}</td>
         <td>${escapeAdminHtml([row.primary_color, row.secondary_color].filter(Boolean).join(' / ') || '—')}</td>
-        <td>${deckSelect}</td>
-        <td>${familySelect}</td>
-        <td><span class="admin-digilab-badge status-${escapeAdminHtml(row.status)}">${escapeAdminHtml(statusLabel)}</span></td>
-        <td class="admin-row-actions">
-            <button type="button" class="admin-digilab-action is-secondary is-small" data-admin-action="digilab-deck-map" data-id="${Number(row.digilab_archetype_id)}">${row.status === 'mapped' ? 'Atualizar' : 'Mapear'}</button>
-            ${row.status === 'unmapped' ? `<button type="button" class="admin-digilab-action is-ghost is-small" data-admin-action="digilab-deck-create" data-id="${Number(row.digilab_archetype_id)}">Criar arquétipo</button>` : ''}
-        </td>
+        <td>${escapeAdminHtml(row.local_deck?.deck_name || '—')}</td>
+        <td>${escapeAdminHtml(row.local_family?.family_name || '—')}</td>
+        <td><span class="admin-digilab-badge status-${escapeAdminHtml(row.status)}">${row.status === 'mapped' ? 'Sincronizado' : 'Pendente'}</span></td>
     </tr>`;
-}
-
-async function mapDigilabDeck(archetypeId, createDeck, button) {
-    const row = button?.closest('[data-catalog-archetype-id]');
-    const viewport = captureDigilabCatalogViewport(row);
-    const deckId = row?.querySelector('[data-catalog-deck-id]')?.value || '';
-    const familyId = row?.querySelector('[data-catalog-family-id]')?.value || '';
-    if (!createDeck && !deckId) {
-        setDigilabDeckStatus('Selecione um deck local antes de mapear.', true);
-        return;
-    }
-    if (button) {
-        button.disabled = true;
-        button.setAttribute('aria-busy', 'true');
-        button.innerHTML = `<span class="admin-digilab-button-spinner" aria-hidden="true"></span>${createDeck ? 'Criando…' : 'Salvando…'}`;
-    }
-    setDigilabDeckStatus(
-        createDeck ? 'Criando arquétipo e salvando vínculo…' : 'Salvando vínculo do arquétipo…'
-    );
-    try {
-        const result = await callDigilabFunction('digilab-deck-catalog', {
-            action: createDeck ? 'create' : 'map',
-            digilab_archetype_id: archetypeId,
-            deck_id: deckId || null,
-            family_id: familyId || null
-        });
-        adminDigilabDeckCatalog = result;
-        renderDigilabDeckCatalog();
-        restoreDigilabCatalogViewport(viewport);
-        setDigilabDeckStatus('Arquétipo e família atualizados.');
-    } catch (error) {
-        if (button) {
-            button.disabled = false;
-            button.removeAttribute('aria-busy');
-            button.textContent = createDeck ? 'Tentar criar novamente' : 'Tentar mapear novamente';
-        }
-        setDigilabDeckStatus(error.message, true);
-    }
 }
 
 function captureDigilabCatalogViewport(row) {

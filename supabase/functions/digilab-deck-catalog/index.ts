@@ -36,7 +36,12 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
         auth: { persistSession: false, autoRefreshToken: false }
     });
-    if (!(await authorizeRequest(req, supabase, verifyToken))) {
+    const backgroundToken = Deno.env.get('DIGILAB_BACKGROUND_SYNC_TOKEN') || '';
+    const backgroundAuthorized = Boolean(
+        backgroundToken &&
+        (await secretsMatch(req.headers.get('x-digilab-background-token') || '', backgroundToken))
+    );
+    if (!backgroundAuthorized && !(await authorizeRequest(req, supabase, verifyToken))) {
         return json({ error: 'Não autorizado.' }, 401);
     }
 
@@ -48,28 +53,66 @@ Deno.serve(async (req) => {
     }
 
     const action = String(input.action || 'list');
+    if (backgroundAuthorized && !['sync', 'audit_tournaments'].includes(action))
+        return json({ error: 'Ação não autorizada para sincronização.' }, 403);
     try {
+        if (action === 'audit_tournaments') {
+            if (input.digilab_tournament_id) {
+                const id = Number(input.digilab_tournament_id);
+                if (!Number.isSafeInteger(id) || id <= 0)
+                    return json({ error: 'ID inválido.' }, 400);
+                const detail = await digilabGet(apiKey, `/api/tournament/${id}`);
+                if (detail.tournament?.scene?.slug !== 'curitiba')
+                    return json({ error: 'Scene inválida.' }, 422);
+                return json({
+                    ok: true,
+                    tournament: detail.tournament,
+                    standings: detail.standings?.map((row: JsonRecord) => ({
+                        placement: row.placement,
+                        player: row.player,
+                        deck: row.deck
+                    })),
+                    dnfs: detail.dnfs
+                });
+            }
+            const page = positiveInteger(input.page, 1, 1, MAX_PAGES);
+            const listing = await digilabGet(
+                apiKey,
+                `/api/tournaments?scene=curitiba&per_page=100&page=${page}`
+            );
+            const meta =
+                page === 1
+                    ? await digilabGet(
+                          apiKey,
+                          '/api/meta?scene=curitiba&format=EX12&group_by=archetype&per_page=100'
+                      )
+                    : null;
+            return json({
+                ok: true,
+                data: listing.data?.map((row: JsonRecord) => ({
+                    tournament_id: row.tournament_id,
+                    event_date: row.event_date,
+                    format: row.format,
+                    store_name: row.store_name,
+                    player_count: row.player_count
+                })),
+                pagination: listing.pagination,
+                formats: listing.formats,
+                meta
+            });
+        }
         if (action === 'sync') {
             const synced = await syncCatalog(supabase, apiKey);
             const catalog = await loadCatalog(supabase);
             return json({ ok: true, ...synced, ...catalog });
         }
-        if (action === 'map') {
-            await mapArchetype(supabase, input, false);
-            return json({ ok: true, ...(await loadCatalog(supabase)) });
-        }
-        if (action === 'create') {
-            await mapArchetype(supabase, input, true);
-            return json({ ok: true, ...(await loadCatalog(supabase)) });
-        }
-        if (action === 'map_exact_names') {
-            const bulk = await mapExactNames(supabase);
-            return json({ ok: true, bulk, ...(await loadCatalog(supabase)) });
-        }
         if (action === 'list') {
             return json({ ok: true, ...(await loadCatalog(supabase)) });
         }
-        return json({ error: 'Ação inválida.' }, 400);
+        return json(
+            { error: 'O cadastro de decks é gerenciado automaticamente pelo DigiLab.' },
+            403
+        );
     } catch (error) {
         if (error instanceof DigilabHttpError) {
             return json(
@@ -89,132 +132,186 @@ Deno.serve(async (req) => {
     }
 });
 
-async function mapExactNames(supabase: any) {
-    const [catalogResult, mappingsResult, decksResult, resultsResult] = await Promise.all([
-        supabase
-            .from('digilab_deck_catalog')
-            .select('digilab_archetype_id,slug,name')
-            .eq('is_active', true),
-        supabase.from('digilab_deck_sync').select('digilab_deck_slug'),
-        supabase.from('decks').select('id,name'),
-        supabase.from('tournament_results').select('deck_id')
-    ]);
-    if (
-        catalogResult.error ||
-        mappingsResult.error ||
-        decksResult.error ||
-        resultsResult.error
-    ) {
-        throw new Error('Falha ao comparar os nomes dos arquétipos.');
-    }
-
-    const usedDeckIds = new Set(
-        (resultsResult.data || []).map((result: JsonRecord) => String(result.deck_id))
-    );
-    const decksByName = new Map<string, JsonRecord[]>();
-    for (const deck of decksResult.data || []) {
-        if (!usedDeckIds.has(String(deck.id))) continue;
-        const key = normalize(deck.name);
-        if (!key) continue;
-        decksByName.set(key, [...(decksByName.get(key) || []), deck]);
-    }
-    const mappedSlugs = new Set(
-        (mappingsResult.data || []).map((mapping: JsonRecord) =>
-            normalize(mapping.digilab_deck_slug)
-        )
-    );
-    const now = new Date().toISOString();
-    const rows: JsonRecord[] = [];
-    let ambiguous = 0;
-    for (const catalog of catalogResult.data || []) {
-        if (mappedSlugs.has(normalize(catalog.slug))) continue;
-        const matches = decksByName.get(normalize(catalog.name)) || [];
-        if (matches.length === 1) {
-            rows.push({
-                digilab_archetype_id: catalog.digilab_archetype_id,
-                digilab_deck_slug: catalog.slug,
-                digilab_deck_name: catalog.name,
-                deck_id: matches[0].id,
-                updated_at: now
+async function syncCatalog(supabase: any, apiKey: string) {
+    const { data: run, error: runError } = await supabase
+        .from('digilab_catalog_sync_runs')
+        .insert({})
+        .select('id')
+        .single();
+    if (runError) throw new Error('Falha ao registrar sincronização do catálogo.');
+    try {
+        const rows: JsonRecord[] = [];
+        let formats: JsonRecord[] = [];
+        let totalPages = 1;
+        let totalRows = 0;
+        for (let page = 1; page <= totalPages; page += 1) {
+            const query = new URLSearchParams({
+                format: 'all',
+                group_by: 'archetype',
+                page: String(page),
+                per_page: String(PAGE_SIZE),
+                sort: 'entries',
+                sort_dir: 'desc'
             });
-        } else if (matches.length > 1) {
-            ambiguous += 1;
+            const response = await digilabGet(apiKey, `/api/meta?${query}`);
+            const pages = Number(response?.pagination?.total_pages);
+            const total = Number(response?.pagination?.total);
+            if (
+                !Array.isArray(response?.data) ||
+                !Number.isSafeInteger(pages) ||
+                pages < 1 ||
+                pages > MAX_PAGES ||
+                !Number.isSafeInteger(total) ||
+                total < 1
+            )
+                throw new Error('Paginação inválida; dados anteriores preservados.');
+            if (page === 1) {
+                totalPages = pages;
+                totalRows = total;
+                if (!Array.isArray(response.formats) || !response.formats.length)
+                    throw new Error('Formatos ausentes; dados anteriores preservados.');
+                formats = response.formats.map(toFormatRow);
+            } else if (pages !== totalPages || total !== totalRows)
+                throw new Error('Catálogo mudou durante a consulta; tente novamente.');
+            rows.push(...response.data);
         }
+        const catalogRows = rows.map(toCatalogRow);
+        if (rows.length !== totalRows || catalogRows.some((row) => !row))
+            throw new Error('Catálogo incompleto; dados anteriores preservados.');
+        const images = await storeCatalogImages(supabase, catalogRows as JsonRecord[]);
+        const { data, error } = await supabase.rpc('apply_digilab_catalog_snapshot', {
+            p_decks: catalogRows,
+            p_formats: formats
+        });
+        if (error) throw new Error(`Falha ao aplicar catálogo: ${error.message}`);
+        const summary = {
+            ...data,
+            images,
+            request_count: totalPages,
+            fetched_archetypes: rows.length,
+            fetched_families: new Set(rows.map((row) => row.family_slug).filter(Boolean)).size
+        };
+        const { error: logError } = await supabase
+            .from('digilab_catalog_sync_runs')
+            .update({ status: 'completed', finished_at: new Date().toISOString(), summary })
+            .eq('id', run.id);
+        if (logError) throw new Error('Catálogo aplicado, mas falhou o registro da conclusão.');
+        return summary;
+    } catch (error) {
+        await supabase
+            .from('digilab_catalog_sync_runs')
+            .update({
+                status: 'failed',
+                finished_at: new Date().toISOString(),
+                error: error instanceof Error ? error.message : 'Falha na sincronização.'
+            })
+            .eq('id', run.id);
+        throw error;
     }
-
-    if (rows.length > 0) {
-        const { error } = await supabase
-            .from('digilab_deck_sync')
-            .upsert(rows, { onConflict: 'digilab_deck_slug' });
-        if (error) throw new Error(`Falha ao salvar os vínculos automáticos: ${error.message}`);
-    }
-    return { mapped: rows.length, ambiguous };
 }
 
-async function syncCatalog(supabase: any, apiKey: string) {
-    const rows: JsonRecord[] = [];
-    let page = 1;
-    let totalPages = 1;
-    do {
-        const query = new URLSearchParams({
-            format: 'all',
-            group_by: 'archetype',
-            page: String(page),
-            per_page: String(PAGE_SIZE),
-            sort: 'entries',
-            sort_dir: 'desc'
+async function storeCatalogImages(supabase: any, rows: JsonRecord[]) {
+    const codes = [...new Set(rows.map((row) => row.display_card_id).filter(Boolean))] as string[];
+    if (codes.some((code) => !/^[A-Z0-9]+-\d+$/.test(code)))
+        throw new Error('Código de imagem inválido; catálogo anterior preservado.');
+    const summary = { uploaded: 0, reused: 0 };
+    if (!codes.length) return summary;
+    const bucket = supabase.storage.from('deck-images');
+    const existing = new Set<string>();
+    for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await bucket.list('digilab', {
+            limit: 1000,
+            offset,
+            sortBy: { column: 'name', order: 'asc' }
         });
-        const response = await digilabGet(apiKey, `/api/meta?${query}`);
-        rows.push(...(Array.isArray(response?.data) ? response.data : []));
-        const reportedTotalPages = positiveInteger(
-            response?.pagination?.total_pages,
-            1,
-            1,
-            Number.MAX_SAFE_INTEGER
-        );
-        if (reportedTotalPages > MAX_PAGES) {
-            throw new Error(
-                `O catálogo possui ${reportedTotalPages} páginas; o limite seguro é ${MAX_PAGES}.`
-            );
+        if (error) throw new Error(`Falha ao consultar imagens: ${error.message}`);
+        for (const file of data) if (file.metadata?.size > 0) existing.add(file.name);
+        if (data.length < 1000) break;
+    }
+    let next = 0;
+    const urls = new Map<string, string>();
+    await Promise.all(
+        Array.from({ length: Math.min(4, codes.length) }, async () => {
+            while (next < codes.length) {
+                const code = codes[next++];
+                const cached = ['jpg', 'webp', 'png']
+                    .map((extension) => code + '.' + extension)
+                    .find((filename) => existing.has(filename));
+                let path = cached ? 'digilab/' + cached : '';
+                if (cached) summary.reused++;
+                else {
+                    const { bytes, extension, contentType } = await downloadCatalogImage(
+                        bucket,
+                        code
+                    );
+                    path = 'digilab/' + code + '.' + extension;
+                    const { error } = await bucket.upload(path, bytes, {
+                        contentType,
+                        cacheControl: '31536000',
+                        upsert: true
+                    });
+                    if (error) throw new Error(`Falha ao armazenar ${code}: ${error.message}`);
+                    summary.uploaded++;
+                }
+                urls.set(code, bucket.getPublicUrl(path).data.publicUrl);
+            }
+        })
+    );
+    for (const row of rows) row.image_url = urls.get(row.display_card_id) || null;
+    return summary;
+}
+
+async function downloadCatalogImage(bucket: any, code: string) {
+    const candidates = [
+        'https://digimon.digilab.cards/api/card/' + code + '.jpg',
+        bucket.getPublicUrl(code + '.webp').data.publicUrl,
+        'https://images.digimoncard.io/images/cards/' + code + '.webp',
+        'https://images.digimoncard.io/images/cards/' + code + '.jpg'
+    ];
+    for (const url of candidates) {
+        try {
+            const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+            if (!response.ok) {
+                await response.body?.cancel();
+                continue;
+            }
+            const contentType = response.headers.get('content-type')?.split(';')[0];
+            if (!['image/jpeg', 'image/webp', 'image/png'].includes(contentType || '')) {
+                await response.body?.cancel();
+                continue;
+            }
+            const bytes = new Uint8Array(await response.arrayBuffer());
+            if (bytes.length < 5000 || bytes.length > 10 * 1024 * 1024) continue;
+            const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && contentType === 'image/jpeg';
+            const webp =
+                String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
+                String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP' &&
+                contentType === 'image/webp';
+            const png =
+                bytes[0] === 0x89 &&
+                String.fromCharCode(...bytes.slice(1, 4)) === 'PNG' &&
+                contentType === 'image/png';
+            if (jpeg || webp || png)
+                return { bytes, extension: jpeg ? 'jpg' : webp ? 'webp' : 'png', contentType };
+        } catch {
+            /* Try the next source for the same representative card. */
         }
-        totalPages = reportedTotalPages;
-        page += 1;
-    } while (page <= totalPages);
-
-    const catalogRows = rows.map(toCatalogRow).filter(Boolean) as JsonRecord[];
-    const families = new Map<string, JsonRecord>();
-    for (const row of catalogRows) {
-        if (row.family_slug && row.family_name) {
-            families.set(normalize(row.family_slug), {
-                slug: row.family_slug,
-                name: row.family_name,
-                is_active: true,
-                updated_at: new Date().toISOString()
-            });
-        }
     }
+    throw new Error('Imagem ' + code + ' indisponível ou inválida; catálogo anterior preservado.');
+}
 
-    if (families.size > 0) {
-        const { error } = await supabase
-            .from('deck_families')
-            .upsert([...families.values()], { onConflict: 'slug' });
-        if (error) throw new Error(`Falha ao salvar famílias: ${error.message}`);
-    }
-
-    const now = new Date().toISOString();
-    if (catalogRows.length > 0) {
-        const { error } = await supabase.from('digilab_deck_catalog').upsert(
-            catalogRows.map((row) => ({ ...row, is_active: true, last_seen_at: now })),
-            { onConflict: 'digilab_archetype_id' }
-        );
-        if (error) throw new Error(`Falha ao salvar catálogo: ${error.message}`);
-    }
-
-    return {
-        request_count: totalPages,
-        fetched_archetypes: catalogRows.length,
-        fetched_families: families.size
-    };
+function toFormatRow(row: JsonRecord) {
+    const code = cleanText(row.format_id || row.code || row.format)?.toUpperCase();
+    const name = cleanText(row.set_name) || cleanText(row.display_name);
+    const date = cleanText(row.release_date);
+    if (
+        !code ||
+        !/^[A-Z0-9][A-Z0-9.-]*$/.test(code) ||
+        !name ||
+        (date && !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    )
+        throw new Error(`Formato inválido; dados anteriores preservados: ${JSON.stringify(row)}`);
+    return { code, name, release_date: date };
 }
 
 function toCatalogRow(row: JsonRecord) {
@@ -241,23 +338,25 @@ function toCatalogRow(row: JsonRecord) {
 async function loadCatalog(supabase: any) {
     const [catalogResult, mappingsResult, decksResult, familiesResult, resultsResult] =
         await Promise.all([
-        supabase
-            .from('digilab_deck_catalog')
-            .select(
-                'digilab_archetype_id,slug,name,family_slug,family_name,primary_color,secondary_color,display_card_id,total_entries,is_active,last_seen_at'
-            )
-            .order('total_entries', { ascending: false, nullsFirst: false })
-            .order('name'),
-        supabase.from('digilab_deck_sync').select('digilab_archetype_id,digilab_deck_slug,deck_id'),
-        supabase
-            .from('decks')
-            .select(
-                'id,name,slug,family_id,primary_color,secondary_color,display_card_id,is_active'
-            )
-            .order('name'),
-        supabase.from('deck_families').select('id,name,slug,is_active').order('name'),
-        supabase.from('tournament_results').select('deck_id')
-    ]);
+            supabase
+                .from('digilab_deck_catalog')
+                .select(
+                    'digilab_archetype_id,slug,name,family_slug,family_name,primary_color,secondary_color,display_card_id,total_entries,is_active,last_seen_at'
+                )
+                .order('total_entries', { ascending: false, nullsFirst: false })
+                .order('name'),
+            supabase
+                .from('digilab_deck_sync')
+                .select('digilab_archetype_id,digilab_deck_slug,deck_id'),
+            supabase
+                .from('decks')
+                .select(
+                    'id,name,slug,family_id,primary_color,secondary_color,display_card_id,is_active'
+                )
+                .order('name'),
+            supabase.from('deck_families').select('id,name,slug,is_active').order('name'),
+            supabase.from('tournament_results').select('deck_id')
+        ]);
     if (
         catalogResult.error ||
         mappingsResult.error ||
@@ -297,9 +396,7 @@ async function loadCatalog(supabase: any) {
               ) || null;
         return {
             ...item,
-            used_in_digistats: suggestedDeck
-                ? usedDeckIds.has(String(suggestedDeck.id))
-                : false,
+            used_in_digistats: suggestedDeck ? usedDeckIds.has(String(suggestedDeck.id)) : false,
             status: mappedDeck ? 'mapped' : exact.length === 1 ? 'exact_name' : 'unmapped',
             local_deck: suggestedDeck
                 ? {
@@ -334,93 +431,6 @@ async function loadCatalog(supabase: any) {
             { mapped: 0, exact_name: 0, unmapped: 0 }
         )
     };
-}
-
-async function mapArchetype(supabase: any, input: JsonRecord, createDeck: boolean) {
-    const archetypeId = Number(input.digilab_archetype_id);
-    if (!Number.isSafeInteger(archetypeId) || archetypeId <= 0) {
-        throw new Error('Arquétipo DigiLab inválido.');
-    }
-    const { data: catalog, error: catalogError } = await supabase
-        .from('digilab_deck_catalog')
-        .select(
-            'digilab_archetype_id,slug,name,family_slug,family_name,primary_color,secondary_color,display_card_id'
-        )
-        .eq('digilab_archetype_id', archetypeId)
-        .maybeSingle();
-    if (catalogError || !catalog) throw new Error('Arquétipo DigiLab não encontrado no catálogo.');
-
-    const family = await resolveFamily(supabase, catalog, input.family_id);
-    let deck: JsonRecord | null = null;
-    if (createDeck) {
-        const { data, error } = await supabase
-            .from('decks')
-            .insert({
-                name: catalog.name,
-                slug: catalog.slug,
-                family_id: family?.id || null,
-                primary_color: catalog.primary_color,
-                secondary_color: catalog.secondary_color,
-                display_card_id: catalog.display_card_id,
-                is_active: true
-            })
-            .select('id,name,slug,family_id')
-            .single();
-        if (error) throw new Error(`Não foi possível criar o arquétipo local: ${error.message}`);
-        deck = data;
-    } else {
-        const deckId = String(input.deck_id || '');
-        const { data, error } = await supabase
-            .from('decks')
-            .select('id,name,slug,family_id,primary_color,secondary_color,display_card_id')
-            .eq('id', deckId)
-            .maybeSingle();
-        if (error || !data) throw new Error('Deck local não encontrado.');
-        deck = data;
-        const { error: updateError } = await supabase
-            .from('decks')
-            .update({
-                slug: deck.slug || catalog.slug,
-                family_id: input.family_id || deck.family_id || family?.id || null,
-                primary_color: deck.primary_color || catalog.primary_color,
-                secondary_color: deck.secondary_color || catalog.secondary_color,
-                display_card_id: deck.display_card_id || catalog.display_card_id
-            })
-            .eq('id', deck.id);
-        if (updateError) throw new Error(`Falha ao atualizar o deck local: ${updateError.message}`);
-    }
-
-    const { error: mappingError } = await supabase.from('digilab_deck_sync').upsert(
-        {
-            digilab_archetype_id: archetypeId,
-            digilab_deck_slug: catalog.slug,
-            digilab_deck_name: catalog.name,
-            deck_id: deck.id,
-            updated_at: new Date().toISOString()
-        },
-        { onConflict: 'digilab_deck_slug' }
-    );
-    if (mappingError) throw new Error(`Falha ao salvar o de-para: ${mappingError.message}`);
-}
-
-async function resolveFamily(supabase: any, catalog: JsonRecord, requestedFamilyId: unknown) {
-    if (requestedFamilyId) {
-        const { data, error } = await supabase
-            .from('deck_families')
-            .select('id,name,slug')
-            .eq('id', String(requestedFamilyId))
-            .maybeSingle();
-        if (error || !data) throw new Error('Família local não encontrada.');
-        return data;
-    }
-    if (!catalog.family_slug) return null;
-    const { data, error } = await supabase
-        .from('deck_families')
-        .select('id,name,slug')
-        .eq('slug', catalog.family_slug)
-        .maybeSingle();
-    if (error) throw new Error('Falha ao resolver a família local.');
-    return data;
 }
 
 async function digilabGet(apiKey: string, path: string) {
